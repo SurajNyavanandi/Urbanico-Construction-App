@@ -41,6 +41,8 @@ export interface MaterialItem {
   name: string;
   subtitle?: string;
   image: string;
+  galleryImages?: string[];
+  specs?: { label: string; value: string }[];
   actionType: 'add_to_cart' | 'get_quote';
   defaultPrice?: number;
   options: UnitOption[];

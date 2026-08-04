@@ -32,7 +32,9 @@ import {
   INITIAL_DELIVERIES,
   SAVED_LOCATIONS,
   CATEGORIES,
+  SERVICES,
 } from './data/materialsData';
+import { resolveSearchCategory } from './services/searchService';
 
 function MainAppContent() {
   const { theme } = useTheme();
@@ -140,10 +142,11 @@ function MainAppContent() {
       cleanQuery,
       ...prev.filter((item) => item.toLowerCase() !== cleanQuery.toLowerCase()),
     ].slice(0, 6));
-    if (currentScreen !== 'category') {
-      setSelectedCategoryId('all');
-      setCurrentScreen('category');
-    }
+
+    // Resolve exact subcategory (e.g. 'sand', 'bricks', 'cement', 'stone', 'iron_bars', 'centring', 'services-catalog')
+    const resolution = resolveSearchCategory(cleanQuery);
+    setSelectedCategoryId(resolution.categoryId);
+    setCurrentScreen('category');
   };
 
   const handleClearRecentSearches = () => {
@@ -234,7 +237,10 @@ function MainAppContent() {
       if (selectedCategoryId === 'all') return 'Materials Catalog';
       if (selectedCategoryId === 'services-catalog' || selectedCategoryId === 'services') return 'Services Catalog';
       const cat = CATEGORIES.find((c) => c.id === selectedCategoryId);
-      return cat ? cat.name : 'Materials';
+      if (cat) return cat.name;
+      const srv = SERVICES.find((s) => s.id === selectedCategoryId);
+      if (srv) return `${srv.name} Service`;
+      return 'Materials';
     }
     if (currentScreen === 'basket') return 'Basket';
     if (currentScreen === 'favorites') return 'Favorites';
@@ -375,6 +381,8 @@ function MainAppContent() {
         item={selectedItemForModal}
         onClose={() => setSelectedItemForModal(null)}
         onAddToCart={handleAddToCartFromModal}
+        favoriteIds={favoriteIds}
+        onToggleFavorite={handleToggleFavorite}
       />
 
       {/* Official GST Tax Invoice Modal */}

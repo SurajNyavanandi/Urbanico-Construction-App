@@ -24,45 +24,21 @@ interface HomeScreenProps {
 
 interface BannerData {
   id: string;
-  bgGradient: string;
-  borderColor: string;
-  title: string;
-  bigText: string;
-  tagText: string;
   image: string;
-  tagBg: string;
 }
 
 const PROMO_BANNERS: BannerData[] = [
   {
-    id: 'ultratech',
-    bgGradient: '#1E1B4B',
-    borderColor: '#312E81',
-    title: 'ULTRATECH SUPER CONCRETE',
-    bigText: '15% OFF',
-    tagText: 'BULK DISPATCH REBATE • EXCLUSIVE CONTRACTOR DEAL',
-    tagBg: '#3730A3',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477602/Gemini_Generated_Image_krt598krt598krt5_uqgizg.jpg',
+    id: 'promo-ad-1',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785842565/Gemini_Generated_Image_4rlspn4rlspn4rls_wbly6k.png',
   },
   {
-    id: 'tatatiscon',
-    bgGradient: '#064E3B',
-    borderColor: '#047857',
-    title: 'TATA TISCON 550D TMT REBAR',
-    bigText: 'SAME DAY',
-    tagText: 'DIRECT SITE DELIVERY • FREE WEIGHBRIDGE SLIP',
-    tagBg: '#065F46',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_4o5vmt4o5vmt4o5v_ff1zly.jpg',
+    id: 'promo-ad-2',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785842566/Gemini_Generated_Image_8xdvjn8xdvjn8xdv_phm0ve.png',
   },
   {
-    id: 'greenply',
-    bgGradient: '#701A75',
-    borderColor: '#86198F',
-    title: 'GREENPLY ZERO-EMISSION PLYWOOD',
-    bigText: 'E-0 GRADE',
-    tagText: '100% WATERPROOF MARINE PLY • ISO CERTIFIED',
-    tagBg: '#9D174D',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_aqgxocaqgxocaqgx_mzsmtr.jpg',
+    id: 'promo-ad-3',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785842566/Gemini_Generated_Image_nyb7xqnyb7xqnyb7_rbizwp.png',
   },
 ];
 
@@ -83,11 +59,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const materialsScrollRef = useRef<ScrollView>(null);
   const servicesScrollRef = useRef<ScrollView>(null);
 
-  const filteredCategories = CATEGORIES.filter((c) =>
-    c.name.toLowerCase().includes(searchQuery.toLowerCase().trim())
-  );
-
-  // Auto-slide promotional banner every 3.5s
+  // Auto-rotate banner every 4 seconds
   useEffect(() => {
     const timer = setInterval(() => {
       setBannerIndex((prev) => {
@@ -100,28 +72,26 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         }
         return next;
       });
-    }, 3500);
+    }, 4000);
 
     return () => clearInterval(timer);
   }, []);
 
+  // 3 distinct pages for 9 material items (3 cards per view)
+  const MATERIAL_PAGES = [0, 1, 2];
   const handleMaterialsScroll = (e: any) => {
     const contentOffsetX = e?.nativeEvent?.contentOffset?.x || 0;
-    const cardWidth = 118; // approx width of category card + gap
-    const newPage = Math.min(
-      Math.max(0, Math.round(contentOffsetX / cardWidth)),
-      Math.max(0, filteredCategories.length - 1)
-    );
+    const pagePx = 118 * 3;
+    const newPage = Math.min(2, Math.max(0, Math.round(contentOffsetX / pagePx)));
     setActiveMaterialPage(newPage);
   };
 
+  // 3 distinct pages for 8 service items
+  const SERVICE_PAGES = [0, 1, 2];
   const handleServicesScroll = (e: any) => {
     const contentOffsetX = e?.nativeEvent?.contentOffset?.x || 0;
-    const cardWidth = 118;
-    const newPage = Math.min(
-      Math.max(0, Math.round(contentOffsetX / cardWidth)),
-      SERVICES.length - 1
-    );
+    const pagePx = 118 * 3;
+    const newPage = Math.min(2, Math.max(0, Math.round(contentOffsetX / pagePx)));
     setActiveServicePage(newPage);
   };
 
@@ -176,65 +146,57 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           onScroll={handleMaterialsScroll}
           contentContainerStyle={styles.materialsScrollRow}
         >
-          {filteredCategories.length > 0 ? (
-            filteredCategories.map((cat) => {
-              const isSelected = selectedMaterialId === cat.id;
-              return (
-                <TouchableOpacity
-                  key={cat.id}
-                  onPress={() => {
-                    setSelectedMaterialId(cat.id);
-                    onSelectCategory(cat.id);
-                  }}
-                  activeOpacity={0.8}
-                  style={[
-                    styles.categoryCard,
-                    {
-                      borderColor: isSelected ? theme.primary : theme.border,
-                      backgroundColor: isSelected ? theme.surfaceSecondary : theme.surface,
-                    },
-                  ]}
-                >
-                  <View style={styles.imageContainer}>
-                    <Image
-                      source={{ uri: cat.image }}
-                      style={styles.cardImage}
-                      resizeMode="cover"
-                    />
-                  </View>
-                  <View style={styles.cardTextWrapper}>
-                    <Text style={[styles.cardTitle, { color: theme.textPrimary }]} numberOfLines={1}>
-                      {cat.name}
+          {CATEGORIES.map((cat) => {
+            const isSelected = selectedMaterialId === cat.id;
+            return (
+              <TouchableOpacity
+                key={cat.id}
+                onPress={() => {
+                  setSelectedMaterialId(cat.id);
+                  onSelectCategory(cat.id);
+                }}
+                activeOpacity={0.8}
+                style={[
+                  styles.categoryCard,
+                  {
+                    borderColor: isSelected ? theme.primary : theme.border,
+                    backgroundColor: isSelected ? theme.surfaceSecondary : theme.surface,
+                  },
+                ]}
+              >
+                <View style={styles.imageContainer}>
+                  <Image
+                    source={{ uri: cat.image }}
+                    style={styles.cardImage}
+                    resizeMode="cover"
+                  />
+                </View>
+                <View style={styles.cardTextWrapper}>
+                  <Text style={[styles.cardTitle, { color: theme.textPrimary }]} numberOfLines={1}>
+                    {cat.name}
+                  </Text>
+                  {cat.priceLabel && (
+                    <Text style={[styles.cardPriceLabel, { color: theme.primaryDark }]} numberOfLines={1}>
+                      {cat.priceLabel}
                     </Text>
-                    {cat.priceLabel && (
-                      <Text style={[styles.cardPriceLabel, { color: theme.primaryDark }]} numberOfLines={1}>
-                        {cat.priceLabel}
-                      </Text>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              );
-            })
-          ) : (
-            <View style={[styles.emptySearchCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <Text style={[styles.emptySearchText, { color: theme.textMuted }]}>
-                No materials match "{searchQuery}"
-              </Text>
-            </View>
-          )}
+                  )}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </View>
 
-      {/* Materials Pagination Dots reflecting total categories */}
+      {/* Materials Pagination Dots (Exactly 3 dots for 3 snap pages) */}
       <View style={styles.dotsContainer}>
-        {filteredCategories.map((cat, idx) => (
+        {MATERIAL_PAGES.map((pageIdx) => (
           <TouchableOpacity
-            key={cat.id}
+            key={pageIdx}
             onPress={() => {
-              setActiveMaterialPage(idx);
+              setActiveMaterialPage(pageIdx);
               if (materialsScrollRef.current) {
                 materialsScrollRef.current.scrollTo({
-                  x: idx * 118,
+                  x: pageIdx * 118 * 3,
                   animated: true,
                 });
               }
@@ -246,8 +208,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 styles.dot,
                 {
                   backgroundColor:
-                    idx === activeMaterialPage ? theme.primary : '#CBD5E1',
-                  width: idx === activeMaterialPage ? 18 : 8,
+                    pageIdx === activeMaterialPage ? theme.primary : '#CBD5E1',
+                  width: pageIdx === activeMaterialPage ? 18 : 8,
                 },
               ]}
             />
@@ -255,7 +217,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         ))}
       </View>
 
-      {/* 3. Two Promotional Banners Auto-Sliding Carousel */}
+      {/* 3. Promotional Banners Auto-Sliding Carousel */}
       <View style={styles.bannerCarouselContainer}>
         <ScrollView
           ref={bannerScrollRef}
@@ -267,30 +229,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           style={styles.bannerScrollView}
         >
           {PROMO_BANNERS.map((banner) => (
-            <View
+            <TouchableOpacity
               key={banner.id}
-              style={[
-                styles.bannerCard,
-                { backgroundColor: banner.bgGradient, borderColor: banner.borderColor },
-              ]}
+              activeOpacity={0.9}
+              onPress={() => onSelectCategory('cement')}
+              style={[styles.bannerCard, { borderColor: theme.border }]}
             >
-              <View style={styles.bannerContent}>
-                <View style={styles.bannerLeftText}>
-                  <Text style={styles.bannerHeaderTitle}>{banner.title}</Text>
-                  <Text style={styles.bannerBigText}>{banner.bigText}</Text>
-                  <View style={[styles.bannerTag, { backgroundColor: banner.tagBg }]}>
-                    <Text style={styles.bannerTagText}>{banner.tagText}</Text>
-                  </View>
-                </View>
-                <View style={styles.bannerRightImageWrapper}>
-                  <Image
-                    source={{ uri: banner.image }}
-                    style={styles.bannerImage}
-                    resizeMode="cover"
-                  />
-                </View>
-              </View>
-            </View>
+              <Image
+                source={{ uri: banner.image }}
+                style={styles.fullBannerImage}
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
           ))}
         </ScrollView>
 
@@ -395,16 +345,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           })}
         </ScrollView>
 
-        {/* Services Carousel Indicator Dots */}
+        {/* Services Carousel Indicator Dots (Exactly 3 dots for 3 snap pages) */}
         <View style={styles.dotsContainer}>
-          {SERVICES.map((srv, idx) => (
+          {SERVICE_PAGES.map((pageIdx) => (
             <TouchableOpacity
-              key={srv.id}
+              key={pageIdx}
               onPress={() => {
-                setActiveServicePage(idx);
+                setActiveServicePage(pageIdx);
                 if (servicesScrollRef.current) {
                   servicesScrollRef.current.scrollTo({
-                    x: idx * 118,
+                    x: pageIdx * 118 * 3,
                     animated: true,
                   });
                 }
@@ -416,8 +366,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   styles.dot,
                   {
                     backgroundColor:
-                      idx === activeServicePage ? theme.primary : '#CBD5E1',
-                    width: idx === activeServicePage ? 18 : 8,
+                      pageIdx === activeServicePage ? theme.primary : '#CBD5E1',
+                    width: pageIdx === activeServicePage ? 18 : 8,
                   },
                 ]}
               />
@@ -446,9 +396,9 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   sectionTitle: {
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: -0.5,
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   iconCircleButton: {
     padding: 8,
@@ -530,15 +480,20 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   bannerScrollView: {
-    borderRadius: 20,
+    borderRadius: 16,
   },
   bannerCard: {
     width: Dimensions.get('window').width - 32,
-    borderRadius: 20,
-    padding: 16,
-    minHeight: 135,
-    justifyContent: 'center',
+    height: Math.round((Dimensions.get('window').width - 32) / 2.5),
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#1E293B',
     borderWidth: 1,
+  },
+  fullBannerImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
   },
   bannerContent: {
     flexDirection: 'row',
@@ -557,11 +512,17 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
+  bannerAmbassadorText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#E0E7FF',
+    letterSpacing: 0.5,
+  },
   bannerBigText: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '900',
     color: '#FBBF24',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
   bannerTag: {
     paddingHorizontal: 8,

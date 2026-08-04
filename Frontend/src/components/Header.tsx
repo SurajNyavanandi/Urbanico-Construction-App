@@ -23,6 +23,7 @@ import { ScreenType, MaterialItem } from '../types';
 import { MATERIAL_ITEMS, SERVICES, CATEGORIES } from '../data/materialsData';
 import { useTheme } from '../context/ThemeContext';
 import { useLocation } from '../context/LocationContext';
+import { BrandLogo } from './common/BrandLogo';
 
 interface HeaderProps {
   currentScreen: ScreenType;
@@ -59,6 +60,7 @@ export const Header: React.FC<HeaderProps> = ({
   const { selectedLocation: globalLocation } = useLocation();
   const activeLocation = globalLocation || propLocation || 'Miyapur Site, Phase 2, Hyderabad';
   const [isFocused, setIsFocused] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
 
   const isHome = currentScreen === 'home';
   const showSearchBar = isHome;
@@ -66,11 +68,13 @@ export const Header: React.FC<HeaderProps> = ({
 
   const queryLower = searchQuery.toLowerCase().trim();
 
+  // Filter ONLY materials (excluding services category) for materials search
   const matchingItems = queryLower
     ? MATERIAL_ITEMS.filter(
         (m) =>
-          m.name.toLowerCase().includes(queryLower) ||
-          (m.subtitle && m.subtitle.toLowerCase().includes(queryLower))
+          m.categoryId !== 'services' &&
+          (m.name.toLowerCase().includes(queryLower) ||
+            (m.subtitle && m.subtitle.toLowerCase().includes(queryLower)))
       ).slice(0, 5)
     : [];
 
@@ -83,11 +87,27 @@ export const Header: React.FC<HeaderProps> = ({
     : [];
 
   const matchingCategories = queryLower
-    ? CATEGORIES.filter((c) => c.name.toLowerCase().includes(queryLower)).slice(
-        0,
-        3
-      )
+    ? CATEGORIES.filter((c) => c.name.toLowerCase().includes(queryLower)).slice(0, 3)
     : [];
+
+  const POPULAR_SUGGESTIONS = [
+    'UltraTech Cement 53 Grade',
+    'Plastering Sand',
+    'TMT 12mm Rebar',
+    'Red Clay Bricks',
+    'AAC Blocks',
+    'Bamboo Planks',
+  ];
+
+  const handleInputChange = (text: string) => {
+    onSearchChange(text);
+    if (text.trim().length > 0) {
+      setIsSearching(true);
+      setTimeout(() => setIsSearching(false), 120);
+    } else {
+      setIsSearching(false);
+    }
+  };
 
   const handleExecuteSearch = (queryStr: string) => {
     onSelectSearchQuery(queryStr);
@@ -107,7 +127,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <View style={[styles.headerContainer, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-      {/* 1. Location Bar */}
+      {/* 1. Location Bar & Brand Identity */}
       <View style={styles.locationRow}>
         <TouchableOpacity
           onPress={onOpenLocationModal}
@@ -119,6 +139,13 @@ export const Header: React.FC<HeaderProps> = ({
             {locationName}
           </Text>
           <ChevronDown color={theme.textPrimary} size={16} strokeWidth={2.5} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => onNavigateScreen && onNavigateScreen('home')}
+          activeOpacity={0.8}
+        >
+          <BrandLogo size={30} borderRadius={8} />
         </TouchableOpacity>
       </View>
 
@@ -150,9 +177,9 @@ export const Header: React.FC<HeaderProps> = ({
           <View style={[styles.searchContainer, isFocused && { flex: 1 }]}>
             <TextInput
               value={searchQuery}
-              onChangeText={onSearchChange}
+              onChangeText={handleInputChange}
               onFocus={() => setIsFocused(true)}
-              placeholder="Search materials, cement, rebar, services..."
+              placeholder="Search materials, cement, rebar..."
               placeholderTextColor={theme.textMuted}
               style={[
                 styles.searchInput,
@@ -172,7 +199,7 @@ export const Header: React.FC<HeaderProps> = ({
 
             {searchQuery.length > 0 && (
               <TouchableOpacity
-                onPress={() => onSearchChange('')}
+                onPress={() => handleInputChange('')}
                 style={styles.clearIconContainer}
                 activeOpacity={0.7}
               >
@@ -197,8 +224,8 @@ export const Header: React.FC<HeaderProps> = ({
         </View>
       )}
 
-      {/* 4. Dropdown Suggestions & Recent Searches Overlay */}
-      {isFocused && (queryLower.length > 0 || recentSearches.length > 0) && (
+      {/* 4. Dropdown Suggestions & Recent Searches Overlay (Absolute Floating) */}
+      {isFocused && (
         <View style={[styles.dropdownOverlay, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <ScrollView
             keyboardShouldPersistTaps="handled"
@@ -206,50 +233,63 @@ export const Header: React.FC<HeaderProps> = ({
             style={styles.dropdownScroll}
             showsVerticalScrollIndicator={false}
           >
-            {/* Case A: Query is empty - Show Recent Searches section only if recentSearches exist */}
-            {!queryLower && recentSearches.length > 0 && (
-              <View style={styles.dropdownSection}>
-                <View style={styles.sectionBlock}>
-                  <View style={styles.sectionHeaderRow}>
-                    <View style={styles.sectionTitleGroup}>
-                      <History size={14} color={theme.primary} />
-                      <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>Recent Searches</Text>
-                    </View>
-                    <TouchableOpacity
-                      onPress={onClearRecentSearches}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.clearAllText}>Clear All</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  <View style={styles.recentList}>
-                    {recentSearches.map((term, idx) => (
-                      <View key={`${term}-${idx}`} style={[styles.recentRow, { backgroundColor: theme.surfaceSecondary }]}>
-                        <TouchableOpacity
-                          onPress={() => handleExecuteSearch(term)}
-                          style={styles.recentTouchArea}
-                          activeOpacity={0.7}
-                        >
-                          <History size={13} color={theme.textMuted} />
-                          <Text style={[styles.recentTermText, { color: theme.textPrimary }]}>{term}</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={() => onRemoveRecentSearch(term)}
-                          style={styles.removeRecentBtn}
-                          activeOpacity={0.7}
-                        >
-                          <X size={12} color={theme.textMuted} />
-                        </TouchableOpacity>
-                      </View>
-                    ))}
-                  </View>
-                </View>
+            {/* Loading Indicator when user is typing */}
+            {isSearching && (
+              <View style={styles.loadingBox}>
+                <Text style={[styles.loadingText, { color: theme.primary }]}>Searching catalog...</Text>
               </View>
             )}
 
-            {/* Case B: User typed text - Show Dynamic Matches */}
-            {queryLower && (
+            {/* Case A: Query is empty - Show Recent Searches */}
+            {!queryLower && !isSearching && (
+              <View style={styles.dropdownSection}>
+                {recentSearches.length > 0 ? (
+                  <View style={styles.sectionBlock}>
+                    <View style={styles.sectionHeaderRow}>
+                      <View style={styles.sectionTitleGroup}>
+                        <History size={14} color={theme.primary} />
+                        <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>Recent Searches</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={onClearRecentSearches}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.clearAllText}>Clear All</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    <View style={styles.recentList}>
+                      {recentSearches.map((term, idx) => (
+                        <View key={`${term}-${idx}`} style={[styles.recentRow, { backgroundColor: theme.surfaceSecondary }]}>
+                          <TouchableOpacity
+                            onPress={() => handleExecuteSearch(term)}
+                            style={styles.recentTouchArea}
+                            activeOpacity={0.7}
+                          >
+                            <History size={13} color={theme.textMuted} />
+                            <Text style={[styles.recentTermText, { color: theme.textPrimary }]}>{term}</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            onPress={() => onRemoveRecentSearch(term)}
+                            style={styles.removeRecentBtn}
+                            activeOpacity={0.7}
+                          >
+                            <X size={12} color={theme.textMuted} />
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                ) : (
+                  <View style={styles.loadingBox}>
+                    <Text style={[styles.loadingText, { color: theme.textMuted }]}>Type to search materials catalog...</Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            {/* Case B: User typed text - Show Dynamic Matches matching Materials Catalog layout */}
+            {queryLower && !isSearching && (
               <View style={styles.dropdownSection}>
                 {matchingItems.length > 0 && (
                   <View style={styles.sectionBlock}>
@@ -276,7 +316,7 @@ export const Header: React.FC<HeaderProps> = ({
                         </View>
                         {item.defaultPrice && (
                           <Text style={[styles.suggestionPrice, { color: theme.primaryDark }]}>
-                            ₹{item.defaultPrice}
+                            ₹{item.defaultPrice.toLocaleString('en-IN')}
                           </Text>
                         )}
                       </TouchableOpacity>
@@ -366,7 +406,8 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 8,
     borderBottomWidth: 1,
-    zIndex: 50,
+    position: 'relative',
+    zIndex: 9999,
   },
   locationRow: {
     flexDirection: 'row',
@@ -449,19 +490,49 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dropdownOverlay: {
+    position: 'absolute',
+    top: '100%',
+    left: 16,
+    right: 16,
     borderRadius: 16,
     borderWidth: 1,
-    marginTop: 8,
+    marginTop: 4,
     maxHeight: 320,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 12,
+    zIndex: 99999,
   },
   dropdownScroll: {
     padding: 12,
+  },
+  loadingBox: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    paddingTop: 4,
+  },
+  chip: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  chipText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   dropdownSection: {
     gap: 16,

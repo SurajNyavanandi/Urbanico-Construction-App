@@ -167,14 +167,14 @@ export const ACCENT_DEFINITIONS: Record<AccentColor, AccentDefinition> = {
 
 export const FONT_CONFIGS: Record<TypographyFontFamily, { name: string; family: string; headingFamily: string }> = {
   system: {
-    name: 'System Default',
-    family: 'System, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    headingFamily: 'System, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    name: 'Plus Jakarta Sans',
+    family: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    headingFamily: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   },
   inter: {
     name: 'Inter Technical',
-    family: '"Inter", sans-serif',
-    headingFamily: '"Inter", sans-serif',
+    family: '"Inter", "Plus Jakarta Sans", sans-serif',
+    headingFamily: '"Inter", "Plus Jakarta Sans", sans-serif',
   },
   jakarta: {
     name: 'Plus Jakarta Display',
@@ -189,7 +189,7 @@ export const FONT_CONFIGS: Record<TypographyFontFamily, { name: string; family: 
 };
 
 export function getThemeColors(mode: ThemeMode, accent: AccentColor): ThemeColors {
-  const accentDef = ACCENT_DEFINITIONS[accent] || ACCENT_DEFINITIONS.amber;
+  const accentDef = ACCENT_DEFINITIONS[accent] || ACCENT_DEFINITIONS.violet;
   const isLight = mode === 'light';
 
   if (isLight) {
@@ -238,7 +238,7 @@ export function getThemeColors(mode: ThemeMode, accent: AccentColor): ThemeColor
 }
 
 export function getTypographyConfig(fontFamilyKey: TypographyFontFamily): TypographyConfig {
-  const fontConf = FONT_CONFIGS[fontFamilyKey] || FONT_CONFIGS.system;
+  const fontConf = FONT_CONFIGS[fontFamilyKey] || FONT_CONFIGS.jakarta;
   return {
     fontFamily: fontConf.family,
     fontFamilyHeading: fontConf.headingFamily,
@@ -246,11 +246,11 @@ export function getTypographyConfig(fontFamilyKey: TypographyFontFamily): Typogr
     fontSize: {
       xs: 10,
       sm: 12,
-      base: 14,
-      lg: 16,
-      xl: 18,
-      '2xl': 22,
-      '3xl': 26,
+      base: 13.5,
+      lg: 15,
+      xl: 17,
+      '2xl': 19,
+      '3xl': 22,
     },
     fontWeight: {
       normal: '400',
@@ -261,9 +261,9 @@ export function getTypographyConfig(fontFamilyKey: TypographyFontFamily): Typogr
       black: '900',
     },
     letterSpacing: {
-      tight: -0.5,
+      tight: -0.3,
       normal: 0,
-      wide: 0.5,
+      wide: 0.4,
     },
   };
 }

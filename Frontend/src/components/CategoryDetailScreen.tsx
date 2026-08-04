@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,10 +7,12 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { Heart, ShoppingCart } from 'lucide-react-native';
+import { Heart, ShoppingCart, LayoutList, Grid2X2 } from 'lucide-react-native';
 import { CATEGORIES, SERVICES, MATERIAL_ITEMS } from '../data/materialsData';
 import { CategoryId, MaterialItem } from '../types';
 import { useTheme } from '../context/ThemeContext';
+import { PillButton } from './common/PillButton';
+import { ProductCard } from './common/ProductCard';
 
 interface CategoryDetailScreenProps {
   categoryId: CategoryId | 'all';
@@ -31,29 +33,60 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
 }) => {
   const { theme, typography } = useTheme();
 
-  // Filter materials based on selected category and search query
+  // Display View Mode Option: Default is single-column 'list', toggleable to two-column 'grid'
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+
+  // Determine whether current context is Services mode or Materials mode
+  const isServicesMode =
+    categoryId === 'services-catalog' ||
+    categoryId === 'services' ||
+    SERVICES.some((s) => s.id === categoryId);
+
+  const activeCategoryObj = CATEGORIES.find((c) => c.id === categoryId);
+
+  // Filter items strictly based on current flow (Services vs Materials) and search query
   const items = MATERIAL_ITEMS.filter((item) => {
-    const matchesCat =
-      categoryId === 'all'
-        ? true
-        : categoryId === 'services-catalog'
-        ? item.categoryId === 'services'
-        : item.categoryId === categoryId;
+    if (isServicesMode) {
+      if (item.categoryId !== 'services') return false;
+      if (categoryId !== 'services-catalog' && categoryId !== 'services') {
+        // Specific service trade filter
+        if (
+          !item.id.toLowerCase().includes(categoryId.toLowerCase()) &&
+          !item.name.toLowerCase().includes(categoryId.toLowerCase())
+        ) {
+          return false;
+        }
+      }
+    } else {
+      // Materials mode
+      if (item.categoryId === 'services') return false;
+      if (categoryId !== 'all' && item.categoryId !== categoryId) {
+        return false;
+      }
+    }
+
+    // Smart search match: if query is category name (e.g. "sand"), show all items in sand
+    const query = searchQuery ? searchQuery.trim().toLowerCase() : '';
+    const categoryName = activeCategoryObj ? activeCategoryObj.name.toLowerCase() : '';
+    const isCategoryQuery = query && (query === categoryId.toLowerCase() || query === categoryName);
+
     const matchesSearch =
-      !searchQuery ||
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (item.subtitle && item.subtitle.toLowerCase().includes(searchQuery.toLowerCase()));
-    return matchesCat && matchesSearch;
+      !query ||
+      isCategoryQuery ||
+      item.name.toLowerCase().includes(query) ||
+      (item.subtitle && item.subtitle.toLowerCase().includes(query));
+    return matchesSearch;
   });
 
-  const filteredCategories = CATEGORIES.filter((c) =>
-    !searchQuery || c.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredCategories = CATEGORIES.filter(
+    (c) => !searchQuery || c.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredServices = SERVICES.filter((srv) =>
-    !searchQuery ||
-    srv.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    srv.subtitle.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredServices = SERVICES.filter(
+    (srv) =>
+      !searchQuery ||
+      srv.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      srv.subtitle.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const isCatalogMode = categoryId === 'all' || categoryId === 'services-catalog';
@@ -64,81 +97,49 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
-      {/* Category Pills horizontal scroller for fast filtering */}
+      {/* Context-Aware Navigation Bar:
+          - If browsing Services, displays ONLY 'All Services' + Service Trades.
+          - If browsing Materials, displays ONLY 'All Materials' + Material Subcategories. */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.pillsScroll}
       >
-        <TouchableOpacity
-          onPress={() => onSelectCategoryTab('all')}
-          activeOpacity={0.7}
-          style={[
-            styles.pillButton,
-            { backgroundColor: categoryId === 'all' ? theme.primary : theme.surfaceSecondary },
-          ]}
-        >
-          <Text
-            style={[
-              styles.pillText,
-              { color: categoryId === 'all' ? '#FFFFFF' : theme.textSecondary },
-            ]}
-          >
-            Materials Catalog
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => onSelectCategoryTab('services-catalog')}
-          activeOpacity={0.7}
-          style={[
-            styles.pillButton,
-            {
-              backgroundColor:
-                categoryId === 'services-catalog' || categoryId === 'services'
-                  ? theme.primary
-                  : theme.surfaceSecondary,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.pillText,
-              {
-                color:
-                  categoryId === 'services-catalog' || categoryId === 'services'
-                    ? '#FFFFFF'
-                    : theme.textSecondary,
-              },
-            ]}
-          >
-            Services Catalog
-          </Text>
-        </TouchableOpacity>
-
-        {CATEGORIES.map((cat) => {
-          const isSelected = categoryId === cat.id;
-          return (
-            <TouchableOpacity
-              key={cat.id}
-              onPress={() => onSelectCategoryTab(cat.id)}
-              activeOpacity={0.7}
-              style={[
-                styles.pillButton,
-                { backgroundColor: isSelected ? theme.primary : theme.surfaceSecondary },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.pillText,
-                  { color: isSelected ? '#FFFFFF' : theme.textSecondary },
-                ]}
-              >
-                {cat.name}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+        {isServicesMode ? (
+          /* ================= SERVICES FLOW NAVIGATION ================= */
+          <>
+            <PillButton
+              label="All Services"
+              isActive={categoryId === 'services-catalog'}
+              onPress={() => onSelectCategoryTab('services-catalog')}
+            />
+            {SERVICES.map((srv) => (
+              <PillButton
+                key={srv.id}
+                label={srv.name}
+                isActive={categoryId === srv.id}
+                onPress={() => onSelectCategoryTab(srv.id as any)}
+              />
+            ))}
+          </>
+        ) : (
+          /* ================= MATERIALS FLOW NAVIGATION ================= */
+          <>
+            <PillButton
+              label="All Materials"
+              isActive={categoryId === 'all'}
+              onPress={() => onSelectCategoryTab('all')}
+            />
+            {CATEGORIES.map((cat) => (
+              <PillButton
+                key={cat.id}
+                label={cat.name}
+                isActive={categoryId === cat.id}
+                onPress={() => onSelectCategoryTab(cat.id)}
+              />
+            ))}
+          </>
+        )}
       </ScrollView>
 
       {/* 1. Materials Catalog Grid (categoryId === 'all') */}
@@ -175,7 +176,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
         </View>
       )}
 
-      {/* 2. Services Catalog Grid (categoryId === 'services-catalog') - Two Row Grid Layout */}
+      {/* 2. Services Catalog Grid (categoryId === 'services-catalog') */}
       {categoryId === 'services-catalog' && (
         <View style={styles.gridContainer}>
           <View style={styles.gridRow}>
@@ -187,6 +188,8 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                   onPress={() => {
                     if (matchingItem) {
                       onSelectItem(matchingItem);
+                    } else {
+                      onSelectCategoryTab(srv.id as any);
                     }
                   }}
                   activeOpacity={0.8}
@@ -214,88 +217,108 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
         </View>
       )}
 
-      {/* 3. Detailed Item List */}
+      {/* 3. Subcategory Detailed Item List with Clean Top Category Banner */}
       {!isCatalogMode && (
-        <View style={styles.itemList}>
+        <View style={styles.itemsSectionContainer}>
+          {/* Subcategory Main Banner Card */}
+          {activeCategoryObj && (
+            <View style={[styles.categoryHeaderBanner, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <View style={styles.categoryHeaderImageWrapper}>
+                <Image
+                  source={{ uri: activeCategoryObj.image }}
+                  style={styles.categoryHeaderImage}
+                  resizeMode="contain"
+                />
+              </View>
+              <View style={styles.categoryHeaderTextGroup}>
+                <Text style={[styles.categoryHeaderTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
+                  {activeCategoryObj.name}
+                </Text>
+                <Text style={[styles.categoryHeaderSub, { color: theme.textSecondary }]}>
+                  {activeCategoryObj.count} • {activeCategoryObj.priceLabel}
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* View Mode Toggle Header Bar */}
+          <View style={styles.viewToggleHeaderBar}>
+            <View>
+              <Text style={[styles.sectionTitleText, { color: theme.textPrimary }]}>
+                {items.length} Products
+              </Text>
+              <Text style={[styles.sectionSubtitleText, { color: theme.textMuted }]}>
+                Select item to customize & add
+              </Text>
+            </View>
+
+            {/* Display View Toggle Controls (1-Column List vs 2-Column Grid) */}
+            <View style={[styles.togglePillContainer, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+              <TouchableOpacity
+                onPress={() => setViewMode('list')}
+                activeOpacity={0.7}
+                style={[
+                  styles.toggleBtn,
+                  viewMode === 'list' && { backgroundColor: theme.surface, borderColor: theme.border },
+                ]}
+              >
+                <LayoutList size={15} color={viewMode === 'list' ? theme.primary : theme.textMuted} />
+                <Text style={[styles.toggleBtnText, { color: viewMode === 'list' ? theme.primary : theme.textMuted }]}>
+                  List
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setViewMode('grid')}
+                activeOpacity={0.7}
+                style={[
+                  styles.toggleBtn,
+                  viewMode === 'grid' && { backgroundColor: theme.surface, borderColor: theme.border },
+                ]}
+              >
+                <Grid2X2 size={15} color={viewMode === 'grid' ? theme.primary : theme.textMuted} />
+                <Text style={[styles.toggleBtnText, { color: viewMode === 'grid' ? theme.primary : theme.textMuted }]}>
+                  Grid (2x)
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Product Items List / Grid */}
           {items.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Text style={[styles.emptyText, { color: theme.textMuted }]}>No items found matching your search.</Text>
             </View>
-          ) : (
-            items.map((item) => {
-              const isFav = favoriteIds.includes(item.id);
-              return (
-                <TouchableOpacity
+          ) : viewMode === 'grid' ? (
+            /* 2-Column Grid View Layout (Reference Image 1) */
+            <View style={styles.twoColumnGridRow}>
+              {items.map((item) => (
+                <ProductCard
                   key={item.id}
+                  item={item}
+                  viewMode="grid"
                   onPress={() => onSelectItem(item)}
-                  activeOpacity={0.8}
-                  style={[styles.itemCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                >
-                  {/* Thumbnail Image */}
-                  <View style={[styles.itemThumbnailWrapper, { backgroundColor: theme.surfaceSecondary, borderColor: theme.borderLight }]}>
-                    <Image
-                      source={{ uri: item.image }}
-                      style={styles.itemImage}
-                      resizeMode="contain"
-                    />
-                  </View>
-
-                  {/* Title & Subtitle & Price */}
-                  <View style={styles.itemInfo}>
-                    <Text style={[styles.itemName, { color: theme.textPrimary }]} numberOfLines={1}>
-                      {item.name}
-                    </Text>
-                    {item.subtitle && (
-                      <Text style={[styles.itemSubtitle, { color: theme.textSecondary }]} numberOfLines={1}>
-                        {item.subtitle}
-                      </Text>
-                    )}
-                    {item.defaultPrice && (
-                      <Text style={[styles.itemPrice, { color: theme.primaryDark }]}>
-                        ₹{item.defaultPrice.toLocaleString('en-IN')}
-                        {item.categoryId === 'services'
-                          ? ' / Day'
-                          : item.categoryId === 'cement'
-                          ? ' / Bag'
-                          : item.categoryId === 'sand' && item.defaultPrice < 100
-                          ? ' / Bag'
-                          : ''}
-                      </Text>
-                    )}
-                  </View>
-
-                  {/* Actions: Symmetrical Heart + Cart Icon Buttons */}
-                  <View style={styles.actionButtonsRow}>
-                    {onToggleFavorite && (
-                      <TouchableOpacity
-                        onPress={() => onToggleFavorite(item.id)}
-                        activeOpacity={0.7}
-                        style={[
-                          styles.circleIconButton,
-                          isFav
-                            ? { backgroundColor: '#FFF1F2', borderColor: '#FECDD3' }
-                            : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
-                        ]}
-                      >
-                        <Heart
-                          size={16}
-                          color={isFav ? '#EF4444' : theme.textMuted}
-                          fill={isFav ? '#EF4444' : 'none'}
-                        />
-                      </TouchableOpacity>
-                    )}
-
-                    <TouchableOpacity
-                      onPress={() => onSelectItem(item)}
-                      activeOpacity={0.7}
-                      style={[styles.cartCircleButton, { backgroundColor: theme.primary }]}
-                    >
-                      <ShoppingCart size={16} color="#FFFFFF" />
-                    </TouchableOpacity>
-                  </View>
-                </TouchableOpacity>
-              );
-            })
+                  onAddToCartPress={() => onSelectItem(item)}
+                  isFavorite={favoriteIds.includes(item.id)}
+                  onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
+                />
+              ))}
+            </View>
+          ) : (
+            /* 1-Column Single List View Layout */
+            <View style={styles.oneColumnListContainer}>
+              {items.map((item) => (
+                <ProductCard
+                  key={item.id}
+                  item={item}
+                  viewMode="list"
+                  onPress={() => onSelectItem(item)}
+                  onAddToCartPress={() => onSelectItem(item)}
+                  isFavorite={favoriteIds.includes(item.id)}
+                  onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
+                />
+              ))}
+            </View>
           )}
         </View>
       )}
@@ -370,9 +393,55 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  itemList: {
+  itemsSectionContainer: {
     gap: 12,
     paddingTop: 4,
+  },
+  viewToggleHeaderBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  sectionTitleText: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  sectionSubtitleText: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  togglePillContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 3,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 3,
+  },
+  toggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  toggleBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  twoColumnGridRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  oneColumnListContainer: {
+    flexDirection: 'column',
+    gap: 10,
   },
   emptyContainer: {
     alignItems: 'center',
@@ -382,65 +451,37 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  itemCard: {
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
+  categoryHeaderBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
     gap: 12,
+    marginBottom: 4,
   },
-  itemThumbnailWrapper: {
-    width: 76,
-    height: 76,
+  categoryHeaderImageWrapper: {
+    width: 54,
+    height: 54,
     borderRadius: 12,
-    overflow: 'hidden',
+    backgroundColor: '#F8FAFC',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 4,
-    borderWidth: 1,
   },
-  itemImage: {
+  categoryHeaderImage: {
     width: '100%',
     height: '100%',
   },
-  itemInfo: {
+  categoryHeaderTextGroup: {
     flex: 1,
-    minWidth: 0,
   },
-  itemName: {
-    fontSize: 14,
+  categoryHeaderTitle: {
+    fontSize: 16,
     fontWeight: '800',
   },
-  itemSubtitle: {
-    fontSize: 11,
+  categoryHeaderSub: {
+    fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
-  },
-  itemPrice: {
-    fontSize: 12,
-    fontWeight: '800',
-    marginTop: 4,
-  },
-  actionButtonsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  circleIconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  cartCircleButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { ArrowLeft, ShieldCheck, Check, Smartphone, Lock, Sparkles } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
+import { BrandLogo } from './common/BrandLogo';
 
 interface AuthScreenProps {
   initialStep?: 'mobile' | 'otp';
@@ -132,13 +133,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       >
         {/* Modern Mobile App Brand Hero Section */}
         <View style={styles.brandHeroCard}>
-          <View style={[styles.heroIconCircle, { backgroundColor: theme.primaryLight }]}>
-            {step === 'mobile' ? (
-              <Smartphone size={32} color={theme.primaryDark} strokeWidth={2} />
-            ) : (
-              <Lock size={32} color={theme.primaryDark} strokeWidth={2} />
-            )}
-          </View>
+          <BrandLogo size={76} borderRadius={20} style={{ marginBottom: 16 }} />
 
           <Text style={[styles.brandTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
             {step === 'mobile' ? 'Welcome to Urbanico' : 'Verify Mobile OTP'}

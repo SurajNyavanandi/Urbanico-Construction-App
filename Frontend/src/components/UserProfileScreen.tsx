@@ -84,24 +84,28 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
   // Modals
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isSitesModalOpen, setIsSitesModalOpen] = useState(false);
-  const [isInvoicesModalOpen, setIsInvoicesModalOpen] = useState(false);
-  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [isAddressesModalOpen, setIsAddressesModalOpen] = useState(false);
+  const [isPaymentsModalOpen, setIsPaymentsModalOpen] = useState(false);
+  const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
 
   // Address edit state
-  const [newSiteInput, setNewSiteInput] = useState('');
-  const [editingSiteOld, setEditingSiteOld] = useState<string | null>(null);
-  const [editingSiteInput, setEditingSiteInput] = useState('');
+  const [newAddressInput, setNewAddressInput] = useState('');
+  const [editingAddressOld, setEditingAddressOld] = useState<string | null>(null);
+  const [editingAddressInput, setEditingAddressInput] = useState('');
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
   // Edit profile form state
   const [editName, setEditName] = useState(user.name);
   const [editPhone, setEditPhone] = useState(user.phone);
   const [editEmail, setEditEmail] = useState(user.email);
-  const [editRole, setEditRole] = useState(user.role);
-  const [editCompany, setEditCompany] = useState(user.companyName || 'Kumar Infra & Construction Pvt Ltd');
-  const [editGstin, setEditGstin] = useState(user.gstin || '36AABCU12341ZV');
   const [customAvatarUrl, setCustomAvatarUrl] = useState(user.avatarUrl);
+
+  // Saved Payments state
+  const [savedCards, setSavedCards] = useState([
+    { id: '1', bank: 'HDFC Bank Visa', last4: '4821', type: 'Credit Card', isDefault: true },
+    { id: '2', bank: 'ICICI Bank Mastercard', last4: '9102', type: 'Debit Card', isDefault: false },
+  ]);
+  const [savedUpi, setSavedUpi] = useState('rajesh@okaxis');
 
   // FAQ Accordion State
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
@@ -116,48 +120,43 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       name: editName,
       phone: editPhone,
       email: editEmail,
-      role: editRole,
-      companyName: editCompany,
-      gstin: editGstin,
       avatarUrl: customAvatarUrl,
     });
     setIsEditModalOpen(false);
-    showToast('Profile details updated successfully!');
+    showToast('Profile updated successfully!');
   };
 
-  const handleAddSiteAddress = () => {
-    if (!newSiteInput.trim()) return;
-    addLocation(newSiteInput.trim());
-    showToast('New site address added!');
-    setNewSiteInput('');
+  const handleAddAddress = () => {
+    if (!newAddressInput.trim()) return;
+    addLocation(newAddressInput.trim());
+    showToast('New address added!');
+    setNewAddressInput('');
   };
 
   const handleUseCurrentLocationGPS = () => {
-    const gpsAddr = 'Miyapur Site, Phase 2, Hyderabad (GPS Location)';
+    const gpsAddr = 'Plot 42, Hitech City, Hyderabad (GPS Location)';
     addLocation(gpsAddr);
     showToast('GPS Location added & set as active!');
   };
 
-  const handleStartEditSite = (oldLoc: string) => {
-    setEditingSiteOld(oldLoc);
-    setEditingSiteInput(oldLoc);
+  const handleStartEditAddress = (oldLoc: string) => {
+    setEditingAddressOld(oldLoc);
+    setEditingAddressInput(oldLoc);
   };
 
-  const handleSaveEditSite = () => {
-    if (editingSiteOld && editingSiteInput.trim()) {
-      editLocation(editingSiteOld, editingSiteInput.trim());
-      showToast('Site address updated!');
+  const handleSaveEditAddress = () => {
+    if (editingAddressOld && editingAddressInput.trim()) {
+      editLocation(editingAddressOld, editingAddressInput.trim());
+      showToast('Address updated!');
     }
-    setEditingSiteOld(null);
-    setEditingSiteInput('');
+    setEditingAddressOld(null);
+    setEditingAddressInput('');
   };
 
-  const handleDeleteSite = (locToDelete: string) => {
+  const handleDeleteAddress = (locToDelete: string) => {
     deleteLocation(locToDelete);
-    showToast('Site address removed.');
+    showToast('Address removed.');
   };
-
-  const creditPercent = Math.round((user.usedCredit / user.creditLimit) * 100);
 
   return (
     <ScrollView
@@ -173,9 +172,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         </View>
       )}
 
-      {/* Simplified Header Card */}
+      {/* Clean Ultra-Minimal Top Header Profile Block */}
       <View style={[styles.profileHeaderCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        {/* Single Top-Right Edit Icon */}
+        {/* Single Top-Right Edit Icon for updating DP & Profile Info */}
         <TouchableOpacity
           onPress={() => setIsEditModalOpen(true)}
           style={[styles.singleEditIconBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
@@ -187,108 +186,43 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
         <View style={styles.headerMainBody}>
           <View style={styles.avatarRow}>
+            {/* Profile Picture (DP) */}
             <View style={styles.avatarWrapper}>
               <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
             </View>
 
             <View style={styles.profileTitleBlock}>
+              {/* Name & Verified Badge */}
               <View style={styles.nameRow}>
                 <Text style={[styles.userNameText, { color: theme.textPrimary }]} numberOfLines={1}>
-                  {isLoggedIn ? user.name : 'Guest Site User'}
+                  {isLoggedIn ? user.name : 'Guest User'}
                 </Text>
-                {/* Display ONLY Verified Icon without text */}
+                {/* Verified Badge (displayed only after verification e.g. email/mobile) */}
                 {user.isVerified && isLoggedIn && (
-                  <ShieldCheck size={18} color="#059669" fill="#D1FAE5" />
+                  <View style={styles.verifiedBadgeContainer} title="Verified Account">
+                    <ShieldCheck size={16} color="#059669" fill="#D1FAE5" />
+                    <Text style={styles.verifiedBadgeText}>Verified</Text>
+                  </View>
                 )}
               </View>
 
-              <Text style={[styles.userRoleText, { color: theme.textSecondary }]}>
-                {isLoggedIn ? user.role : 'Tap Login below to access credit line'}
-              </Text>
-
-              {user.companyName && isLoggedIn && (
-                <View style={styles.companyRow}>
-                  <Building size={12} color={theme.textMuted} />
-                  <Text style={[styles.companyText, { color: theme.textMuted }]} numberOfLines={1}>
-                    {user.companyName}
-                  </Text>
-                </View>
-              )}
+              {/* Mobile Number */}
+              <View style={styles.phoneRow}>
+                <Phone size={13} color={theme.textSecondary} />
+                <Text style={[styles.phoneText, { color: theme.textSecondary }]}>
+                  {isLoggedIn ? user.phone : '+91 Mobile Unverified'}
+                </Text>
+              </View>
             </View>
           </View>
-
-          {/* Quick Contact & Site Details */}
-          <View style={[styles.contactDetailsBox, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-            <View style={styles.contactItem}>
-              <Phone size={13} color={theme.primaryDark} />
-              <Text style={[styles.contactValText, { color: theme.textPrimary }]}>
-                {isLoggedIn ? user.phone : '+91 Mobile Unverified'}
-              </Text>
-            </View>
-            <View style={[styles.contactDivider, { backgroundColor: theme.border }]} />
-            <View style={styles.contactItem}>
-              <MapPin size={13} color={theme.primaryDark} />
-              <Text style={[styles.contactValText, { color: theme.textPrimary }]} numberOfLines={1}>
-                {selectedLocation}
-              </Text>
-            </View>
-          </View>
-
-          {/* Credit Line Progress */}
-          {isLoggedIn && (
-            <View style={[styles.creditCardBox, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-              <View style={styles.creditCardHeader}>
-                <View style={styles.creditTitleRow}>
-                  <CreditCard size={14} color={theme.primaryDark} />
-                  <Text style={[styles.creditTitle, { color: theme.textPrimary }]}>30-Day PayLater Line</Text>
-                </View>
-                <Text style={[styles.creditUsedLabel, { color: theme.textSecondary }]}>
-                  Used: ₹{user.usedCredit.toLocaleString('en-IN')}
-                </Text>
-              </View>
-
-              <View style={[styles.creditProgressBarBg, { backgroundColor: theme.border }]}>
-                <View style={[styles.creditProgressBarFill, { width: `${creditPercent}%` as const, backgroundColor: theme.primary }]}>
-                  {creditPercent >= 15 && (
-                    <Text style={styles.progressBarTextInside}>{creditPercent}%</Text>
-                  )}
-                </View>
-              </View>
-
-              <View style={styles.creditFooterRow}>
-                <Text style={[styles.creditAvailableText, { color: theme.primaryDark }]}>
-                  Available: ₹{(user.creditLimit - user.usedCredit).toLocaleString('en-IN')}
-                </Text>
-                <Text style={[styles.creditTotalText, { color: theme.textMuted }]}>
-                  Limit: ₹{user.creditLimit.toLocaleString('en-IN')}
-                </Text>
-              </View>
-            </View>
-          )}
         </View>
       </View>
 
-      {/* Menu Options Group */}
+      {/* Essential Profile Options Group ONLY */}
       <View style={[styles.menuCardGroup, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        {/* 1. Order History */}
         <TouchableOpacity
-          onPress={() => setIsSitesModalOpen(true)}
-          style={[styles.menuRow, { borderBottomColor: theme.borderLight }]}
-          activeOpacity={0.7}
-        >
-          <View style={styles.menuLeft}>
-            <View style={[styles.menuIconCircle, { backgroundColor: theme.primaryLight }]}>
-              <MapPin size={18} color={theme.primaryDark} />
-            </View>
-            <View>
-              <Text style={[styles.menuTitle, { color: theme.textPrimary }]}>Construction Job Sites</Text>
-              <Text style={[styles.menuSub, { color: theme.textMuted }]}>Manage active dispatch addresses</Text>
-            </View>
-          </View>
-          <ChevronRight size={18} color={theme.textMuted} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => setIsInvoicesModalOpen(true)}
+          onPress={() => onNavigateScreen('activity')}
           style={[styles.menuRow, { borderBottomColor: theme.borderLight }]}
           activeOpacity={0.7}
         >
@@ -297,50 +231,71 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               <FileText size={18} color={theme.primaryDark} />
             </View>
             <View>
-              <Text style={[styles.menuTitle, { color: theme.textPrimary }]}>GST Tax Invoices</Text>
-              <Text style={[styles.menuSub, { color: theme.textMuted }]}>Download e-way bills & statements</Text>
+              <Text style={[styles.menuTitle, { color: theme.textPrimary }]}>Order History</Text>
+              <Text style={[styles.menuSub, { color: theme.textMuted }]}>View past orders & receipts</Text>
             </View>
           </View>
           <ChevronRight size={18} color={theme.textMuted} />
         </TouchableOpacity>
 
+        {/* 2. Addresses (Renamed from Construction Sites to Addresses) */}
         <TouchableOpacity
-          onPress={() => onNavigateScreen('activity')}
+          onPress={() => setIsAddressesModalOpen(true)}
           style={[styles.menuRow, { borderBottomColor: theme.borderLight }]}
           activeOpacity={0.7}
         >
           <View style={styles.menuLeft}>
             <View style={[styles.menuIconCircle, { backgroundColor: theme.primaryLight }]}>
-              <Activity size={18} color={theme.primaryDark} />
+              <MapPin size={18} color={theme.primaryDark} />
             </View>
             <View>
-              <Text style={[styles.menuTitle, { color: theme.textPrimary }]}>Dispatch & Order History</Text>
-              <Text style={[styles.menuSub, { color: theme.textMuted }]}>Live GPS truck tracking & logs</Text>
+              <Text style={[styles.menuTitle, { color: theme.textPrimary }]}>Addresses</Text>
+              <Text style={[styles.menuSub, { color: theme.textMuted }]}>Manage saved delivery locations</Text>
             </View>
           </View>
           <ChevronRight size={18} color={theme.textMuted} />
         </TouchableOpacity>
 
+        {/* 3. Saved Payments */}
         <TouchableOpacity
-          onPress={() => setIsHelpModalOpen(true)}
+          onPress={() => setIsPaymentsModalOpen(true)}
           style={[styles.menuRow, { borderBottomColor: theme.borderLight }]}
           activeOpacity={0.7}
         >
           <View style={styles.menuLeft}>
             <View style={[styles.menuIconCircle, { backgroundColor: theme.primaryLight }]}>
-              <Headphones size={18} color={theme.primaryDark} />
+              <CreditCard size={18} color={theme.primaryDark} />
             </View>
             <View>
-              <Text style={[styles.menuTitle, { color: theme.textPrimary }]}>24/7 Site Support</Text>
-              <Text style={[styles.menuSub, { color: theme.textMuted }]}>Contractor hotline & dispatch desk</Text>
+              <Text style={[styles.menuTitle, { color: theme.textPrimary }]}>Saved Payments</Text>
+              <Text style={[styles.menuSub, { color: theme.textMuted }]}>Manage saved cards & UPI</Text>
             </View>
           </View>
           <ChevronRight size={18} color={theme.textMuted} />
         </TouchableOpacity>
 
+        {/* 4. Support & FAQ */}
+        <TouchableOpacity
+          onPress={() => setIsSupportModalOpen(true)}
+          style={[styles.menuRow, { borderBottomColor: theme.borderLight }]}
+          activeOpacity={0.7}
+        >
+          <View style={styles.menuLeft}>
+            <View style={[styles.menuIconCircle, { backgroundColor: theme.primaryLight }]}>
+              <HelpCircle size={18} color={theme.primaryDark} />
+            </View>
+            <View>
+              <Text style={[styles.menuTitle, { color: theme.textPrimary }]}>Support & FAQ</Text>
+              <Text style={[styles.menuSub, { color: theme.textMuted }]}>Help center, FAQs & customer support</Text>
+            </View>
+          </View>
+          <ChevronRight size={18} color={theme.textMuted} />
+        </TouchableOpacity>
+
+        {/* 5. Settings */}
         <TouchableOpacity
           onPress={() => onNavigateScreen('settings')}
-          style={styles.menuRow}
+          style={[styles.menuRow, { borderBottomColor: theme.borderLight }]}
           activeOpacity={0.7}
         >
           <View style={styles.menuLeft}>
@@ -348,33 +303,47 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               <Settings size={18} color={theme.primaryDark} />
             </View>
             <View>
-              <Text style={[styles.menuTitle, { color: theme.textPrimary }]}>App Preferences</Text>
-              <Text style={[styles.menuSub, { color: theme.textMuted }]}>Theme, language & alerts</Text>
+              <Text style={[styles.menuTitle, { color: theme.textPrimary }]}>Settings</Text>
+              <Text style={[styles.menuSub, { color: theme.textMuted }]}>Light / Dark theme & preferences</Text>
             </View>
           </View>
           <ChevronRight size={18} color={theme.textMuted} />
         </TouchableOpacity>
-      </View>
 
-      {/* Auth Action Button */}
-      <View style={styles.authActionBox}>
+        {/* 6. Logout */}
         {isLoggedIn ? (
           <TouchableOpacity
             onPress={onLogout}
-            style={[styles.logoutBtn, { borderColor: '#FCA5A5', backgroundColor: '#FEF2F2' }]}
-            activeOpacity={0.8}
+            style={styles.menuRow}
+            activeOpacity={0.7}
           >
-            <LogOut size={16} color="#DC2626" />
-            <Text style={styles.logoutBtnText}>Log Out Account</Text>
+            <View style={styles.menuLeft}>
+              <View style={[styles.menuIconCircle, { backgroundColor: '#FEE2E2' }]}>
+                <LogOut size={18} color="#DC2626" />
+              </View>
+              <View>
+                <Text style={[styles.menuTitle, { color: '#DC2626' }]}>Logout</Text>
+                <Text style={[styles.menuSub, { color: theme.textMuted }]}>Sign out of your account</Text>
+              </View>
+            </View>
+            <ChevronRight size={18} color={theme.textMuted} />
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
             onPress={() => onNavigateScreen('auth')}
-            style={[styles.loginCtaBtn, { backgroundColor: theme.primary }]}
-            activeOpacity={0.85}
+            style={styles.menuRow}
+            activeOpacity={0.7}
           >
-            <LogIn size={18} color="#FFFFFF" />
-            <Text style={styles.loginCtaBtnText}>Sign In / Register</Text>
+            <View style={styles.menuLeft}>
+              <View style={[styles.menuIconCircle, { backgroundColor: theme.primaryLight }]}>
+                <LogIn size={18} color={theme.primaryDark} />
+              </View>
+              <View>
+                <Text style={[styles.menuTitle, { color: theme.primaryDark }]}>Log In / Sign Up</Text>
+                <Text style={[styles.menuSub, { color: theme.textMuted }]}>Sign in to save orders & addresses</Text>
+              </View>
+            </View>
+            <ChevronRight size={18} color={theme.textMuted} />
           </TouchableOpacity>
         )}
       </View>
@@ -465,37 +434,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   style={[styles.formInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border }]}
                 />
               </View>
-
-              <View style={styles.inputFieldGroup}>
-                <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>Contractor Role / Title</Text>
-                <TextInput
-                  value={editRole}
-                  onChangeText={setEditRole}
-                  placeholder="e.g. Senior General Contractor"
-                  style={[styles.formInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border }]}
-                />
-              </View>
-
-              <View style={styles.inputFieldGroup}>
-                <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>Company Name</Text>
-                <TextInput
-                  value={editCompany}
-                  onChangeText={setEditCompany}
-                  placeholder="e.g. Kumar Infra & Construction Pvt Ltd"
-                  style={[styles.formInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border }]}
-                />
-              </View>
-
-              <View style={styles.inputFieldGroup}>
-                <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>GSTIN Number</Text>
-                <TextInput
-                  value={editGstin}
-                  onChangeText={setEditGstin}
-                  placeholder="36AABCU12341ZV"
-                  style={[styles.formInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border }]}
-                  autoCapitalize="characters"
-                />
-              </View>
             </ScrollView>
 
             <View style={[styles.modalFooterActions, { borderTopColor: theme.border }]}>
@@ -511,18 +449,18 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* MODAL: Job Sites */}
-      <Modal visible={isSitesModalOpen} transparent animationType="slide">
+      {/* MODAL 1: Addresses */}
+      <Modal visible={isAddressesModalOpen} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setIsSitesModalOpen(false)} />
+          <Pressable style={styles.modalBackdrop} onPress={() => setIsAddressesModalOpen(false)} />
           <View style={[styles.modalSheetContainer, { backgroundColor: theme.surface }]}>
             <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
               <View style={styles.modalHeaderTitleGroup}>
                 <MapPin size={20} color={theme.primary} />
-                <Text style={[styles.modalHeaderTitle, { color: theme.textPrimary }]}>Construction Job Sites</Text>
+                <Text style={[styles.modalHeaderTitle, { color: theme.textPrimary }]}>Delivery Addresses</Text>
               </View>
               <TouchableOpacity
-                onPress={() => setIsSitesModalOpen(false)}
+                onPress={() => setIsAddressesModalOpen(false)}
                 style={styles.closeModalBtn}
               >
                 <X size={18} color={theme.textMuted} />
@@ -530,22 +468,22 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             </View>
 
             <ScrollView style={styles.modalFormScroll} contentContainerStyle={styles.modalScrollContent}>
-              <Text style={[styles.modalSectionLabel, { color: theme.textSecondary }]}>Add New Dispatch Site</Text>
+              <Text style={[styles.modalSectionLabel, { color: theme.textSecondary }]}>Add New Delivery Address</Text>
               <View style={styles.addSiteBox}>
                 <TextInput
-                  value={newSiteInput}
-                  onChangeText={setNewSiteInput}
-                  placeholder="Enter full address, plot no, site landmark..."
+                  value={newAddressInput}
+                  onChangeText={setNewAddressInput}
+                  placeholder="Enter house/building no, street, landmark..."
                   placeholderTextColor="#94A3B8"
                   style={[styles.addSiteInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border }]}
                 />
                 <TouchableOpacity
-                  onPress={handleAddSiteAddress}
+                  onPress={handleAddAddress}
                   style={[styles.addSiteBtn, { backgroundColor: theme.primary }]}
                   activeOpacity={0.8}
                 >
                   <Plus size={16} color="#FFFFFF" />
-                  <Text style={styles.addSiteBtnText}>Add Site</Text>
+                  <Text style={styles.addSiteBtnText}>Add</Text>
                 </TouchableOpacity>
               </View>
 
@@ -556,17 +494,17 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               >
                 <Navigation size={16} color={theme.primaryDark} />
                 <Text style={[styles.gpsLocationBtnText, { color: theme.primaryDark }]}>
-                  Detect & Add Current Device GPS
+                  Detect Device GPS Location
                 </Text>
               </TouchableOpacity>
 
               <Text style={[styles.modalSectionLabel, { color: theme.textSecondary, marginTop: 12 }]}>
-                Saved Job Sites ({savedLocations.length})
+                Saved Addresses ({savedLocations.length})
               </Text>
 
               {savedLocations.map((loc) => {
                 const isSelected = selectedLocation === loc;
-                const isEditingThis = editingSiteOld === loc;
+                const isEditingThis = editingAddressOld === loc;
 
                 return (
                   <View
@@ -579,13 +517,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     {isEditingThis ? (
                       <View style={styles.editSiteRow}>
                         <TextInput
-                          value={editingSiteInput}
-                          onChangeText={setEditingSiteInput}
+                          value={editingAddressInput}
+                          onChangeText={setEditingAddressInput}
                           style={[styles.editSiteTextInput, { color: theme.textPrimary, borderColor: theme.primary }]}
                           autoFocus
                         />
                         <TouchableOpacity
-                          onPress={handleSaveEditSite}
+                          onPress={handleSaveEditAddress}
                           style={[styles.saveSiteEditBtn, { backgroundColor: theme.primary }]}
                         >
                           <Check size={14} color="#FFFFFF" />
@@ -595,7 +533,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                       <TouchableOpacity
                         onPress={() => {
                           setSelectedLocation(loc);
-                          showToast('Active dispatch location updated!');
+                          showToast('Active delivery address updated!');
                         }}
                         style={styles.siteMainTouch}
                         activeOpacity={0.7}
@@ -613,13 +551,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     {!isEditingThis && (
                       <View style={styles.siteCardActions}>
                         <TouchableOpacity
-                          onPress={() => handleStartEditSite(loc)}
+                          onPress={() => handleStartEditAddress(loc)}
                           style={styles.actionIconBtn}
                         >
                           <Edit2 size={14} color={theme.textMuted} />
                         </TouchableOpacity>
                         <TouchableOpacity
-                          onPress={() => handleDeleteSite(loc)}
+                          onPress={() => handleDeleteAddress(loc)}
                           style={styles.actionIconBtn}
                         >
                           <Trash2 size={14} color="#EF4444" />
@@ -634,18 +572,18 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         </View>
       </Modal>
 
-      {/* MODAL: Tax Invoices */}
-      <Modal visible={isInvoicesModalOpen} transparent animationType="slide">
+      {/* MODAL 2: Saved Payments */}
+      <Modal visible={isPaymentsModalOpen} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setIsInvoicesModalOpen(false)} />
+          <Pressable style={styles.modalBackdrop} onPress={() => setIsPaymentsModalOpen(false)} />
           <View style={[styles.modalSheetContainer, { backgroundColor: theme.surface }]}>
             <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
               <View style={styles.modalHeaderTitleGroup}>
-                <FileText size={20} color={theme.primary} />
-                <Text style={[styles.modalHeaderTitle, { color: theme.textPrimary }]}>GST Invoices & E-Way Bills</Text>
+                <CreditCard size={20} color={theme.primary} />
+                <Text style={[styles.modalHeaderTitle, { color: theme.textPrimary }]}>Saved Payments & Cards</Text>
               </View>
               <TouchableOpacity
-                onPress={() => setIsInvoicesModalOpen(false)}
+                onPress={() => setIsPaymentsModalOpen(false)}
                 style={styles.closeModalBtn}
               >
                 <X size={18} color={theme.textMuted} />
@@ -653,61 +591,60 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             </View>
 
             <ScrollView style={styles.modalFormScroll} contentContainerStyle={styles.modalScrollContent}>
-              <Text style={[styles.modalSectionLabel, { color: theme.textSecondary }]}>Recent Tax Statements</Text>
+              <Text style={[styles.modalSectionLabel, { color: theme.textSecondary }]}>Saved Cards</Text>
 
-              {deliveries.map((del) => (
+              {savedCards.map((card) => (
                 <View
-                  key={del.id}
-                  style={[styles.invoiceCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
+                  key={card.id}
+                  style={[styles.paymentCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
                 >
-                  <View style={styles.invoiceHeaderRow}>
-                    <View>
-                      <Text style={[styles.invoiceNumberText, { color: theme.textPrimary }]}>
-                        {del.orderNumber || `INV-2026-${del.id.slice(-4)}`}
-                      </Text>
-                      <Text style={[styles.invoiceDateText, { color: theme.textMuted }]}>{del.timestamp}</Text>
+                  <View style={styles.paymentCardHeader}>
+                    <CreditCard size={18} color={theme.primaryDark} />
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <Text style={[styles.paymentBankTitle, { color: theme.textPrimary }]}>{card.bank}</Text>
+                      <Text style={[styles.paymentSubText, { color: theme.textMuted }]}>•••• •••• •••• {card.last4} ({card.type})</Text>
                     </View>
-                    <Text style={[styles.invoiceAmountText, { color: theme.primaryDark }]}>
-                      ₹{del.totalAmount.toLocaleString('en-IN')}
-                    </Text>
-                  </View>
-
-                  <View style={styles.invoiceMetaRow}>
-                    <Text style={[styles.invoiceGstinText, { color: theme.textSecondary }]}>
-                      GSTIN: {user.gstin}
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => {
-                        if (onViewInvoice) onViewInvoice(del);
-                        setIsInvoicesModalOpen(false);
-                        showToast('Downloading Tax PDF statement...');
-                      }}
-                      style={[styles.downloadPdfBtn, { backgroundColor: theme.primary }]}
-                      activeOpacity={0.8}
-                    >
-                      <Download size={12} color="#FFFFFF" />
-                      <Text style={styles.downloadPdfBtnText}>Download PDF</Text>
-                    </TouchableOpacity>
+                    {card.isDefault && (
+                      <View style={[styles.activePill, { backgroundColor: theme.primaryLight }]}>
+                        <Text style={[styles.activePillText, { color: theme.primaryDark }]}>Default</Text>
+                      </View>
+                    )}
                   </View>
                 </View>
               ))}
+
+              <Text style={[styles.modalSectionLabel, { color: theme.textSecondary, marginTop: 14 }]}>Saved UPI Handles</Text>
+              <View style={[styles.paymentCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                <View style={styles.paymentCardHeader}>
+                  <Text style={[styles.paymentBankTitle, { color: theme.textPrimary, fontSize: 13 }]}>UPI VPA: {savedUpi}</Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                onPress={() => showToast('Redirecting to secure card setup...')}
+                style={[styles.addPaymentBtn, { backgroundColor: theme.primaryLight, borderColor: theme.primary }]}
+                activeOpacity={0.8}
+              >
+                <Plus size={16} color={theme.primaryDark} />
+                <Text style={[styles.addPaymentBtnText, { color: theme.primaryDark }]}>Add New Card or UPI Method</Text>
+              </TouchableOpacity>
             </ScrollView>
           </View>
         </View>
       </Modal>
 
-      {/* MODAL: 24/7 Support Desk */}
-      <Modal visible={isHelpModalOpen} transparent animationType="slide">
+      {/* MODAL 3: Support & FAQ */}
+      <Modal visible={isSupportModalOpen} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setIsHelpModalOpen(false)} />
+          <Pressable style={styles.modalBackdrop} onPress={() => setIsSupportModalOpen(false)} />
           <View style={[styles.modalSheetContainer, { backgroundColor: theme.surface }]}>
             <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
               <View style={styles.modalHeaderTitleGroup}>
-                <Headphones size={20} color={theme.primary} />
-                <Text style={[styles.modalHeaderTitle, { color: theme.textPrimary }]}>Contractor Support Desk</Text>
+                <HelpCircle size={20} color={theme.primary} />
+                <Text style={[styles.modalHeaderTitle, { color: theme.textPrimary }]}>Support & FAQ</Text>
               </View>
               <TouchableOpacity
-                onPress={() => setIsHelpModalOpen(false)}
+                onPress={() => setIsSupportModalOpen(false)}
                 style={styles.closeModalBtn}
               >
                 <X size={18} color={theme.textMuted} />
@@ -715,7 +652,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             </View>
 
             <ScrollView style={styles.modalFormScroll} contentContainerStyle={styles.modalScrollContent}>
-              <Text style={[styles.modalSectionLabel, { color: theme.textSecondary }]}>Instant Communication Channels</Text>
+              <Text style={[styles.modalSectionLabel, { color: theme.textSecondary }]}>Contact Support</Text>
 
               <TouchableOpacity
                 onPress={() => Linking.openURL('tel:18001239876')}
@@ -726,8 +663,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   <Phone size={20} color="#059669" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.supportTitle, { color: theme.textPrimary }]}>Toll-Free Dispatch Hotline</Text>
-                  <Text style={[styles.supportSub, { color: theme.textSecondary }]}>1800-123-9876 (Instant Operator)</Text>
+                  <Text style={[styles.supportTitle, { color: theme.textPrimary }]}>Customer Support Hotline</Text>
+                  <Text style={[styles.supportSub, { color: theme.textSecondary }]}>1800-123-9876 (24/7)</Text>
                 </View>
               </TouchableOpacity>
 
@@ -740,7 +677,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   <Mail size={20} color="#2563EB" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.supportTitle, { color: theme.textPrimary }]}>Billing & GST Query Desk</Text>
+                  <Text style={[styles.supportTitle, { color: theme.textPrimary }]}>Email Support Desk</Text>
                   <Text style={[styles.supportSub, { color: theme.textSecondary }]}>support@urbanico.in</Text>
                 </View>
               </TouchableOpacity>
@@ -749,16 +686,16 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
               {[
                 {
-                  q: 'How does 30-Day PayLater Credit line work?',
-                  a: 'Verified contractors receive instant pre-approved credit. Pay your material bill within 30 days without interest charges.',
+                  q: 'How do I track my order?',
+                  a: 'Navigate to the Order History section from your profile to view active and past order statuses.',
                 },
                 {
-                  q: 'What is the minimum quantity for direct-to-site dispatch?',
-                  a: 'Cement has a 20-bag minimum. Sand and aggregate have a 1-brass minimum.',
+                  q: 'How do I add or change my delivery address?',
+                  a: 'Tap on "Addresses" in your profile menu to add, edit or set a default delivery address.',
                 },
                 {
-                  q: 'Are weighbridge slips provided for rebar & sand?',
-                  a: 'Yes, every dispatch includes an official weighbridge slip and GST tax invoice attached.',
+                  q: 'What payment methods are supported?',
+                  a: 'We accept Credit Cards, Debit Cards, Netbanking, UPI, Cash on Delivery, and PayLater.',
                 },
               ].map((faq, idx) => {
                 const isExpanded = expandedFaq === idx;
@@ -859,8 +796,28 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '900',
   },
-  userRoleText: {
-    fontSize: 12,
+  verifiedBadgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 12,
+    gap: 3,
+  },
+  verifiedBadgeText: {
+    color: '#059669',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  phoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 4,
+  },
+  phoneText: {
+    fontSize: 13,
     fontWeight: '600',
   },
   companyRow: {
@@ -1293,5 +1250,36 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     marginTop: 4,
+  },
+  paymentCard: {
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+  },
+  paymentCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  paymentBankTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  paymentSubText: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  addPaymentBtn: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 6,
+  },
+  addPaymentBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
   },
 });

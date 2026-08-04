@@ -148,177 +148,49 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         </Text>
       </View>
 
-      {/* SECTION 1: Theme Mode (Light vs Dark) */}
+      {/* SECTION 1: Theme Mode (Light / Dark Mode Toggle) */}
       <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <View style={[styles.cardHeader, { borderBottomColor: theme.borderLight }]}>
-          <Palette size={18} color={theme.primary} />
-          <View>
-            <Text style={[styles.cardTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-              Theme Mode
-            </Text>
-            <Text style={[styles.cardSubTitle, { color: theme.textSecondary }]}>
-              Switch between Light daylight mode and Dark night mode
-            </Text>
-          </View>
+        <View style={styles.compactCardHeader}>
+          <Palette size={16} color={theme.primary} />
+          <Text style={[styles.compactCardTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
+            Theme Mode
+          </Text>
         </View>
 
-        <View style={styles.modeRow}>
-          {/* Light Mode Button */}
+        <View style={[styles.segmentedControl, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
           <TouchableOpacity
             onPress={() => {
               setThemeMode('light');
-              triggerToast('Switched to Light Mode');
+              triggerToast('Light Mode Active');
             }}
             activeOpacity={0.8}
             style={[
-              styles.modeCard,
-              {
-                borderColor: themeMode === 'light' ? theme.primary : theme.border,
-                backgroundColor: themeMode === 'light' ? theme.primaryLight : theme.surfaceSecondary,
-              },
+              styles.segmentBtn,
+              themeMode === 'light' && [styles.segmentBtnActive, { backgroundColor: theme.surface, borderColor: theme.border }],
             ]}
           >
-            <Sun size={20} color={themeMode === 'light' ? theme.primaryDark : theme.textMuted} />
-            <Text style={[styles.modeCardTitle, { color: themeMode === 'light' ? theme.primaryDark : theme.textPrimary }]}>
+            <Sun size={15} color={themeMode === 'light' ? theme.primaryDark : theme.textMuted} />
+            <Text style={[styles.segmentText, { color: themeMode === 'light' ? theme.primaryDark : theme.textMuted }]}>
               Light Mode
             </Text>
-            <Text style={[styles.modeCardSub, { color: theme.textSecondary }]}>Daylight site view</Text>
-            {themeMode === 'light' && <Check size={16} color={theme.primaryDark} strokeWidth={3} />}
           </TouchableOpacity>
 
-          {/* Dark Mode Button */}
           <TouchableOpacity
             onPress={() => {
               setThemeMode('dark');
-              triggerToast('Switched to Dark Mode');
+              triggerToast('Dark Mode Active');
             }}
             activeOpacity={0.8}
             style={[
-              styles.modeCard,
-              {
-                borderColor: themeMode === 'dark' ? theme.primary : theme.border,
-                backgroundColor: themeMode === 'dark' ? theme.primaryLight : theme.surfaceSecondary,
-              },
+              styles.segmentBtn,
+              themeMode === 'dark' && [styles.segmentBtnActive, { backgroundColor: theme.surface, borderColor: theme.border }],
             ]}
           >
-            <Moon size={20} color={themeMode === 'dark' ? theme.primaryDark : theme.textMuted} />
-            <Text style={[styles.modeCardTitle, { color: themeMode === 'dark' ? theme.primaryDark : theme.textPrimary }]}>
+            <Moon size={15} color={themeMode === 'dark' ? theme.primaryDark : theme.textMuted} />
+            <Text style={[styles.segmentText, { color: themeMode === 'dark' ? theme.primaryDark : theme.textMuted }]}>
               Dark Mode
             </Text>
-            <Text style={[styles.modeCardSub, { color: theme.textSecondary }]}>Low-light night view</Text>
-            {themeMode === 'dark' && <Check size={16} color={theme.primaryDark} strokeWidth={3} />}
           </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* SECTION 2: Global Accent Color System */}
-      <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <View style={[styles.cardHeader, { borderBottomColor: theme.borderLight }]}>
-          <Sparkles size={18} color={theme.primary} />
-          <View>
-            <Text style={[styles.cardTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-              Global Accent Color
-            </Text>
-            <Text style={[styles.cardSubTitle, { color: theme.textSecondary }]}>
-              Updates all buttons, icons, active navigation, cards & highlights instantly
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.themeList}>
-          {accentOptions.map((accItem) => {
-            const isSelected = accentColor === accItem.id;
-            return (
-              <TouchableOpacity
-                key={accItem.id}
-                onPress={() => {
-                  setAccentColor(accItem.id);
-                  triggerToast(`Global accent updated to ${accItem.name}`);
-                }}
-                activeOpacity={0.8}
-                style={[
-                  styles.themeRow,
-                  {
-                    borderColor: isSelected ? theme.primary : theme.border,
-                    backgroundColor: isSelected ? theme.primaryLight : theme.surfaceSecondary,
-                  },
-                ]}
-              >
-                <View style={styles.themeLeft}>
-                  <View style={[styles.colorCircle, { backgroundColor: accItem.hex }]}>
-                    {isSelected && <Check size={14} color="#FFFFFF" strokeWidth={3} />}
-                  </View>
-                  <View style={styles.themeTextGroup}>
-                    <Text style={[styles.themeName, { color: theme.textPrimary }]}>{accItem.name}</Text>
-                    <Text style={[styles.themeDesc, { color: theme.textSecondary }]}>{accItem.description}</Text>
-                  </View>
-                </View>
-
-                {isSelected && (
-                  <View style={[styles.activeBadge, { backgroundColor: theme.primary }]}>
-                    <Text style={styles.activeBadgeText}>Active</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* SECTION 3: Global Typography System */}
-      <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <View style={[styles.cardHeader, { borderBottomColor: theme.borderLight }]}>
-          <Type size={18} color={theme.primary} />
-          <View>
-            <Text style={[styles.cardTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-              Global Typography System
-            </Text>
-            <Text style={[styles.cardSubTitle, { color: theme.textSecondary }]}>
-              Changing font family updates text styling across all screens automatically
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.fontGrid}>
-          {fontOptions.map((fOpt) => {
-            const isSelected = typographyFont === fOpt.id;
-            return (
-              <TouchableOpacity
-                key={fOpt.id}
-                onPress={() => {
-                  setTypographyFont(fOpt.id);
-                  triggerToast(`Font family updated to ${fOpt.name}`);
-                }}
-                activeOpacity={0.8}
-                style={[
-                  styles.fontCard,
-                  {
-                    borderColor: isSelected ? theme.primary : theme.border,
-                    backgroundColor: isSelected ? theme.primaryLight : theme.surfaceSecondary,
-                  },
-                ]}
-              >
-                <View style={styles.fontCardHeader}>
-                  <Text style={[styles.fontCardTitle, { color: isSelected ? theme.primaryDark : theme.textPrimary }]}>
-                    {fOpt.name}
-                  </Text>
-                  {isSelected && <Check size={14} color={theme.primaryDark} strokeWidth={2.5} />}
-                </View>
-                <Text style={[styles.fontCardDesc, { color: theme.textSecondary }]}>{fOpt.desc}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Live Preview Sample */}
-        <View style={[styles.previewBox, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-          <Text style={[styles.previewLabel, { color: theme.textMuted }]}>Typography & Theme Live Sample:</Text>
-          <Text style={[styles.previewHeading, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-            Urbanico Construction Supply
-          </Text>
-          <Text style={[styles.previewBody, { color: theme.textSecondary, fontFamily: typography.fontFamily }]}>
-            High strength OPC 53 Grade Cement dispatched in 24 hours.
-          </Text>
         </View>
       </View>
 
@@ -619,108 +491,84 @@ const styles = StyleSheet.create({
   cardSubTitle: {
     fontSize: 11,
   },
-  modeRow: {
+  compactCardHeader: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
   },
-  modeCard: {
+  compactCardTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    borderRadius: 999,
+    padding: 3,
+    borderWidth: 1,
+  },
+  segmentBtn: {
     flex: 1,
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1.5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 999,
+    gap: 6,
+  },
+  segmentBtnActive: {
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  segmentText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  colorDotRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingVertical: 4,
+  },
+  colorDotWrapper: {
     alignItems: 'center',
     gap: 4,
   },
-  modeCardTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    marginTop: 2,
-  },
-  modeCardSub: {
-    fontSize: 10,
-  },
-  themeList: {
-    gap: 10,
-  },
-  themeRow: {
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  themeLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  colorCircle: {
+  minimalColorDot: {
     width: 32,
     height: 32,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  themeTextGroup: {
-    flex: 1,
+  minimalColorDotActive: {
+    borderWidth: 3,
   },
-  themeName: {
-    fontSize: 13,
+  colorDotLabel: {
+    fontSize: 9,
     fontWeight: '800',
+    letterSpacing: 0.5,
   },
-  themeDesc: {
-    fontSize: 11,
-  },
-  activeBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  activeBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  fontGrid: {
-    gap: 8,
-  },
-  fontCard: {
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 2,
-  },
-  fontCardHeader: {
+  fontPillRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 6,
   },
-  fontCardTitle: {
+  fontPill: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  fontPillText: {
     fontSize: 12,
     fontWeight: '800',
-  },
-  fontCardDesc: {
-    fontSize: 10,
-  },
-  previewBox: {
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 4,
-    marginTop: 4,
-  },
-  previewLabel: {
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  previewHeading: {
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  previewBody: {
-    fontSize: 12,
   },
   settingRowsList: {
     gap: 12,
