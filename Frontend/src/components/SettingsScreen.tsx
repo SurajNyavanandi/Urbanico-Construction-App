@@ -144,7 +144,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <ArrowLeft size={20} color={theme.textPrimary} strokeWidth={2.5} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-          App Preferences & Settings
+          Preferences & Settings
         </Text>
       </View>
 
@@ -194,16 +194,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         </View>
       </View>
 
-      {/* SECTION 4: Push Notifications & Site Alerts */}
+      {/* SECTION 2: Notification Controls */}
       <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <View style={[styles.cardHeader, { borderBottomColor: theme.borderLight }]}>
           <Bell size={18} color={theme.primary} />
           <View>
             <Text style={[styles.cardTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-              Notifications & Site Alerts
+              Notification Controls
             </Text>
             <Text style={[styles.cardSubTitle, { color: theme.textSecondary }]}>
-              Real-time vehicle dispatch & delivery radar updates
+              Manage real-time dispatch and order status notifications
             </Text>
           </View>
         </View>
@@ -211,9 +211,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         <View style={styles.settingRowsList}>
           <View style={styles.settingRow}>
             <View style={styles.settingRowLeft}>
-              <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Enable Master Push Notifications</Text>
+              <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Push Notifications</Text>
               <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
-                All order, dispatch and account alerts
+                Order status and dispatch updates
               </Text>
             </View>
             <Switch
@@ -229,9 +229,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
           <View style={styles.settingRow}>
             <View style={styles.settingRowLeft}>
-              <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Truck Dispatch Radar Alerts</Text>
+              <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Truck Dispatch Alerts</Text>
               <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
-                Get notified when tipper/truck is within 2 km of site
+                Real-time delivery vehicle proximity alerts
               </Text>
             </View>
             <Switch
@@ -248,35 +248,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 
           <View style={styles.settingRow}>
             <View style={styles.settingRowLeft}>
-              <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Price Drops & Bulk Offers</Text>
+              <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>WhatsApp Invoices & Updates</Text>
               <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
-                Cement, sand and rebar daily price notifications
-              </Text>
-            </View>
-            <Switch
-              value={priceAlerts}
-              onValueChange={(val) => {
-                setPriceAlerts(val);
-                triggerToast(val ? 'Offer alerts ON' : 'Offer alerts OFF');
-              }}
-              disabled={!enableNotifications}
-              trackColor={{ false: '#CBD5E1', true: theme.primary }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-
-          <View style={styles.settingRow}>
-            <View style={styles.settingRowLeft}>
-              <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>WhatsApp GST Bills & Invoices</Text>
-              <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
-                Receive PDF weighbridge slips directly on WhatsApp
+                Receive delivery slips directly on WhatsApp
               </Text>
             </View>
             <Switch
               value={whatsappReceipts}
               onValueChange={(val) => {
                 setWhatsappReceipts(val);
-                triggerToast(val ? 'WhatsApp receipts ON' : 'WhatsApp receipts OFF');
+                triggerToast(val ? 'WhatsApp updates ON' : 'WhatsApp updates OFF');
               }}
               trackColor={{ false: '#CBD5E1', true: theme.primary }}
               thumbColor="#FFFFFF"
@@ -284,151 +265,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           </View>
         </View>
       </View>
-
-      {/* SECTION 5: Security & Site Access */}
-      <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <View style={[styles.cardHeader, { borderBottomColor: theme.borderLight }]}>
-          <Shield size={18} color={theme.primary} />
-          <View>
-            <Text style={[styles.cardTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-              Security & Site Access
-            </Text>
-            <Text style={[styles.cardSubTitle, { color: theme.textSecondary }]}>
-              Protect site credit purchases with biometric PIN
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.settingRowsList}>
-          <View style={styles.settingRow}>
-            <View style={styles.settingRowLeft}>
-              <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Biometric / Face ID App Lock</Text>
-              <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
-                Require biometric authentication to open app
-              </Text>
-            </View>
-            <Switch
-              value={biometricLock}
-              onValueChange={(val) => {
-                setBiometricLock(val);
-                triggerToast(val ? 'Biometric Lock ON' : 'Biometric Lock OFF');
-              }}
-              trackColor={{ false: '#CBD5E1', true: theme.primary }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-
-          <View style={styles.settingRow}>
-            <View style={styles.settingRowLeft}>
-              <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>OTP Verification for High Value</Text>
-              <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
-                Require Mobile OTP confirmation for orders over ₹50,000
-              </Text>
-            </View>
-            <Switch
-              value={twoFactorOtp}
-              onValueChange={(val) => {
-                setTwoFactorOtp(val);
-                triggerToast(val ? 'High-value OTP ON' : 'High-value OTP OFF');
-              }}
-              trackColor={{ false: '#CBD5E1', true: theme.primary }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-        </View>
-      </View>
-
-      {/* SECTION 6: Storage & Offline Mode */}
-      <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <View style={[styles.cardHeader, { borderBottomColor: theme.borderLight }]}>
-          <HardDrive size={18} color={theme.primary} />
-          <View>
-            <Text style={[styles.cardTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-              Data & Storage Management
-            </Text>
-            <Text style={[styles.cardSubTitle, { color: theme.textSecondary }]}>
-              Manage local catalog cache & search history
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.settingRowsList}>
-          <View style={styles.settingRow}>
-            <View style={styles.settingRowLeft}>
-              <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Offline Material Catalog</Text>
-              <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
-                Save material price lists for low-network construction sites
-              </Text>
-            </View>
-            <Switch
-              value={offlineCatalog}
-              onValueChange={(val) => {
-                setOfflineCatalog(val);
-                triggerToast(val ? 'Offline catalog enabled' : 'Offline catalog disabled');
-              }}
-              trackColor={{ false: '#CBD5E1', true: theme.primary }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-
-          <TouchableOpacity
-            onPress={handleClearCache}
-            activeOpacity={0.7}
-            style={styles.clearCacheBtn}
-          >
-            <Trash2 size={16} color="#EF4444" />
-            <Text style={styles.clearCacheText}>Clear Cache & Search History</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* SECTION 7: App Information */}
-      <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <View style={[styles.cardHeader, { borderBottomColor: theme.borderLight }]}>
-          <Info size={18} color={theme.primary} />
-          <View>
-            <Text style={[styles.cardTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-              Urbanico Platform Information
-            </Text>
-            <Text style={[styles.cardSubTitle, { color: theme.textSecondary }]}>
-              Production build version & official terms
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.infoLinkGroup}>
-          <View style={styles.infoMetaRow}>
-            <Text style={[styles.infoMetaLabel, { color: theme.textSecondary }]}>Application Version:</Text>
-            <Text style={[styles.infoMetaVal, { color: theme.textPrimary }]}>v1.5.0 (Build 2026.07)</Text>
-          </View>
-          <View style={styles.infoMetaRow}>
-            <Text style={[styles.infoMetaLabel, { color: theme.textSecondary }]}>Platform Engine:</Text>
-            <Text style={[styles.infoMetaVal, { color: theme.textPrimary }]}>React Native Expo Enterprise</Text>
-          </View>
-
-          <TouchableOpacity
-            onPress={() => triggerToast('Terms of Service loaded')}
-            style={styles.linkRow}
-            activeOpacity={0.7}
-          >
-            <FileText size={14} color={theme.primary} />
-            <Text style={[styles.linkText, { color: theme.primary }]}>Terms of Service & GST Rules</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => triggerToast('Privacy Policy loaded')}
-            style={styles.linkRow}
-            activeOpacity={0.7}
-          >
-            <Globe size={14} color={theme.primary} />
-            <Text style={[styles.linkText, { color: theme.primary }]}>Privacy & Data Protection Policy</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <Text style={[styles.footerNote, { color: theme.textMuted }]}>
-        Urbanico On-Demand Construction Supply Platform • Production Ready
-      </Text>
     </ScrollView>
   );
 };

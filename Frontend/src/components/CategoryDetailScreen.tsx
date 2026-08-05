@@ -7,7 +7,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import { Heart, ShoppingCart, LayoutList, Grid2X2 } from 'lucide-react-native';
+import { Heart, ShoppingCart, LayoutList, Grid2X2, ChevronRight } from 'lucide-react-native';
 import { CATEGORIES, SERVICES, MATERIAL_ITEMS } from '../data/materialsData';
 import { CategoryId, MaterialItem } from '../types';
 import { useTheme } from '../context/ThemeContext';
@@ -21,6 +21,8 @@ interface CategoryDetailScreenProps {
   searchQuery: string;
   favoriteIds?: string[];
   onToggleFavorite?: (id: string) => void;
+  viewMode?: 'list' | 'grid';
+  onViewModeChange?: (mode: 'list' | 'grid') => void;
 }
 
 export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
@@ -30,11 +32,18 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
   searchQuery,
   favoriteIds = [],
   onToggleFavorite,
+  viewMode: externalViewMode = 'grid',
+  onViewModeChange,
 }) => {
   const { theme, typography } = useTheme();
 
-  // Display View Mode Option: Default is single-column 'list', toggleable to two-column 'grid'
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  // Display View Mode Option: Global setting defaulting to two-column 'grid'
+  const [internalViewMode, setInternalViewMode] = useState<'list' | 'grid'>('grid');
+  const viewMode = onViewModeChange ? externalViewMode : internalViewMode;
+  const setViewMode = (mode: 'list' | 'grid') => {
+    if (onViewModeChange) onViewModeChange(mode);
+    else setInternalViewMode(mode);
+  };
 
   // Determine whether current context is Services mode or Materials mode
   const isServicesMode =
@@ -142,104 +151,263 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
         )}
       </ScrollView>
 
-      {/* 1. Materials Catalog Grid (categoryId === 'all') */}
+      {/* 1. Materials Catalog (categoryId === 'all') */}
       {categoryId === 'all' && (
-        <View style={styles.gridContainer}>
-          <View style={styles.gridRow}>
-            {filteredCategories.map((cat) => (
-              <TouchableOpacity
-                key={cat.id}
-                onPress={() => onSelectCategoryTab(cat.id)}
-                activeOpacity={0.8}
-                style={[styles.gridCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
-              >
-                <View style={styles.cardImageWrapper}>
-                  <Image
-                    source={{ uri: cat.image }}
-                    style={styles.cardImage}
-                    resizeMode="contain"
-                  />
-                </View>
-                <View style={styles.cardTextWrapper}>
-                  <Text style={[styles.catName, { color: theme.textPrimary }]} numberOfLines={1}>
-                    {cat.name}
-                  </Text>
-                  {cat.priceLabel && (
-                    <Text style={[styles.priceLabel, { color: theme.primaryDark }]} numberOfLines={1}>
-                      {cat.priceLabel}
-                    </Text>
-                  )}
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-      )}
-
-      {/* 2. Services Catalog Grid (categoryId === 'services-catalog') */}
-      {categoryId === 'services-catalog' && (
-        <View style={styles.gridContainer}>
-          <View style={styles.gridRow}>
-            {filteredServices.map((srv) => {
-              const matchingItem = MATERIAL_ITEMS.find((m) => m.id === `service-${srv.id}`);
-              return (
-                <TouchableOpacity
-                  key={srv.id}
-                  onPress={() => {
-                    if (matchingItem) {
-                      onSelectItem(matchingItem);
-                    } else {
-                      onSelectCategoryTab(srv.id as any);
-                    }
-                  }}
-                  activeOpacity={0.8}
-                  style={[styles.gridCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                >
-                  <View style={styles.cardImageWrapper}>
-                    <Image
-                      source={{ uri: srv.image }}
-                      style={styles.cardImage}
-                      resizeMode="contain"
-                    />
-                  </View>
-                  <View style={styles.cardTextWrapper}>
-                    <Text style={[styles.catName, { color: theme.textPrimary }]} numberOfLines={1}>
-                      {srv.name}
-                    </Text>
-                    <Text style={[styles.priceLabel, { color: theme.primaryDark }]} numberOfLines={1}>
-                      {srv.rate}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-      )}
-
-      {/* 3. Subcategory Detailed Item List with Clean Top Category Banner */}
-      {!isCatalogMode && (
         <View style={styles.itemsSectionContainer}>
-          {/* Subcategory Main Banner Card */}
-          {activeCategoryObj && (
-            <View style={[styles.categoryHeaderBanner, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <View style={styles.categoryHeaderImageWrapper}>
-                <Image
-                  source={{ uri: activeCategoryObj.image }}
-                  style={styles.categoryHeaderImage}
-                  resizeMode="contain"
-                />
-              </View>
-              <View style={styles.categoryHeaderTextGroup}>
-                <Text style={[styles.categoryHeaderTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-                  {activeCategoryObj.name}
+          {/* Display View Toggle Header Bar */}
+          <View style={styles.viewToggleHeaderBar}>
+            <View>
+              <Text style={[styles.sectionTitleText, { color: theme.textPrimary }]}>
+                {filteredCategories.length} Material Categories
+              </Text>
+              <Text style={[styles.sectionSubtitleText, { color: theme.textMuted }]}>
+                Select category to explore subcategories & items
+              </Text>
+            </View>
+
+            {/* Display View Toggle Controls (1-Column List vs 2-Column Grid) */}
+            <View style={[styles.togglePillContainer, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+              <TouchableOpacity
+                onPress={() => setViewMode('list')}
+                activeOpacity={0.7}
+                style={[
+                  styles.toggleBtn,
+                  viewMode === 'list' && { backgroundColor: theme.surface, borderColor: theme.border },
+                ]}
+              >
+                <LayoutList size={15} color={viewMode === 'list' ? theme.primary : theme.textMuted} />
+                <Text style={[styles.toggleBtnText, { color: viewMode === 'list' ? theme.primary : theme.textMuted }]}>
+                  List
                 </Text>
-                <Text style={[styles.categoryHeaderSub, { color: theme.textSecondary }]}>
-                  {activeCategoryObj.count} • {activeCategoryObj.priceLabel}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setViewMode('grid')}
+                activeOpacity={0.7}
+                style={[
+                  styles.toggleBtn,
+                  viewMode === 'grid' && { backgroundColor: theme.surface, borderColor: theme.border },
+                ]}
+              >
+                <Grid2X2 size={15} color={viewMode === 'grid' ? theme.primary : theme.textMuted} />
+                <Text style={[styles.toggleBtnText, { color: viewMode === 'grid' ? theme.primary : theme.textMuted }]}>
+                  Grid (2x)
                 </Text>
-              </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Materials List / Grid Layout */}
+          {filteredCategories.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={[styles.emptyText, { color: theme.textMuted }]}>No categories found matching your search.</Text>
+            </View>
+          ) : viewMode === 'grid' ? (
+            /* 2-Column Grid View Layout (Identical to Subcategories Grid View) */
+            <View style={styles.twoColumnGridRow}>
+              {filteredCategories.map((cat) => {
+                const priceVal = parseInt(cat.priceLabel?.replace(/[^0-9]/g, '') || '0', 10);
+                const catItem: MaterialItem = {
+                  id: `cat-${cat.id}`,
+                  categoryId: cat.id as any,
+                  name: cat.name,
+                  image: cat.image,
+                  actionType: 'add_to_cart',
+                  options: [],
+                  defaultPrice: priceVal,
+                  subtitle: `${cat.count} • ${cat.priceLabel}`,
+                };
+                return (
+                  <ProductCard
+                    key={cat.id}
+                    item={catItem}
+                    viewMode="grid"
+                    onPress={() => onSelectCategoryTab(cat.id)}
+                    onAddToCartPress={() => onSelectCategoryTab(cat.id)}
+                    isFavorite={favoriteIds.includes(catItem.id)}
+                    onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(catItem.id) : undefined}
+                  />
+                );
+              })}
+            </View>
+          ) : (
+            /* 1-Column Single List View Layout (Identical to Subcategories List View) */
+            <View style={styles.oneColumnListContainer}>
+              {filteredCategories.map((cat) => {
+                const priceVal = parseInt(cat.priceLabel?.replace(/[^0-9]/g, '') || '0', 10);
+                const catItem: MaterialItem = {
+                  id: `cat-${cat.id}`,
+                  categoryId: cat.id as any,
+                  name: cat.name,
+                  image: cat.image,
+                  actionType: 'add_to_cart',
+                  options: [],
+                  defaultPrice: priceVal,
+                  subtitle: `${cat.count} • ${cat.priceLabel}`,
+                };
+                return (
+                  <ProductCard
+                    key={cat.id}
+                    item={catItem}
+                    viewMode="list"
+                    onPress={() => onSelectCategoryTab(cat.id)}
+                    onAddToCartPress={() => onSelectCategoryTab(cat.id)}
+                    isFavorite={favoriteIds.includes(catItem.id)}
+                    onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(catItem.id) : undefined}
+                  />
+                );
+              })}
             </View>
           )}
+        </View>
+      )}
+
+      {/* 2. Services Catalog (categoryId === 'services-catalog') */}
+      {categoryId === 'services-catalog' && (
+        <View style={styles.itemsSectionContainer}>
+          {/* Display View Toggle Header Bar */}
+          <View style={styles.viewToggleHeaderBar}>
+            <View>
+              <Text style={[styles.sectionTitleText, { color: theme.textPrimary }]}>
+                {filteredServices.length} Skilled Services
+              </Text>
+              <Text style={[styles.sectionSubtitleText, { color: theme.textMuted }]}>
+                Select service to view details & book
+              </Text>
+            </View>
+
+            {/* Display View Toggle Controls (1-Column List vs 2-Column Grid) */}
+            <View style={[styles.togglePillContainer, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+              <TouchableOpacity
+                onPress={() => setViewMode('list')}
+                activeOpacity={0.7}
+                style={[
+                  styles.toggleBtn,
+                  viewMode === 'list' && { backgroundColor: theme.surface, borderColor: theme.border },
+                ]}
+              >
+                <LayoutList size={15} color={viewMode === 'list' ? theme.primary : theme.textMuted} />
+                <Text style={[styles.toggleBtnText, { color: viewMode === 'list' ? theme.primary : theme.textMuted }]}>
+                  List
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => setViewMode('grid')}
+                activeOpacity={0.7}
+                style={[
+                  styles.toggleBtn,
+                  viewMode === 'grid' && { backgroundColor: theme.surface, borderColor: theme.border },
+                ]}
+              >
+                <Grid2X2 size={15} color={viewMode === 'grid' ? theme.primary : theme.textMuted} />
+                <Text style={[styles.toggleBtnText, { color: viewMode === 'grid' ? theme.primary : theme.textMuted }]}>
+                  Grid (2x)
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Services List / Grid Layout */}
+          {filteredServices.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={[styles.emptyText, { color: theme.textMuted }]}>No services found matching your search.</Text>
+            </View>
+          ) : viewMode === 'grid' ? (
+            /* 2-Column Grid View Layout (2 services per row) */
+            <View style={styles.twoColumnGridRow}>
+              {filteredServices.map((srv) => {
+                const matchingItem = MATERIAL_ITEMS.find((m) => m.id === `service-${srv.id}`);
+                if (matchingItem) {
+                  return (
+                    <ProductCard
+                      key={srv.id}
+                      item={matchingItem}
+                      viewMode="grid"
+                      onPress={() => onSelectItem(matchingItem)}
+                      onAddToCartPress={() => onSelectItem(matchingItem)}
+                      isFavorite={favoriteIds.includes(matchingItem.id)}
+                      onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(matchingItem.id) : undefined}
+                    />
+                  );
+                }
+                return (
+                  <TouchableOpacity
+                    key={srv.id}
+                    onPress={() => onSelectCategoryTab(srv.id as any)}
+                    activeOpacity={0.8}
+                    style={[styles.gridCard, { backgroundColor: theme.surface, borderColor: theme.border, width: '48%' }]}
+                  >
+                    <View style={styles.cardImageWrapper}>
+                      <Image
+                        source={{ uri: srv.image }}
+                        style={styles.cardImage}
+                        resizeMode="contain"
+                      />
+                    </View>
+                    <View style={styles.cardTextWrapper}>
+                      <Text style={[styles.catName, { color: theme.textPrimary }]} numberOfLines={1}>
+                        {srv.name}
+                      </Text>
+                      <Text style={[styles.priceLabel, { color: theme.primaryDark }]} numberOfLines={1}>
+                        {srv.rate}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ) : (
+            /* 1-Column Single List View Layout (List View - Default) */
+            <View style={styles.oneColumnListContainer}>
+              {filteredServices.map((srv) => {
+                const matchingItem = MATERIAL_ITEMS.find((m) => m.id === `service-${srv.id}`);
+                if (matchingItem) {
+                  return (
+                    <ProductCard
+                      key={srv.id}
+                      item={matchingItem}
+                      viewMode="list"
+                      onPress={() => onSelectItem(matchingItem)}
+                      onAddToCartPress={() => onSelectItem(matchingItem)}
+                      isFavorite={favoriteIds.includes(matchingItem.id)}
+                      onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(matchingItem.id) : undefined}
+                    />
+                  );
+                }
+                return (
+                  <TouchableOpacity
+                    key={srv.id}
+                    onPress={() => onSelectCategoryTab(srv.id as any)}
+                    activeOpacity={0.8}
+                    style={[styles.gridCard, { backgroundColor: theme.surface, borderColor: theme.border, width: '100%' }]}
+                  >
+                    <View style={styles.cardImageWrapper}>
+                      <Image
+                        source={{ uri: srv.image }}
+                        style={styles.cardImage}
+                        resizeMode="contain"
+                      />
+                    </View>
+                    <View style={styles.cardTextWrapper}>
+                      <Text style={[styles.catName, { color: theme.textPrimary }]} numberOfLines={1}>
+                        {srv.name}
+                      </Text>
+                      <Text style={[styles.priceLabel, { color: theme.primaryDark }]} numberOfLines={1}>
+                        {srv.rate}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* 3. Subcategory Detailed Item List */}
+      {!isCatalogMode && (
+        <View style={styles.itemsSectionContainer}>
 
           {/* View Mode Toggle Header Bar */}
           <View style={styles.viewToggleHeaderBar}>
@@ -483,5 +651,45 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
+  },
+  categoryListCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 12,
+  },
+  categoryListImageWrapper: {
+    width: 60,
+    height: 60,
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  categoryListImage: {
+    width: '100%',
+    height: '100%',
+  },
+  categoryListContent: {
+    flex: 1,
+  },
+  categoryListTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  categoryListSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 3,
+  },
+  categoryListArrowBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

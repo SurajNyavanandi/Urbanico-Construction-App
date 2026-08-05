@@ -14,43 +14,43 @@ export const CATEGORIES: MaterialCategory[] = [
   {
     id: 'sand',
     name: 'Sand',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_igslv1igslv1igsl_fjq7jv.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785910631/Gemini_Generated_Image_35x5yw35x5yw35x5_ufgnk0.png',
     count: '4 Varieties',
     priceLabel: '₹70 / Bag',
-    highlighted: true,
+    highlighted: false,
   },
   {
     id: 'bricks',
     name: 'Bricks',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477606/Gemini_Generated_Image_x2sw7qx2sw7qx2sw_imynha.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785910637/Gemini_Generated_Image_352f9p352f9p352f_czjzkh.png',
     count: '5 Types',
     priceLabel: '₹6.5 / Brick',
   },
   {
     id: 'cement',
     name: 'Cement',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_3894293894293894_nqgrsm.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785910639/Gemini_Generated_Image_fbqfm7fbqfm7fbqf_lp4ere.png',
     count: '7 Top Brands',
     priceLabel: '₹380 / Bag',
   },
   {
     id: 'stone',
     name: 'Stone',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477604/Gemini_Generated_Image_tib95itib95itib9_ompkp6.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785910629/Gemini_Generated_Image_uj3xinuj3xinuj3x_iocbzu.png',
     count: '5 Sizes',
     priceLabel: '₹70 / Bag',
   },
   {
     id: 'iron_bars',
     name: 'Iron bars',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477606/Gemini_Generated_Image_wno3ykwno3ykwno3_x6gemi.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785910639/Gemini_Generated_Image_isea2xisea2xisea_re8vgk.png',
     count: '5 Rebar Grades',
     priceLabel: '₹380 / Bundle',
   },
   {
     id: 'centring',
     name: 'Centring',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_aqgxocaqgxocaqgx_mzsmtr.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785910638/Gemini_Generated_Image_56foom56foom56fo_npavvl.png',
     count: '5 Formwork Types',
     priceLabel: '₹50 / Plank',
   },
@@ -59,7 +59,7 @@ export const CATEGORIES: MaterialCategory[] = [
 export const SERVICES_CATEGORY: MaterialCategory = {
   id: 'services',
   name: 'Services',
-  image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477608/Gemini_Generated_Image_64izew64izew64iz_bqarn7.jpg',
+  image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785910629/Gemini_Generated_Image_veerhvveerhvveer_q6ncnt.png',
   count: '6 Skilled Trades',
   priceLabel: 'From ₹750/Day',
 };
@@ -74,7 +74,7 @@ export const SERVICES: ServiceItem[] = [
     id: 'mason',
     name: 'Mason',
     subtitle: 'Tile & Brickwork',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477608/Gemini_Generated_Image_64izew64izew64iz_bqarn7.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785910629/Gemini_Generated_Image_veerhvveerhvveer_q6ncnt.png',
     rate: '₹850 / Day',
     description: 'Experienced Masons for bricklaying, plastering, stone masonry, tile fitting & concrete slab laying.',
   },
@@ -82,7 +82,7 @@ export const SERVICES: ServiceItem[] = [
     id: 'fabricator',
     name: 'Fabricator',
     subtitle: 'Steel & Welding',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477606/Gemini_Generated_Image_5qun4n5qun4n5qun_1_zkqmhm.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785910638/Gemini_Generated_Image_exa6yzexa6yzexa6_jze3po.png',
     rate: '₹950 / Day',
     description: 'Certified Steel Fabricators for gates, window grills, roof trusses & heavy structural welding work.',
   },
@@ -90,7 +90,7 @@ export const SERVICES: ServiceItem[] = [
     id: 'painter',
     name: 'Painter',
     subtitle: 'Wall Painting',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477603/Gemini_Generated_Image_pcsudmpcsudmpcsu_fc55e2.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785910638/Gemini_Generated_Image_rky6bzrky6bzrky6_bhkjdz.png',
     rate: '₹750 / Day',
     description: 'Professional Wall Painters for interior wall putty, primer coat, exterior weather-shield & texture finish.',
   },
@@ -98,7 +98,7 @@ export const SERVICES: ServiceItem[] = [
     id: 'electrician',
     name: 'Electrician',
     subtitle: 'Wiring & Panels',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477607/Gemini_Generated_Image_45kl7345kl7345kl_ianbv0.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785910630/Gemini_Generated_Image_3k7j8u3k7j8u3k7j_ugooiq.png',
     rate: '₹800 / Day',
     description: 'Licensed Electricians for wall conduit wiring, distribution boards, lighting fixtures & earthing.',
   },
@@ -106,7 +106,7 @@ export const SERVICES: ServiceItem[] = [
     id: 'plumber',
     name: 'Plumber',
     subtitle: 'Piping & Sanitary',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_igtvligtvligtvli_p3j3vt.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785910630/Gemini_Generated_Image_uok1q8uok1q8uok1_qcfjqo.png',
     rate: '₹800 / Day',
     description: 'Experienced Plumbers for CPVC/PVC concealed piping, overhead tanks, bathroom fittings & drainage.',
   },
@@ -114,7 +114,7 @@ export const SERVICES: ServiceItem[] = [
     id: 'carpenter',
     name: 'Carpenter',
     subtitle: 'Woodwork & Doors',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_k3dpg1k3dpg1k3dp_1_didemf.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785910629/Gemini_Generated_Image_2foj6x2foj6x2foj_xfsjoe.png',
     rate: '₹900 / Day',
     description: 'Skilled Carpenters for door frames, window shuttering, modular kitchens & custom wood fittings.',
   },
@@ -241,7 +241,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'sand',
     name: 'Plastering Sand',
     subtitle: '0.15mm–2.36mm',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_igslv1igslv1igsl_fjq7jv.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931576/Plastering_Sand_mvhxto.png',
     actionType: 'add_to_cart',
     defaultPrice: 70,
     options: [
@@ -258,7 +258,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'sand',
     name: 'Regular Sand',
     subtitle: 'Concrete & Masonry',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_igslv1igslv1igsl_fjq7jv.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931585/Regular_Sand_ajv0wc.png',
     actionType: 'add_to_cart',
     defaultPrice: 65,
     options: [
@@ -273,7 +273,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'sand',
     name: 'Gray Sand',
     subtitle: 'Washed River Sand',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_igslv1igslv1igsl_fjq7jv.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931576/Plastering_Sand_mvhxto.png',
     actionType: 'add_to_cart',
     defaultPrice: 68,
     options: [
@@ -288,7 +288,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'sand',
     name: 'Filling Sand',
     subtitle: 'Foundation & Pit Filling',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_igslv1igslv1igsl_fjq7jv.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931567/Filling_Sand_m2xt47.png',
     actionType: 'add_to_cart',
     defaultPrice: 55,
     options: [
@@ -303,7 +303,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'bricks',
     name: 'Red Clay Bricks',
     subtitle: 'Kiln-Fired 1st Class',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477606/Gemini_Generated_Image_x2sw7qx2sw7qx2sw_imynha.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931567/Red_Bricks_paggbp.png',
     actionType: 'add_to_cart',
     defaultPrice: 9,
     options: [
@@ -317,7 +317,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'bricks',
     name: 'Fly Ash Bricks',
     subtitle: 'Thermal Cement Bricks',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477606/Gemini_Generated_Image_x2sw7qx2sw7qx2sw_imynha.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931579/Fly_Ash_Bricks_mxjawi.png',
     actionType: 'add_to_cart',
     defaultPrice: 6.5,
     options: [
@@ -331,7 +331,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'bricks',
     name: 'AAC Blocks',
     subtitle: '6 inch Lightweight',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477606/Gemini_Generated_Image_x2sw7qx2sw7qx2sw_imynha.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931560/ACC_Blocks_skzqyb.png',
     actionType: 'add_to_cart',
     defaultPrice: 62,
     options: [
@@ -344,7 +344,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'bricks',
     name: 'Concrete Blocks',
     subtitle: 'Solid Heavy Duty',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477606/Gemini_Generated_Image_x2sw7qx2sw7qx2sw_imynha.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931577/Concrete_Blocks_ywqgc3.png',
     actionType: 'add_to_cart',
     defaultPrice: 42,
     options: [
@@ -357,7 +357,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'bricks',
     name: 'Hollow Blocks',
     subtitle: 'Partition Wall',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477606/Gemini_Generated_Image_x2sw7qx2sw7qx2sw_imynha.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931578/Hollow_Blocks_gwaxjs.png',
     actionType: 'add_to_cart',
     defaultPrice: 38,
     options: [
@@ -372,7 +372,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'stone',
     name: 'Stone 10mm',
     subtitle: 'Blue Metal Aggregate',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477604/Gemini_Generated_Image_tib95itib95itib9_ompkp6.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931576/Stone_10mm_kvfjbe.png',
     actionType: 'add_to_cart',
     defaultPrice: 70,
     options: [
@@ -389,7 +389,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'stone',
     name: 'Stone 20mm',
     subtitle: 'RCC Aggregate',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477604/Gemini_Generated_Image_tib95itib95itib9_ompkp6.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931575/Stone_20mm_qvbriu.png',
     actionType: 'add_to_cart',
     defaultPrice: 70,
     options: [
@@ -406,7 +406,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'stone',
     name: 'Stone 40mm',
     subtitle: 'Foundation Aggregate',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477604/Gemini_Generated_Image_tib95itib95itib9_ompkp6.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931569/Stone_40mm_gze9gj.png',
     actionType: 'add_to_cart',
     defaultPrice: 65,
     options: [
@@ -420,7 +420,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'stone',
     name: 'Stone 60mm',
     subtitle: 'Heavy Boulders',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477604/Gemini_Generated_Image_tib95itib95itib9_ompkp6.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931552/Stone_60mm_s9ln4i.png',
     actionType: 'add_to_cart',
     defaultPrice: 65,
     options: [
@@ -433,7 +433,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'stone',
     name: 'Stone Dust',
     subtitle: 'Granite Powder',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477604/Gemini_Generated_Image_tib95itib95itib9_ompkp6.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931559/Stone_Dust_m6tuvj.png',
     actionType: 'add_to_cart',
     defaultPrice: 50,
     options: [
@@ -449,7 +449,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'iron_bars',
     name: 'Iron Bar 8mm',
     subtitle: 'TMT Steel Rebar',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477606/Gemini_Generated_Image_wno3ykwno3ykwno3_x6gemi.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931568/Iron_bar_wz80t5.png',
     actionType: 'add_to_cart',
     defaultPrice: 380,
     options: [
@@ -462,7 +462,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'iron_bars',
     name: 'Iron Bar 10mm',
     subtitle: 'TMT Steel Rebar',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477606/Gemini_Generated_Image_wno3ykwno3ykwno3_x6gemi.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931568/Iron_bar_wz80t5.png',
     actionType: 'add_to_cart',
     defaultPrice: 480,
     options: [
@@ -475,7 +475,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'iron_bars',
     name: 'Iron Bar 12mm',
     subtitle: 'TMT Steel Rebar',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477606/Gemini_Generated_Image_wno3ykwno3ykwno3_x6gemi.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931568/Iron_bar_wz80t5.png',
     actionType: 'add_to_cart',
     defaultPrice: 560,
     options: [
@@ -488,7 +488,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'iron_bars',
     name: 'Iron Bar 16mm',
     subtitle: 'TMT Steel Rebar',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477606/Gemini_Generated_Image_wno3ykwno3ykwno3_x6gemi.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931568/Iron_bar_wz80t5.png',
     actionType: 'add_to_cart',
     defaultPrice: 980,
     options: [
@@ -501,7 +501,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'iron_bars',
     name: 'Binding Wire',
     subtitle: '18 Gauge Wire & Stirrup Rings',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477606/Gemini_Generated_Image_wno3ykwno3ykwno3_x6gemi.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931566/Binding_wire_mtr9s7.png',
     actionType: 'add_to_cart',
     defaultPrice: 95,
     options: [
@@ -516,7 +516,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'centring',
     name: 'Wooden Planks',
     subtitle: 'Bamboo Centring Boards',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_aqgxocaqgxocaqgx_mzsmtr.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931561/Wooden_Planks_o94gt5.png',
     actionType: 'add_to_cart',
     defaultPrice: 50,
     options: [
@@ -533,7 +533,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'centring',
     name: 'Centring Plywood',
     subtitle: '12mm / 18mm Marine Ply',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_aqgxocaqgxocaqgx_mzsmtr.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931558/Centering_Plywood_zoikgt.png',
     actionType: 'add_to_cart',
     defaultPrice: 1250,
     options: [
@@ -546,7 +546,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'centring',
     name: 'Support Poles',
     subtitle: 'Wooden Props (8ft–15ft)',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_aqgxocaqgxocaqgx_mzsmtr.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931559/Support_Poles_btq0sm.png',
     actionType: 'add_to_cart',
     defaultPrice: 60,
     options: [
@@ -560,7 +560,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'centring',
     name: 'Steel Scaffolding',
     subtitle: 'Modular Frame Set',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_aqgxocaqgxocaqgx_mzsmtr.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931559/Steel_Scaffolding_lsxa8k.png',
     actionType: 'get_quote',
     options: [
       { id: 'scaf-set', label: 'Standard Modular Frame Set (2 H-Frames + Cross Brace)', price: 2800, type: 'stepper' },
@@ -571,7 +571,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'centring',
     name: 'Steel Props',
     subtitle: 'Adjustable Jack Poles',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_aqgxocaqgxocaqgx_mzsmtr.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931568/Steel_Props_de7tta.png',
     actionType: 'add_to_cart',
     defaultPrice: 680,
     options: [
@@ -584,7 +584,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'services',
     name: 'Mason',
     subtitle: 'Tile & Brickwork',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477608/Gemini_Generated_Image_64izew64izew64iz_bqarn7.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785910629/Gemini_Generated_Image_veerhvveerhvveer_q6ncnt.png',
     actionType: 'add_to_cart',
     defaultPrice: 850,
     options: [
@@ -598,7 +598,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'services',
     name: 'Fabricator',
     subtitle: 'Steel & Welding',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477606/Gemini_Generated_Image_5qun4n5qun4n5qun_1_zkqmhm.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785910638/Gemini_Generated_Image_exa6yzexa6yzexa6_jze3po.png',
     actionType: 'add_to_cart',
     defaultPrice: 950,
     options: [
@@ -611,7 +611,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'services',
     name: 'Painter',
     subtitle: 'Wall Painting',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477603/Gemini_Generated_Image_pcsudmpcsudmpcsu_fc55e2.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785910638/Gemini_Generated_Image_rky6bzrky6bzrky6_bhkjdz.png',
     actionType: 'add_to_cart',
     defaultPrice: 750,
     options: [
@@ -624,7 +624,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'services',
     name: 'Electrician',
     subtitle: 'Wiring & Panels',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477607/Gemini_Generated_Image_45kl7345kl7345kl_ianbv0.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785910630/Gemini_Generated_Image_3k7j8u3k7j8u3k7j_ugooiq.png',
     actionType: 'add_to_cart',
     defaultPrice: 800,
     options: [
@@ -637,7 +637,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'services',
     name: 'Plumber',
     subtitle: 'Piping & Sanitary',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_igtvligtvligtvli_p3j3vt.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785910630/Gemini_Generated_Image_uok1q8uok1q8uok1_qcfjqo.png',
     actionType: 'add_to_cart',
     defaultPrice: 800,
     options: [
@@ -650,7 +650,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     categoryId: 'services',
     name: 'Carpenter',
     subtitle: 'Woodwork & Doors',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_k3dpg1k3dpg1k3dp_1_didemf.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785910629/Gemini_Generated_Image_2foj6x2foj6x2foj_xfsjoe.png',
     actionType: 'add_to_cart',
     defaultPrice: 900,
     options: [

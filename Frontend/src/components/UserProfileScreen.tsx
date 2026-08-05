@@ -52,7 +52,10 @@ interface UserProfileScreenProps {
   onLogout: () => void;
   deliveries?: ActivityDelivery[];
   onViewInvoice?: (delivery: ActivityDelivery) => void;
+  initialOpenAddressesModal?: boolean;
 }
+
+const DEFAULT_AVATAR_FALLBACK = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400';
 
 const AVATAR_PRESETS = [
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400',
@@ -71,6 +74,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   onLogout,
   deliveries = INITIAL_DELIVERIES,
   onViewInvoice,
+  initialOpenAddressesModal = false,
 }) => {
   const { theme, typography } = useTheme();
   const {
@@ -84,7 +88,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
   // Modals
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isAddressesModalOpen, setIsAddressesModalOpen] = useState(false);
+  const [isAddressesModalOpen, setIsAddressesModalOpen] = useState(initialOpenAddressesModal);
   const [isPaymentsModalOpen, setIsPaymentsModalOpen] = useState(false);
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
 
@@ -188,7 +192,10 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           <View style={styles.avatarRow}>
             {/* Profile Picture (DP) */}
             <View style={styles.avatarWrapper}>
-              <Image source={{ uri: user.avatarUrl }} style={styles.avatarImage} />
+              <Image
+                source={{ uri: user.avatarUrl && user.avatarUrl.trim().length > 0 ? user.avatarUrl : DEFAULT_AVATAR_FALLBACK }}
+                style={styles.avatarImage}
+              />
             </View>
 
             <View style={styles.profileTitleBlock}>
@@ -197,11 +204,10 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 <Text style={[styles.userNameText, { color: theme.textPrimary }]} numberOfLines={1}>
                   {isLoggedIn ? user.name : 'Guest User'}
                 </Text>
-                {/* Verified Badge (displayed only after verification e.g. email/mobile) */}
+                {/* Verified Badge Symbol Only */}
                 {user.isVerified && isLoggedIn && (
                   <View style={styles.verifiedBadgeContainer} title="Verified Account">
-                    <ShieldCheck size={16} color="#059669" fill="#D1FAE5" />
-                    <Text style={styles.verifiedBadgeText}>Verified</Text>
+                    <ShieldCheck size={18} color="#059669" fill="#D1FAE5" />
                   </View>
                 )}
               </View>

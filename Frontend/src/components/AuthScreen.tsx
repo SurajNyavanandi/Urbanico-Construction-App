@@ -88,17 +88,14 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     }
   };
 
+  const [isPhoneFocused, setIsPhoneFocused] = useState(false);
+
   const verifyOtpCode = (code: string) => {
-    if (code === '123456' || code.length === 6) {
-      setIsSuccess(true);
-      setErrorMessage(null);
-      setTimeout(() => {
-        onSuccessAuth(`+91 ${phoneNumber}`);
-      }, 800);
-    } else {
-      setErrorMessage('Invalid OTP. Please enter 6-digit OTP code');
-      setIsSuccess(false);
-    }
+    setIsSuccess(true);
+    setErrorMessage(null);
+    setTimeout(() => {
+      onSuccessAuth(`+91 ${phoneNumber}`);
+    }, 500);
   };
 
   return (
@@ -109,18 +106,19 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     >
       {/* Top Fixed Header Bar */}
       <View style={styles.topHeaderBar}>
-        <TouchableOpacity
-          onPress={() => {
-            if (step === 'otp') setStep('mobile');
-            else onBack();
-          }}
-          style={[styles.backBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
-          activeOpacity={0.7}
-        >
-          <ArrowLeft size={18} color={theme.textPrimary} strokeWidth={2.5} />
-        </TouchableOpacity>
+        {step === 'otp' ? (
+          <TouchableOpacity
+            onPress={() => setStep('mobile')}
+            style={[styles.backBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
+            activeOpacity={0.7}
+          >
+            <ArrowLeft size={18} color={theme.textPrimary} strokeWidth={2.5} />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 36 }} />
+        )}
         <Text style={[styles.headerNavTitle, { color: theme.textSecondary }]}>
-          {step === 'mobile' ? 'Sign In / Register' : 'OTP Verification'}
+          {step === 'otp' ? 'OTP Verification' : ''}
         </Text>
         <View style={{ width: 36 }} />
       </View>
@@ -138,11 +136,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           <Text style={[styles.brandTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
             {step === 'mobile' ? 'Welcome to Urbanico' : 'Verify Mobile OTP'}
           </Text>
-          <Text style={[styles.brandSubTitle, { color: theme.textSecondary }]}>
-            {step === 'mobile'
-              ? 'On-Demand Construction Material & Equipment Supply'
-              : `Enter the 6-digit code sent via SMS to +91 ${phoneNumber}`}
-          </Text>
+          {step === 'mobile' && (
+            <Text style={[styles.brandSubTitle, { color: theme.textSecondary }]}>
+              On-Demand Construction Material & Equipment Supply
+            </Text>
+          )}
         </View>
 
         {/* Step 1: Mobile Input Screen */}
@@ -150,7 +148,15 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           <View style={styles.stepContainer}>
             <View style={styles.inputGroup}>
               <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Mobile Phone Number</Text>
-              <View style={[styles.phoneInputRow, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+              <View
+                style={[
+                  styles.phoneInputRow,
+                  {
+                    borderColor: isPhoneFocused ? theme.primary : theme.border,
+                    backgroundColor: theme.surface,
+                  },
+                ]}
+              >
                 <View style={[styles.countryCodeBadge, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
                   <Text style={[styles.countryCodeText, { color: theme.textPrimary }]}>🇮🇳 +91</Text>
                 </View>
@@ -159,8 +165,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   maxLength={10}
                   value={phoneNumber}
                   onChangeText={(val) => setPhoneNumber(val.replace(/\D/g, ''))}
+                  onFocus={() => setIsPhoneFocused(true)}
+                  onBlur={() => setIsPhoneFocused(false)}
                   placeholder="98765 43210"
                   placeholderTextColor={theme.textMuted}
+                  selectionColor={theme.primary}
                   style={[styles.phoneInput, { color: theme.textPrimary }]}
                   autoFocus
                 />
@@ -202,6 +211,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   value={digit}
                   onChangeText={(val) => handleOtpChange(index, val)}
                   onKeyPress={({ nativeEvent }) => handleKeyPress(index, nativeEvent.key)}
+                  selectionColor={theme.primary}
                   style={[
                     styles.otpBox,
                     isSuccess
@@ -213,21 +223,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 />
               ))}
             </View>
-
-            {/* Quick Helper for Testing */}
-            <TouchableOpacity
-              onPress={() => {
-                setOtpDigits(['1', '2', '3', '4', '5', '6']);
-                verifyOtpCode('123456');
-              }}
-              activeOpacity={0.7}
-              style={[styles.autofillCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
-            >
-              <Sparkles size={14} color={theme.primary} />
-              <Text style={[styles.autofillText, { color: theme.primary }]}>
-                Tap here to auto-fill demo OTP (123456)
-              </Text>
-            </TouchableOpacity>
 
             {errorMessage && (
               <View style={styles.errorBox}>

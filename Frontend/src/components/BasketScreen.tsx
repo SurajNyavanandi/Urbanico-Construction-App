@@ -35,6 +35,7 @@ interface BasketScreenProps {
   onNavigateScreen: (screen: ScreenType) => void;
   deliveries?: ActivityDelivery[];
   onViewInvoice?: (delivery: ActivityDelivery) => void;
+  onChangeAddressRedirect?: () => void;
 }
 
 export const BasketScreen: React.FC<BasketScreenProps> = ({
@@ -46,6 +47,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   onNavigateScreen,
   deliveries = INITIAL_DELIVERIES,
   onViewInvoice,
+  onChangeAddressRedirect,
 }) => {
   const { theme, typography } = useTheme();
   const { selectedLocation: globalLocation } = useLocation();
@@ -150,7 +152,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                 </Text>
               </View>
             </View>
-            <TouchableOpacity onPress={() => onNavigateScreen('profile')}>
+            <TouchableOpacity onPress={() => (onChangeAddressRedirect ? onChangeAddressRedirect() : onNavigateScreen('profile'))}>
               <Text style={[styles.changeBtnText, { color: theme.primary }]}>Change</Text>
             </TouchableOpacity>
           </View>

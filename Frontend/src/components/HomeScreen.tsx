@@ -30,15 +30,15 @@ interface BannerData {
 const PROMO_BANNERS: BannerData[] = [
   {
     id: 'promo-ad-1',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785842565/Gemini_Generated_Image_4rlspn4rlspn4rls_wbly6k.png',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785842565/Gemini_Generated_Image_4rlspn4rlspn4rls_wbly6k.png',
   },
   {
     id: 'promo-ad-2',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785842566/Gemini_Generated_Image_8xdvjn8xdvjn8xdv_phm0ve.png',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785842566/Gemini_Generated_Image_8xdvjn8xdvjn8xdv_phm0ve.png',
   },
   {
     id: 'promo-ad-3',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785842566/Gemini_Generated_Image_nyb7xqnyb7xqnyb7_rbizwp.png',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785842566/Gemini_Generated_Image_nyb7xqnyb7xqnyb7_rbizwp.png',
   },
 ];
 
@@ -77,12 +77,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     return () => clearInterval(timer);
   }, []);
 
-  // 3 distinct pages for 9 material items (3 cards per view)
-  const MATERIAL_PAGES = [0, 1, 2];
+  // 2 distinct pages for 6 material items (3 cards per view)
+  const MATERIAL_PAGES = [0, 1];
   const handleMaterialsScroll = (e: any) => {
     const contentOffsetX = e?.nativeEvent?.contentOffset?.x || 0;
     const pagePx = 118 * 3;
-    const newPage = Math.min(2, Math.max(0, Math.round(contentOffsetX / pagePx)));
+    const newPage = Math.min(1, Math.max(0, Math.round(contentOffsetX / pagePx)));
     setActiveMaterialPage(newPage);
   };
 
@@ -147,7 +147,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           contentContainerStyle={styles.materialsScrollRow}
         >
           {CATEGORIES.map((cat) => {
-            const isSelected = selectedMaterialId === cat.id;
             return (
               <TouchableOpacity
                 key={cat.id}
@@ -159,8 +158,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 style={[
                   styles.categoryCard,
                   {
-                    borderColor: isSelected ? theme.primary : theme.border,
-                    backgroundColor: isSelected ? theme.surfaceSecondary : theme.surface,
+                    borderColor: theme.border,
+                    backgroundColor: theme.surface,
                   },
                 ]}
               >

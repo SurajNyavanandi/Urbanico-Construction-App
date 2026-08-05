@@ -42,6 +42,8 @@ function MainAppContent() {
   // Navigation & Screen State
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('auth_mobile');
   const [selectedCategoryId, setSelectedCategoryId] = useState<CategoryId | 'all'>('sand');
+  const [globalViewMode, setGlobalViewMode] = useState<'list' | 'grid'>('grid');
+  const [openProfileAddresses, setOpenProfileAddresses] = useState(false);
 
   // Search & Location
   const [searchQuery, setSearchQuery] = useState('');
@@ -305,6 +307,8 @@ function MainAppContent() {
             searchQuery={searchQuery}
             favoriteIds={favoriteIds}
             onToggleFavorite={handleToggleFavorite}
+            viewMode={globalViewMode}
+            onViewModeChange={setGlobalViewMode}
           />
         )}
 
@@ -318,6 +322,10 @@ function MainAppContent() {
             onNavigateScreen={setCurrentScreen}
             deliveries={deliveries}
             onViewInvoice={(del) => setSelectedInvoiceDelivery(del)}
+            onChangeAddressRedirect={() => {
+              setOpenProfileAddresses(true);
+              setCurrentScreen('profile');
+            }}
           />
         )}
 
@@ -334,7 +342,10 @@ function MainAppContent() {
           <UserProfileScreen
             user={user}
             onUpdateUser={handleUpdateUser}
-            onNavigateScreen={setCurrentScreen}
+            onNavigateScreen={(scr) => {
+              setOpenProfileAddresses(false);
+              setCurrentScreen(scr);
+            }}
             isLoggedIn={isLoggedIn}
             onLogout={handleLogout}
             savedLocations={savedLocations}
@@ -344,6 +355,7 @@ function MainAppContent() {
             onSelectLocation={handleSelectLocation}
             deliveries={deliveries}
             onViewInvoice={(del) => setSelectedInvoiceDelivery(del)}
+            initialOpenAddressesModal={openProfileAddresses}
           />
         )}
 

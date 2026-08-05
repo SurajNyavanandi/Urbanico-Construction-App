@@ -58,17 +58,21 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
     if (!item) return;
 
     const isRadio = item.options.some((o) => o.type === 'radio');
+    
+    // Find the option with the lowest price
+    let lowestOpt = item.options[0];
+    if (item.options && item.options.length > 0) {
+      lowestOpt = item.options.reduce((prev, curr) => (curr.price < prev.price ? curr : prev), item.options[0]);
+    }
+
     const initialQtyMap: Record<string, number> = {};
-    item.options.forEach((opt, idx) => {
-      if (opt.id === '12ft-3in') initialQtyMap[opt.id] = 20;
-      else if (opt.id === '20ft-3in') initialQtyMap[opt.id] = 10;
-      else if (opt.id === '20ft-8in') initialQtyMap[opt.id] = 50;
-      else initialQtyMap[opt.id] = idx === 0 && !isRadio ? 1 : 0;
+    item.options.forEach((opt) => {
+      initialQtyMap[opt.id] = (!isRadio && opt.id === lowestOpt?.id) ? 1 : 0;
     });
 
     setOptionQuantities(initialQtyMap);
-    setSelectedRadioOptionId(item.options[3]?.id || item.options[0]?.id || '');
-    setGlobalQuantity(2);
+    setSelectedRadioOptionId(lowestOpt?.id || item.options[0]?.id || '');
+    setGlobalQuantity(1);
     setActiveGalleryIndex(0);
   }, [item]);
 
@@ -205,25 +209,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
 
         {/* Modal Body */}
         <ScrollView style={[styles.modalBody, { backgroundColor: theme.surfaceSecondary }]} contentContainerStyle={styles.bodyContent}>
-          {/* 1. Quality & Verified Badges Row */}
-          <View style={[styles.qualityBadgeRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={styles.badgeItem}>
-              <ShieldCheck size={16} color={theme.primary} />
-              <Text style={[styles.badgeText, { color: theme.textPrimary }]}>IS Certified Quality</Text>
-            </View>
-            <View style={styles.badgeDivider} />
-            <View style={styles.badgeItem}>
-              <Truck size={16} color={theme.primary} />
-              <Text style={[styles.badgeText, { color: theme.textPrimary }]}>Same-Day Site Dispatch</Text>
-            </View>
-            <View style={styles.badgeDivider} />
-            <View style={styles.badgeItem}>
-              <Award size={16} color={theme.primary} />
-              <Text style={[styles.badgeText, { color: theme.textPrimary }]}>Free Weighbridge Slip</Text>
-            </View>
-          </View>
-
-          {/* 3. Customization Options (Swiggy EatFit Dropdown Style) */}
+          {/* Customization Options */}
           <View style={styles.customizationHeaderRow}>
             <View>
               <Text style={[styles.selectLabel, { color: theme.textPrimary }]}>
@@ -233,9 +219,6 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
                 {isRadioType ? 'Select 1 option' : 'Select required units'}
               </Text>
             </View>
-            <TouchableOpacity activeOpacity={0.7}>
-              <Text style={styles.selectAllLink}>Select All</Text>
-            </TouchableOpacity>
           </View>
 
           {isRadioType ? (
