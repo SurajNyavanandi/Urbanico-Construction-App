@@ -13,6 +13,7 @@ import { CategoryId, MaterialItem } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { PillButton } from './common/PillButton';
 import { ProductCard } from './common/ProductCard';
+import { TopNavTab } from './common/TopNavTab';
 
 interface CategoryDetailScreenProps {
   categoryId: CategoryId | 'all';
@@ -109,52 +110,54 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
       {/* Context-Aware Navigation Bar:
           - If browsing Services, displays ONLY 'All Services' + Service Trades.
           - If browsing Materials, displays ONLY 'All Materials' + Material Subcategories. */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.pillsScroll}
-      >
-        {isServicesMode ? (
-          /* ================= SERVICES FLOW NAVIGATION ================= */
-          <>
-            <PillButton
-              label="All Services"
-              isActive={categoryId === 'services-catalog'}
-              onPress={() => onSelectCategoryTab('services-catalog')}
-            />
-            {SERVICES.map((srv) => (
-              <PillButton
-                key={srv.id}
-                label={srv.name}
-                isActive={categoryId === srv.id}
-                onPress={() => onSelectCategoryTab(srv.id as any)}
+      <View style={[styles.navBarWrapper, { borderBottomColor: theme.borderLight }]}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.pillsScroll}
+        >
+          {isServicesMode ? (
+            /* ================= SERVICES FLOW NAVIGATION ================= */
+            <>
+              <TopNavTab
+                label="All Services"
+                isActive={categoryId === 'services-catalog' || categoryId === 'services'}
+                onPress={() => onSelectCategoryTab('services-catalog')}
               />
-            ))}
-          </>
-        ) : (
-          /* ================= MATERIALS FLOW NAVIGATION ================= */
-          <>
-            <PillButton
-              label="All Materials"
-              isActive={categoryId === 'all'}
-              onPress={() => onSelectCategoryTab('all')}
-            />
-            {CATEGORIES.map((cat) => (
-              <PillButton
-                key={cat.id}
-                label={cat.name}
-                isActive={categoryId === cat.id}
-                onPress={() => onSelectCategoryTab(cat.id)}
+              {SERVICES.map((srv) => (
+                <TopNavTab
+                  key={srv.id}
+                  label={srv.name}
+                  isActive={categoryId === srv.id}
+                  onPress={() => onSelectCategoryTab(srv.id as any)}
+                />
+              ))}
+            </>
+          ) : (
+            /* ================= MATERIALS FLOW NAVIGATION ================= */
+            <>
+              <TopNavTab
+                label="All Materials"
+                isActive={categoryId === 'all'}
+                onPress={() => onSelectCategoryTab('all')}
               />
-            ))}
-          </>
-        )}
-      </ScrollView>
+              {CATEGORIES.map((cat) => (
+                <TopNavTab
+                  key={cat.id}
+                  label={cat.name}
+                  isActive={categoryId === cat.id}
+                  onPress={() => onSelectCategoryTab(cat.id)}
+                />
+              ))}
+            </>
+          )}
+        </ScrollView>
+      </View>
 
       {/* 1. Materials Catalog (categoryId === 'all') */}
       {categoryId === 'all' && (
         <View style={styles.itemsSectionContainer}>
-          {/* Display View Toggle Header Bar */}
+          {/* Display Header Bar */}
           <View style={styles.viewToggleHeaderBar}>
             <View>
               <Text style={[styles.sectionTitleText, { color: theme.textPrimary }]}>
@@ -164,37 +167,6 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                 Select category to explore subcategories & items
               </Text>
             </View>
-
-            {/* Display View Toggle Controls (1-Column List vs 2-Column Grid) */}
-            <View style={[styles.togglePillContainer, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-              <TouchableOpacity
-                onPress={() => setViewMode('list')}
-                activeOpacity={0.7}
-                style={[
-                  styles.toggleBtn,
-                  viewMode === 'list' && { backgroundColor: theme.surface, borderColor: theme.border },
-                ]}
-              >
-                <LayoutList size={15} color={viewMode === 'list' ? theme.primary : theme.textMuted} />
-                <Text style={[styles.toggleBtnText, { color: viewMode === 'list' ? theme.primary : theme.textMuted }]}>
-                  List
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => setViewMode('grid')}
-                activeOpacity={0.7}
-                style={[
-                  styles.toggleBtn,
-                  viewMode === 'grid' && { backgroundColor: theme.surface, borderColor: theme.border },
-                ]}
-              >
-                <Grid2X2 size={15} color={viewMode === 'grid' ? theme.primary : theme.textMuted} />
-                <Text style={[styles.toggleBtnText, { color: viewMode === 'grid' ? theme.primary : theme.textMuted }]}>
-                  Grid (2x)
-                </Text>
-              </TouchableOpacity>
-            </View>
           </View>
 
           {/* Materials List / Grid Layout */}
@@ -203,60 +175,34 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
               <Text style={[styles.emptyText, { color: theme.textMuted }]}>No categories found matching your search.</Text>
             </View>
           ) : viewMode === 'grid' ? (
-            /* 2-Column Grid View Layout (Identical to Subcategories Grid View) */
+            /* 2-Column Grid View Layout */
             <View style={styles.twoColumnGridRow}>
-              {filteredCategories.map((cat) => {
-                const priceVal = parseInt(cat.priceLabel?.replace(/[^0-9]/g, '') || '0', 10);
-                const catItem: MaterialItem = {
-                  id: `cat-${cat.id}`,
-                  categoryId: cat.id as any,
-                  name: cat.name,
-                  image: cat.image,
-                  actionType: 'add_to_cart',
-                  options: [],
-                  defaultPrice: priceVal,
-                  subtitle: `${cat.count} • ${cat.priceLabel}`,
-                };
-                return (
-                  <ProductCard
-                    key={cat.id}
-                    item={catItem}
-                    viewMode="grid"
-                    onPress={() => onSelectCategoryTab(cat.id)}
-                    onAddToCartPress={() => onSelectCategoryTab(cat.id)}
-                    isFavorite={favoriteIds.includes(catItem.id)}
-                    onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(catItem.id) : undefined}
-                  />
-                );
-              })}
+              {filteredCategories.map((cat) => (
+                <ProductCard
+                  key={cat.id}
+                  title={cat.name}
+                  subtitle={cat.count}
+                  priceLabel={cat.priceLabel}
+                  image={cat.image}
+                  viewMode="grid"
+                  onPress={() => onSelectCategoryTab(cat.id)}
+                />
+              ))}
             </View>
           ) : (
-            /* 1-Column Single List View Layout (Identical to Subcategories List View) */
+            /* 1-Column Single List View Layout */
             <View style={styles.oneColumnListContainer}>
-              {filteredCategories.map((cat) => {
-                const priceVal = parseInt(cat.priceLabel?.replace(/[^0-9]/g, '') || '0', 10);
-                const catItem: MaterialItem = {
-                  id: `cat-${cat.id}`,
-                  categoryId: cat.id as any,
-                  name: cat.name,
-                  image: cat.image,
-                  actionType: 'add_to_cart',
-                  options: [],
-                  defaultPrice: priceVal,
-                  subtitle: `${cat.count} • ${cat.priceLabel}`,
-                };
-                return (
-                  <ProductCard
-                    key={cat.id}
-                    item={catItem}
-                    viewMode="list"
-                    onPress={() => onSelectCategoryTab(cat.id)}
-                    onAddToCartPress={() => onSelectCategoryTab(cat.id)}
-                    isFavorite={favoriteIds.includes(catItem.id)}
-                    onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(catItem.id) : undefined}
-                  />
-                );
-              })}
+              {filteredCategories.map((cat) => (
+                <ProductCard
+                  key={cat.id}
+                  title={cat.name}
+                  subtitle={cat.count}
+                  priceLabel={cat.priceLabel}
+                  image={cat.image}
+                  viewMode="list"
+                  onPress={() => onSelectCategoryTab(cat.id)}
+                />
+              ))}
             </View>
           )}
         </View>
@@ -265,7 +211,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
       {/* 2. Services Catalog (categoryId === 'services-catalog') */}
       {categoryId === 'services-catalog' && (
         <View style={styles.itemsSectionContainer}>
-          {/* Display View Toggle Header Bar */}
+          {/* Display Header Bar */}
           <View style={styles.viewToggleHeaderBar}>
             <View>
               <Text style={[styles.sectionTitleText, { color: theme.textPrimary }]}>
@@ -275,37 +221,6 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                 Select service to view details & book
               </Text>
             </View>
-
-            {/* Display View Toggle Controls (1-Column List vs 2-Column Grid) */}
-            <View style={[styles.togglePillContainer, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-              <TouchableOpacity
-                onPress={() => setViewMode('list')}
-                activeOpacity={0.7}
-                style={[
-                  styles.toggleBtn,
-                  viewMode === 'list' && { backgroundColor: theme.surface, borderColor: theme.border },
-                ]}
-              >
-                <LayoutList size={15} color={viewMode === 'list' ? theme.primary : theme.textMuted} />
-                <Text style={[styles.toggleBtnText, { color: viewMode === 'list' ? theme.primary : theme.textMuted }]}>
-                  List
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => setViewMode('grid')}
-                activeOpacity={0.7}
-                style={[
-                  styles.toggleBtn,
-                  viewMode === 'grid' && { backgroundColor: theme.surface, borderColor: theme.border },
-                ]}
-              >
-                <Grid2X2 size={15} color={viewMode === 'grid' ? theme.primary : theme.textMuted} />
-                <Text style={[styles.toggleBtnText, { color: viewMode === 'grid' ? theme.primary : theme.textMuted }]}>
-                  Grid (2x)
-                </Text>
-              </TouchableOpacity>
-            </View>
           </View>
 
           {/* Services List / Grid Layout */}
@@ -314,90 +229,52 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
               <Text style={[styles.emptyText, { color: theme.textMuted }]}>No services found matching your search.</Text>
             </View>
           ) : viewMode === 'grid' ? (
-            /* 2-Column Grid View Layout (2 services per row) */
+            /* 2-Column Grid View Layout */
             <View style={styles.twoColumnGridRow}>
               {filteredServices.map((srv) => {
                 const matchingItem = MATERIAL_ITEMS.find((m) => m.id === `service-${srv.id}`);
-                if (matchingItem) {
-                  return (
-                    <ProductCard
-                      key={srv.id}
-                      item={matchingItem}
-                      viewMode="grid"
-                      onPress={() => onSelectItem(matchingItem)}
-                      onAddToCartPress={() => onSelectItem(matchingItem)}
-                      isFavorite={favoriteIds.includes(matchingItem.id)}
-                      onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(matchingItem.id) : undefined}
-                    />
-                  );
-                }
                 return (
-                  <TouchableOpacity
+                  <ProductCard
                     key={srv.id}
-                    onPress={() => onSelectCategoryTab(srv.id as any)}
-                    activeOpacity={0.8}
-                    style={[styles.gridCard, { backgroundColor: theme.surface, borderColor: theme.border, width: '48%' }]}
-                  >
-                    <View style={styles.cardImageWrapper}>
-                      <Image
-                        source={{ uri: srv.image }}
-                        style={styles.cardImage}
-                        resizeMode="contain"
-                      />
-                    </View>
-                    <View style={styles.cardTextWrapper}>
-                      <Text style={[styles.catName, { color: theme.textPrimary }]} numberOfLines={1}>
-                        {srv.name}
-                      </Text>
-                      <Text style={[styles.priceLabel, { color: theme.primaryDark }]} numberOfLines={1}>
-                        {srv.rate}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
+                    title={srv.name}
+                    subtitle={srv.subtitle}
+                    priceLabel={srv.rate}
+                    image={srv.image}
+                    item={matchingItem}
+                    viewMode="grid"
+                    onPress={() => {
+                      if (matchingItem) onSelectItem(matchingItem);
+                      else onSelectCategoryTab(srv.id as any);
+                    }}
+                    onAddToCartPress={matchingItem ? () => onSelectItem(matchingItem) : undefined}
+                    isFavorite={matchingItem ? favoriteIds.includes(matchingItem.id) : false}
+                    onToggleFavorite={matchingItem && onToggleFavorite ? () => onToggleFavorite(matchingItem.id) : undefined}
+                  />
                 );
               })}
             </View>
           ) : (
-            /* 1-Column Single List View Layout (List View - Default) */
+            /* 1-Column Single List View Layout */
             <View style={styles.oneColumnListContainer}>
               {filteredServices.map((srv) => {
                 const matchingItem = MATERIAL_ITEMS.find((m) => m.id === `service-${srv.id}`);
-                if (matchingItem) {
-                  return (
-                    <ProductCard
-                      key={srv.id}
-                      item={matchingItem}
-                      viewMode="list"
-                      onPress={() => onSelectItem(matchingItem)}
-                      onAddToCartPress={() => onSelectItem(matchingItem)}
-                      isFavorite={favoriteIds.includes(matchingItem.id)}
-                      onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(matchingItem.id) : undefined}
-                    />
-                  );
-                }
                 return (
-                  <TouchableOpacity
+                  <ProductCard
                     key={srv.id}
-                    onPress={() => onSelectCategoryTab(srv.id as any)}
-                    activeOpacity={0.8}
-                    style={[styles.gridCard, { backgroundColor: theme.surface, borderColor: theme.border, width: '100%' }]}
-                  >
-                    <View style={styles.cardImageWrapper}>
-                      <Image
-                        source={{ uri: srv.image }}
-                        style={styles.cardImage}
-                        resizeMode="contain"
-                      />
-                    </View>
-                    <View style={styles.cardTextWrapper}>
-                      <Text style={[styles.catName, { color: theme.textPrimary }]} numberOfLines={1}>
-                        {srv.name}
-                      </Text>
-                      <Text style={[styles.priceLabel, { color: theme.primaryDark }]} numberOfLines={1}>
-                        {srv.rate}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
+                    title={srv.name}
+                    subtitle={srv.subtitle}
+                    priceLabel={srv.rate}
+                    image={srv.image}
+                    item={matchingItem}
+                    viewMode="list"
+                    onPress={() => {
+                      if (matchingItem) onSelectItem(matchingItem);
+                      else onSelectCategoryTab(srv.id as any);
+                    }}
+                    onAddToCartPress={matchingItem ? () => onSelectItem(matchingItem) : undefined}
+                    isFavorite={matchingItem ? favoriteIds.includes(matchingItem.id) : false}
+                    onToggleFavorite={matchingItem && onToggleFavorite ? () => onToggleFavorite(matchingItem.id) : undefined}
+                  />
                 );
               })}
             </View>
@@ -409,7 +286,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
       {!isCatalogMode && (
         <View style={styles.itemsSectionContainer}>
 
-          {/* View Mode Toggle Header Bar */}
+          {/* Header Bar */}
           <View style={styles.viewToggleHeaderBar}>
             <View>
               <Text style={[styles.sectionTitleText, { color: theme.textPrimary }]}>
@@ -418,37 +295,6 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
               <Text style={[styles.sectionSubtitleText, { color: theme.textMuted }]}>
                 Select item to customize & add
               </Text>
-            </View>
-
-            {/* Display View Toggle Controls (1-Column List vs 2-Column Grid) */}
-            <View style={[styles.togglePillContainer, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-              <TouchableOpacity
-                onPress={() => setViewMode('list')}
-                activeOpacity={0.7}
-                style={[
-                  styles.toggleBtn,
-                  viewMode === 'list' && { backgroundColor: theme.surface, borderColor: theme.border },
-                ]}
-              >
-                <LayoutList size={15} color={viewMode === 'list' ? theme.primary : theme.textMuted} />
-                <Text style={[styles.toggleBtnText, { color: viewMode === 'list' ? theme.primary : theme.textMuted }]}>
-                  List
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => setViewMode('grid')}
-                activeOpacity={0.7}
-                style={[
-                  styles.toggleBtn,
-                  viewMode === 'grid' && { backgroundColor: theme.surface, borderColor: theme.border },
-                ]}
-              >
-                <Grid2X2 size={15} color={viewMode === 'grid' ? theme.primary : theme.textMuted} />
-                <Text style={[styles.toggleBtnText, { color: viewMode === 'grid' ? theme.primary : theme.textMuted }]}>
-                  Grid (2x)
-                </Text>
-              </TouchableOpacity>
             </View>
           </View>
 
@@ -548,9 +394,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 2,
   },
+  navBarWrapper: {
+    borderBottomWidth: 1,
+    marginBottom: 8,
+    paddingBottom: 2,
+  },
   pillsScroll: {
-    gap: 8,
-    paddingBottom: 4,
+    paddingHorizontal: 2,
   },
   pillButton: {
     paddingHorizontal: 14,

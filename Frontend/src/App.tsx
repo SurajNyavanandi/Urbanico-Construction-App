@@ -363,6 +363,8 @@ function MainAppContent() {
           <SettingsScreen
             onBack={() => setCurrentScreen('profile')}
             onClearRecentSearches={handleClearRecentSearches}
+            viewMode={globalViewMode}
+            onViewModeChange={setGlobalViewMode}
           />
         )}
 

@@ -7,226 +7,241 @@ import {
   StyleSheet,
   ViewStyle,
 } from 'react-native';
-import { Star, Heart, Plus, Check } from 'lucide-react-native';
+import { Heart } from 'lucide-react-native';
 import { MaterialItem } from '../../types';
 import { useTheme } from '../../context/ThemeContext';
 
-interface ProductCardProps {
-  item: MaterialItem;
+export interface ProductCardProps {
+  item?: MaterialItem;
+  title?: string;
+  subtitle?: string;
+  priceLabel?: string;
+  image?: string;
   viewMode?: 'list' | 'grid';
   onPress: () => void;
-  onAddToCartPress: () => void;
+  onAddToCartPress?: () => void;
   isFavorite?: boolean;
   onToggleFavorite?: () => void;
   cartQuantity?: number;
+  width?: number | string;
   style?: ViewStyle;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({
   item,
+  title,
+  subtitle,
+  priceLabel,
+  image,
   viewMode = 'grid',
   onPress,
   onAddToCartPress,
   isFavorite = false,
   onToggleFavorite,
   cartQuantity = 0,
+  width,
   style,
 }) => {
   const { theme, typography } = useTheme();
 
-  // Generate realistic rating and original price for reference display
-  const rating = item.id.length % 2 === 0 ? '4.8' : '4.5';
-  const reviewsCount = (item.id.length * 37 + 12) % 350 + 45;
-  const originalMrp = item.defaultPrice ? Math.round(item.defaultPrice * 1.15) : undefined;
-  const isBestseller = item.id.includes('ultratech') || item.id.includes('river') || item.id.includes('red-clay') || item.id.includes('mason');
+  const displayTitle = title || item?.name || '';
+  const displaySubtitle = subtitle || item?.subtitle || '';
+  const displayImage = image || item?.image || '';
+  const displayPrice =
+    priceLabel ||
+    (item?.defaultPrice
+      ? `₹${item.defaultPrice.toLocaleString('en-IN')}`
+      : item?.options?.[0]?.price
+      ? `₹${item.options[0].price.toLocaleString('en-IN')}`
+      : '');
 
   if (viewMode === 'list') {
     return (
       <TouchableOpacity
         onPress={onPress}
-        activeOpacity={0.88}
+        activeOpacity={0.8}
         style={[
-          styles.listCard,
+          styles.productCardList,
           { backgroundColor: theme.surface, borderColor: theme.border },
           style,
         ]}
       >
-        {/* Left Thumbnail */}
-        <View style={[styles.listImageWrapper, { backgroundColor: theme.surfaceSecondary }]}>
-          <Image source={{ uri: item.image }} style={styles.listImage} resizeMode="cover" />
-          {isBestseller && (
-            <View style={styles.bestsellerCornerBadge}>
-              <Text style={styles.bestsellerCornerText}>BESTSELLER</Text>
-            </View>
-          )}
+        <View
+          style={[
+            styles.imageBoxList,
+            { backgroundColor: theme.mode === 'dark' ? '#27272A' : '#F4F4F5' },
+          ]}
+        >
+          {displayImage ? (
+            <Image
+              source={{ uri: displayImage }}
+              style={styles.productImage}
+              resizeMode="cover"
+            />
+          ) : null}
         </View>
 
-        {/* Center Details */}
-        <View style={styles.listInfoCol}>
-          {/* Top Rating & Tag */}
-          <View style={styles.ratingRow}>
-            <View style={styles.greenRatingPill}>
-              <Star size={10} color="#15803D" fill="#15803D" />
-              <Text style={styles.ratingText}>{rating} ({reviewsCount})</Text>
-            </View>
-            <Text style={[styles.isCertifiedTag, { color: theme.textMuted }]}>IS Certified</Text>
-          </View>
-
-          <Text style={[styles.listTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]} numberOfLines={1}>
-            {item.name}
+        <View style={styles.listTextWrapper}>
+          <Text
+            style={[
+              styles.productTitle,
+              { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading },
+            ]}
+            numberOfLines={1}
+          >
+            {displayTitle}
           </Text>
 
-          {item.subtitle && (
-            <Text style={[styles.listSubtitle, { color: theme.textSecondary }]} numberOfLines={1}>
-              {item.subtitle}
+          {Boolean(displaySubtitle) && (
+            <Text
+              style={[styles.productSubtitle, { color: theme.textSecondary }]}
+              numberOfLines={1}
+            >
+              {displaySubtitle}
             </Text>
           )}
 
-          {/* Price & Discount */}
-          <View style={styles.priceRow}>
-            {originalMrp && (
-              <Text style={styles.mrpStrikethrough}>₹{originalMrp.toLocaleString('en-IN')}</Text>
-            )}
-            {item.defaultPrice && (
-              <View style={styles.priceTagHighlight}>
-                <Text style={styles.priceTagText}>₹{item.defaultPrice.toLocaleString('en-IN')}</Text>
-              </View>
-            )}
-          </View>
+          {Boolean(displayPrice) && (
+            <Text
+              style={[styles.productPrice, { color: theme.textPrimary }]}
+              numberOfLines={1}
+            >
+              {displayPrice}
+            </Text>
+          )}
         </View>
 
-        {/* Right Action Button (ADD Dropdown Trigger) */}
         <View style={styles.listActionCol}>
           {onToggleFavorite && (
             <TouchableOpacity
-              onPress={onToggleFavorite}
+              onPress={(e) => {
+                e.stopPropagation?.();
+                onToggleFavorite();
+              }}
               activeOpacity={0.7}
-              style={styles.favCircleBtn}
+              style={styles.listFavBtn}
             >
               <Heart
                 size={15}
-                color={isFavorite ? '#EF4444' : theme.textMuted}
+                color={isFavorite ? '#EF4444' : '#64748B'}
                 fill={isFavorite ? '#EF4444' : 'none'}
               />
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity
-            onPress={onAddToCartPress}
-            activeOpacity={0.8}
-            style={[
-              styles.addBtn,
-              cartQuantity > 0 ? styles.addBtnActive : styles.addBtnOutline,
-            ]}
-          >
-            {cartQuantity > 0 ? (
-              <View style={styles.addedStateRow}>
-                <Check size={12} color="#FFFFFF" strokeWidth={3} />
+          {onAddToCartPress && (
+            <TouchableOpacity
+              onPress={(e) => {
+                e.stopPropagation?.();
+                onAddToCartPress();
+              }}
+              activeOpacity={0.8}
+              style={[
+                styles.addBtnGrid,
+                cartQuantity > 0 ? styles.addBtnActive : styles.addBtnOutline,
+              ]}
+            >
+              {cartQuantity > 0 ? (
                 <Text style={styles.addBtnTextActive}>{cartQuantity} ADDED</Text>
-              </View>
-            ) : (
-              <Text style={styles.addBtnText}>ADD</Text>
-            )}
-          </TouchableOpacity>
+              ) : (
+                <Text style={styles.addBtnText}>ADD</Text>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       </TouchableOpacity>
     );
   }
 
-  /* Grid View Mode (2 items per row, reference image 1) */
+  /* Default Grid Layout */
   return (
     <TouchableOpacity
       onPress={onPress}
-      activeOpacity={0.88}
+      activeOpacity={0.8}
       style={[
-        styles.gridCard,
-        { backgroundColor: theme.surface, borderColor: theme.border },
+        styles.productCardGrid,
+        width ? { width } : styles.defaultGridWidth,
         style,
       ]}
     >
-      {/* Product Image & Badges */}
-      <View style={[styles.gridImageWrapper, { backgroundColor: theme.surfaceSecondary }]}>
-        <Image source={{ uri: item.image }} style={styles.gridImage} resizeMode="cover" />
+      <View
+        style={[
+          styles.imageBoxGrid,
+          { backgroundColor: theme.mode === 'dark' ? '#27272A' : '#F4F4F5' },
+        ]}
+      >
+        {displayImage ? (
+          <Image
+            source={{ uri: displayImage }}
+            style={styles.productImage}
+            resizeMode="cover"
+          />
+        ) : null}
 
-        {/* Favorite Heart Button */}
         {onToggleFavorite && (
           <TouchableOpacity
-            onPress={onToggleFavorite}
+            onPress={(e) => {
+              e.stopPropagation?.();
+              onToggleFavorite();
+            }}
             activeOpacity={0.7}
             style={styles.gridFavBtn}
           >
             <Heart
               size={14}
-              color={isFavorite ? '#EF4444' : theme.textMuted}
+              color={isFavorite ? '#EF4444' : '#64748B'}
               fill={isFavorite ? '#EF4444' : 'none'}
             />
           </TouchableOpacity>
         )}
-
-        {/* Bottom Image Rating & Bestseller Overlay */}
-        <View style={styles.gridImageOverlayRow}>
-          {isBestseller ? (
-            <View style={styles.bestsellerTag}>
-              <Text style={styles.bestsellerText}>Bestseller</Text>
-            </View>
-          ) : (
-            <View style={styles.certifiedTag}>
-              <Text style={styles.certifiedText}>IS Certified</Text>
-            </View>
-          )}
-
-          <View style={styles.greenRatingPill}>
-            <Star size={10} color="#15803D" fill="#15803D" />
-            <Text style={styles.ratingText}>{rating} ({reviewsCount})</Text>
-          </View>
-        </View>
       </View>
 
-      {/* Card Body */}
-      <View style={styles.gridCardBody}>
+      <View style={styles.productTextWrapper}>
         <Text
           style={[
-            styles.gridTitle,
+            styles.productTitle,
             { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading },
           ]}
-          numberOfLines={2}
+          numberOfLines={1}
         >
-          {item.name}
+          {displayTitle}
         </Text>
 
-        {item.subtitle && (
-          <Text style={[styles.gridSubtitle, { color: theme.textSecondary }]} numberOfLines={1}>
-            {item.subtitle}
+        {Boolean(displaySubtitle) && (
+          <Text
+            style={[styles.productSubtitle, { color: theme.textSecondary }]}
+            numberOfLines={1}
+          >
+            {displaySubtitle}
           </Text>
         )}
 
-        {/* Price Row & ADD Button */}
-        <View style={styles.gridFooterRow}>
-          <View style={styles.gridPriceCol}>
-            {originalMrp && (
-              <Text style={styles.mrpStrikethrough}>₹{originalMrp.toLocaleString('en-IN')}</Text>
-            )}
-            {item.defaultPrice && (
-              <View style={styles.priceTagHighlight}>
-                <Text style={styles.priceTagText}>₹{item.defaultPrice.toLocaleString('en-IN')}</Text>
-              </View>
-            )}
-          </View>
+        <View style={styles.priceRowGrid}>
+          {Boolean(displayPrice) && (
+            <Text style={[styles.productPrice, { color: theme.textPrimary }]} numberOfLines={1}>
+              {displayPrice}
+            </Text>
+          )}
 
-          <TouchableOpacity
-            onPress={onAddToCartPress}
-            activeOpacity={0.8}
-            style={[
-              styles.addBtn,
-              cartQuantity > 0 ? styles.addBtnActive : styles.addBtnOutline,
-            ]}
-          >
-            {cartQuantity > 0 ? (
-              <Text style={styles.addBtnTextActive}>{cartQuantity} ADDED</Text>
-            ) : (
-              <Text style={styles.addBtnText}>ADD</Text>
-            )}
-          </TouchableOpacity>
+          {onAddToCartPress && (
+            <TouchableOpacity
+              onPress={(e) => {
+                e.stopPropagation?.();
+                onAddToCartPress();
+              }}
+              activeOpacity={0.8}
+              style={[
+                styles.addBtnGrid,
+                cartQuantity > 0 ? styles.addBtnActive : styles.addBtnOutline,
+              ]}
+            >
+              {cartQuantity > 0 ? (
+                <Text style={styles.addBtnTextActive}>{cartQuantity} ADDED</Text>
+              ) : (
+                <Text style={styles.addBtnText}>ADD</Text>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </TouchableOpacity>
@@ -234,23 +249,22 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 };
 
 const styles = StyleSheet.create({
-  /* Grid View Styles */
-  gridCard: {
-    width: '48.5%',
-    borderRadius: 16,
-    borderWidth: 1,
-    overflow: 'hidden',
+  /* Grid Card Styles */
+  productCardGrid: {
+    gap: 8,
     marginBottom: 12,
   },
-  gridImageWrapper: {
-    width: '100%',
-    height: 135,
-    position: 'relative',
-    overflow: 'hidden',
+  defaultGridWidth: {
+    width: '48%',
   },
-  gridImage: {
+  imageBoxGrid: {
     width: '100%',
-    height: '100%',
+    aspectRatio: 1.1,
+    borderRadius: 14,
+    overflow: 'hidden',
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   gridFavBtn: {
     position: 'absolute',
@@ -259,114 +273,53 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.12,
     shadowRadius: 2,
     elevation: 2,
   },
-  gridImageOverlayRow: {
-    position: 'absolute',
-    bottom: 6,
-    left: 6,
-    right: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  productImage: {
+    width: '100%',
+    height: '100%',
   },
-  bestsellerTag: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FCA5A5',
-    borderWidth: 0.8,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+  productTextWrapper: {
+    gap: 2,
   },
-  bestsellerText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#DC2626',
-    letterSpacing: 0.2,
-  },
-  certifiedTag: {
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  certifiedText: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#475569',
-  },
-  greenRatingPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    borderRadius: 4,
-    gap: 3,
-  },
-  ratingText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#15803D',
-  },
-  gridCardBody: {
-    padding: 10,
-    justifyContent: 'space-between',
-  },
-  gridTitle: {
+  productTitle: {
     fontSize: 13,
     fontWeight: '700',
     lineHeight: 17,
   },
-  gridSubtitle: {
-    fontSize: 11,
-    marginTop: 2,
+  productSubtitle: {
+    fontSize: 12,
+    fontWeight: '400',
+    lineHeight: 15,
   },
-  gridFooterRow: {
+  priceRowGrid: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 10,
-  },
-  gridPriceCol: {
-    flexDirection: 'column',
-  },
-  mrpStrikethrough: {
-    fontSize: 10,
-    color: '#94A3B8',
-    textDecorationLine: 'line-through',
-  },
-  priceTagHighlight: {
-    backgroundColor: '#FEF08A', // Swiggy yellow price badge highlight!
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    borderRadius: 4,
-    alignSelf: 'flex-start',
     marginTop: 1,
   },
-  priceTagText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#0F172A',
+  productPrice: {
+    fontSize: 13,
+    fontWeight: '700',
   },
-  addBtn: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 8,
+  addBtnGrid: {
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
   addBtnOutline: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
-    borderColor: '#16A34A', // Swiggy Green ADD button!
+    borderColor: '#16A34A',
   },
   addBtnActive: {
     backgroundColor: '#16A34A',
@@ -374,91 +327,47 @@ const styles = StyleSheet.create({
     borderColor: '#16A34A',
   },
   addBtnText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
     color: '#16A34A',
     letterSpacing: 0.5,
   },
   addBtnTextActive: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: 0.3,
-  },
-  addedStateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
   },
 
-  /* List View Styles */
-  listCard: {
+  /* List Card Styles */
+  productCardList: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
-    padding: 10,
+    padding: 8,
     marginBottom: 10,
     gap: 12,
   },
-  listImageWrapper: {
+  imageBoxList: {
     width: 84,
     height: 84,
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: 'hidden',
     position: 'relative',
-  },
-  listImage: {
-    width: '100%',
-    height: '100%',
-  },
-  bestsellerCornerBadge: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#DC2626',
-    paddingVertical: 1.5,
     alignItems: 'center',
+    justifyContent: 'center',
   },
-  bestsellerCornerText: {
-    fontSize: 8,
-    fontWeight: '900',
-    color: '#FFFFFF',
-  },
-  listInfoCol: {
+  listTextWrapper: {
     flex: 1,
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 2,
-  },
-  isCertifiedTag: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  listTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  listSubtitle: {
-    fontSize: 12,
-    marginTop: 1,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 6,
+    gap: 2,
   },
   listActionCol: {
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    height: 80,
+    height: 72,
+    paddingVertical: 2,
   },
-  favCircleBtn: {
-    padding: 4,
+  listFavBtn: {
+    padding: 2,
   },
 });

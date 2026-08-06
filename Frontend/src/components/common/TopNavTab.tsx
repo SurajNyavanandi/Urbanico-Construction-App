@@ -2,22 +2,20 @@ import React from 'react';
 import { TouchableOpacity, Text, View, StyleSheet, ViewStyle, TextStyle } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 
-interface PillButtonProps {
+interface TopNavTabProps {
   label: string;
   isActive: boolean;
   onPress: () => void;
   style?: ViewStyle;
   textStyle?: TextStyle;
-  icon?: React.ReactNode;
 }
 
-export const PillButton: React.FC<PillButtonProps> = ({
+export const TopNavTab: React.FC<TopNavTabProps> = ({
   label,
   isActive,
   onPress,
   style,
   textStyle,
-  icon,
 }) => {
   const { theme, typography } = useTheme();
 
@@ -27,7 +25,6 @@ export const PillButton: React.FC<PillButtonProps> = ({
       activeOpacity={0.7}
       style={[styles.tab, style]}
     >
-      {icon}
       <Text
         style={[
           styles.text,
@@ -53,9 +50,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 2,
     marginRight: 22,
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
     position: 'relative',
   },
   text: {
@@ -71,4 +66,3 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
 });
-

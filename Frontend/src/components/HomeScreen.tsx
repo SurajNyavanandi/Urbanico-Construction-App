@@ -8,10 +8,10 @@ import {
   StyleSheet,
   Dimensions,
 } from 'react-native';
-import { ArrowRight } from 'lucide-react-native';
 import { CATEGORIES, SERVICES, MATERIAL_ITEMS, ServiceItem } from '../data/materialsData';
 import { CategoryId, MaterialItem } from '../types';
 import { useTheme } from '../context/ThemeContext';
+import { ProductCard } from './common/ProductCard';
 
 interface HomeScreenProps {
   onSelectCategory: (catId: CategoryId) => void;
@@ -47,17 +47,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onNavigateAllMaterials,
   onNavigateAllServices,
   onSelectItem,
-  searchQuery,
 }) => {
-  const { theme } = useTheme();
-  const [selectedMaterialId, setSelectedMaterialId] = useState<CategoryId>('sand');
-  const [activeMaterialPage, setActiveMaterialPage] = useState(0);
-  const [activeServicePage, setActiveServicePage] = useState(0);
+  const { theme, typography } = useTheme();
   const [bannerIndex, setBannerIndex] = useState(0);
 
   const bannerScrollRef = useRef<ScrollView>(null);
-  const materialsScrollRef = useRef<ScrollView>(null);
-  const servicesScrollRef = useRef<ScrollView>(null);
+
+  const windowWidth = Dimensions.get('window').width;
+  // Dynamic Card Width: 2 cards fully visible, 3rd card ~45% visible
+  const CARD_WIDTH = Math.round((windowWidth - 40) / 2.45);
+  const IMAGE_BOX_HEIGHT = Math.round(CARD_WIDTH * 1.12);
 
   // Auto-rotate banner every 4 seconds
   useEffect(() => {
@@ -76,24 +75,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
     return () => clearInterval(timer);
   }, []);
-
-  // 2 distinct pages for 6 material items (3 cards per view)
-  const MATERIAL_PAGES = [0, 1];
-  const handleMaterialsScroll = (e: any) => {
-    const contentOffsetX = e?.nativeEvent?.contentOffset?.x || 0;
-    const pagePx = 118 * 3;
-    const newPage = Math.min(1, Math.max(0, Math.round(contentOffsetX / pagePx)));
-    setActiveMaterialPage(newPage);
-  };
-
-  // 3 distinct pages for 8 service items
-  const SERVICE_PAGES = [0, 1, 2];
-  const handleServicesScroll = (e: any) => {
-    const contentOffsetX = e?.nativeEvent?.contentOffset?.x || 0;
-    const pagePx = 118 * 3;
-    const newPage = Math.min(2, Math.max(0, Math.round(contentOffsetX / pagePx)));
-    setActiveServicePage(newPage);
-  };
 
   const handleBannerScroll = (e: any) => {
     const contentOffsetX = e?.nativeEvent?.contentOffset?.x || 0;
@@ -120,103 +101,50 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
-      {/* 1. Materials Header & Arrow */}
-      <View style={styles.sectionHeader}>
-        <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>
-          Materials
-        </Text>
-        <TouchableOpacity
-          onPress={onNavigateAllMaterials}
-          style={[styles.iconCircleButton, { backgroundColor: theme.primaryLight }]}
-          accessibilityLabel="View all materials"
-          activeOpacity={0.7}
-        >
-          <ArrowRight color={theme.primaryDark} size={20} strokeWidth={2.5} />
-        </TouchableOpacity>
-      </View>
-
-      {/* 2. Materials Horizontal Smooth Carousel */}
-      <View style={styles.materialsCarouselWrapper}>
-        <ScrollView
-          ref={materialsScrollRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          decelerationRate="fast"
-          scrollEventThrottle={16}
-          onScroll={handleMaterialsScroll}
-          contentContainerStyle={styles.materialsScrollRow}
-        >
-          {CATEGORIES.map((cat) => {
-            return (
-              <TouchableOpacity
-                key={cat.id}
-                onPress={() => {
-                  setSelectedMaterialId(cat.id);
-                  onSelectCategory(cat.id);
-                }}
-                activeOpacity={0.8}
-                style={[
-                  styles.categoryCard,
-                  {
-                    borderColor: theme.border,
-                    backgroundColor: theme.surface,
-                  },
-                ]}
-              >
-                <View style={styles.imageContainer}>
-                  <Image
-                    source={{ uri: cat.image }}
-                    style={styles.cardImage}
-                    resizeMode="cover"
-                  />
-                </View>
-                <View style={styles.cardTextWrapper}>
-                  <Text style={[styles.cardTitle, { color: theme.textPrimary }]} numberOfLines={1}>
-                    {cat.name}
-                  </Text>
-                  {cat.priceLabel && (
-                    <Text style={[styles.cardPriceLabel, { color: theme.primaryDark }]} numberOfLines={1}>
-                      {cat.priceLabel}
-                    </Text>
-                  )}
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      </View>
-
-      {/* Materials Pagination Dots (Exactly 3 dots for 3 snap pages) */}
-      <View style={styles.dotsContainer}>
-        {MATERIAL_PAGES.map((pageIdx) => (
+      {/* 1. MATERIALS SECTION */}
+      <View style={styles.sectionContainer}>
+        {/* Section Header */}
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionHeaderLeft}>
+            <Text style={[styles.sectionTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
+              Materials
+            </Text>
+            <Text style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
+              Essential building supplies
+            </Text>
+          </View>
           <TouchableOpacity
-            key={pageIdx}
-            onPress={() => {
-              setActiveMaterialPage(pageIdx);
-              if (materialsScrollRef.current) {
-                materialsScrollRef.current.scrollTo({
-                  x: pageIdx * 118 * 3,
-                  animated: true,
-                });
-              }
-            }}
+            onPress={onNavigateAllMaterials}
+            style={styles.viewAllButton}
             activeOpacity={0.7}
           >
-            <View
-              style={[
-                styles.dot,
-                {
-                  backgroundColor:
-                    pageIdx === activeMaterialPage ? theme.primary : '#CBD5E1',
-                  width: pageIdx === activeMaterialPage ? 18 : 8,
-                },
-              ]}
-            />
+            <Text style={[styles.viewAllText, { color: theme.textSecondary }]}>View All</Text>
           </TouchableOpacity>
-        ))}
+        </View>
+
+        {/* Materials Horizontal Scroll Row */}
+        <View style={styles.horizontalScrollWrapper}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalScrollContent}
+          >
+            {CATEGORIES.map((cat) => (
+              <ProductCard
+                key={cat.id}
+                title={cat.name}
+                subtitle={cat.count}
+                priceLabel={cat.priceLabel}
+                image={cat.image}
+                width={CARD_WIDTH}
+                onPress={() => onSelectCategory(cat.id)}
+              />
+            ))}
+          </ScrollView>
+        </View>
       </View>
 
-      {/* 3. Promotional Banners Auto-Sliding Carousel */}
+      {/* 2. PROMOTIONAL BANNERS CAROUSEL */}
       <View style={styles.bannerCarouselContainer}>
         <ScrollView
           ref={bannerScrollRef}
@@ -243,7 +171,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           ))}
         </ScrollView>
 
-        {/* Banner Pagination Dots (2 Dots for 2 Banners) */}
+        {/* Banner Dots */}
         <View style={styles.dotsContainer}>
           {PROMO_BANNERS.map((banner, idx) => (
             <TouchableOpacity
@@ -265,113 +193,60 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </View>
       </View>
 
-      {/* 4. Services Section with Carousel Indicator Dots */}
-      <View style={styles.servicesSection}>
+      {/* 3. SERVICES SECTION */}
+      <View style={styles.sectionContainer}>
+        {/* Section Header */}
         <View style={styles.sectionHeader}>
+          <View style={styles.sectionHeaderLeft}>
+            <Text style={[styles.sectionTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
+              Services
+            </Text>
+            <Text style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
+              Expert skilled trade professionals
+            </Text>
+          </View>
           <TouchableOpacity
             onPress={() => {
               if (onNavigateAllServices) onNavigateAllServices();
               else onSelectCategory('services-catalog');
             }}
-            style={styles.servicesTitleRow}
+            style={styles.viewAllButton}
             activeOpacity={0.7}
           >
-            <Text style={[styles.sectionTitle, { color: theme.textPrimary }]}>Services</Text>
-            <View style={[styles.tradesBadge, { backgroundColor: theme.primaryLight }]}>
-              <Text style={[styles.tradesBadgeText, { color: theme.primaryDark }]}>
-                {SERVICES.length} Skilled Trades
-              </Text>
-            </View>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => {
-              if (onNavigateAllServices) onNavigateAllServices();
-              else onSelectCategory('services-catalog');
-            }}
-            style={[styles.iconCircleButton, { backgroundColor: theme.primaryLight }]}
-            accessibilityLabel="View all services catalog"
-            activeOpacity={0.7}
-          >
-            <ArrowRight color={theme.primaryDark} size={20} strokeWidth={2.5} />
+            <Text style={[styles.viewAllText, { color: theme.textSecondary }]}>View All</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Services Horizontal Scroll View */}
-        <ScrollView
-          ref={servicesScrollRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          decelerationRate="fast"
-          scrollEventThrottle={16}
-          onScroll={handleServicesScroll}
-          contentContainerStyle={styles.materialsScrollRow}
-        >
-          {SERVICES.map((srv) => {
-            const matchingItem = MATERIAL_ITEMS.find((m) => m.id === `service-${srv.id}`);
-            return (
-              <TouchableOpacity
-                key={srv.id}
-                onPress={() => {
-                  if (matchingItem && onSelectItem) {
-                    onSelectItem(matchingItem);
-                  } else if (onNavigateAllServices) {
-                    onNavigateAllServices();
-                  } else {
-                    onSelectCategory('services-catalog');
-                  }
-                }}
-                activeOpacity={0.8}
-                style={[styles.categoryCard, { borderColor: theme.border, backgroundColor: theme.surface }]}
-              >
-                <View style={styles.imageContainer}>
-                  <Image
-                    source={{ uri: srv.image }}
-                    style={styles.cardImage}
-                    resizeMode="cover"
-                  />
-                </View>
-                <View style={styles.cardTextWrapper}>
-                  <Text style={[styles.cardTitle, { color: theme.textPrimary }]} numberOfLines={1}>
-                    {srv.name}
-                  </Text>
-                  <Text style={[styles.cardPriceLabel, { color: theme.primaryDark }]} numberOfLines={1}>
-                    {srv.rate}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        {/* Services Carousel Indicator Dots (Exactly 3 dots for 3 snap pages) */}
-        <View style={styles.dotsContainer}>
-          {SERVICE_PAGES.map((pageIdx) => (
-            <TouchableOpacity
-              key={pageIdx}
-              onPress={() => {
-                setActiveServicePage(pageIdx);
-                if (servicesScrollRef.current) {
-                  servicesScrollRef.current.scrollTo({
-                    x: pageIdx * 118 * 3,
-                    animated: true,
-                  });
-                }
-              }}
-              activeOpacity={0.7}
-            >
-              <View
-                style={[
-                  styles.dot,
-                  {
-                    backgroundColor:
-                      pageIdx === activeServicePage ? theme.primary : '#CBD5E1',
-                    width: pageIdx === activeServicePage ? 18 : 8,
-                  },
-                ]}
-              />
-            </TouchableOpacity>
-          ))}
+        {/* Services Horizontal Scroll Row */}
+        <View style={styles.horizontalScrollWrapper}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalScrollContent}
+          >
+            {SERVICES.map((srv) => {
+              const matchingItem = MATERIAL_ITEMS.find((m) => m.id === `service-${srv.id}`);
+              return (
+                <ProductCard
+                  key={srv.id}
+                  title={srv.name}
+                  subtitle={srv.subtitle}
+                  priceLabel={srv.rate}
+                  image={srv.image}
+                  width={CARD_WIDTH}
+                  onPress={() => {
+                    if (matchingItem && onSelectItem) {
+                      onSelectItem(matchingItem);
+                    } else if (onNavigateAllServices) {
+                      onNavigateAllServices();
+                    } else {
+                      onSelectCategory('services-catalog');
+                    }
+                  }}
+                />
+              );
+            })}
+          </ScrollView>
         </View>
       </View>
     </ScrollView>
@@ -386,94 +261,74 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 96,
-    gap: 16,
+    gap: 24,
+  },
+  sectionContainer: {
+    gap: 12,
   },
   sectionHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    paddingTop: 4,
+  },
+  sectionHeaderLeft: {
+    gap: 2,
   },
   sectionTitle: {
-    fontSize: 17,
-    fontWeight: '800',
+    fontSize: 18,
+    fontWeight: '700',
     letterSpacing: -0.3,
   },
-  iconCircleButton: {
-    padding: 8,
-    borderRadius: 999,
-  },
-  materialsCarouselWrapper: {
-    minHeight: 144,
-  },
-  materialsScrollRow: {
-    gap: 12,
-    paddingVertical: 4,
-    minHeight: 144,
-    alignItems: 'center',
-  },
-  categoryCard: {
-    width: 108,
-    borderRadius: 16,
-    padding: 8,
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    height: 136,
-    borderWidth: 1.5,
-  },
-  emptySearchCard: {
-    width: Dimensions.get('window').width - 32,
-    height: 136,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
-  emptySearchText: {
+  sectionSubtitle: {
     fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center',
+    fontWeight: '400',
   },
-  imageContainer: {
+  viewAllButton: {
+    paddingVertical: 2,
+    paddingLeft: 8,
+  },
+  viewAllText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  horizontalScrollWrapper: {
+    marginHorizontal: -16,
+  },
+  horizontalScrollContent: {
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  productCard: {
+    gap: 8,
+  },
+  imageBox: {
     width: '100%',
-    height: 72,
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cardImage: {
+  productImage: {
     width: '100%',
     height: '100%',
   },
-  cardTextWrapper: {
-    alignItems: 'center',
-    width: '100%',
-    marginTop: 4,
+  productTextWrapper: {
+    gap: 2,
   },
-  cardTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  cardPriceLabel: {
-    fontSize: 10,
+  productTitle: {
+    fontSize: 13,
     fontWeight: '700',
-    textAlign: 'center',
-    marginTop: 2,
+    lineHeight: 17,
   },
-  dotsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 6,
-    height: 16,
+  productSubtitle: {
+    fontSize: 12,
+    fontWeight: '400',
+    lineHeight: 15,
   },
-  dot: {
-    height: 8,
-    borderRadius: 4,
+  productPrice: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 1,
   },
   bannerCarouselContainer: {
     gap: 8,
@@ -494,70 +349,15 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 16,
   },
-  bannerContent: {
+  dotsContainer: {
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
+    gap: 6,
+    height: 12,
   },
-  bannerLeftText: {
-    maxWidth: '58%',
-    gap: 4,
-  },
-  bannerHeaderTitle: {
-    fontSize: 11,
-    fontWeight: '900',
-    color: '#FDE68A',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  bannerAmbassadorText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#E0E7FF',
-    letterSpacing: 0.5,
-  },
-  bannerBigText: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: '#FBBF24',
-    letterSpacing: 0.5,
-  },
-  bannerTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  bannerTagText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#D1FAE5',
-    letterSpacing: 1,
-  },
-  bannerRightImageWrapper: {
-    width: '38%',
-  },
-  bannerImage: {
-    height: 88,
-    width: '100%',
-    borderRadius: 14,
-  },
-  servicesSection: {
-    gap: 12,
-  },
-  servicesTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  tradesBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 999,
-  },
-  tradesBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
+  dot: {
+    height: 8,
+    borderRadius: 4,
   },
 });

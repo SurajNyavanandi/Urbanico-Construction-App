@@ -219,6 +219,26 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   {isLoggedIn ? user.phone : '+91 Mobile Unverified'}
                 </Text>
               </View>
+
+              {/* Email Address & Verify Button */}
+              <View style={styles.emailRow}>
+                <Mail size={13} color={theme.textSecondary} />
+                <Text style={[styles.phoneText, { color: theme.textSecondary, flexShrink: 1 }]} numberOfLines={1}>
+                  {isLoggedIn ? (user.email || 'rajesh.k@urbanico.in') : 'rajesh.k@urbanico.in'}
+                </Text>
+                {!user.isVerified && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      onUpdateUser({ isVerified: true });
+                      showToast('Email verified successfully!');
+                    }}
+                    style={[styles.verifyEmailBtn, { backgroundColor: theme.primaryLight, borderColor: theme.primary }]}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.verifyEmailBtnText, { color: theme.primaryDark }]}>Verify</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           </View>
         </View>
@@ -825,6 +845,36 @@ const styles = StyleSheet.create({
   phoneText: {
     fontSize: 13,
     fontWeight: '600',
+  },
+  emailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  emailVerifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    gap: 3,
+  },
+  verifiedLabelText: {
+    color: '#059669',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  verifyEmailBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  verifyEmailBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
   },
   companyRow: {
     flexDirection: 'row',

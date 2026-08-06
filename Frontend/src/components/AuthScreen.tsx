@@ -118,7 +118,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           <View style={{ width: 36 }} />
         )}
         <Text style={[styles.headerNavTitle, { color: theme.textSecondary }]}>
-          {step === 'otp' ? 'OTP Verification' : ''}
+          {''}
         </Text>
         <View style={{ width: 36 }} />
       </View>
@@ -134,7 +134,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           <BrandLogo size={76} borderRadius={20} style={{ marginBottom: 16 }} />
 
           <Text style={[styles.brandTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-            {step === 'mobile' ? 'Welcome to Urbanico' : 'Verify Mobile OTP'}
+            {step === 'mobile' ? 'Welcome to Urbanico' : 'Verify OTP'}
           </Text>
           {step === 'mobile' && (
             <Text style={[styles.brandSubTitle, { color: theme.textSecondary }]}>

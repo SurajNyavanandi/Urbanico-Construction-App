@@ -23,6 +23,8 @@ import {
   Moon,
   Type,
   Sparkles,
+  LayoutList,
+  Grid2X2,
 } from 'lucide-react-native';
 import {
   useTheme,
@@ -36,11 +38,15 @@ import {
 interface SettingsScreenProps {
   onBack: () => void;
   onClearRecentSearches?: () => void;
+  viewMode?: 'list' | 'grid';
+  onViewModeChange?: (mode: 'list' | 'grid') => void;
 }
 
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   onBack,
   onClearRecentSearches,
+  viewMode = 'grid',
+  onViewModeChange,
 }) => {
   const {
     theme,
@@ -148,49 +154,60 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
         </Text>
       </View>
 
-      {/* SECTION 1: Theme Mode (Light / Dark Mode Toggle) */}
+      {/* SECTION 1: App Theme & Display Layout Settings */}
       <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <View style={styles.compactCardHeader}>
-          <Palette size={16} color={theme.primary} />
-          <Text style={[styles.compactCardTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-            Theme Mode
-          </Text>
+        <View style={[styles.cardHeader, { borderBottomColor: theme.borderLight }]}>
+          <Palette size={18} color={theme.primary} />
+          <View>
+            <Text style={[styles.cardTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
+              Theme & Display Layout
+            </Text>
+            <Text style={[styles.cardSubTitle, { color: theme.textSecondary }]}>
+              Customize color theme and catalog view presentation
+            </Text>
+          </View>
         </View>
 
-        <View style={[styles.segmentedControl, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-          <TouchableOpacity
-            onPress={() => {
-              setThemeMode('light');
-              triggerToast('Light Mode Active');
-            }}
-            activeOpacity={0.8}
-            style={[
-              styles.segmentBtn,
-              themeMode === 'light' && [styles.segmentBtnActive, { backgroundColor: theme.surface, borderColor: theme.border }],
-            ]}
-          >
-            <Sun size={15} color={themeMode === 'light' ? theme.primaryDark : theme.textMuted} />
-            <Text style={[styles.segmentText, { color: themeMode === 'light' ? theme.primaryDark : theme.textMuted }]}>
-              Light Mode
-            </Text>
-          </TouchableOpacity>
+        <View style={styles.settingRowsList}>
+          {/* Theme Mode Toggle */}
+          <View style={styles.settingRow}>
+            <View style={styles.settingRowLeft}>
+              <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Dark Mode Theme</Text>
+              <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
+                {themeMode === 'dark' ? 'Dark color scheme active' : 'Light color scheme active'}
+              </Text>
+            </View>
+            <Switch
+              value={themeMode === 'dark'}
+              onValueChange={(val) => {
+                const nextMode = val ? 'dark' : 'light';
+                setThemeMode(nextMode);
+                triggerToast(val ? 'Dark Mode Active' : 'Light Mode Active');
+              }}
+              trackColor={{ false: '#CBD5E1', true: theme.primary }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
 
-          <TouchableOpacity
-            onPress={() => {
-              setThemeMode('dark');
-              triggerToast('Dark Mode Active');
-            }}
-            activeOpacity={0.8}
-            style={[
-              styles.segmentBtn,
-              themeMode === 'dark' && [styles.segmentBtnActive, { backgroundColor: theme.surface, borderColor: theme.border }],
-            ]}
-          >
-            <Moon size={15} color={themeMode === 'dark' ? theme.primaryDark : theme.textMuted} />
-            <Text style={[styles.segmentText, { color: themeMode === 'dark' ? theme.primaryDark : theme.textMuted }]}>
-              Dark Mode
-            </Text>
-          </TouchableOpacity>
+          {/* Catalog Display Layout Toggle */}
+          <View style={styles.settingRow}>
+            <View style={styles.settingRowLeft}>
+              <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Grid Layout View (2x)</Text>
+              <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
+                {viewMode === 'grid' ? '2-column grid active' : '1-column list active'}
+              </Text>
+            </View>
+            <Switch
+              value={viewMode === 'grid'}
+              onValueChange={(val) => {
+                const nextMode = val ? 'grid' : 'list';
+                if (onViewModeChange) onViewModeChange(nextMode);
+                triggerToast(val ? 'Global 2x Grid View Active' : 'Global List View Active');
+              }}
+              trackColor={{ false: '#CBD5E1', true: theme.primary }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
         </View>
       </View>
 

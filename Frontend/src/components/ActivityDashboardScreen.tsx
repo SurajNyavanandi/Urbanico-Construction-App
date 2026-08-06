@@ -1,18 +1,14 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   ScrollView,
   StyleSheet,
 } from 'react-native';
 import {
-  TrendingUp,
   Truck,
-  Package,
   MapPin,
   Clock,
-  Filter,
 } from 'lucide-react-native';
 import { ActivityDelivery } from '../types';
 import { useTheme } from '../context/ThemeContext';
@@ -22,32 +18,12 @@ interface ActivityDashboardScreenProps {
   onBack: () => void;
 }
 
-const MATERIAL_BREAKDOWN = [
-  { name: 'Sand', tons: 52, fill: '#F59E0B', percentage: '35%' },
-  { name: 'Bricks', tons: 38, fill: '#EF4444', percentage: '26%' },
-  { name: 'Cement', tons: 30, fill: '#3B82F6', percentage: '21%' },
-  { name: 'Steel', tons: 15, fill: '#4F46E5', percentage: '10%' },
-  { name: 'Stone', tons: 10, fill: '#10B981', percentage: '8%' },
-];
-
-const SPEND_TREND = [
-  { day: 'Mon', spend: 28000, heightPct: 29 },
-  { day: 'Tue', spend: 45000, heightPct: 47 },
-  { day: 'Wed', spend: 18000, heightPct: 18 },
-  { day: 'Thu', spend: 62000, heightPct: 65 },
-  { day: 'Fri', spend: 95000, heightPct: 100 },
-  { day: 'Sat', spend: 54000, heightPct: 56 },
-  { day: 'Sun', spend: 40800, heightPct: 42 },
-];
-
 export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = ({
   deliveries,
 }) => {
   const { theme, typography } = useTheme();
-  const [timeFilter, setTimeFilter] = useState<'week' | 'month' | 'quarter'>('week');
 
   const activeEnRoute = deliveries.find((d) => d.status === 'En Route') || deliveries[0];
-  const maxTons = Math.max(...MATERIAL_BREAKDOWN.map((m) => m.tons));
 
   return (
     <ScrollView
@@ -55,69 +31,7 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
-      {/* Time Filter Pills Bar */}
-      <View style={[styles.filterBar, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <View style={styles.filterLeftGroup}>
-          <Filter size={14} color={theme.textMuted} />
-          <Text style={[styles.filterLabel, { color: theme.textSecondary }]}>Period:</Text>
-        </View>
-        <View style={styles.filterTabsGroup}>
-          {[
-            { id: 'week', label: 'This Week' },
-            { id: 'month', label: 'This Month' },
-            { id: 'quarter', label: 'Quarter' },
-          ].map((tab) => {
-            const isActive = timeFilter === tab.id;
-            return (
-              <TouchableOpacity
-                key={tab.id}
-                onPress={() => setTimeFilter(tab.id as any)}
-                activeOpacity={0.8}
-                style={[
-                  styles.filterTabBtn,
-                  { backgroundColor: isActive ? theme.primary : 'transparent' },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.filterTabText,
-                    { color: isActive ? '#FFFFFF' : theme.textSecondary },
-                  ]}
-                >
-                  {tab.label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-
-      {/* Overview Stat Cards Grid */}
-      <View style={styles.statsGrid}>
-        <View style={[styles.statCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={styles.statCardHeader}>
-            <Text style={[styles.statCardTitle, { color: theme.textSecondary }]}>Volume Supplied</Text>
-            <Package size={16} color={theme.primary} />
-          </View>
-          <Text style={[styles.statCardValue, { color: theme.textPrimary }]}>145 Tons</Text>
-          <View style={styles.badgeGreen}>
-            <Text style={styles.badgeGreenText}>+18% vs last week</Text>
-          </View>
-        </View>
-
-        <View style={[styles.statCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={styles.statCardHeader}>
-            <Text style={[styles.statCardTitle, { color: theme.textSecondary }]}>Total Expenditure</Text>
-            <TrendingUp size={16} color={theme.primary} />
-          </View>
-          <Text style={[styles.statCardValue, { color: theme.textPrimary }]}>₹3,42,800</Text>
-          <View style={[styles.badgeTheme, { backgroundColor: theme.primaryLight }]}>
-            <Text style={[styles.badgeThemeText, { color: theme.primaryDark }]}>4 Delivery Invoices</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Live Vehicle Tracking Timeline */}
+      {/* 1. Live Shipments Section */}
       {activeEnRoute && (
         <View style={[styles.liveTrackingCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={[styles.liveHeader, { borderBottomColor: theme.borderLight }]}>
@@ -189,99 +103,15 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
         </View>
       )}
 
-      {/* Material Consumption Chart */}
-      <View style={[styles.chartCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <View style={styles.chartHeader}>
-          <View>
-            <Text style={[styles.chartTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-              Material Supply Breakdown
-            </Text>
-            <Text style={[styles.chartSubTitle, { color: theme.textSecondary }]}>Volume in Metric Tons (T)</Text>
-          </View>
-          <View style={[styles.badgeTheme, { backgroundColor: theme.primaryLight }]}>
-            <Text style={[styles.badgeThemeText, { color: theme.primaryDark }]}>145 Tons Total</Text>
-          </View>
-        </View>
-
-        {/* Custom Bar Visualization */}
-        <View style={styles.barChartContainer}>
-          {MATERIAL_BREAKDOWN.map((item) => {
-            const heightRatio = item.tons / maxTons;
-            return (
-              <View key={item.name} style={styles.barColumn}>
-                <Text style={[styles.barValueText, { color: theme.textSecondary }]}>{item.tons}T</Text>
-                <View style={[styles.barTrack, { backgroundColor: theme.surfaceSecondary }]}>
-                  <View
-                    style={[
-                      styles.barFill,
-                      {
-                        height: `${heightRatio * 100}%`,
-                        backgroundColor: item.fill,
-                      },
-                    ]}
-                  />
-                </View>
-                <Text style={[styles.barLabelText, { color: theme.textPrimary }]}>{item.name}</Text>
-              </View>
-            );
-          })}
-        </View>
-
-        {/* Legend */}
-        <View style={[styles.legendGrid, { borderTopColor: theme.borderLight }]}>
-          {MATERIAL_BREAKDOWN.map((m) => (
-            <View key={m.name} style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: m.fill }]} />
-              <Text style={[styles.legendText, { color: theme.textSecondary }]}>
-                {m.name}: <Text style={{ color: theme.textPrimary, fontWeight: '800' }}>{m.percentage}</Text>
-              </Text>
-            </View>
-          ))}
-        </View>
-      </View>
-
-      {/* Expenditure Trend Area Chart */}
-      <View style={[styles.chartCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <View style={styles.chartHeader}>
-          <View>
-            <Text style={[styles.chartTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-              Daily Material Spending
-            </Text>
-            <Text style={[styles.chartSubTitle, { color: theme.textSecondary }]}>In Indian Rupees (₹)</Text>
-          </View>
-          <View style={styles.badgeGreen}>
-            <Text style={styles.badgeGreenText}>Weekly Cycle</Text>
-          </View>
-        </View>
-
-        {/* Daily Spending Visualization */}
-        <View style={styles.areaChartContainer}>
-          {SPEND_TREND.map((item) => (
-            <View key={item.day} style={styles.spendColumn}>
-              <Text style={[styles.spendValueText, { color: theme.textSecondary }]}>
-                ₹{(item.spend / 1000).toFixed(0)}k
-              </Text>
-              <View style={[styles.spendTrack, { backgroundColor: theme.surfaceSecondary }]}>
-                <View
-                  style={[
-                    styles.spendBarFill,
-                    { height: `${item.heightPct}%`, backgroundColor: theme.primary },
-                  ]}
-                />
-              </View>
-              <Text style={[styles.spendDayText, { color: theme.textPrimary }]}>{item.day}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
-
-      {/* Delivery Logs List */}
+      {/* 2. Recent Delivery Logs Section */}
       <View style={[styles.logsCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <View style={[styles.logsHeader, { borderBottomColor: theme.borderLight }]}>
           <Text style={[styles.chartTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
             Recent Delivery Logs
           </Text>
-          <Text style={[styles.logCountText, { color: theme.textSecondary }]}>4 Shipments</Text>
+          <Text style={[styles.logCountText, { color: theme.textSecondary }]}>
+            {deliveries.length} Shipments
+          </Text>
         </View>
 
         <View style={styles.logsList}>
@@ -340,86 +170,9 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 12,
     paddingBottom: 96,
     gap: 16,
-  },
-  filterBar: {
-    borderRadius: 16,
-    padding: 6,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  filterLeftGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  filterLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  filterTabsGroup: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  filterTabBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
-  filterTabText: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1,
-    gap: 4,
-  },
-  statCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  statCardTitle: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  statCardValue: {
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  badgeGreen: {
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  badgeGreenText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#047857',
-  },
-  badgeTheme: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  badgeThemeText: {
-    fontSize: 10,
-    fontWeight: '800',
   },
   liveTrackingCard: {
     borderRadius: 20,
@@ -453,7 +206,7 @@ const styles = StyleSheet.create({
   etaBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 999,
+    borderRadius: 12,
   },
   etaText: {
     fontSize: 11,
@@ -461,12 +214,12 @@ const styles = StyleSheet.create({
   },
   shipmentDetailsRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
     gap: 12,
+    alignItems: 'center',
   },
   truckIconBox: {
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -476,14 +229,14 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   materialName: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
   },
   driverText: {
-    fontSize: 11,
+    fontSize: 12,
   },
   boldDriver: {
-    fontWeight: '800',
+    fontWeight: '700',
   },
   addressRow: {
     flexDirection: 'row',
@@ -498,133 +251,30 @@ const styles = StyleSheet.create({
   stepperContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: 8,
-    paddingHorizontal: 8,
+    marginTop: 6,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.05)',
   },
   stepItem: {
     alignItems: 'center',
     gap: 4,
   },
   stepCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
   },
   stepNumText: {
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '900',
   },
   stepLabel: {
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  chartCard: {
-    borderRadius: 20,
-    padding: 16,
-    borderWidth: 1,
-    gap: 12,
-  },
-  chartHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  chartTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  chartSubTitle: {
-    fontSize: 10,
-  },
-  barChartContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'flex-end',
-    height: 140,
-    paddingTop: 12,
-  },
-  barColumn: {
-    alignItems: 'center',
-    width: 40,
-    height: '100%',
-    justifyContent: 'flex-end',
-    gap: 4,
-  },
-  barValueText: {
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  barTrack: {
-    width: 20,
-    flex: 1,
-    borderRadius: 6,
-    justifyContent: 'flex-end',
-    overflow: 'hidden',
-  },
-  barFill: {
-    width: '100%',
-    borderRadius: 6,
-  },
-  barLabelText: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  legendGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    paddingTop: 8,
-    borderTopWidth: 1,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendText: {
     fontSize: 10,
     fontWeight: '700',
-  },
-  areaChartContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'flex-end',
-    height: 120,
-    paddingTop: 12,
-  },
-  spendColumn: {
-    alignItems: 'center',
-    flex: 1,
-    height: '100%',
-    justifyContent: 'flex-end',
-    gap: 4,
-  },
-  spendValueText: {
-    fontSize: 8,
-    fontWeight: '800',
-  },
-  spendTrack: {
-    width: 14,
-    flex: 1,
-    borderRadius: 4,
-    justifyContent: 'flex-end',
-    overflow: 'hidden',
-  },
-  spendBarFill: {
-    width: '100%',
-    borderRadius: 4,
-  },
-  spendDayText: {
-    fontSize: 10,
-    fontWeight: '800',
   },
   logsCard: {
     borderRadius: 20,
@@ -639,26 +289,30 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     paddingBottom: 10,
   },
+  chartTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
   logCountText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   logsList: {
-    gap: 12,
+    gap: 0,
   },
   logItem: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingBottom: 10,
+    paddingVertical: 12,
     borderBottomWidth: 1,
   },
   logLeft: {
-    flex: 1,
-    gap: 2,
+    gap: 3,
   },
   logMaterialName: {
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '700',
   },
   logTimeRow: {
     flexDirection: 'row',
@@ -669,23 +323,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   logVehicleText: {
-    fontSize: 10,
+    fontSize: 11,
   },
   logRight: {
     alignItems: 'flex-end',
     gap: 4,
   },
   logAmountText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800',
   },
   statusPill: {
     paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 999,
+    paddingVertical: 3,
+    borderRadius: 8,
   },
   statusDelivered: {
-    backgroundColor: '#D1FAE5',
+    backgroundColor: '#DCFCE7',
   },
   statusEnRoute: {
     backgroundColor: '#FEF3C7',
@@ -698,12 +352,12 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   statusDeliveredText: {
-    color: '#047857',
+    color: '#15803D',
   },
   statusEnRouteText: {
-    color: '#92400E',
+    color: '#B45309',
   },
   statusPlacedText: {
-    color: '#3730A3',
+    color: '#4338CA',
   },
 });
