@@ -4,6 +4,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { LocationProvider } from './context/LocationContext';
+import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 import { HomeScreen } from './components/HomeScreen';
@@ -17,6 +18,7 @@ import { BasketScreen } from './components/BasketScreen';
 import { FavoritesScreen } from './components/FavoritesScreen';
 import { LocationModal } from './components/LocationModal';
 import { InvoiceModal } from './components/InvoiceModal';
+import { LanguagePromptModal } from './components/LanguagePromptModal';
 
 import {
   ScreenType,
@@ -56,6 +58,7 @@ function MainAppContent() {
   const [savedLocations, setSavedLocations] = useState<string[]>(SAVED_LOCATIONS);
   const [selectedLocation, setSelectedLocation] = useState(SAVED_LOCATIONS[0]);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
+  const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
 
   const handleAddLocation = (newLoc: string) => {
     if (!newLoc.trim()) return;
@@ -226,6 +229,7 @@ function MainAppContent() {
     setIsLoggedIn(true);
     setUser((prev) => ({ ...prev, phone: phoneNum, isVerified: true }));
     setCurrentScreen('home');
+    setIsLanguageModalOpen(true);
   };
 
   const handleLogout = () => {
@@ -413,6 +417,12 @@ function MainAppContent() {
         onClose={() => setIsLocationModalOpen(false)}
       />
 
+      {/* Post-Login Preferred Language Selection Modal Prompt */}
+      <LanguagePromptModal
+        isOpen={isLanguageModalOpen}
+        onClose={() => setIsLanguageModalOpen(false)}
+      />
+
       {/* Fixed Bottom Navigation Bar */}
       {currentScreen !== 'auth_mobile' && currentScreen !== 'auth_otp' && (
         <BottomNav
@@ -429,9 +439,11 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <LocationProvider>
-          <MainAppContent />
-        </LocationProvider>
+        <LanguageProvider>
+          <LocationProvider>
+            <MainAppContent />
+          </LocationProvider>
+        </LanguageProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );

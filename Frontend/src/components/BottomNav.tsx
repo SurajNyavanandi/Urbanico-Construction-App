@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Home, ShoppingBag, Heart, User } from 'lucide-react-native';
 import { ScreenType } from '../types';
 import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
 
 interface BottomNavProps {
   activeScreen: ScreenType;
@@ -16,6 +17,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   cartCount,
 }) => {
   const { theme, typography } = useTheme();
+  const { t } = useLanguage();
 
   const isHomeActive = activeScreen === 'home' || activeScreen === 'category';
   const isBasketActive = activeScreen === 'basket';
@@ -55,7 +57,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               },
             ]}
           >
-            Home
+            {t.home}
           </Text>
         </TouchableOpacity>
 
@@ -87,7 +89,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               },
             ]}
           >
-            Basket
+            {t.basket}
           </Text>
         </TouchableOpacity>
 
@@ -113,7 +115,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               },
             ]}
           >
-            Favorites
+            {t.favorites}
           </Text>
         </TouchableOpacity>
 
@@ -139,7 +141,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               },
             ]}
           >
-            Account
+            {t.profile}
           </Text>
         </TouchableOpacity>
       </View>

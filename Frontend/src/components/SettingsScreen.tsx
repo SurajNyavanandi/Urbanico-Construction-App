@@ -25,6 +25,7 @@ import {
   Sparkles,
   LayoutList,
   Grid2X2,
+  Languages,
 } from 'lucide-react-native';
 import {
   useTheme,
@@ -34,6 +35,7 @@ import {
   ACCENT_DEFINITIONS,
   FONT_CONFIGS,
 } from '../context/ThemeContext';
+import { useLanguage, LanguageCode } from '../context/LanguageContext';
 
 interface SettingsScreenProps {
   onBack: () => void;
@@ -58,6 +60,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
     typographyFont,
     setTypographyFont,
   } = useTheme();
+
+  const { language, setLanguage, languageOptions, currentLanguageOption, t } = useLanguage();
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -150,8 +154,88 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           <ArrowLeft size={20} color={theme.textPrimary} strokeWidth={2.5} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-          Preferences & Settings
+          {t.settings}
         </Text>
+      </View>
+
+      {/* SECTION 0: Language Preferences */}
+      <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <View style={[styles.cardHeader, { borderBottomColor: theme.borderLight }]}>
+          <Languages size={18} color={theme.primary} />
+          <View style={{ flex: 1 }}>
+            <View style={styles.cardTitleRow}>
+              <Text style={[styles.cardTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
+                {t.language}
+              </Text>
+              <View style={[styles.activeLangBadge, { backgroundColor: theme.primaryLight }]}>
+                <Text style={[styles.activeLangBadgeText, { color: theme.primaryDark }]}>
+                  {currentLanguageOption.flag} {currentLanguageOption.nativeName}
+                </Text>
+              </View>
+            </View>
+            <Text style={[styles.cardSubTitle, { color: theme.textSecondary }]}>
+              {t.languageSub}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.languageGrid}>
+          {languageOptions.map((opt) => {
+            const isSelected = language === opt.code;
+            return (
+              <TouchableOpacity
+                key={opt.code}
+                onPress={() => {
+                  setLanguage(opt.code);
+                  triggerToast(`Language set to ${opt.nativeName}`);
+                }}
+                activeOpacity={0.8}
+                style={[
+                  styles.languageOptionCard,
+                  {
+                    backgroundColor: isSelected ? theme.primaryLight : theme.surfaceSecondary,
+                    borderColor: isSelected ? theme.primary : theme.border,
+                  },
+                ]}
+              >
+                <View style={styles.langLeft}>
+                  <Text style={styles.langFlagText}>{opt.flag}</Text>
+                  <View>
+                    <View style={styles.langNameRow}>
+                      <Text
+                        style={[
+                          styles.langNativeTitle,
+                          { color: isSelected ? theme.primaryDark : theme.textPrimary },
+                        ]}
+                      >
+                        {opt.nativeName}
+                      </Text>
+                      {opt.code === 'en' && (
+                        <View style={[styles.defaultTag, { backgroundColor: theme.primaryLight }]}>
+                          <Text style={[styles.defaultTagText, { color: theme.primaryDark }]}>Default</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={[styles.langSubRegion, { color: theme.textMuted }]}>
+                      {opt.name} • {opt.region}
+                    </Text>
+                  </View>
+                </View>
+
+                <View
+                  style={[
+                    styles.radioCheck,
+                    isSelected
+                      ? { backgroundColor: theme.primary, borderColor: theme.primary }
+                      : { borderColor: theme.border, backgroundColor: theme.surface },
+                  ]}
+                >
+                  {isSelected && <Check size={12} color="#FFFFFF" strokeWidth={3} />}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
       </View>
 
       {/* SECTION 1: App Theme & Display Layout Settings */}
@@ -336,6 +420,72 @@ const styles = StyleSheet.create({
     gap: 10,
     borderBottomWidth: 1,
     paddingBottom: 12,
+  },
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  activeLangBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  activeLangBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  languageGrid: {
+    gap: 8,
+  },
+  languageOptionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1.5,
+  },
+  langLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  langFlagText: {
+    fontSize: 18,
+  },
+  langNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  langNativeTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  defaultTag: {
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+  },
+  defaultTagText: {
+    fontSize: 8,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  langSubRegion: {
+    fontSize: 10,
+    marginTop: 1,
+  },
+  radioCheck: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   cardTitle: {
     fontSize: 14,

@@ -23,6 +23,7 @@ import { ScreenType, MaterialItem } from '../types';
 import { MATERIAL_ITEMS, SERVICES, CATEGORIES } from '../data/materialsData';
 import { useTheme } from '../context/ThemeContext';
 import { useLocation } from '../context/LocationContext';
+import { useLanguage } from '../context/LanguageContext';
 import { BrandLogo } from './common/BrandLogo';
 
 interface HeaderProps {
@@ -57,6 +58,7 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigateScreen,
 }) => {
   const { theme, typography } = useTheme();
+  const { t } = useLanguage();
   const { selectedLocation: globalLocation } = useLocation();
   const activeLocation = globalLocation || propLocation || 'Miyapur Site, Phase 2, Hyderabad';
   const [isFocused, setIsFocused] = useState(false);
@@ -179,7 +181,7 @@ export const Header: React.FC<HeaderProps> = ({
               value={searchQuery}
               onChangeText={handleInputChange}
               onFocus={() => setIsFocused(true)}
-              placeholder="Search materials, cement, rebar..."
+              placeholder={t.searchPlaceholder}
               placeholderTextColor={theme.textMuted}
               style={[
                 styles.searchInput,

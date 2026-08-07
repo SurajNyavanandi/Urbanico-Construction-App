@@ -12,6 +12,7 @@ import {
 import { ArrowLeft, ShieldCheck, Check, Smartphone, Lock, Sparkles } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { BrandLogo } from './common/BrandLogo';
+import { LoadingButton } from './common/LoadingButton';
 
 interface AuthScreenProps {
   initialStep?: 'mobile' | 'otp';
@@ -31,6 +32,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [timer, setTimer] = useState<number>(30);
   const [isSuccess, setIsSuccess] = useState<boolean>(false);
+  const [isSendingOtp, setIsSendingOtp] = useState<boolean>(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState<boolean>(false);
 
   const inputRefs = [
     useRef<TextInput>(null),
@@ -57,11 +60,15 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       return;
     }
     setErrorMessage(null);
-    setStep('otp');
-    setTimer(30);
+    setIsSendingOtp(true);
     setTimeout(() => {
-      inputRefs[0].current?.focus();
-    }, 150);
+      setIsSendingOtp(false);
+      setStep('otp');
+      setTimer(30);
+      setTimeout(() => {
+        inputRefs[0].current?.focus();
+      }, 150);
+    }, 600);
   };
 
   const handleOtpChange = (index: number, value: string) => {
@@ -91,11 +98,15 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [isPhoneFocused, setIsPhoneFocused] = useState(false);
 
   const verifyOtpCode = (code: string) => {
-    setIsSuccess(true);
+    setIsVerifyingOtp(true);
     setErrorMessage(null);
     setTimeout(() => {
-      onSuccessAuth(`+91 ${phoneNumber}`);
-    }, 500);
+      setIsVerifyingOtp(false);
+      setIsSuccess(true);
+      setTimeout(() => {
+        onSuccessAuth(`+91 ${phoneNumber}`);
+      }, 500);
+    }, 600);
   };
 
   return (
@@ -182,13 +193,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               </View>
             )}
 
-            <TouchableOpacity
+            <LoadingButton
+              title="Get OTP Code"
               onPress={handleSendOtp}
-              style={[styles.primaryBtn, { backgroundColor: theme.primary }]}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.primaryBtnText}>Get OTP Code</Text>
-            </TouchableOpacity>
+              isLoading={isSendingOtp}
+              variant="primary"
+            />
 
             <View style={styles.termsRow}>
               <ShieldCheck size={14} color="#059669" />
@@ -256,14 +266,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               )}
             </View>
 
-            <TouchableOpacity
+            <LoadingButton
+              title="Verify & Proceed"
               onPress={() => verifyOtpCode(otpDigits.join(''))}
-              style={[styles.primaryBtn, { backgroundColor: theme.primary }]}
-              activeOpacity={0.85}
-            >
-              <ShieldCheck size={18} color="#FFFFFF" />
-              <Text style={styles.primaryBtnText}>Verify & Proceed</Text>
-            </TouchableOpacity>
+              isLoading={isVerifyingOtp}
+              variant="primary"
+              icon={<ShieldCheck size={18} color="#FFFFFF" />}
+            />
           </View>
         )}
       </ScrollView>

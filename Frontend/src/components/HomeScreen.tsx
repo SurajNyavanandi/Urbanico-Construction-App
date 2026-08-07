@@ -3,15 +3,18 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Image,
   ScrollView,
   StyleSheet,
   Dimensions,
+  RefreshControl,
 } from 'react-native';
 import { CATEGORIES, SERVICES, MATERIAL_ITEMS, ServiceItem } from '../data/materialsData';
 import { CategoryId, MaterialItem } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { ProductCard } from './common/ProductCard';
+import { HomeSkeleton } from './common/SkeletonLoader';
+import { ShimmerImage } from './common/ShimmerImage';
+import { Toast } from './common/Toast';
 
 interface HomeScreenProps {
   onSelectCategory: (catId: CategoryId) => void;
@@ -50,6 +53,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 }) => {
   const { theme, typography } = useTheme();
   const [bannerIndex, setBannerIndex] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const bannerScrollRef = useRef<ScrollView>(null);
 
@@ -57,6 +62,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   // Dynamic Card Width: 2 cards fully visible, 3rd card ~45% visible
   const CARD_WIDTH = Math.round((windowWidth - 40) / 2.45);
   const IMAGE_BOX_HEIGHT = Math.round(CARD_WIDTH * 1.12);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+      setToastMessage('Catalog rates refreshed');
+    }, 1000);
+  };
 
   // Auto-rotate banner every 4 seconds
   useEffect(() => {
@@ -96,11 +109,26 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   };
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.background }]}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-    >
+    <View style={{ flex: 1 }}>
+      <Toast
+        visible={Boolean(toastMessage)}
+        message={toastMessage || ''}
+        type="info"
+        onDismiss={() => setToastMessage(null)}
+      />
+      <ScrollView
+        style={[styles.container, { backgroundColor: theme.background }]}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.primary}
+            colors={[theme.primary]}
+          />
+        }
+      >
       {/* 1. MATERIALS SECTION */}
       <View style={styles.sectionContainer}>
         {/* Section Header */}
@@ -162,10 +190,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               onPress={() => onSelectCategory('cement')}
               style={[styles.bannerCard, { borderColor: theme.border }]}
             >
-              <Image
+              <ShimmerImage
                 source={{ uri: banner.image }}
                 style={styles.fullBannerImage}
                 resizeMode="cover"
+                borderRadius={16}
               />
             </TouchableOpacity>
           ))}
@@ -250,6 +279,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </View>
       </View>
     </ScrollView>
+    </View>
   );
 };
 

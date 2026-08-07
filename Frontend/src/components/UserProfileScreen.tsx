@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   Pressable,
-  Image,
   ScrollView,
   StyleSheet,
   Modal,
@@ -12,6 +11,7 @@ import {
   Platform,
   KeyboardAvoidingView,
   Linking,
+  RefreshControl,
 } from 'react-native';
 import {
   Phone,
@@ -43,6 +43,10 @@ import { UserProfile, ScreenType, ActivityDelivery } from '../types';
 import { INITIAL_DELIVERIES } from '../data/materialsData';
 import { useTheme } from '../context/ThemeContext';
 import { useLocation } from '../context/LocationContext';
+import { useLanguage } from '../context/LanguageContext';
+import { ShimmerImage } from './common/ShimmerImage';
+import { LoadingButton } from './common/LoadingButton';
+import { Toast } from './common/Toast';
 
 interface UserProfileScreenProps {
   user: UserProfile;
@@ -77,6 +81,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   initialOpenAddressesModal = false,
 }) => {
   const { theme, typography } = useTheme();
+  const { currentLanguageOption, t } = useLanguage();
   const {
     selectedLocation,
     savedLocations,
@@ -114,20 +119,35 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   // FAQ Accordion State
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
 
+  const [refreshing, setRefreshing] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+      showToast('Profile & saved addresses updated');
+    }, 800);
+  };
+
   const showToast = (msg: string) => {
     setToastMsg(msg);
-    setTimeout(() => setToastMsg(null), 2500);
   };
 
   const handleSaveProfile = () => {
-    onUpdateUser({
-      name: editName,
-      phone: editPhone,
-      email: editEmail,
-      avatarUrl: customAvatarUrl,
-    });
-    setIsEditModalOpen(false);
-    showToast('Profile updated successfully!');
+    if (isSavingProfile) return;
+    setIsSavingProfile(true);
+    setTimeout(() => {
+      setIsSavingProfile(false);
+      onUpdateUser({
+        name: editName,
+        phone: editPhone,
+        email: editEmail,
+        avatarUrl: customAvatarUrl,
+      });
+      setIsEditModalOpen(false);
+      showToast('Profile updated successfully!');
+    }, 500);
   };
 
   const handleAddAddress = () => {
@@ -163,18 +183,26 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   };
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.background }]}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Toast Alert */}
-      {toastMsg && (
-        <View style={styles.toastContainer}>
-          <CheckCircle2 size={16} color="#10B981" />
-          <Text style={styles.toastText}>{toastMsg}</Text>
-        </View>
-      )}
+    <View style={{ flex: 1 }}>
+      <Toast
+        visible={Boolean(toastMsg)}
+        message={toastMsg || ''}
+        type="info"
+        onDismiss={() => setToastMsg(null)}
+      />
+      <ScrollView
+        style={[styles.container, { backgroundColor: theme.background }]}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.primary}
+            colors={[theme.primary]}
+          />
+        }
+      >
 
       {/* Clean Ultra-Minimal Top Header Profile Block */}
       <View style={[styles.profileHeaderCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -192,9 +220,10 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           <View style={styles.avatarRow}>
             {/* Profile Picture (DP) */}
             <View style={styles.avatarWrapper}>
-              <Image
+              <ShimmerImage
                 source={{ uri: user.avatarUrl && user.avatarUrl.trim().length > 0 ? user.avatarUrl : DEFAULT_AVATAR_FALLBACK }}
                 style={styles.avatarImage}
+                borderRadius={40}
               />
             </View>
 
@@ -318,7 +347,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           <ChevronRight size={18} color={theme.textMuted} />
         </TouchableOpacity>
 
-        {/* 5. Settings */}
+        {/* 5. Settings & Language Preferences */}
         <TouchableOpacity
           onPress={() => onNavigateScreen('settings')}
           style={[styles.menuRow, { borderBottomColor: theme.borderLight }]}
@@ -329,8 +358,15 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               <Settings size={18} color={theme.primaryDark} />
             </View>
             <View>
-              <Text style={[styles.menuTitle, { color: theme.textPrimary }]}>Settings</Text>
-              <Text style={[styles.menuSub, { color: theme.textMuted }]}>Light / Dark theme & preferences</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={[styles.menuTitle, { color: theme.textPrimary }]}>{t.settings}</Text>
+                <View style={{ backgroundColor: theme.primaryLight, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                  <Text style={{ fontSize: 9, fontWeight: '800', color: theme.primaryDark }}>
+                    {currentLanguageOption.flag} {currentLanguageOption.nativeName}
+                  </Text>
+                </View>
+              </View>
+              <Text style={[styles.menuSub, { color: theme.textMuted }]}>Theme, Language & App settings</Text>
             </View>
           </View>
           <ChevronRight size={18} color={theme.textMuted} />
@@ -412,7 +448,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                       ]}
                       activeOpacity={0.8}
                     >
-                      <Image source={{ uri: url }} style={styles.avatarGridImage} />
+                      <ShimmerImage source={{ uri: url }} style={styles.avatarGridImage} borderRadius={24} />
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -463,13 +499,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             </ScrollView>
 
             <View style={[styles.modalFooterActions, { borderTopColor: theme.border }]}>
-              <TouchableOpacity
+              <LoadingButton
+                title="Save Profile Changes"
                 onPress={handleSaveProfile}
-                style={[styles.saveProfileBtn, { backgroundColor: theme.primary }]}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.saveProfileBtnText}>Save Profile Changes</Text>
-              </TouchableOpacity>
+                isLoading={isSavingProfile}
+                variant="primary"
+                style={{ height: 48 }}
+              />
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -748,6 +784,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         </View>
       </Modal>
     </ScrollView>
+    </View>
   );
 };
 

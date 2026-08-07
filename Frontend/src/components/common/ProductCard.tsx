@@ -3,13 +3,13 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Image,
   StyleSheet,
   ViewStyle,
 } from 'react-native';
 import { Heart } from 'lucide-react-native';
 import { MaterialItem } from '../../types';
 import { useTheme } from '../../context/ThemeContext';
+import { ShimmerImage } from './ShimmerImage';
 
 export interface ProductCardProps {
   item?: MaterialItem;
@@ -73,10 +73,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           ]}
         >
           {displayImage ? (
-            <Image
+            <ShimmerImage
               source={{ uri: displayImage }}
               style={styles.productImage}
               resizeMode="cover"
+              borderRadius={14}
             />
           ) : null}
         </View>
@@ -171,10 +172,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         ]}
       >
         {displayImage ? (
-          <Image
+          <ShimmerImage
             source={{ uri: displayImage }}
             style={styles.productImage}
             resizeMode="cover"
+            borderRadius={14}
           />
         ) : null}
 

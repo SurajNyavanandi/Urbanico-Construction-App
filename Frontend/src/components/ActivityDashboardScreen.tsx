@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
+  RefreshControl,
 } from 'react-native';
 import {
   Truck,
@@ -12,25 +13,62 @@ import {
 } from 'lucide-react-native';
 import { ActivityDelivery } from '../types';
 import { useTheme } from '../context/ThemeContext';
+import { EmptyState } from './common/EmptyState';
+import { Toast } from './common/Toast';
 
 interface ActivityDashboardScreenProps {
   deliveries: ActivityDelivery[];
   onBack: () => void;
+  onExploreCatalog?: () => void;
 }
 
 export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = ({
   deliveries,
+  onExploreCatalog,
 }) => {
   const { theme, typography } = useTheme();
+  const [refreshing, setRefreshing] = useState(false);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+      setToastMsg('Live tracking & shipment logs updated');
+    }, 800);
+  };
 
   const activeEnRoute = deliveries.find((d) => d.status === 'En Route') || deliveries[0];
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.background }]}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-    >
+    <View style={{ flex: 1 }}>
+      <Toast
+        visible={Boolean(toastMsg)}
+        message={toastMsg || ''}
+        type="info"
+        onDismiss={() => setToastMsg(null)}
+      />
+      <ScrollView
+        style={[styles.container, { backgroundColor: theme.background }]}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.primary}
+            colors={[theme.primary]}
+          />
+        }
+      >
+        {deliveries.length === 0 ? (
+          <EmptyState
+            type="no-orders"
+            onAction={onExploreCatalog}
+            actionLabel="Explore Catalog"
+          />
+        ) : (
+          <>
       {/* 1. Live Shipments Section */}
       {activeEnRoute && (
         <View style={[styles.liveTrackingCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -160,7 +198,10 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
           ))}
         </View>
       </View>
+      </>
+      )}
     </ScrollView>
+    </View>
   );
 };
 

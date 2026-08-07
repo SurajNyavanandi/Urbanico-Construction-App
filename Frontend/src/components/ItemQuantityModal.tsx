@@ -6,7 +6,6 @@ import {
   ScrollView,
   StyleSheet,
   Pressable,
-  Image,
   Dimensions,
 } from 'react-native';
 import {
@@ -22,6 +21,8 @@ import {
 } from 'lucide-react-native';
 import { MaterialItem, UnitOption } from '../types';
 import { useTheme } from '../context/ThemeContext';
+import { ShimmerImage } from './common/ShimmerImage';
+import { LoadingButton } from './common/LoadingButton';
 
 interface ItemQuantityModalProps {
   item: MaterialItem | null;
@@ -50,6 +51,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
   const [selectedRadioOptionId, setSelectedRadioOptionId] = useState<string>('');
   const [globalQuantity, setGlobalQuantity] = useState<number>(2);
   const [activeGalleryIndex, setActiveGalleryIndex] = useState<number>(0);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
 
   const galleryScrollRef = useRef<ScrollView>(null);
 
@@ -120,25 +122,31 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
   }
 
   const handlePrimaryAdd = () => {
-    if (isRadioType) {
-      const selectedOpt = item.options.find((o) => o.id === selectedRadioOptionId) || item.options[0];
-      if (selectedOpt && globalQuantity > 0) {
-        onAddToCart(item, selectedOpt, globalQuantity, calculatedTotal);
-      }
-    } else {
-      let addedAny = false;
-      item.options.forEach((opt) => {
-        const qty = optionQuantities[opt.id] || 0;
-        if (qty > 0) {
-          onAddToCart(item, opt, qty, opt.price * qty);
-          addedAny = true;
+    if (isAddingToCart) return;
+    setIsAddingToCart(true);
+
+    setTimeout(() => {
+      setIsAddingToCart(false);
+      if (isRadioType) {
+        const selectedOpt = item.options.find((o) => o.id === selectedRadioOptionId) || item.options[0];
+        if (selectedOpt && globalQuantity > 0) {
+          onAddToCart(item, selectedOpt, globalQuantity, calculatedTotal);
         }
-      });
-      if (!addedAny && item.options[0]) {
-        onAddToCart(item, item.options[0], 1, item.options[0].price);
+      } else {
+        let addedAny = false;
+        item.options.forEach((opt) => {
+          const qty = optionQuantities[opt.id] || 0;
+          if (qty > 0) {
+            onAddToCart(item, opt, qty, opt.price * qty);
+            addedAny = true;
+          }
+        });
+        if (!addedAny && item.options[0]) {
+          onAddToCart(item, item.options[0], 1, item.options[0].price);
+        }
       }
-    }
-    onClose();
+      onClose();
+    }, 400);
   };
 
   const screenWidth = Dimensions.get('window').width;
@@ -160,10 +168,11 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
         {/* Swiggy-Style Top Product Header: Image Thumbnail + Title */}
         <View style={[styles.modalHeader, { backgroundColor: theme.surface, borderBottomColor: theme.borderLight }]}>
           <View style={styles.headerThumbnailWrapper}>
-            <Image
+            <ShimmerImage
               source={{ uri: item.image }}
               style={styles.headerThumbnail}
               resizeMode="cover"
+              borderRadius={10}
             />
           </View>
 
@@ -311,20 +320,15 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
           </View>
 
           {/* Wide Add Button on right with Price & MRP */}
-          <TouchableOpacity
-            onPress={handlePrimaryAdd}
-            style={[styles.primaryAddCta, { backgroundColor: '#16A34A' }]}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.primaryAddCtaText}>
-              Add Item | ₹{calculatedTotal.toLocaleString('en-IN')}
-            </Text>
-            {calculatedTotal > 0 && (
-              <Text style={styles.primaryMrpStrikethrough}>
-                ₹{Math.round(calculatedTotal * 1.15).toLocaleString('en-IN')}
-              </Text>
-            )}
-          </TouchableOpacity>
+          <View style={{ flex: 1 }}>
+            <LoadingButton
+              title={`Add Item | ₹${calculatedTotal.toLocaleString('en-IN')}`}
+              onPress={handlePrimaryAdd}
+              isLoading={isAddingToCart}
+              variant="primary"
+              style={{ backgroundColor: '#16A34A', height: 46 }}
+            />
+          </View>
         </View>
       </View>
     </View>

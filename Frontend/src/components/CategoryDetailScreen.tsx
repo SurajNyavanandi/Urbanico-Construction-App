@@ -3,17 +3,19 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Image,
   ScrollView,
   StyleSheet,
+  RefreshControl,
 } from 'react-native';
 import { Heart, ShoppingCart, LayoutList, Grid2X2, ChevronRight } from 'lucide-react-native';
 import { CATEGORIES, SERVICES, MATERIAL_ITEMS } from '../data/materialsData';
 import { CategoryId, MaterialItem } from '../types';
 import { useTheme } from '../context/ThemeContext';
-import { PillButton } from './common/PillButton';
 import { ProductCard } from './common/ProductCard';
 import { TopNavTab } from './common/TopNavTab';
+import { EmptyState } from './common/EmptyState';
+import { CatalogSkeleton } from './common/SkeletonLoader';
+import { Toast } from './common/Toast';
 
 interface CategoryDetailScreenProps {
   categoryId: CategoryId | 'all';
@@ -37,6 +39,16 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
   onViewModeChange,
 }) => {
   const { theme, typography } = useTheme();
+  const [refreshing, setRefreshing] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+      setToastMessage('Category inventory updated');
+    }, 800);
+  };
 
   // Display View Mode Option: Global setting defaulting to two-column 'grid'
   const [internalViewMode, setInternalViewMode] = useState<'list' | 'grid'>('grid');
@@ -102,11 +114,26 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
   const isCatalogMode = categoryId === 'all' || categoryId === 'services-catalog';
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.background }]}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-    >
+    <View style={{ flex: 1 }}>
+      <Toast
+        visible={Boolean(toastMessage)}
+        message={toastMessage || ''}
+        type="info"
+        onDismiss={() => setToastMessage(null)}
+      />
+      <ScrollView
+        style={[styles.container, { backgroundColor: theme.background }]}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.primary}
+            colors={[theme.primary]}
+          />
+        }
+      >
       {/* Context-Aware Navigation Bar:
           - If browsing Services, displays ONLY 'All Services' + Service Trades.
           - If browsing Materials, displays ONLY 'All Materials' + Material Subcategories. */}
@@ -171,9 +198,11 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
 
           {/* Materials List / Grid Layout */}
           {filteredCategories.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Text style={[styles.emptyText, { color: theme.textMuted }]}>No categories found matching your search.</Text>
-            </View>
+            <EmptyState
+              type="no-search"
+              title="No Categories Found"
+              description="No material categories matched your search term."
+            />
           ) : viewMode === 'grid' ? (
             /* 2-Column Grid View Layout */
             <View style={styles.twoColumnGridRow}>
@@ -225,9 +254,11 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
 
           {/* Services List / Grid Layout */}
           {filteredServices.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Text style={[styles.emptyText, { color: theme.textMuted }]}>No services found matching your search.</Text>
-            </View>
+            <EmptyState
+              type="no-search"
+              title="No Services Found"
+              description="No trade services matched your search term."
+            />
           ) : viewMode === 'grid' ? (
             /* 2-Column Grid View Layout */
             <View style={styles.twoColumnGridRow}>
@@ -300,9 +331,11 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
 
           {/* Product Items List / Grid */}
           {items.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Text style={[styles.emptyText, { color: theme.textMuted }]}>No items found matching your search.</Text>
-            </View>
+            <EmptyState
+              type="no-search"
+              title="No Products Found"
+              description="No products matched your search or subcategory filter."
+            />
           ) : viewMode === 'grid' ? (
             /* 2-Column Grid View Layout (Reference Image 1) */
             <View style={styles.twoColumnGridRow}>
@@ -337,6 +370,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
         </View>
       )}
     </ScrollView>
+    </View>
   );
 };
 

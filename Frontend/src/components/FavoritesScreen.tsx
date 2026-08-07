@@ -3,14 +3,17 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Image,
   ScrollView,
   StyleSheet,
+  RefreshControl,
 } from 'react-native';
 import { Heart, ShoppingCart, ArrowRight, Sparkles, Check } from 'lucide-react-native';
 import { MaterialItem } from '../types';
 import { MATERIAL_ITEMS } from '../data/materialsData';
 import { useTheme } from '../context/ThemeContext';
+import { ShimmerImage } from './common/ShimmerImage';
+import { EmptyState } from './common/EmptyState';
+import { Toast } from './common/Toast';
 
 interface FavoritesScreenProps {
   onSelectItemModal: (item: MaterialItem) => void;
@@ -34,12 +37,37 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
     setTimeout(() => setAddedToast(null), 2000);
   };
 
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+      setAddedToast('Favorites list updated');
+    }, 800);
+  };
+
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.background }]}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-    >
+    <View style={{ flex: 1 }}>
+      <Toast
+        visible={Boolean(addedToast)}
+        message={addedToast || ''}
+        type="info"
+        onDismiss={() => setAddedToast(null)}
+      />
+      <ScrollView
+        style={[styles.container, { backgroundColor: theme.background }]}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.primary}
+            colors={[theme.primary]}
+          />
+        }
+      >
       {/* Toast Alert */}
       {addedToast && (
         <View style={[styles.toastContainer, { backgroundColor: theme.surfaceSecondary, borderColor: theme.primary }]}>
@@ -55,10 +83,11 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
             <View key={item.id} style={[styles.favoriteCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
               {/* Product Thumbnail */}
               <View style={[styles.thumbnailWrapper, { backgroundColor: theme.surfaceSecondary }]}>
-                <Image
+                <ShimmerImage
                   source={{ uri: item.image }}
                   style={styles.thumbnailImage}
                   resizeMode="cover"
+                  borderRadius={12}
                 />
               </View>
 
@@ -109,28 +138,14 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
           ))}
         </View>
       ) : (
-        /* Empty State */
-        <View style={[styles.emptyCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={[styles.emptyIconCircle, { backgroundColor: theme.primaryLight }]}>
-            <Heart size={28} color={theme.primaryDark} />
-          </View>
-          <View style={styles.emptyTextContainer}>
-            <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>No Favorites Saved</Text>
-            <Text style={[styles.emptySubTitle, { color: theme.textSecondary }]}>
-              Tap the heart icon on any material in the catalog to save it for instant reordering.
-            </Text>
-          </View>
-          <TouchableOpacity
-            onPress={onNavigateHome}
-            style={[styles.browseCatalogCta, { backgroundColor: theme.primary }]}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.browseCatalogText}>Browse Catalog</Text>
-            <ArrowRight size={16} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
+        <EmptyState
+          type="empty-favorites"
+          onAction={onNavigateHome}
+          actionLabel="Browse Catalog"
+        />
       )}
     </ScrollView>
+    </View>
   );
 };
 

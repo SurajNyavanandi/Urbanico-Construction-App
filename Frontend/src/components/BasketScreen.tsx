@@ -3,9 +3,9 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Image,
   ScrollView,
   StyleSheet,
+  RefreshControl,
 } from 'react-native';
 import {
   ShoppingBag,
@@ -25,6 +25,10 @@ import { useTheme } from '../context/ThemeContext';
 import { useLocation } from '../context/LocationContext';
 import { RazorpayModal, RazorpayPaymentResult } from './RazorpayModal';
 import { PaymentSuccessModal } from './PaymentSuccessModal';
+import { EmptyState } from './common/EmptyState';
+import { LoadingButton } from './common/LoadingButton';
+import { ShimmerImage } from './common/ShimmerImage';
+import { Toast } from './common/Toast';
 
 interface BasketScreenProps {
   cartItems: CartItem[];
@@ -54,6 +58,17 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   const activeLocation = globalLocation || propLocation || 'Miyapur Site, Phase 2, Hyderabad';
   const [activeTab, setActiveTab] = useState<'cart' | 'history'>('cart');
   const [orderPlaced, setOrderPlaced] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+      setToastMessage('Basket & live delivery status refreshed');
+    }, 800);
+  };
 
   // Razorpay Payment States
   const [showRazorpayModal, setShowRazorpayModal] = useState(false);
@@ -70,7 +85,11 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
 
   const handlePlaceOrder = () => {
     setPaymentError(null);
-    setShowRazorpayModal(true);
+    setIsPlacingOrder(true);
+    setTimeout(() => {
+      setIsPlacingOrder(false);
+      setShowRazorpayModal(true);
+    }, 500);
   };
 
   const handlePaymentSuccess = (result: RazorpayPaymentResult) => {
@@ -85,11 +104,26 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   };
 
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.background }]}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-    >
+    <View style={{ flex: 1 }}>
+      <Toast
+        visible={Boolean(toastMessage)}
+        message={toastMessage || ''}
+        type="info"
+        onDismiss={() => setToastMessage(null)}
+      />
+      <ScrollView
+        style={[styles.container, { backgroundColor: theme.background }]}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.primary}
+            colors={[theme.primary]}
+          />
+        }
+      >
       {/* Top Segmented Tab (Cart vs Order History & Tracking) */}
       <View style={[styles.tabContainer, { backgroundColor: theme.surfaceSecondary }]}>
         <TouchableOpacity
@@ -158,35 +192,11 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
           </View>
 
           {cartItems.length === 0 ? (
-            <View style={[styles.emptyCartCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <View style={[styles.emptyIconCircle, { backgroundColor: theme.primaryLight }]}>
-                <ShoppingBag size={32} color={theme.primaryDark} />
-              </View>
-              <View style={styles.emptyTextGroup}>
-                <Text style={[styles.emptyTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-                  Your Basket is Empty
-                </Text>
-                <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
-                  Select Sand, Bricks, Cement, Stone, Iron bars, or Centring from the home catalog.
-                </Text>
-              </View>
-              <View style={styles.emptyActionRow}>
-                <TouchableOpacity
-                  onPress={() => onNavigateScreen('home')}
-                  style={[styles.primaryPillBtn, { backgroundColor: theme.primary }]}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.primaryPillBtnText}>Browse Catalog</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setActiveTab('history')}
-                  style={[styles.secondaryPillBtn, { backgroundColor: theme.surfaceSecondary }]}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.secondaryPillBtnText, { color: theme.textPrimary }]}>View Order History</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
+            <EmptyState
+              type="empty-cart"
+              onAction={() => onNavigateScreen('home')}
+              actionLabel="Browse Catalog"
+            />
           ) : (
             <View style={styles.cartSection}>
               {/* Basket Items List */}
@@ -194,10 +204,11 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                 {cartItems.map((item) => (
                   <View key={item.id} style={[styles.cartItemRow, { borderBottomColor: theme.borderLight }]}>
                     <View style={[styles.itemImageWrapper, { backgroundColor: theme.surfaceSecondary, borderColor: theme.borderLight }]}>
-                      <Image
+                      <ShimmerImage
                         source={{ uri: item.image }}
                         style={styles.itemImage}
                         resizeMode="contain"
+                        borderRadius={8}
                       />
                     </View>
 
@@ -278,27 +289,14 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
               </View>
 
               {/* Confirm Order CTA */}
-              <TouchableOpacity
+              <LoadingButton
+                title={`Confirm Order • ₹${grandTotal.toLocaleString('en-IN')}`}
                 onPress={handlePlaceOrder}
-                disabled={orderPlaced}
-                style={[styles.confirmCtaBtn, { backgroundColor: theme.primary }]}
-                activeOpacity={0.8}
-              >
-                {orderPlaced ? (
-                  <Text style={styles.confirmCtaText}>
-                    Placing Order & Dispatching Truck...
-                  </Text>
-                ) : (
-                  <View style={styles.ctaContentRow}>
-                    <Text style={styles.confirmCtaText}>Confirm Order</Text>
-                    <Text style={styles.confirmCtaText}>•</Text>
-                    <Text style={styles.confirmCtaText}>
-                      ₹{grandTotal.toLocaleString('en-IN')}
-                    </Text>
-                    <ArrowRight size={16} color="#FFFFFF" strokeWidth={2.5} />
-                  </View>
-                )}
-              </TouchableOpacity>
+                isLoading={isPlacingOrder}
+                variant="primary"
+                style={{ height: 52, marginTop: 8 }}
+                icon={<ArrowRight size={16} color="#FFFFFF" strokeWidth={2.5} />}
+              />
             </View>
           )}
         </>
@@ -464,6 +462,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
         }}
       />
     </ScrollView>
+    </View>
   );
 };
 
