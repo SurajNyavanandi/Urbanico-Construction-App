@@ -7,7 +7,7 @@ import {
   StyleSheet,
   RefreshControl,
 } from 'react-native';
-import { Heart, ShoppingCart, LayoutList, Grid2X2, ChevronRight } from 'lucide-react-native';
+import { Heart, ShoppingCart, LayoutList, Grid2X2, ChevronRight, ArrowLeft } from 'lucide-react-native';
 import { CATEGORIES, SERVICES, MATERIAL_ITEMS } from '../data/materialsData';
 import { CategoryId, MaterialItem } from '../types';
 import { useTheme } from '../context/ThemeContext';
@@ -22,6 +22,7 @@ interface CategoryDetailScreenProps {
   onSelectItem: (item: MaterialItem) => void;
   onSelectCategoryTab: (catId: CategoryId) => void;
   searchQuery: string;
+  onBack?: () => void;
   favoriteIds?: string[];
   onToggleFavorite?: (id: string) => void;
   viewMode?: 'list' | 'grid';
@@ -33,6 +34,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
   onSelectItem,
   onSelectCategoryTab,
   searchQuery,
+  onBack,
   favoriteIds = [],
   onToggleFavorite,
   viewMode: externalViewMode = 'grid',
@@ -135,9 +137,20 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
         }
       >
       {/* Context-Aware Navigation Bar:
+          - Includes fixed Back Arrow on left
           - If browsing Services, displays ONLY 'All Services' + Service Trades.
           - If browsing Materials, displays ONLY 'All Materials' + Material Subcategories. */}
-      <View style={[styles.navBarWrapper, { borderBottomColor: theme.borderLight }]}>
+      <View style={[styles.navBarWrapper, { backgroundColor: theme.surface, borderBottomColor: theme.borderLight }]}>
+        {onBack && (
+          <TouchableOpacity
+            onPress={onBack}
+            style={[styles.fixedBackBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
+            activeOpacity={0.7}
+            accessibilityLabel="Go Back"
+          >
+            <ArrowLeft color={theme.textPrimary} size={18} strokeWidth={2.2} />
+          </TouchableOpacity>
+        )}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -429,12 +442,24 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   navBarWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 10,
     borderBottomWidth: 1,
     marginBottom: 8,
     paddingBottom: 2,
   },
+  fixedBackBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
   pillsScroll: {
-    paddingHorizontal: 2,
+    paddingRight: 16,
   },
   pillButton: {
     paddingHorizontal: 14,
@@ -483,8 +508,8 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   toggleBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
   },
   twoColumnGridRow: {
     flexDirection: 'row',
@@ -501,7 +526,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   categoryHeaderBanner: {
     flexDirection: 'row',
@@ -528,12 +553,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   categoryHeaderTitle: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 18,
+    fontWeight: '700',
   },
   categoryHeaderSub: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '400',
     marginTop: 2,
   },
   categoryListCard: {
@@ -561,12 +586,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   categoryListTitle: {
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 18,
+    fontWeight: '700',
   },
   categoryListSubtitle: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '400',
     marginTop: 3,
   },
   categoryListArrowBadge: {

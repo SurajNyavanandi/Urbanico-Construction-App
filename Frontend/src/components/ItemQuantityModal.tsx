@@ -399,19 +399,21 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   modalTitle: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 20,
+    fontWeight: '700',
+    lineHeight: 24,
     letterSpacing: -0.2,
   },
   modalSubtitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 1,
+    fontSize: 14,
+    fontWeight: '400',
+    lineHeight: 18,
+    marginTop: 2,
   },
   modalPriceTag: {
-    fontSize: 13,
-    fontWeight: '800',
-    marginTop: 3,
+    fontSize: 18,
+    fontWeight: '700',
+    marginTop: 4,
   },
   headerActions: {
     flexDirection: 'row',
@@ -481,8 +483,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   badgeText: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '500',
   },
   badgeDivider: {
     width: 1,
@@ -496,8 +498,8 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   selectLabel: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '500',
   },
   selectSublabel: {
     fontSize: 11,
@@ -506,8 +508,8 @@ const styles = StyleSheet.create({
   },
   selectAllLink: {
     fontSize: 12,
-    fontWeight: '800',
-    color: '#EA580C', // Swiggy Orange action link!
+    fontWeight: '600',
+    color: '#000000',
   },
   radioContainer: {
     borderRadius: 16,
@@ -523,8 +525,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   optionLabel: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '500',
   },
   radioRightGroup: {
     flexDirection: 'row',
@@ -532,8 +534,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   optionPrice: {
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '600',
   },
   outerRadioCircle: {
     width: 18,
@@ -562,13 +564,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
   },
   stepperOptionLabel: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '500',
     flex: 1,
   },
   stepperOptionPrice: {
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '600',
     marginHorizontal: 8,
   },
   stepperBox: {

@@ -167,24 +167,24 @@ export const ACCENT_DEFINITIONS: Record<AccentColor, AccentDefinition> = {
 
 export const FONT_CONFIGS: Record<TypographyFontFamily, { name: string; family: string; headingFamily: string }> = {
   system: {
-    name: 'Plus Jakarta Sans',
-    family: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    headingFamily: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    name: 'Nike System Font',
+    family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    headingFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
   },
   inter: {
     name: 'Inter Technical',
-    family: '"Inter", "Plus Jakarta Sans", sans-serif',
-    headingFamily: '"Inter", "Plus Jakarta Sans", sans-serif',
+    family: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    headingFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   },
   jakarta: {
     name: 'Plus Jakarta Display',
-    family: '"Plus Jakarta Sans", sans-serif',
-    headingFamily: '"Plus Jakarta Sans", sans-serif',
+    family: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    headingFamily: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   },
   mono: {
     name: 'Site Spec Mono',
     family: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-    headingFamily: '"Plus Jakarta Sans", sans-serif',
+    headingFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   },
 };
 
@@ -200,9 +200,9 @@ export function getThemeColors(mode: ThemeMode, accent: AccentColor): ThemeColor
       surface: '#FFFFFF',
       surfaceSecondary: accentDef.light.surfaceSecondary || '#F8FAFC',
       surfaceTertiary: accentDef.light.surfaceTertiary || '#F1F5F9',
-      textPrimary: '#0F172A',
-      textSecondary: '#475569',
-      textMuted: '#94A3B8',
+      textPrimary: '#000000',
+      textSecondary: '#666666',
+      textMuted: '#999999',
       primary: accentDef.light.primary,
       primaryLight: accentDef.light.primaryLight,
       primaryDark: accentDef.light.primaryDark,
@@ -210,7 +210,7 @@ export function getThemeColors(mode: ThemeMode, accent: AccentColor): ThemeColor
       borderLight: '#F1F5F9',
       cardShadow: accentDef.light.cardShadow,
       headerBg: '#FFFFFF',
-      headerText: '#0F172A',
+      headerText: '#000000',
       statusBarStyle: 'dark',
     };
   } else {
@@ -221,9 +221,9 @@ export function getThemeColors(mode: ThemeMode, accent: AccentColor): ThemeColor
       surface: '#1E293B',
       surfaceSecondary: '#334155',
       surfaceTertiary: '#0F172A',
-      textPrimary: '#F8FAFC',
-      textSecondary: '#CBD5E1',
-      textMuted: '#64748B',
+      textPrimary: '#FFFFFF',
+      textSecondary: '#A1A1AA',
+      textMuted: '#71717A',
       primary: accentDef.dark.primary,
       primaryLight: accentDef.dark.primaryLight,
       primaryDark: accentDef.dark.primaryDark,
@@ -231,26 +231,26 @@ export function getThemeColors(mode: ThemeMode, accent: AccentColor): ThemeColor
       borderLight: '#1E293B',
       cardShadow: accentDef.dark.cardShadow,
       headerBg: '#1E293B',
-      headerText: '#F8FAFC',
+      headerText: '#FFFFFF',
       statusBarStyle: 'light',
     };
   }
 }
 
 export function getTypographyConfig(fontFamilyKey: TypographyFontFamily): TypographyConfig {
-  const fontConf = FONT_CONFIGS[fontFamilyKey] || FONT_CONFIGS.jakarta;
+  const fontConf = FONT_CONFIGS[fontFamilyKey] || FONT_CONFIGS.system;
   return {
     fontFamily: fontConf.family,
     fontFamilyHeading: fontConf.headingFamily,
     fontFamilyMono: FONT_CONFIGS.mono.family,
     fontSize: {
-      xs: 10,
+      xs: 11,
       sm: 12,
-      base: 13.5,
-      lg: 15,
-      xl: 17,
-      '2xl': 19,
-      '3xl': 22,
+      base: 13,
+      lg: 14,
+      xl: 16,
+      '2xl': 18,
+      '3xl': 20,
     },
     fontWeight: {
       normal: '400',

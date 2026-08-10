@@ -18,33 +18,31 @@ import {
   MapPin,
   ShieldCheck,
   FileText,
-  Activity,
   Settings,
-  Headphones,
   LogOut,
   ChevronRight,
   Edit2,
   LogIn,
-  Building,
   CreditCard,
   X,
-  CheckCircle2,
   Plus,
   Trash2,
   Navigation,
-  Download,
   Check,
   Mail,
-  MessageSquare,
   HelpCircle,
   ChevronDown,
+  Gift,
+  Award,
+  Star,
+  Wallet,
+  Building,
 } from 'lucide-react-native';
 import { UserProfile, ScreenType, ActivityDelivery } from '../types';
 import { INITIAL_DELIVERIES } from '../data/materialsData';
 import { useTheme } from '../context/ThemeContext';
 import { useLocation } from '../context/LocationContext';
 import { useLanguage } from '../context/LanguageContext';
-import { ShimmerImage } from './common/ShimmerImage';
 import { LoadingButton } from './common/LoadingButton';
 import { Toast } from './common/Toast';
 
@@ -59,17 +57,6 @@ interface UserProfileScreenProps {
   initialOpenAddressesModal?: boolean;
 }
 
-const DEFAULT_AVATAR_FALLBACK = 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400';
-
-const AVATAR_PRESETS = [
-  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=400',
-  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400',
-  'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=400',
-  'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=400',
-  'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=400',
-  'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=400',
-];
-
 export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   user,
   onUpdateUser,
@@ -80,7 +67,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   onViewInvoice,
   initialOpenAddressesModal = false,
 }) => {
-  const { theme, typography } = useTheme();
+  const { theme } = useTheme();
   const { currentLanguageOption, t } = useLanguage();
   const {
     selectedLocation,
@@ -96,6 +83,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [isAddressesModalOpen, setIsAddressesModalOpen] = useState(initialOpenAddressesModal);
   const [isPaymentsModalOpen, setIsPaymentsModalOpen] = useState(false);
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
+  const [isAboutModalOpen, setIsAboutModalOpen] = useState(false);
 
   // Address edit state
   const [newAddressInput, setNewAddressInput] = useState('');
@@ -103,18 +91,17 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [editingAddressInput, setEditingAddressInput] = useState('');
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  // Edit profile form state
+  // Edit profile form state (Name, Phone, Email ONLY - No Avatar)
   const [editName, setEditName] = useState(user.name);
   const [editPhone, setEditPhone] = useState(user.phone);
   const [editEmail, setEditEmail] = useState(user.email);
-  const [customAvatarUrl, setCustomAvatarUrl] = useState(user.avatarUrl);
 
   // Saved Payments state
-  const [savedCards, setSavedCards] = useState([
+  const [savedCards] = useState([
     { id: '1', bank: 'HDFC Bank Visa', last4: '4821', type: 'Credit Card', isDefault: true },
     { id: '2', bank: 'ICICI Bank Mastercard', last4: '9102', type: 'Debit Card', isDefault: false },
   ]);
-  const [savedUpi, setSavedUpi] = useState('rajesh@okaxis');
+  const [savedUpi] = useState('rajesh@okaxis');
 
   // FAQ Accordion State
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
@@ -126,7 +113,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     setRefreshing(true);
     setTimeout(() => {
       setRefreshing(false);
-      showToast('Profile & saved addresses updated');
+      showToast('Profile updated');
     }, 800);
   };
 
@@ -143,10 +130,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         name: editName,
         phone: editPhone,
         email: editEmail,
-        avatarUrl: customAvatarUrl,
       });
       setIsEditModalOpen(false);
-      showToast('Profile updated successfully!');
+      showToast('Profile details updated successfully');
     }, 500);
   };
 
@@ -203,214 +189,187 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           />
         }
       >
-
-      {/* Clean Ultra-Minimal Top Header Profile Block */}
-      <View style={[styles.profileHeaderCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        {/* Single Top-Right Edit Icon for updating DP & Profile Info */}
-        <TouchableOpacity
-          onPress={() => setIsEditModalOpen(true)}
-          style={[styles.singleEditIconBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
-          activeOpacity={0.7}
-          accessibilityLabel="Edit profile details and photo"
-        >
-          <Edit2 size={16} color={theme.textPrimary} />
-        </TouchableOpacity>
-
-        <View style={styles.headerMainBody}>
-          <View style={styles.avatarRow}>
-            {/* Profile Picture (DP) */}
-            <View style={styles.avatarWrapper}>
-              <ShimmerImage
-                source={{ uri: user.avatarUrl && user.avatarUrl.trim().length > 0 ? user.avatarUrl : DEFAULT_AVATAR_FALLBACK }}
-                style={styles.avatarImage}
-                borderRadius={40}
-              />
+        {/* Ultra Minimal User Profile Card */}
+        <View style={[styles.profileCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          <View style={styles.profileCardMain}>
+            <View style={styles.profileInfoColumn}>
+              <Text style={[styles.userNameText, { color: theme.textPrimary }]}>
+                {isLoggedIn ? user.name : 'Guest User'}
+              </Text>
+              <Text style={[styles.userPhoneText, { color: theme.textSecondary }]}>
+                {isLoggedIn ? user.phone : '+91 Mobile Unverified'}
+              </Text>
+              {isLoggedIn && user.email ? (
+                <Text style={[styles.userEmailText, { color: theme.textMuted }]} numberOfLines={1}>
+                  {user.email}
+                </Text>
+              ) : null}
             </View>
 
-            <View style={styles.profileTitleBlock}>
-              {/* Name & Verified Badge */}
-              <View style={styles.nameRow}>
-                <Text style={[styles.userNameText, { color: theme.textPrimary }]} numberOfLines={1}>
-                  {isLoggedIn ? user.name : 'Guest User'}
-                </Text>
-                {/* Verified Badge Symbol Only */}
-                {user.isVerified && isLoggedIn && (
-                  <View style={styles.verifiedBadgeContainer} title="Verified Account">
-                    <ShieldCheck size={18} color="#059669" fill="#D1FAE5" />
-                  </View>
-                )}
-              </View>
-
-              {/* Mobile Number */}
-              <View style={styles.phoneRow}>
-                <Phone size={13} color={theme.textSecondary} />
-                <Text style={[styles.phoneText, { color: theme.textSecondary }]}>
-                  {isLoggedIn ? user.phone : '+91 Mobile Unverified'}
-                </Text>
-              </View>
-
-              {/* Email Address & Verify Button */}
-              <View style={styles.emailRow}>
-                <Mail size={13} color={theme.textSecondary} />
-                <Text style={[styles.phoneText, { color: theme.textSecondary, flexShrink: 1 }]} numberOfLines={1}>
-                  {isLoggedIn ? (user.email || 'rajesh.k@urbanico.in') : 'rajesh.k@urbanico.in'}
-                </Text>
-                {!user.isVerified && (
-                  <TouchableOpacity
-                    onPress={() => {
-                      onUpdateUser({ isVerified: true });
-                      showToast('Email verified successfully!');
-                    }}
-                    style={[styles.verifyEmailBtn, { backgroundColor: theme.primaryLight, borderColor: theme.primary }]}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.verifyEmailBtnText, { color: theme.primaryDark }]}>Verify</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
+            {isLoggedIn && (
+              <TouchableOpacity
+                onPress={() => setIsEditModalOpen(true)}
+                style={[styles.editInfoBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
+                activeOpacity={0.7}
+              >
+                <Edit2 size={16} color={theme.textPrimary} />
+              </TouchableOpacity>
+            )}
           </View>
+
+          {/* Integrated GSTIN Row */}
+          {isLoggedIn && user.gstin ? (
+            <View style={[styles.gstinIntegratedRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+              <View style={styles.gstinLeftGroup}>
+                <Building size={16} color={theme.primary} />
+                <View>
+                  <Text style={[styles.gstinLabel, { color: theme.textSecondary }]}>GSTIN Verified</Text>
+                  <Text style={[styles.gstinValue, { color: theme.textPrimary }]}>{user.gstin}</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsEditModalOpen(true)}
+                style={[styles.editGstinBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.editGstinBtnText, { color: theme.textPrimary }]}>Edit GST</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </View>
-      </View>
 
-      {/* Essential Profile Options Group ONLY */}
-      <View style={[styles.menuCardGroup, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        {/* 1. Order History */}
-        <TouchableOpacity
-          onPress={() => onNavigateScreen('activity')}
-          style={[styles.menuRow, { borderBottomColor: theme.borderLight }]}
-          activeOpacity={0.7}
-        >
-          <View style={styles.menuLeft}>
-            <View style={[styles.menuIconCircle, { backgroundColor: theme.primaryLight }]}>
-              <FileText size={18} color={theme.primaryDark} />
+        {/* Ultra-Minimal Menu List (Original Urbanico Core Features) */}
+        <View style={[styles.listContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          {/* My Orders & Track Material Dispatches */}
+          <TouchableOpacity
+            onPress={() => onNavigateScreen('activity')}
+            style={[styles.listItemRow, { borderBottomColor: theme.borderLight }]}
+            activeOpacity={0.7}
+          >
+            <View style={styles.listItemLeft}>
+              <FileText size={18} color={theme.textPrimary} />
+              <Text style={[styles.listItemText, { color: theme.textPrimary }]}>My Orders & Dispatches</Text>
             </View>
-            <View>
-              <Text style={[styles.menuTitle, { color: theme.textPrimary }]}>Order History</Text>
-              <Text style={[styles.menuSub, { color: theme.textMuted }]}>View past orders & receipts</Text>
-            </View>
-          </View>
-          <ChevronRight size={18} color={theme.textMuted} />
-        </TouchableOpacity>
+            <ChevronRight size={18} color={theme.textMuted} />
+          </TouchableOpacity>
 
-        {/* 2. Addresses (Renamed from Construction Sites to Addresses) */}
-        <TouchableOpacity
-          onPress={() => setIsAddressesModalOpen(true)}
-          style={[styles.menuRow, { borderBottomColor: theme.borderLight }]}
-          activeOpacity={0.7}
-        >
-          <View style={styles.menuLeft}>
-            <View style={[styles.menuIconCircle, { backgroundColor: theme.primaryLight }]}>
-              <MapPin size={18} color={theme.primaryDark} />
+          {/* Manage Saved Site Addresses */}
+          <TouchableOpacity
+            onPress={() => setIsAddressesModalOpen(true)}
+            style={[styles.listItemRow, { borderBottomColor: theme.borderLight }]}
+            activeOpacity={0.7}
+          >
+            <View style={styles.listItemLeft}>
+              <MapPin size={18} color={theme.textPrimary} />
+              <Text style={[styles.listItemText, { color: theme.textPrimary }]}>Manage Site Addresses</Text>
             </View>
-            <View>
-              <Text style={[styles.menuTitle, { color: theme.textPrimary }]}>Addresses</Text>
-              <Text style={[styles.menuSub, { color: theme.textMuted }]}>Manage saved delivery locations</Text>
-            </View>
-          </View>
-          <ChevronRight size={18} color={theme.textMuted} />
-        </TouchableOpacity>
+            <ChevronRight size={18} color={theme.textMuted} />
+          </TouchableOpacity>
 
-        {/* 3. Saved Payments */}
-        <TouchableOpacity
-          onPress={() => setIsPaymentsModalOpen(true)}
-          style={[styles.menuRow, { borderBottomColor: theme.borderLight }]}
-          activeOpacity={0.7}
-        >
-          <View style={styles.menuLeft}>
-            <View style={[styles.menuIconCircle, { backgroundColor: theme.primaryLight }]}>
-              <CreditCard size={18} color={theme.primaryDark} />
+          {/* Manage Payment Methods */}
+          <TouchableOpacity
+            onPress={() => setIsPaymentsModalOpen(true)}
+            style={[styles.listItemRow, { borderBottomColor: theme.borderLight }]}
+            activeOpacity={0.7}
+          >
+            <View style={styles.listItemLeft}>
+              <CreditCard size={18} color={theme.textPrimary} />
+              <Text style={[styles.listItemText, { color: theme.textPrimary }]}>Manage Payment Methods</Text>
             </View>
-            <View>
-              <Text style={[styles.menuTitle, { color: theme.textPrimary }]}>Saved Payments</Text>
-              <Text style={[styles.menuSub, { color: theme.textMuted }]}>Manage saved cards & UPI</Text>
-            </View>
-          </View>
-          <ChevronRight size={18} color={theme.textMuted} />
-        </TouchableOpacity>
+            <ChevronRight size={18} color={theme.textMuted} />
+          </TouchableOpacity>
 
-        {/* 4. Support & FAQ */}
-        <TouchableOpacity
-          onPress={() => setIsSupportModalOpen(true)}
-          style={[styles.menuRow, { borderBottomColor: theme.borderLight }]}
-          activeOpacity={0.7}
-        >
-          <View style={styles.menuLeft}>
-            <View style={[styles.menuIconCircle, { backgroundColor: theme.primaryLight }]}>
-              <HelpCircle size={18} color={theme.primaryDark} />
-            </View>
-            <View>
-              <Text style={[styles.menuTitle, { color: theme.textPrimary }]}>Support & FAQ</Text>
-              <Text style={[styles.menuSub, { color: theme.textMuted }]}>Help center, FAQs & customer support</Text>
-            </View>
-          </View>
-          <ChevronRight size={18} color={theme.textMuted} />
-        </TouchableOpacity>
-
-        {/* 5. Settings & Language Preferences */}
-        <TouchableOpacity
-          onPress={() => onNavigateScreen('settings')}
-          style={[styles.menuRow, { borderBottomColor: theme.borderLight }]}
-          activeOpacity={0.7}
-        >
-          <View style={styles.menuLeft}>
-            <View style={[styles.menuIconCircle, { backgroundColor: theme.primaryLight }]}>
-              <Settings size={18} color={theme.primaryDark} />
-            </View>
-            <View>
+          {/* Settings & Language Preferences */}
+          <TouchableOpacity
+            onPress={() => onNavigateScreen('settings')}
+            style={[styles.listItemRow, { borderBottomColor: theme.borderLight }]}
+            activeOpacity={0.7}
+          >
+            <View style={styles.listItemLeft}>
+              <Settings size={18} color={theme.textPrimary} />
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={[styles.menuTitle, { color: theme.textPrimary }]}>{t.settings}</Text>
-                <View style={{ backgroundColor: theme.primaryLight, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-                  <Text style={{ fontSize: 9, fontWeight: '800', color: theme.primaryDark }}>
+                <Text style={[styles.listItemText, { color: theme.textPrimary }]}>Settings</Text>
+                <View style={{ backgroundColor: theme.surfaceSecondary, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                  <Text style={{ fontSize: 10, fontWeight: '500', color: theme.textSecondary }}>
                     {currentLanguageOption.flag} {currentLanguageOption.nativeName}
                   </Text>
                 </View>
               </View>
-              <Text style={[styles.menuSub, { color: theme.textMuted }]}>Theme, Language & App settings</Text>
             </View>
-          </View>
-          <ChevronRight size={18} color={theme.textMuted} />
-        </TouchableOpacity>
+            <ChevronRight size={18} color={theme.textMuted} />
+          </TouchableOpacity>
 
-        {/* 6. Logout */}
+          {/* Help & Support */}
+          <TouchableOpacity
+            onPress={() => setIsSupportModalOpen(true)}
+            style={[styles.listItemRow, { borderBottomColor: theme.borderLight }]}
+            activeOpacity={0.7}
+          >
+            <View style={styles.listItemLeft}>
+              <HelpCircle size={18} color={theme.textPrimary} />
+              <Text style={[styles.listItemText, { color: theme.textPrimary }]}>Help & Support</Text>
+            </View>
+            <ChevronRight size={18} color={theme.textMuted} />
+          </TouchableOpacity>
+
+          {/* About Urbanico */}
+          <TouchableOpacity
+            onPress={() => setIsAboutModalOpen(true)}
+            style={styles.listItemRow}
+            activeOpacity={0.7}
+          >
+            <View style={styles.listItemLeft}>
+              <ShieldCheck size={18} color={theme.textPrimary} />
+              <Text style={[styles.listItemText, { color: theme.textPrimary }]}>About Urbanico</Text>
+            </View>
+            <ChevronRight size={18} color={theme.textMuted} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Refer & Earn Purple Banner (Matching UC Screenshot) */}
+        <View style={styles.referralCard}>
+          <View style={styles.referralLeftContent}>
+            <Text style={styles.referralTitle}>Refer & earn ₹100</Text>
+            <Text style={styles.referralSubtitle}>
+              Get ₹100 when your friend completes their first order
+            </Text>
+            <TouchableOpacity
+              onPress={() => showToast('Referral link copied to clipboard!')}
+              style={styles.referNowBtn}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.referNowBtnText}>Refer now</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.giftIconBox}>
+            <Gift size={38} color="#6D28D9" />
+          </View>
+        </View>
+
+        {/* Clean Logout / Login Button */}
         {isLoggedIn ? (
           <TouchableOpacity
             onPress={onLogout}
-            style={styles.menuRow}
+            style={[styles.logoutOutlineBtn, { borderColor: theme.border }]}
             activeOpacity={0.7}
           >
-            <View style={styles.menuLeft}>
-              <View style={[styles.menuIconCircle, { backgroundColor: '#FEE2E2' }]}>
-                <LogOut size={18} color="#DC2626" />
-              </View>
-              <View>
-                <Text style={[styles.menuTitle, { color: '#DC2626' }]}>Logout</Text>
-                <Text style={[styles.menuSub, { color: theme.textMuted }]}>Sign out of your account</Text>
-              </View>
-            </View>
-            <ChevronRight size={18} color={theme.textMuted} />
+            <Text style={styles.logoutBtnText}>Logout</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
             onPress={() => onNavigateScreen('auth')}
-            style={styles.menuRow}
+            style={[styles.logoutOutlineBtn, { borderColor: theme.border }]}
             activeOpacity={0.7}
           >
-            <View style={styles.menuLeft}>
-              <View style={[styles.menuIconCircle, { backgroundColor: theme.primaryLight }]}>
-                <LogIn size={18} color={theme.primaryDark} />
-              </View>
-              <View>
-                <Text style={[styles.menuTitle, { color: theme.primaryDark }]}>Log In / Sign Up</Text>
-                <Text style={[styles.menuSub, { color: theme.textMuted }]}>Sign in to save orders & addresses</Text>
-              </View>
-            </View>
-            <ChevronRight size={18} color={theme.textMuted} />
+            <Text style={[styles.logoutBtnText, { color: theme.primary }]}>Login / Sign Up</Text>
           </TouchableOpacity>
         )}
-      </View>
 
-      {/* Single Edit Profile Modal (Combines Details & Profile Picture) */}
+        {/* App Version Tagline */}
+        <Text style={styles.versionText}>Version 7.6.69 R844</Text>
+      </ScrollView>
+
+      {/* MODAL: Edit Profile Details ONLY (No Avatar) */}
       <Modal visible={isEditModalOpen} transparent animationType="slide">
         <KeyboardAvoidingView
           style={styles.modalOverlay}
@@ -419,7 +378,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           <Pressable style={styles.modalBackdrop} onPress={() => setIsEditModalOpen(false)} />
           <View style={[styles.modalSheetContainer, { backgroundColor: theme.surface }]}>
             <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
-              <Text style={[styles.modalHeaderTitle, { color: theme.textPrimary }]}>Edit Profile & Photo</Text>
+              <Text style={[styles.modalHeaderTitle, { color: theme.textPrimary }]}>Edit Profile Details</Text>
               <TouchableOpacity
                 onPress={() => setIsEditModalOpen(false)}
                 style={styles.closeModalBtn}
@@ -434,43 +393,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
-              {/* Profile Picture Selection Section */}
-              <View style={styles.inputFieldGroup}>
-                <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>Choose Profile Picture</Text>
-                <View style={styles.avatarGridRow}>
-                  {AVATAR_PRESETS.map((url, idx) => (
-                    <TouchableOpacity
-                      key={idx}
-                      onPress={() => setCustomAvatarUrl(url)}
-                      style={[
-                        styles.avatarGridItem,
-                        customAvatarUrl === url && { borderColor: theme.primary, borderWidth: 3 },
-                      ]}
-                      activeOpacity={0.8}
-                    >
-                      <ShimmerImage source={{ uri: url }} style={styles.avatarGridImage} borderRadius={24} />
-                    </TouchableOpacity>
-                  ))}
-                </View>
-
-                {/* Custom Avatar URL Input */}
-                <View style={styles.urlInputRow}>
-                  <TextInput
-                    value={customAvatarUrl}
-                    onChangeText={setCustomAvatarUrl}
-                    placeholder="Or enter image URL..."
-                    placeholderTextColor="#94A3B8"
-                    style={[styles.urlInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border }]}
-                  />
-                </View>
-              </View>
-
               <View style={styles.inputFieldGroup}>
                 <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>Full Name</Text>
                 <TextInput
                   value={editName}
                   onChangeText={setEditName}
                   placeholder="e.g. Rajesh Kumar"
+                  placeholderTextColor="#999999"
                   style={[styles.formInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border }]}
                 />
               </View>
@@ -481,6 +410,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   value={editPhone}
                   onChangeText={setEditPhone}
                   placeholder="+91 98765 43210"
+                  placeholderTextColor="#999999"
                   keyboardType="phone-pad"
                   style={[styles.formInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border }]}
                 />
@@ -492,6 +422,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   value={editEmail}
                   onChangeText={setEditEmail}
                   placeholder="e.g. rajesh@urbanico.in"
+                  placeholderTextColor="#999999"
                   keyboardType="email-address"
                   style={[styles.formInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border }]}
                 />
@@ -500,7 +431,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
             <View style={[styles.modalFooterActions, { borderTopColor: theme.border }]}>
               <LoadingButton
-                title="Save Profile Changes"
+                title="Save Changes"
                 onPress={handleSaveProfile}
                 isLoading={isSavingProfile}
                 variant="primary"
@@ -511,7 +442,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* MODAL 1: Addresses */}
+      {/* MODAL: Addresses */}
       <Modal visible={isAddressesModalOpen} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <Pressable style={styles.modalBackdrop} onPress={() => setIsAddressesModalOpen(false)} />
@@ -519,7 +450,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
               <View style={styles.modalHeaderTitleGroup}>
                 <MapPin size={20} color={theme.primary} />
-                <Text style={[styles.modalHeaderTitle, { color: theme.textPrimary }]}>Delivery Addresses</Text>
+                <Text style={[styles.modalHeaderTitle, { color: theme.textPrimary }]}>Manage Addresses</Text>
               </View>
               <TouchableOpacity
                 onPress={() => setIsAddressesModalOpen(false)}
@@ -530,13 +461,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             </View>
 
             <ScrollView style={styles.modalFormScroll} contentContainerStyle={styles.modalScrollContent}>
-              <Text style={[styles.modalSectionLabel, { color: theme.textSecondary }]}>Add New Delivery Address</Text>
+              <Text style={[styles.modalSectionLabel, { color: theme.textSecondary }]}>Add New Address</Text>
               <View style={styles.addSiteBox}>
                 <TextInput
                   value={newAddressInput}
                   onChangeText={setNewAddressInput}
                   placeholder="Enter house/building no, street, landmark..."
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor="#999999"
                   style={[styles.addSiteInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border }]}
                 />
                 <TouchableOpacity
@@ -551,12 +482,12 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
               <TouchableOpacity
                 onPress={handleUseCurrentLocationGPS}
-                style={[styles.gpsLocationBtn, { backgroundColor: theme.primaryLight, borderColor: theme.primary }]}
+                style={[styles.gpsLocationBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
                 activeOpacity={0.8}
               >
-                <Navigation size={16} color={theme.primaryDark} />
-                <Text style={[styles.gpsLocationBtnText, { color: theme.primaryDark }]}>
-                  Detect Device GPS Location
+                <Navigation size={16} color={theme.textPrimary} />
+                <Text style={[styles.gpsLocationBtnText, { color: theme.textPrimary }]}>
+                  Detect GPS Location
                 </Text>
               </TouchableOpacity>
 
@@ -603,8 +534,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                         <MapPin size={16} color={isSelected ? theme.primary : theme.textMuted} />
                         <Text style={[styles.siteAddressText, { color: theme.textPrimary }]}>{loc}</Text>
                         {isSelected && (
-                          <View style={[styles.activePill, { backgroundColor: theme.primaryLight }]}>
-                            <Text style={[styles.activePillText, { color: theme.primaryDark }]}>Active</Text>
+                          <View style={[styles.activePill, { backgroundColor: theme.surface }]}>
+                            <Text style={[styles.activePillText, { color: theme.primary }]}>Active</Text>
                           </View>
                         )}
                       </TouchableOpacity>
@@ -634,7 +565,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         </View>
       </Modal>
 
-      {/* MODAL 2: Saved Payments */}
+      {/* MODAL: Saved Payments */}
       <Modal visible={isPaymentsModalOpen} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <Pressable style={styles.modalBackdrop} onPress={() => setIsPaymentsModalOpen(false)} />
@@ -642,7 +573,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
               <View style={styles.modalHeaderTitleGroup}>
                 <CreditCard size={20} color={theme.primary} />
-                <Text style={[styles.modalHeaderTitle, { color: theme.textPrimary }]}>Saved Payments & Cards</Text>
+                <Text style={[styles.modalHeaderTitle, { color: theme.textPrimary }]}>Manage Payment Methods</Text>
               </View>
               <TouchableOpacity
                 onPress={() => setIsPaymentsModalOpen(false)}
@@ -661,41 +592,41 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   style={[styles.paymentCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
                 >
                   <View style={styles.paymentCardHeader}>
-                    <CreditCard size={18} color={theme.primaryDark} />
+                    <CreditCard size={18} color={theme.textPrimary} />
                     <View style={{ flex: 1, marginLeft: 10 }}>
                       <Text style={[styles.paymentBankTitle, { color: theme.textPrimary }]}>{card.bank}</Text>
                       <Text style={[styles.paymentSubText, { color: theme.textMuted }]}>•••• •••• •••• {card.last4} ({card.type})</Text>
                     </View>
                     {card.isDefault && (
-                      <View style={[styles.activePill, { backgroundColor: theme.primaryLight }]}>
-                        <Text style={[styles.activePillText, { color: theme.primaryDark }]}>Default</Text>
+                      <View style={[styles.activePill, { backgroundColor: theme.surface }]}>
+                        <Text style={[styles.activePillText, { color: theme.primary }]}>Default</Text>
                       </View>
                     )}
                   </View>
                 </View>
               ))}
 
-              <Text style={[styles.modalSectionLabel, { color: theme.textSecondary, marginTop: 14 }]}>Saved UPI Handles</Text>
+              <Text style={[styles.modalSectionLabel, { color: theme.textSecondary, marginTop: 14 }]}>Saved UPI Handle</Text>
               <View style={[styles.paymentCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
                 <View style={styles.paymentCardHeader}>
-                  <Text style={[styles.paymentBankTitle, { color: theme.textPrimary, fontSize: 13 }]}>UPI VPA: {savedUpi}</Text>
+                  <Text style={[styles.paymentBankTitle, { color: theme.textPrimary, fontSize: 13 }]}>UPI ID: {savedUpi}</Text>
                 </View>
               </View>
 
               <TouchableOpacity
                 onPress={() => showToast('Redirecting to secure card setup...')}
-                style={[styles.addPaymentBtn, { backgroundColor: theme.primaryLight, borderColor: theme.primary }]}
+                style={[styles.addPaymentBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
                 activeOpacity={0.8}
               >
-                <Plus size={16} color={theme.primaryDark} />
-                <Text style={[styles.addPaymentBtnText, { color: theme.primaryDark }]}>Add New Card or UPI Method</Text>
+                <Plus size={16} color={theme.textPrimary} />
+                <Text style={[styles.addPaymentBtnText, { color: theme.textPrimary }]}>Add Payment Method</Text>
               </TouchableOpacity>
             </ScrollView>
           </View>
         </View>
       </Modal>
 
-      {/* MODAL 3: Support & FAQ */}
+      {/* MODAL: Support & FAQ */}
       <Modal visible={isSupportModalOpen} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <Pressable style={styles.modalBackdrop} onPress={() => setIsSupportModalOpen(false)} />
@@ -703,7 +634,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
               <View style={styles.modalHeaderTitleGroup}>
                 <HelpCircle size={20} color={theme.primary} />
-                <Text style={[styles.modalHeaderTitle, { color: theme.textPrimary }]}>Support & FAQ</Text>
+                <Text style={[styles.modalHeaderTitle, { color: theme.textPrimary }]}>Help & Support</Text>
               </View>
               <TouchableOpacity
                 onPress={() => setIsSupportModalOpen(false)}
@@ -722,7 +653,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 activeOpacity={0.8}
               >
                 <View style={[styles.supportIconCircle, { backgroundColor: '#DCFCE7' }]}>
-                  <Phone size={20} color="#059669" />
+                  <Phone size={18} color="#059669" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.supportTitle, { color: theme.textPrimary }]}>Customer Support Hotline</Text>
@@ -736,7 +667,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 activeOpacity={0.8}
               >
                 <View style={[styles.supportIconCircle, { backgroundColor: '#DBEAFE' }]}>
-                  <Mail size={20} color="#2563EB" />
+                  <Mail size={18} color="#2563EB" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.supportTitle, { color: theme.textPrimary }]}>Email Support Desk</Text>
@@ -748,12 +679,12 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
               {[
                 {
-                  q: 'How do I track my order?',
-                  a: 'Navigate to the Order History section from your profile to view active and past order statuses.',
+                  q: 'How do I track my material delivery?',
+                  a: 'Navigate to "My Orders" from your profile or the home screen to view live dispatch tracking.',
                 },
                 {
-                  q: 'How do I add or change my delivery address?',
-                  a: 'Tap on "Addresses" in your profile menu to add, edit or set a default delivery address.',
+                  q: 'How do I add or change my site address?',
+                  a: 'Tap on "Manage addresses" to add, edit or select your active delivery location.',
                 },
                 {
                   q: 'What payment methods are supported?',
@@ -769,7 +700,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     activeOpacity={0.8}
                   >
                     <View style={styles.faqHeaderRow}>
-                      <HelpCircle size={16} color={theme.primary} />
+                      <HelpCircle size={16} color={theme.textPrimary} />
                       <Text style={[styles.faqQuestionText, { color: theme.textPrimary }]}>{faq.q}</Text>
                       <ChevronDown size={16} color={theme.textMuted} />
                     </View>
@@ -783,7 +714,37 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           </View>
         </View>
       </Modal>
-    </ScrollView>
+
+      {/* MODAL: About Urbanico */}
+      <Modal visible={isAboutModalOpen} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setIsAboutModalOpen(false)} />
+          <View style={[styles.modalSheetContainer, { backgroundColor: theme.surface }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+              <View style={styles.modalHeaderTitleGroup}>
+                <ShieldCheck size={20} color={theme.primary} />
+                <Text style={[styles.modalHeaderTitle, { color: theme.textPrimary }]}>About Urbanico</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsAboutModalOpen(false)}
+                style={styles.closeModalBtn}
+              >
+                <X size={18} color={theme.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalFormScroll} contentContainerStyle={styles.modalScrollContent}>
+              <Text style={[styles.aboutHeadingText, { color: theme.textPrimary }]}>Urbanico Technologies</Text>
+              <Text style={[styles.aboutBodyText, { color: theme.textSecondary }]}>
+                Urbanico is India's leading platform for construction materials, rebar, cement, aggregates, and site equipment.
+              </Text>
+              <Text style={[styles.aboutBodyText, { color: theme.textSecondary, marginTop: 8 }]}>
+                Version 7.6.69 R844 (Build 2026)
+              </Text>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -797,292 +758,197 @@ const styles = StyleSheet.create({
     paddingBottom: 96,
     gap: 16,
   },
-  toastContainer: {
-    position: 'absolute',
-    top: 8,
-    alignSelf: 'center',
-    zIndex: 99,
-    backgroundColor: '#064E3B',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 999,
+
+  /* Unified User Profile Card */
+  profileCard: {
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 12,
+  },
+  profileCardMain: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  profileInfoColumn: {
+    flex: 1,
+    gap: 3,
+  },
+  userNameText: {
+    fontSize: 18,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  userPhoneText: {
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  userEmailText: {
+    fontSize: 13,
+    fontWeight: '400',
+  },
+  editInfoBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+
+  /* Integrated GSTIN Row */
+  gstinIntegratedRow: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
   },
-  toastText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
+  gstinLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
-  profileHeaderCard: {
-    borderRadius: 20,
-    padding: 16,
+  gstinLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  gstinValue: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  editGstinBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
     borderWidth: 1,
-    position: 'relative',
   },
-  singleEditIconBtn: {
-    position: 'absolute',
-    top: 14,
-    right: 14,
-    padding: 8,
-    borderRadius: 999,
+  editGstinBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+
+  /* Ultra Minimal List Container */
+  listContainer: {
+    borderRadius: 16,
     borderWidth: 1,
-    zIndex: 10,
+    overflow: 'hidden',
   },
-  headerMainBody: {
-    gap: 16,
+  listItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 15,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
   },
-  avatarRow: {
+  listItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
   },
-  avatarWrapper: {
-    position: 'relative',
+  listItemText: {
+    fontSize: 15,
+    fontWeight: '500',
   },
-  avatarImage: {
+
+  /* Refer & Earn Banner Card (Purple Pastel) */
+  referralCard: {
+    backgroundColor: '#F5F3FF',
+    borderRadius: 16,
+    padding: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  referralLeftContent: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  referralTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1E1B4B',
+    marginBottom: 4,
+  },
+  referralSubtitle: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: '#4C1D95',
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  referNowBtn: {
+    backgroundColor: '#6D28D9',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+  },
+  referNowBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  giftIconBox: {
     width: 64,
     height: 64,
-    borderRadius: 32,
-  },
-  profileTitleBlock: {
-    flex: 1,
-    gap: 2,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  userNameText: {
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  verifiedBadgeContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#D1FAE5',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 12,
-    gap: 3,
-  },
-  verifiedBadgeText: {
-    color: '#059669',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  phoneRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginTop: 4,
-  },
-  phoneText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  emailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 4,
-  },
-  emailVerifiedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#D1FAE5',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-    gap: 3,
-  },
-  verifiedLabelText: {
-    color: '#059669',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  verifyEmailBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  verifyEmailBtnText: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  companyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 2,
-  },
-  companyText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  contactDetailsBox: {
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  contactItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flex: 1,
-  },
-  contactDivider: {
-    width: 1,
-    height: 16,
-    marginHorizontal: 8,
-  },
-  contactValText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  creditCardBox: {
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    gap: 8,
-  },
-  creditCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  creditTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  creditTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  creditUsedLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  creditProgressBarBg: {
-    height: 10,
-    borderRadius: 5,
-    overflow: 'hidden',
-  },
-  creditProgressBarFill: {
-    height: '100%',
-    borderRadius: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  progressBarTextInside: {
-    color: '#FFFFFF',
-    fontSize: 8,
-    fontWeight: '900',
-  },
-  creditFooterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  creditAvailableText: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  creditTotalText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  menuCardGroup: {
-    borderRadius: 20,
-    borderWidth: 1,
-    overflow: 'hidden',
-  },
-  menuRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 14,
-    borderBottomWidth: 1,
-  },
-  menuLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  menuIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  menuTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  menuSub: {
-    fontSize: 11,
-    fontWeight: '500',
-    marginTop: 1,
-  },
-  authActionBox: {
-    marginTop: 8,
-  },
-  logoutBtn: {
-    paddingVertical: 14,
     borderRadius: 16,
-    borderWidth: 1,
+    backgroundColor: '#EDE9FE',
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
+  },
+
+  /* Logout Button */
+  logoutOutlineBtn: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
   },
   logoutBtnText: {
     color: '#DC2626',
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '600',
   },
-  loginCtaBtn: {
-    paddingVertical: 14,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
+
+  /* Version text */
+  versionText: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: '#999999',
+    marginTop: 12,
+    marginBottom: 8,
   },
-  loginCtaBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '800',
-  },
+
+  /* Modals */
   modalOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
   },
   modalBackdrop: {
-    flex: 1,
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
   modalSheetContainer: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: '85%',
-    width: '100%',
+    paddingBottom: 24,
   },
   modalHeader: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
   },
   modalHeaderTitleGroup: {
     flexDirection: 'row',
@@ -1090,148 +956,122 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   modalHeaderTitle: {
-    fontSize: 16,
-    fontWeight: '900',
+    fontSize: 18,
+    fontWeight: '700',
   },
   closeModalBtn: {
-    padding: 4,
+    padding: 6,
   },
   modalFormScroll: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
+    maxHeight: 450,
   },
   modalScrollContent: {
+    padding: 20,
     gap: 14,
-    paddingBottom: 24,
   },
   modalSectionLabel: {
     fontSize: 12,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  avatarGridRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginTop: 6,
-  },
-  avatarGridItem: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    overflow: 'hidden',
-  },
-  avatarGridImage: {
-    width: '100%',
-    height: '100%',
-  },
-  urlInputRow: {
-    marginTop: 8,
-  },
-  urlInput: {
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 13,
+    fontWeight: '500',
+    letterSpacing: 0.2,
   },
   inputFieldGroup: {
-    gap: 4,
+    gap: 6,
   },
   fieldLabel: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '500',
   },
   formInput: {
     borderRadius: 12,
-    borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '400',
+    borderWidth: 1,
   },
   modalFooterActions: {
     padding: 16,
     borderTopWidth: 1,
   },
-  saveProfileBtn: {
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  saveProfileBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '800',
-  },
+
+  /* Address Modal Specifics */
   addSiteBox: {
+    flexDirection: 'row',
     gap: 8,
   },
   addSiteInput: {
-    borderRadius: 12,
-    borderWidth: 1,
+    flex: 1,
+    borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 10,
     fontSize: 13,
+    borderWidth: 1,
   },
   addSiteBtn: {
-    paddingVertical: 10,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingHorizontal: 14,
+    borderRadius: 10,
     flexDirection: 'row',
-    gap: 6,
+    alignItems: 'center',
+    gap: 4,
   },
   addSiteBtnText: {
     color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   gpsLocationBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 11,
+    borderRadius: 10,
+    borderWidth: 1,
     gap: 8,
   },
   gpsLocationBtnText: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '600',
   },
   siteCard: {
     borderRadius: 12,
-    padding: 10,
-    borderWidth: 1.5,
-    gap: 6,
+    padding: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   siteMainTouch: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flex: 1,
   },
   siteAddressText: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '500',
     flex: 1,
   },
   activePill: {
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 999,
+    borderRadius: 6,
   },
   activePillText: {
-    fontSize: 10,
-    fontWeight: '800',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  siteCardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionIconBtn: {
+    padding: 6,
   },
   editSiteRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flex: 1,
   },
   editSiteTextInput: {
     flex: 1,
@@ -1239,113 +1079,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
-    fontSize: 12,
+    fontSize: 13,
   },
   saveSiteEditBtn: {
-    padding: 6,
-    borderRadius: 6,
-  },
-  siteCardActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 12,
-  },
-  actionIconBtn: {
-    padding: 4,
-  },
-  invoiceCard: {
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    gap: 8,
-  },
-  invoiceHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  invoiceNumberText: {
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  invoiceDateText: {
-    fontSize: 11,
-    marginTop: 2,
-  },
-  invoiceAmountText: {
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  invoiceMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 4,
-  },
-  invoiceGstinText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  downloadPdfBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    padding: 8,
     borderRadius: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
   },
-  downloadPdfBtnText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  supportCard: {
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  supportIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  supportTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  supportSub: {
-    fontSize: 11,
-    marginTop: 1,
-  },
-  faqAccordionCard: {
-    borderRadius: 12,
-    padding: 12,
-    borderWidth: 1,
-    gap: 6,
-  },
-  faqHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  faqQuestionText: {
-    fontSize: 12,
-    fontWeight: '800',
-    flex: 1,
-  },
-  faqAnswerText: {
-    fontSize: 12,
-    lineHeight: 16,
-    marginTop: 4,
-  },
+
+  /* Payment Modal */
   paymentCard: {
-    borderRadius: 14,
+    borderRadius: 12,
     padding: 12,
     borderWidth: 1,
   },
@@ -1355,24 +1098,78 @@ const styles = StyleSheet.create({
   },
   paymentBankTitle: {
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   paymentSubText: {
-    fontSize: 11,
+    fontSize: 12,
     marginTop: 2,
   },
   addPaymentBtn: {
-    borderRadius: 12,
-    borderWidth: 1,
     paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginTop: 6,
   },
   addPaymentBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  /* Support Modal */
+  supportCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 12,
+  },
+  supportIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  supportTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  supportSub: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  faqAccordionCard: {
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 8,
+  },
+  faqHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  faqQuestionText: {
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '600',
+    flex: 1,
+  },
+  faqAnswerText: {
+    fontSize: 12,
+    lineHeight: 18,
+  },
+
+  /* About Modal */
+  aboutHeadingText: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  aboutBodyText: {
+    fontSize: 14,
+    lineHeight: 20,
   },
 });

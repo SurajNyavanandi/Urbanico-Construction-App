@@ -151,8 +151,8 @@ export const Header: React.FC<HeaderProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* 2. Sub-header line (Back Arrow + Category Title) for non-home screens when not focused */}
-      {!isHome && !isFocused && (
+      {/* 2. Sub-header line (Back Arrow + Category Title) for non-home screens EXCEPT category view (since category view integrates fixed back arrow into category nav bar) */}
+      {!isHome && currentScreen !== 'category' && !isFocused && (
         <View style={styles.subHeaderRow}>
           {onBack ? (
             <TouchableOpacity
@@ -423,9 +423,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   locationText: {
-    fontSize: 15,
-    fontWeight: '800',
-    letterSpacing: -0.3,
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: -0.2,
   },
   brandBadge: {
     paddingHorizontal: 8,
@@ -434,8 +434,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   brandBadgeText: {
-    fontSize: 9,
-    fontWeight: '900',
+    fontSize: 11,
+    fontWeight: '500',
     letterSpacing: 0.5,
   },
   searchRow: {
@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
   },
   cancelBtnText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   searchInput: {
     borderRadius: 999,
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
     paddingLeft: 40,
     paddingRight: 40,
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '400',
     borderWidth: 1,
   },
   searchIconContainer: {
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '700',
     textAlign: 'center',
     flex: 1,
   },

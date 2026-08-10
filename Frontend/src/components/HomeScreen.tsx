@@ -307,10 +307,10 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
   },
   sectionSubtitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '400',
   },
   viewAllButton: {
@@ -318,8 +318,8 @@ const styles = StyleSheet.create({
     paddingLeft: 8,
   },
   viewAllText: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
   },
   horizontalScrollWrapper: {
     marginHorizontal: -16,
@@ -343,22 +343,22 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   productTextWrapper: {
-    gap: 2,
+    gap: 3,
   },
   productTitle: {
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: '700',
-    lineHeight: 17,
+    lineHeight: 20,
   },
   productSubtitle: {
-    fontSize: 12,
-    fontWeight: '400',
-    lineHeight: 15,
+    fontSize: 11,
+    fontWeight: '500',
+    lineHeight: 14,
   },
   productPrice: {
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 1,
+    fontSize: 12,
+    fontWeight: '400',
+    marginTop: 2,
   },
   bannerCarouselContainer: {
     gap: 8,

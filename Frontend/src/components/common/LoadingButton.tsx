@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   text: {
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

@@ -334,15 +334,15 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   brandTitle: {
-    fontSize: 24,
-    fontWeight: '900',
-    letterSpacing: -0.5,
+    fontSize: 20,
+    fontWeight: '700',
+    letterSpacing: -0.3,
     marginBottom: 6,
     textAlign: 'center',
   },
   brandSubTitle: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '400',
     textAlign: 'center',
     lineHeight: 18,
     maxWidth: 290,
@@ -356,10 +356,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   inputLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    fontSize: 12,
+    fontWeight: '500',
+    letterSpacing: 0.2,
   },
   phoneInputRow: {
     flexDirection: 'row',
@@ -377,12 +376,12 @@ const styles = StyleSheet.create({
   },
   countryCodeText: {
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   phoneInput: {
     flex: 1,
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '600',
     paddingVertical: 4,
   },
   errorBox: {
@@ -396,7 +395,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#DC2626',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '500',
     textAlign: 'center',
   },
   primaryBtn: {
@@ -409,8 +408,8 @@ const styles = StyleSheet.create({
   },
   primaryBtnText: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '600',
   },
   termsRow: {
     flexDirection: 'row',

@@ -309,6 +309,7 @@ function MainAppContent() {
             onSelectItem={handleOpenItemModal}
             onSelectCategoryTab={(catId) => setSelectedCategoryId(catId)}
             searchQuery={searchQuery}
+            onBack={() => setCurrentScreen('home')}
             favoriteIds={favoriteIds}
             onToggleFavorite={handleToggleFavorite}
             viewMode={globalViewMode}

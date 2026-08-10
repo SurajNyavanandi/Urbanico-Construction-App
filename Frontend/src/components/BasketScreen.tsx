@@ -200,9 +200,9 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
           ) : (
             <View style={styles.cartSection}>
               {/* Basket Items List */}
-              <View style={[styles.itemsCardList, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <View style={styles.itemsCardList}>
                 {cartItems.map((item) => (
-                  <View key={item.id} style={[styles.cartItemRow, { borderBottomColor: theme.borderLight }]}>
+                  <View key={item.id} style={[styles.cartItemRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <View style={[styles.itemImageWrapper, { backgroundColor: theme.surfaceSecondary, borderColor: theme.borderLight }]}>
                       <ShimmerImage
                         source={{ uri: item.image }}
@@ -248,7 +248,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                         style={styles.deleteBtn}
                         activeOpacity={0.7}
                       >
-                        <Trash2 size={16} color="#EF4444" />
+                        <Trash2 size={15} color="#EF4444" />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -478,13 +478,13 @@ const styles = StyleSheet.create({
   },
   tabContainer: {
     flexDirection: 'row',
-    padding: 4,
-    borderRadius: 16,
+    padding: 3,
+    borderRadius: 14,
   },
   tabButton: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingVertical: 9,
+    borderRadius: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -492,11 +492,11 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   locationHeader: {
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: 14,
+    padding: 12,
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -511,7 +511,7 @@ const styles = StyleSheet.create({
   locationIconBox: {
     width: 32,
     height: 32,
-    borderRadius: 10,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -520,19 +520,20 @@ const styles = StyleSheet.create({
   },
   locationLabel: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '500',
     textTransform: 'uppercase',
+    letterSpacing: 0.2,
   },
   locationValue: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '700',
   },
   changeBtnText: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   emptyCartCard: {
-    borderRadius: 24,
+    borderRadius: 20,
     padding: 32,
     borderWidth: 1,
     alignItems: 'center',
@@ -552,7 +553,7 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   emptySubtitle: {
     fontSize: 12,
@@ -572,7 +573,7 @@ const styles = StyleSheet.create({
   primaryPillBtnText: {
     color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   secondaryPillBtn: {
     paddingHorizontal: 16,
@@ -581,27 +582,27 @@ const styles = StyleSheet.create({
   },
   secondaryPillBtnText: {
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   cartSection: {
-    gap: 16,
+    gap: 12,
   },
   itemsCardList: {
-    borderRadius: 16,
-    borderWidth: 1,
+    gap: 10,
   },
   cartItemRow: {
-    padding: 14,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-    borderBottomWidth: 1,
   },
   itemImageWrapper: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
+    width: 60,
+    height: 60,
+    borderRadius: 10,
     overflow: 'hidden',
     borderWidth: 1,
     alignItems: 'center',
@@ -616,16 +617,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   itemName: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '600',
   },
   itemOptionLabel: {
     fontSize: 11,
+    fontWeight: '400',
     marginTop: 2,
   },
   itemUnitPrice: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '600',
     marginTop: 2,
   },
   stepperActionRow: {
@@ -651,58 +653,60 @@ const styles = StyleSheet.create({
     width: 24,
     textAlign: 'center',
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   deleteBtn: {
     padding: 6,
   },
   summaryCard: {
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 14,
+    padding: 14,
     borderWidth: 1,
-    gap: 10,
+    gap: 8,
   },
   summaryTitle: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '600',
     textTransform: 'uppercase',
     borderBottomWidth: 1,
-    paddingBottom: 8,
+    paddingBottom: 6,
+    letterSpacing: 0.2,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   summaryLabel: {
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: '400',
   },
   summaryValue: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '600',
   },
   grandTotalRow: {
     paddingTop: 8,
     borderTopWidth: 1,
   },
   grandTotalLabel: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '700',
   },
   grandTotalValue: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '700',
   },
   guaranteeTag: {
     borderWidth: 1,
     borderRadius: 12,
-    padding: 12,
+    padding: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
   guaranteeText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
     flex: 1,
   },
   confirmCtaBtn: {
