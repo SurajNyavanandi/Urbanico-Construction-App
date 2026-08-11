@@ -15,6 +15,8 @@ import { ProductCard } from './common/ProductCard';
 import { HomeSkeleton } from './common/SkeletonLoader';
 import { ShimmerImage } from './common/ShimmerImage';
 import { Toast } from './common/Toast';
+import { HeroDisplayCard, DisplaySlide } from './common/HeroDisplayCard';
+import { ChildNavPills } from './common/ChildNavPills';
 
 interface HomeScreenProps {
   onSelectCategory: (catId: CategoryId) => void;
@@ -53,6 +55,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 }) => {
   const { theme, typography } = useTheme();
   const [bannerIndex, setBannerIndex] = useState(0);
+  const [selectedChildNav, setSelectedChildNav] = useState<string>('featured');
   const [refreshing, setRefreshing] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -129,7 +132,27 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           />
         }
       >
-      {/* 1. MATERIALS SECTION */}
+        {/* TOP FEATURED DISPLAY CARD (Hero Promo Banner with CTA & Pagination Dots) */}
+        <HeroDisplayCard
+          onCtaPress={(slide: DisplaySlide) => {
+            if (slide.id === 'slide-2') onSelectCategory('iron_bars');
+            else if (slide.id === 'slide-3') onSelectCategory('cement');
+            else onSelectCategory('cement');
+          }}
+        />
+
+        {/* SMALL CHILD COMPONENTS ROW (Horizontal Quick Category Pills) */}
+        <ChildNavPills
+          selectedId={selectedChildNav}
+          onSelectChild={(id: string) => {
+            setSelectedChildNav(id);
+            if (id !== 'featured') {
+              onSelectCategory(id as CategoryId);
+            }
+          }}
+        />
+
+        {/* 1. MATERIALS SECTION */}
       <View style={styles.sectionContainer}>
         {/* Section Header */}
         <View style={styles.sectionHeader}>
