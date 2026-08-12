@@ -3,8 +3,9 @@ import { View, StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
-import { LocationProvider } from './context/LocationContext';
+import { LocationProvider, useLocation } from './context/LocationContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
+import { ToastProvider, useToast } from './context/ToastContext';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 import { HomeScreen } from './components/HomeScreen';
@@ -35,11 +36,13 @@ import {
   SAVED_LOCATIONS,
   CATEGORIES,
   SERVICES,
+  MATERIAL_ITEMS,
 } from './data/materialsData';
 import { resolveSearchCategory } from './services/searchService';
 
 function MainAppContent() {
   const { theme } = useTheme();
+  const { showToast } = useToast();
 
   // Navigation & Screen State
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('auth_mobile');
@@ -67,6 +70,7 @@ function MainAppContent() {
       setSavedLocations((prev) => [trimmed, ...prev]);
     }
     setSelectedLocation(trimmed);
+    showToast(`Saved new delivery address: ${trimmed}`, 'success');
   };
 
   const handleEditLocation = (oldLoc: string, newLoc: string) => {
@@ -76,6 +80,7 @@ function MainAppContent() {
     if (selectedLocation === oldLoc) {
       setSelectedLocation(trimmed);
     }
+    showToast('Delivery address updated', 'success');
   };
 
   const handleDeleteLocation = (locToDelete: string) => {
@@ -86,6 +91,7 @@ function MainAppContent() {
       }
       return filtered;
     });
+    showToast('Address removed', 'info');
   };
 
   // User & Auth
@@ -133,9 +139,13 @@ function MainAppContent() {
   ]);
 
   const handleToggleFavorite = (itemId: string) => {
+    const isFavNow = !favoriteIds.includes(itemId);
     setFavoriteIds((prev) =>
       prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId]
     );
+    const item = MATERIAL_ITEMS.find((m) => m.id === itemId);
+    const itemName = item ? item.name : 'Item';
+    showToast(isFavNow ? `Saved ${itemName} to Favorites` : `Removed ${itemName} from Favorites`, 'info');
   };
 
   // Search Handlers
@@ -170,11 +180,13 @@ function MainAppContent() {
     if (updatedData.siteLocation) {
       setSelectedLocation(updatedData.siteLocation);
     }
+    showToast('Profile details updated successfully', 'success');
   };
 
   const handleSelectLocation = (loc: string) => {
     setSelectedLocation(loc);
     setUser((prev) => ({ ...prev, siteLocation: loc }));
+    showToast(`Delivery location set to ${loc}`, 'info');
   };
 
   // Navigation Handlers
@@ -205,6 +217,7 @@ function MainAppContent() {
     };
 
     setCartItems((prev) => [newItem, ...prev]);
+    showToast(`Added ${quantity}x ${item.name} to Basket`, 'success');
   };
 
   const handleUpdateCartQty = (cartId: string, newQty: number) => {
@@ -218,11 +231,15 @@ function MainAppContent() {
   };
 
   const handleRemoveCartItem = (cartId: string) => {
+    const itemToRemove = cartItems.find((ci) => ci.id === cartId);
+    const itemName = itemToRemove ? itemToRemove.itemName : 'Item';
     setCartItems((prev) => prev.filter((item) => item.id !== cartId));
+    showToast(`Removed ${itemName} from Basket`, 'info');
   };
 
   const handleClearCart = () => {
     setCartItems([]);
+    showToast('Basket cleared', 'info');
   };
 
   const handleAuthSuccess = (phoneNum: string) => {
@@ -230,11 +247,13 @@ function MainAppContent() {
     setUser((prev) => ({ ...prev, phone: phoneNum, isVerified: true }));
     setCurrentScreen('home');
     setIsLanguageModalOpen(true);
+    showToast('Account verified! Welcome to Urbanico.', 'success');
   };
 
   const handleLogout = () => {
     setIsLoggedIn(false);
     setCurrentScreen('auth_mobile');
+    showToast('Logged out of Urbanico account', 'info');
   };
 
   // Determine current screen title for header
@@ -442,7 +461,9 @@ export default function App() {
       <ThemeProvider>
         <LanguageProvider>
           <LocationProvider>
-            <MainAppContent />
+            <ToastProvider>
+              <MainAppContent />
+            </ToastProvider>
           </LocationProvider>
         </LanguageProvider>
       </ThemeProvider>

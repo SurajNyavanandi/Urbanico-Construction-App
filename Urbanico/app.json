@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "Frontend",
-    "slug": "Frontend",
+    "name": "Urbanico",
+    "slug": "Urbanico",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "frontend",
+    "icon": "./assets/images/urbanico-icon.png",
+    "scheme": "urbanico",
     "userInterfaceStyle": "automatic",
     "ios": {
-  "icon": "./assets/expo.icon",
+  "icon": "./assets/images/urbanico-icon.png",
   "bundleIdentifier": "com.surajnyavanandi.Frontend",
   "infoPlist": {
     "ITSAppUsesNonExemptEncryption": false
@@ -26,7 +26,7 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "favicon": "./assets/images/urbanico-favicon.jpg"
     },
     "plugins": [
       "expo-router",

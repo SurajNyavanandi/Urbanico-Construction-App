@@ -39,37 +39,73 @@ const DEFAULT_CHILD_ITEMS: ChildNavItem[] = [
     id: 'sand',
     label: 'Sand',
     iconType: 'image',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785910631/Gemini_Generated_Image_35x5yw35x5yw35x5_ufgnk0.png',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786533906/sand_orm3ji.jpg',
   },
   {
     id: 'bricks',
     label: 'Bricks',
     iconType: 'image',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785910637/Gemini_Generated_Image_352f9p352f9p352f_czjzkh.png',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786533906/bricks_jsfo9r.jpg',
   },
   {
     id: 'cement',
     label: 'Cement',
     iconType: 'image',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785910639/Gemini_Generated_Image_fbqfm7fbqfm7fbqf_lp4ere.png',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786533909/cement_ewzwf3.jpg',
   },
   {
     id: 'iron_bars',
     label: 'Steel',
     iconType: 'image',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785910639/Gemini_Generated_Image_isea2xisea2xisea_re8vgk.png',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786533914/ironbars_lyebwh.jpg',
   },
   {
     id: 'stone',
     label: 'Stone',
     iconType: 'image',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785910629/Gemini_Generated_Image_uj3xinuj3xinuj3x_iocbzu.png',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786533906/stones_kvqy16.jpg',
   },
   {
     id: 'centring',
     label: 'Centring',
     iconType: 'image',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785910638/Gemini_Generated_Image_56foom56foom56fo_npavvl.png',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786533910/centering_euuz3q.jpg',
+  },
+  {
+    id: 'mason',
+    label: 'Mason',
+    iconType: 'image',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786533919/mason_ipgxhc.jpg',
+  },
+  {
+    id: 'fabricator',
+    label: 'Fabricator',
+    iconType: 'image',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786533913/fabricator_rwtwsu.jpg',
+  },
+  {
+    id: 'painter',
+    label: 'Painter',
+    iconType: 'image',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786533919/painter_q3wypn.jpg',
+  },
+  {
+    id: 'electrician',
+    label: 'Electrician',
+    iconType: 'image',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786533911/electrician_y491o4.jpg',
+  },
+  {
+    id: 'plumber',
+    label: 'Plumber',
+    iconType: 'image',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786533905/plumber_kjuubn.jpg',
+  },
+  {
+    id: 'carpenter',
+    label: 'Carpenter',
+    iconType: 'image',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786533907/carpenter_zoqlyn.jpg',
   },
 ];
 
@@ -111,14 +147,14 @@ export const ChildNavPills: React.FC<ChildNavPillsProps> = ({
                   styles.iconBox,
                   {
                     backgroundColor: item.isFeatured
-                      ? '#FFF1F2'
+                      ? '#000000'
                       : theme.surface,
-                    borderColor: item.isFeatured ? '#FECDD3' : theme.borderLight,
+                    borderColor: item.isFeatured ? '#000000' : theme.borderLight,
                   },
                 ]}
               >
                 {item.iconType === 'star' ? (
-                  <Star size={20} color="#DC2626" fill="#DC2626" />
+                  <Star size={18} color="#FFFFFF" fill="#FFFFFF" />
                 ) : item.image ? (
                   <ShimmerImage
                     source={{ uri: item.image }}

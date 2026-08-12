@@ -71,15 +71,18 @@ export const Toast: React.FC<ToastProps> = ({
 
   if (!visible) return null;
 
-  let bg = '#16A34A';
+  let bg = theme.mode === 'dark' ? '#18181B' : '#000000';
   let IconComp = CheckCircle2;
+  let iconColor = '#FFFFFF';
 
   if (type === 'error') {
-    bg = '#DC2626';
+    bg = '#18181B';
     IconComp = AlertCircle;
+    iconColor = '#EF4444';
   } else if (type === 'info') {
-    bg = theme.mode === 'dark' ? '#334155' : '#0F172A';
+    bg = theme.mode === 'dark' ? '#18181B' : '#000000';
     IconComp = Info;
+    iconColor = '#FFFFFF';
   }
 
   const AnimatedView = Animated.View as any;
@@ -87,47 +90,62 @@ export const Toast: React.FC<ToastProps> = ({
   return (
     <AnimatedView
       style={[
-        styles.toastContainer,
-        {
-          backgroundColor: bg,
-          transform: [{ translateY }],
-          opacity,
-        },
+        styles.toastWrapper,
         style,
       ]}
     >
-      <IconComp size={18} color="#FFFFFF" />
-      <Text
+      <AnimatedView
         style={[
-          styles.toastText,
-          { fontFamily: typography.fontFamilyHeading },
+          styles.toastContainer,
+          {
+            backgroundColor: bg,
+            borderColor: theme.mode === 'dark' ? '#27272A' : '#18181B',
+            transform: [{ translateY }],
+            opacity,
+          },
         ]}
-        numberOfLines={2}
       >
-        {message}
-      </Text>
+        <IconComp size={16} color={iconColor} />
+        <Text
+          style={[
+            styles.toastText,
+            { fontFamily: typography.fontFamilyHeading },
+          ]}
+          numberOfLines={2}
+        >
+          {message}
+        </Text>
+      </AnimatedView>
     </AnimatedView>
   );
 };
 
 const styles = StyleSheet.create({
-  toastContainer: {
+  toastWrapper: {
     position: 'absolute',
-    top: 52,
-    left: 20,
-    right: 20,
-    zIndex: 9999,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+    top: 16,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 99999,
+    pointerEvents: 'box-none',
+  },
+  toastContainer: {
+    maxWidth: 420,
+    width: '90%',
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 999,
+    borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 8,
   },
   toastText: {
     flex: 1,

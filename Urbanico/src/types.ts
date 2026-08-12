@@ -17,7 +17,13 @@ export type CategoryId =
   | 'iron_bars'
   | 'centring'
   | 'services'
-  | 'services-catalog';
+  | 'services-catalog'
+  | 'mason'
+  | 'fabricator'
+  | 'painter'
+  | 'electrician'
+  | 'plumber'
+  | 'carpenter';
 
 export interface MaterialCategory {
   id: CategoryId;

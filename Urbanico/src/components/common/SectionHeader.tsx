@@ -68,12 +68,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 18,
-    fontWeight: '700',
-    letterSpacing: -0.2,
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '400',
     marginTop: 2,
   },
@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     paddingLeft: 12,
   },
   actionText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
 });

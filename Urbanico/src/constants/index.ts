@@ -1,6 +1,6 @@
 export const APP_NAME = 'Building Material Marketplace';
 
-export const BRAND_LOGO_URL = 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785844166/Gemini_Generated_Image_ci2ix7ci2ix7ci2i_ugvys1.png';
+export const BRAND_LOGO_URL = 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786533916/logo_b3cxbf.jpg';
 
 export const POPULAR_SEARCH_SUGGESTIONS = [
   'UltraTech Cement 53 Grade',

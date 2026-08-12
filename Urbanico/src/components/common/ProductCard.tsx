@@ -292,9 +292,9 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   productTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
-    lineHeight: 20,
+    lineHeight: 18,
   },
   productSubtitle: {
     fontSize: 11,
@@ -309,11 +309,11 @@ const styles = StyleSheet.create({
   },
   productPrice: {
     fontSize: 12,
-    fontWeight: '400',
+    fontWeight: '700',
     lineHeight: 16,
   },
   addBtnGrid: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 8,
     alignItems: 'center',
@@ -330,13 +330,15 @@ const styles = StyleSheet.create({
     borderColor: '#000000',
   },
   addBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
     color: '#000000',
   },
   addBtnTextActive: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
     color: '#FFFFFF',
   },
 

@@ -73,6 +73,24 @@ export interface AccentDefinition {
 }
 
 export const ACCENT_DEFINITIONS: Record<AccentColor, AccentDefinition> = {
+  black: {
+    name: 'Nike Black & White',
+    hex: '#000000',
+    light: {
+      primary: '#000000',
+      primaryLight: '#F4F4F5',
+      primaryDark: '#18181B',
+      cardShadow: 'rgba(0, 0, 0, 0.06)',
+      surfaceSecondary: '#F4F4F5',
+      surfaceTertiary: '#E4E4E7',
+    },
+    dark: {
+      primary: '#FFFFFF',
+      primaryLight: '#27272A',
+      primaryDark: '#FAFAFA',
+      cardShadow: 'rgba(255, 255, 255, 0.1)',
+    },
+  },
   amber: {
     name: 'Safety Amber',
     hex: '#F59E0B',
@@ -92,21 +110,21 @@ export const ACCENT_DEFINITIONS: Record<AccentColor, AccentDefinition> = {
     },
   },
   violet: {
-    name: 'Urbanico Violet',
-    hex: '#7C3AED',
+    name: 'Monochrome Slate',
+    hex: '#18181B',
     light: {
-      primary: '#7C3AED',
-      primaryLight: '#EDE9FE',
-      primaryDark: '#5B21B6',
-      cardShadow: 'rgba(124, 58, 237, 0.15)',
-      surfaceSecondary: '#F5F3FF',
-      surfaceTertiary: '#EDE9FE',
+      primary: '#18181B',
+      primaryLight: '#F4F4F5',
+      primaryDark: '#09090B',
+      cardShadow: 'rgba(0, 0, 0, 0.06)',
+      surfaceSecondary: '#F4F4F5',
+      surfaceTertiary: '#E4E4E7',
     },
     dark: {
-      primary: '#8B5CF6',
-      primaryLight: '#2E1065',
-      primaryDark: '#A78BFA',
-      cardShadow: 'rgba(139, 92, 246, 0.25)',
+      primary: '#FFFFFF',
+      primaryLight: '#27272A',
+      primaryDark: '#F4F4F5',
+      cardShadow: 'rgba(255, 255, 255, 0.1)',
     },
   },
   green: {
@@ -145,24 +163,6 @@ export const ACCENT_DEFINITIONS: Record<AccentColor, AccentDefinition> = {
       cardShadow: 'rgba(59, 130, 246, 0.25)',
     },
   },
-  black: {
-    name: 'Contractor Black',
-    hex: '#0F172A',
-    light: {
-      primary: '#0F172A',
-      primaryLight: '#F1F5F9',
-      primaryDark: '#020617',
-      cardShadow: 'rgba(15, 23, 42, 0.15)',
-      surfaceSecondary: '#F8FAFC',
-      surfaceTertiary: '#E2E8F0',
-    },
-    dark: {
-      primary: '#F8FAFC',
-      primaryLight: '#334155',
-      primaryDark: '#CBD5E1',
-      cardShadow: 'rgba(255, 255, 255, 0.15)',
-    },
-  },
 };
 
 export const FONT_CONFIGS: Record<TypographyFontFamily, { name: string; family: string; headingFamily: string }> = {
@@ -189,7 +189,7 @@ export const FONT_CONFIGS: Record<TypographyFontFamily, { name: string; family: 
 };
 
 export function getThemeColors(mode: ThemeMode, accent: AccentColor): ThemeColors {
-  const accentDef = ACCENT_DEFINITIONS[accent] || ACCENT_DEFINITIONS.violet;
+  const accentDef = ACCENT_DEFINITIONS[accent] || ACCENT_DEFINITIONS.black;
   const isLight = mode === 'light';
 
   if (isLight) {
@@ -198,16 +198,16 @@ export function getThemeColors(mode: ThemeMode, accent: AccentColor): ThemeColor
       accent,
       background: '#FFFFFF',
       surface: '#FFFFFF',
-      surfaceSecondary: accentDef.light.surfaceSecondary || '#F8FAFC',
-      surfaceTertiary: accentDef.light.surfaceTertiary || '#F1F5F9',
+      surfaceSecondary: accentDef.light.surfaceSecondary || '#F4F4F5',
+      surfaceTertiary: accentDef.light.surfaceTertiary || '#E4E4E7',
       textPrimary: '#000000',
       textSecondary: '#666666',
       textMuted: '#999999',
       primary: accentDef.light.primary,
       primaryLight: accentDef.light.primaryLight,
       primaryDark: accentDef.light.primaryDark,
-      border: '#E2E8F0',
-      borderLight: '#F1F5F9',
+      border: '#E4E4E7',
+      borderLight: '#F4F4F5',
       cardShadow: accentDef.light.cardShadow,
       headerBg: '#FFFFFF',
       headerText: '#000000',
@@ -217,20 +217,20 @@ export function getThemeColors(mode: ThemeMode, accent: AccentColor): ThemeColor
     return {
       mode: 'dark',
       accent,
-      background: '#0F172A',
-      surface: '#1E293B',
-      surfaceSecondary: '#334155',
-      surfaceTertiary: '#0F172A',
+      background: '#000000',
+      surface: '#121212',
+      surfaceSecondary: '#1C1C1E',
+      surfaceTertiary: '#2C2C2E',
       textPrimary: '#FFFFFF',
       textSecondary: '#A1A1AA',
       textMuted: '#71717A',
       primary: accentDef.dark.primary,
       primaryLight: accentDef.dark.primaryLight,
       primaryDark: accentDef.dark.primaryDark,
-      border: '#334155',
-      borderLight: '#1E293B',
+      border: '#27272A',
+      borderLight: '#18181B',
       cardShadow: accentDef.dark.cardShadow,
-      headerBg: '#1E293B',
+      headerBg: '#000000',
       headerText: '#FFFFFF',
       statusBarStyle: 'light',
     };
@@ -285,21 +285,21 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: getThemeColors('light', 'violet'),
+  theme: getThemeColors('light', 'black'),
   themeMode: 'light',
   setThemeMode: () => {},
-  accentColor: 'violet',
+  accentColor: 'black',
   setAccentColor: () => {},
   typography: getTypographyConfig('system'),
   typographyFont: 'system',
   setTypographyFont: () => {},
-  themeKey: 'violet',
+  themeKey: 'black',
   setThemeKey: () => {},
 });
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [themeMode, setThemeMode] = useState<ThemeMode>('light');
-  const [accentColor, setAccentColor] = useState<AccentColor>('violet');
+  const [accentColor, setAccentColor] = useState<AccentColor>('black');
   const [typographyFont, setTypographyFont] = useState<TypographyFontFamily>('system');
 
   const theme = getThemeColors(themeMode, accentColor);

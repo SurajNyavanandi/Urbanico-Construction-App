@@ -67,7 +67,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   onViewInvoice,
   initialOpenAddressesModal = false,
 }) => {
-  const { theme } = useTheme();
+  const { theme, typography } = useTheme();
   const { currentLanguageOption, t } = useLanguage();
   const {
     selectedLocation,
@@ -326,23 +326,23 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           </TouchableOpacity>
         </View>
 
-        {/* Refer & Earn Purple Banner (Matching UC Screenshot) */}
-        <View style={styles.referralCard}>
+        {/* Refer & Earn Banner */}
+        <View style={[styles.referralCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
           <View style={styles.referralLeftContent}>
-            <Text style={styles.referralTitle}>Refer & earn ₹100</Text>
-            <Text style={styles.referralSubtitle}>
+            <Text style={[styles.referralTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>Refer & earn ₹100</Text>
+            <Text style={[styles.referralSubtitle, { color: theme.textSecondary }]}>
               Get ₹100 when your friend completes their first order
             </Text>
             <TouchableOpacity
               onPress={() => showToast('Referral link copied to clipboard!')}
-              style={styles.referNowBtn}
+              style={[styles.referNowBtn, { backgroundColor: theme.primary }]}
               activeOpacity={0.85}
             >
               <Text style={styles.referNowBtnText}>Refer now</Text>
             </TouchableOpacity>
           </View>
-          <View style={styles.giftIconBox}>
-            <Gift size={38} color="#6D28D9" />
+          <View style={[styles.giftIconBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <Gift size={32} color={theme.primary} />
           </View>
         </View>
 
@@ -856,11 +856,11 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
 
-  /* Refer & Earn Banner Card (Purple Pastel) */
+  /* Refer & Earn Banner Card */
   referralCard: {
-    backgroundColor: '#F5F3FF',
     borderRadius: 16,
     padding: 18,
+    borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -872,33 +872,30 @@ const styles = StyleSheet.create({
   referralTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1E1B4B',
     marginBottom: 4,
   },
   referralSubtitle: {
     fontSize: 13,
     fontWeight: '400',
-    color: '#4C1D95',
     lineHeight: 18,
     marginBottom: 12,
   },
   referNowBtn: {
-    backgroundColor: '#6D28D9',
     paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 10,
+    borderRadius: 999,
     alignSelf: 'flex-start',
   },
   referNowBtnText: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
   },
   giftIconBox: {
-    width: 64,
-    height: 64,
+    width: 60,
+    height: 60,
     borderRadius: 16,
-    backgroundColor: '#EDE9FE',
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
