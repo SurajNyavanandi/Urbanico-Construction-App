@@ -5,16 +5,20 @@ import {
   ScrollView,
   StyleSheet,
   RefreshControl,
+  TouchableOpacity,
 } from 'react-native';
 import {
   Truck,
   MapPin,
   Clock,
+  Navigation,
 } from 'lucide-react-native';
 import { ActivityDelivery } from '../types';
 import { useTheme } from '../context/ThemeContext';
+import { useLocation } from '../context/LocationContext';
 import { EmptyState } from './common/EmptyState';
 import { Toast } from './common/Toast';
+import { GoogleMapPicker } from './common/GoogleMapPicker';
 
 interface ActivityDashboardScreenProps {
   deliveries: ActivityDelivery[];
@@ -27,6 +31,7 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
   onExploreCatalog,
 }) => {
   const { theme, typography } = useTheme();
+  const { currentCoords } = useLocation();
   const [refreshing, setRefreshing] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
@@ -100,6 +105,19 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
                 </Text>
               </View>
             </View>
+          </View>
+
+          {/* Embedded Live Google Maps Route Tracking */}
+          <View style={{ marginVertical: 12 }}>
+            <GoogleMapPicker
+              center={currentCoords}
+              markerPosition={currentCoords}
+              markerTitle={`Delivery Destination: ${activeEnRoute.siteAddress}`}
+              routeOrigin={{ lat: 17.4385, lng: 78.3820 }} // Hitech City Depot
+              routeDestination={currentCoords}
+              height={190}
+              interactive={true}
+            />
           </View>
 
           {/* Stepper Bar */}

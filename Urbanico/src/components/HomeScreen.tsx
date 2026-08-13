@@ -35,15 +35,15 @@ interface BannerData {
 const PROMO_BANNERS: BannerData[] = [
   {
     id: 'promo-ad-1',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785842565/Gemini_Generated_Image_4rlspn4rlspn4rls_wbly6k.png',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614393/add1_zx1dzj.jpg',
   },
   {
     id: 'promo-ad-2',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785842566/Gemini_Generated_Image_8xdvjn8xdvjn8xdv_phm0ve.png',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614393/add3_ysql65.jpg',
   },
   {
     id: 'promo-ad-3',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785842566/Gemini_Generated_Image_nyb7xqnyb7xqnyb7_rbizwp.png',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614393/add2_sfwmp0.jpg',
   },
 ];
 

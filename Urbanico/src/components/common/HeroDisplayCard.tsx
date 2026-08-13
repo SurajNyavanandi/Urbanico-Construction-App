@@ -38,7 +38,7 @@ export const HeroDisplayCard: React.FC<HeroDisplayCardProps> = ({
         style={[styles.cardContainer, { borderColor: theme.borderLight || '#E2E8F0' }]}
       >
         <Image
-          source={{ uri: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786529668/herocard_f8hbtp.jpg' }}
+          source={{ uri: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786620810/herocard3_ytzfhm.jpg' }}
           style={styles.image}
           resizeMode="cover"
         />

@@ -29,6 +29,7 @@ import { EmptyState } from './common/EmptyState';
 import { LoadingButton } from './common/LoadingButton';
 import { ShimmerImage } from './common/ShimmerImage';
 import { Toast } from './common/Toast';
+import { GoogleMapPicker } from './common/GoogleMapPicker';
 
 interface BasketScreenProps {
   cartItems: CartItem[];
@@ -54,7 +55,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   onChangeAddressRedirect,
 }) => {
   const { theme, typography } = useTheme();
-  const { selectedLocation: globalLocation } = useLocation();
+  const { selectedLocation: globalLocation, currentCoords } = useLocation();
   const activeLocation = globalLocation || propLocation || 'Miyapur Site, Phase 2, Hyderabad';
   const [activeTab, setActiveTab] = useState<'cart' | 'history'>('cart');
   const [orderPlaced, setOrderPlaced] = useState(false);
@@ -187,7 +188,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
               </View>
             </View>
             <TouchableOpacity onPress={() => (onChangeAddressRedirect ? onChangeAddressRedirect() : onNavigateScreen('profile'))}>
-              <Text style={[styles.changeBtnText, { color: theme.primary }]}>Change</Text>
+              <Text style={[styles.changeBtnText, { color: theme.primary, fontWeight: '800' }]}>Change on Map</Text>
             </TouchableOpacity>
           </View>
 
@@ -334,6 +335,19 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                     </Text>
                   </View>
                 </View>
+              </View>
+
+              {/* Embedded Google Maps Route Tracking */}
+              <View style={{ marginVertical: 10 }}>
+                <GoogleMapPicker
+                  center={currentCoords}
+                  markerPosition={currentCoords}
+                  markerTitle={`Site Destination: ${activeEnRoute.siteAddress}`}
+                  routeOrigin={{ lat: 17.4385, lng: 78.3820 }} // Depot
+                  routeDestination={currentCoords}
+                  height={180}
+                  interactive={true}
+                />
               </View>
 
               {/* Status Stepper */}

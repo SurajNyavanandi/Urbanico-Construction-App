@@ -80,6 +80,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
   // Modals
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isGstinModalOpen, setIsGstinModalOpen] = useState(false);
   const [isAddressesModalOpen, setIsAddressesModalOpen] = useState(initialOpenAddressesModal);
   const [isPaymentsModalOpen, setIsPaymentsModalOpen] = useState(false);
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
@@ -91,10 +92,24 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [editingAddressInput, setEditingAddressInput] = useState('');
   const [toastMsg, setToastMsg] = useState<string | null>(null);
 
-  // Edit profile form state (Name, Phone, Email ONLY - No Avatar)
+  // Edit profile form state
   const [editName, setEditName] = useState(user.name);
+  const [editCompanyName, setEditCompanyName] = useState(user.companyName || '');
+  const [editGstin, setEditGstin] = useState(user.gstin || '');
+  const [editCompanyInput, setEditCompanyInput] = useState(user.companyName || '');
+  const [editGstinInput, setEditGstinInput] = useState(user.gstin || '');
   const [editPhone, setEditPhone] = useState(user.phone);
   const [editEmail, setEditEmail] = useState(user.email);
+
+  React.useEffect(() => {
+    setEditName(user.name);
+    setEditCompanyName(user.companyName || '');
+    setEditGstin(user.gstin || '');
+    setEditCompanyInput(user.companyName || '');
+    setEditGstinInput(user.gstin || '');
+    setEditPhone(user.phone);
+    setEditEmail(user.email);
+  }, [user]);
 
   // Saved Payments state
   const [savedCards] = useState([
@@ -128,11 +143,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       setIsSavingProfile(false);
       onUpdateUser({
         name: editName,
+        companyName: editCompanyName,
+        gstin: editGstin.trim().toUpperCase(),
         phone: editPhone,
         email: editEmail,
       });
       setIsEditModalOpen(false);
-      showToast('Profile details updated successfully');
+      showToast('Profile & GST details updated successfully');
     }, 500);
   };
 
@@ -189,21 +206,31 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           />
         }
       >
-        {/* Ultra Minimal User Profile Card */}
+        {/* User Profile Card */}
         <View style={[styles.profileCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <View style={styles.profileCardMain}>
             <View style={styles.profileInfoColumn}>
-              <Text style={[styles.userNameText, { color: theme.textPrimary }]}>
-                {isLoggedIn ? user.name : 'Guest User'}
-              </Text>
-              <Text style={[styles.userPhoneText, { color: theme.textSecondary }]}>
-                {isLoggedIn ? user.phone : '+91 Mobile Unverified'}
-              </Text>
-              {isLoggedIn && user.email ? (
-                <Text style={[styles.userEmailText, { color: theme.textMuted }]} numberOfLines={1}>
-                  {user.email}
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <Text style={[styles.userNameText, { color: theme.textPrimary }]}>
+                  {isLoggedIn ? user.name : 'Guest User'}
+                </Text>
+                {isLoggedIn && user.isVerified && (
+                  <View style={[styles.verifiedBadge, { backgroundColor: '#DCFCE7' }]}>
+                    <ShieldCheck size={11} color="#059669" />
+                    <Text style={styles.verifiedBadgeText}>VERIFIED</Text>
+                  </View>
+                )}
+              </View>
+
+              {isLoggedIn && user.companyName ? (
+                <Text style={[styles.userCompanyText, { color: theme.textSecondary }]} numberOfLines={1}>
+                  {user.companyName}
                 </Text>
               ) : null}
+
+              <Text style={[styles.userContactText, { color: theme.textMuted }]}>
+                {isLoggedIn ? `${user.phone}${user.email ? ' • ' + user.email : ''}` : '+91 Mobile Unverified'}
+              </Text>
             </View>
 
             {isLoggedIn && (
@@ -216,26 +243,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               </TouchableOpacity>
             )}
           </View>
-
-          {/* Integrated GSTIN Row */}
-          {isLoggedIn && user.gstin ? (
-            <View style={[styles.gstinIntegratedRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-              <View style={styles.gstinLeftGroup}>
-                <Building size={16} color={theme.primary} />
-                <View>
-                  <Text style={[styles.gstinLabel, { color: theme.textSecondary }]}>GSTIN Verified</Text>
-                  <Text style={[styles.gstinValue, { color: theme.textPrimary }]}>{user.gstin}</Text>
-                </View>
-              </View>
-              <TouchableOpacity
-                onPress={() => setIsEditModalOpen(true)}
-                style={[styles.editGstinBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.editGstinBtnText, { color: theme.textPrimary }]}>Edit GST</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
         </View>
 
         {/* Ultra-Minimal Menu List (Original Urbanico Core Features) */}
@@ -252,6 +259,33 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             </View>
             <ChevronRight size={18} color={theme.textMuted} />
           </TouchableOpacity>
+
+          {/* GSTIN & Business Tax Details */}
+          {isLoggedIn && (
+            <TouchableOpacity
+              onPress={() => setIsGstinModalOpen(true)}
+              style={[styles.listItemRow, { borderBottomColor: theme.borderLight }]}
+              activeOpacity={0.7}
+            >
+              <View style={styles.listItemLeft}>
+                <Building size={18} color={theme.textPrimary} />
+                <Text style={[styles.listItemText, { color: theme.textPrimary }]}>GSTIN & Business Details</Text>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                {user.gstin ? (
+                  <View style={[styles.gstinBadgePill, { backgroundColor: '#DCFCE7' }]}>
+                    <Check size={11} color="#059669" />
+                    <Text style={styles.gstinBadgeText}>{user.gstin}</Text>
+                  </View>
+                ) : (
+                  <View style={[styles.gstinBadgePill, { backgroundColor: theme.surfaceSecondary }]}>
+                    <Text style={[styles.gstinBadgeText, { color: theme.textSecondary }]}>+ Add GST</Text>
+                  </View>
+                )}
+                <ChevronRight size={18} color={theme.textMuted} />
+              </View>
+            </TouchableOpacity>
+          )}
 
           {/* Manage Saved Site Addresses */}
           <TouchableOpacity
@@ -405,6 +439,33 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               </View>
 
               <View style={styles.inputFieldGroup}>
+                <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>Company / Firm Name</Text>
+                <TextInput
+                  value={editCompanyName}
+                  onChangeText={setEditCompanyName}
+                  placeholder="e.g. Kumar Infra & Construction Pvt Ltd"
+                  placeholderTextColor="#999999"
+                  style={[styles.formInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border }]}
+                />
+              </View>
+
+              <View style={styles.inputFieldGroup}>
+                <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>GSTIN Number (15-Digit Tax ID)</Text>
+                <TextInput
+                  value={editGstin}
+                  onChangeText={(val) => setEditGstin(val.toUpperCase())}
+                  placeholder="e.g. 36AABCU12341ZV"
+                  placeholderTextColor="#999999"
+                  maxLength={15}
+                  autoCapitalize="characters"
+                  style={[styles.formInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border }]}
+                />
+                <Text style={{ fontSize: 11, color: theme.textMuted, marginTop: 2 }}>
+                  Official GSTIN printed on tax invoices for Input Tax Credit (ITC).
+                </Text>
+              </View>
+
+              <View style={styles.inputFieldGroup}>
                 <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>Mobile Phone</Text>
                 <TextInput
                   value={editPhone}
@@ -434,6 +495,93 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 title="Save Changes"
                 onPress={handleSaveProfile}
                 isLoading={isSavingProfile}
+                variant="primary"
+                style={{ height: 48 }}
+              />
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* MODAL: GSTIN & Business Tax Details */}
+      <Modal visible={isGstinModalOpen} transparent animationType="slide">
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <Pressable style={styles.modalBackdrop} onPress={() => setIsGstinModalOpen(false)} />
+          <View style={[styles.modalSheetContainer, { backgroundColor: theme.surface }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+              <View style={styles.modalHeaderTitleGroup}>
+                <Building size={20} color={theme.primary} />
+                <Text style={[styles.modalHeaderTitle, { color: theme.textPrimary }]}>GSTIN & Business Details</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsGstinModalOpen(false)}
+                style={styles.closeModalBtn}
+              >
+                <X size={18} color={theme.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView
+              style={styles.modalFormScroll}
+              contentContainerStyle={styles.modalScrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              <Text style={{ fontSize: 13, color: theme.textSecondary, marginBottom: 16, lineHeight: 18 }}>
+                Add or update your 15-digit GSTIN and registered company name to claim 18% Input Tax Credit (ITC) on all site material bills.
+              </Text>
+
+              <View style={styles.inputFieldGroup}>
+                <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>Registered Company / Firm Name</Text>
+                <TextInput
+                  value={editCompanyInput}
+                  onChangeText={setEditCompanyInput}
+                  placeholder="e.g. Kumar Infra & Construction Pvt Ltd"
+                  placeholderTextColor="#999999"
+                  style={[styles.formInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border }]}
+                />
+              </View>
+
+              <View style={styles.inputFieldGroup}>
+                <Text style={[styles.fieldLabel, { color: theme.textPrimary }]}>GSTIN Number (15-Digit Tax ID)</Text>
+                <TextInput
+                  value={editGstinInput}
+                  onChangeText={(val) => setEditGstinInput(val.toUpperCase())}
+                  placeholder="e.g. 36AABCU12341ZV"
+                  placeholderTextColor="#999999"
+                  maxLength={15}
+                  autoCapitalize="characters"
+                  style={[styles.formInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border }]}
+                />
+                <Text style={{ fontSize: 11, color: theme.textMuted, marginTop: 4 }}>
+                  Official GSTIN printed on tax invoices for Input Tax Credit (ITC).
+                </Text>
+              </View>
+
+              {user.gstin ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#DCFCE7', padding: 10, borderRadius: 10, marginTop: 4 }}>
+                  <Check size={16} color="#059669" />
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: '#047857' }}>
+                    Active GSTIN: {user.gstin}
+                  </Text>
+                </View>
+              ) : null}
+            </ScrollView>
+
+            <View style={[styles.modalFooterActions, { borderTopColor: theme.border }]}>
+              <LoadingButton
+                title="Save GST Details"
+                onPress={() => {
+                  onUpdateUser({
+                    companyName: editCompanyInput.trim(),
+                    gstin: editGstinInput.trim().toUpperCase(),
+                  });
+                  setIsGstinModalOpen(false);
+                  showToast('GSTIN details updated successfully');
+                }}
                 variant="primary"
                 style={{ height: 48 }}
               />
@@ -780,13 +928,28 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: -0.3,
   },
-  userPhoneText: {
+  userCompanyText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
+    marginTop: 2,
   },
-  userEmailText: {
+  userContactText: {
     fontSize: 13,
     fontWeight: '400',
+    marginTop: 2,
+  },
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  verifiedBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#059669',
   },
   editInfoBtn: {
     width: 36,
@@ -798,38 +961,121 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
 
-  /* Integrated GSTIN Row */
-  gstinIntegratedRow: {
-    borderRadius: 12,
+  /* Dedicated B2B GSTIN Section Card */
+  gstinSectionCard: {
+    borderRadius: 16,
     borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    padding: 16,
+    gap: 12,
+  },
+  gstinHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  gstinLeftGroup: {
+  gstinHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
+    flex: 1,
   },
-  gstinLabel: {
-    fontSize: 11,
-    fontWeight: '500',
+  gstinIconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  gstinValue: {
-    fontSize: 13,
-    fontWeight: '600',
+  gstinSectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  gstinSectionSub: {
+    fontSize: 12,
+    fontWeight: '400',
+    marginTop: 1,
   },
   editGstinBtn: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
     borderWidth: 1,
   },
   editGstinBtnText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
+  },
+  gstinDetailsBox: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  gstinFieldRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  gstinFieldLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  gstinValueBadgeGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  gstinValueText: {
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  greenCheckPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  greenCheckPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  gstinBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  gstinBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  gstinFirmText: {
+    fontSize: 13,
+    fontWeight: '600',
+    maxWidth: '65%',
+  },
+  addGstinPromptBox: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+  },
+  addGstinPromptTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  addGstinPromptSub: {
+    fontSize: 12,
+    marginTop: 2,
   },
 
   /* Ultra Minimal List Container */

@@ -1,19 +1,19 @@
 {
   "expo": {
     "name": "Urbanico",
-    "slug": "Urbanico",
+    "slug": "Frontend",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/urbanico-icon.png",
     "scheme": "urbanico",
     "userInterfaceStyle": "automatic",
     "ios": {
-  "icon": "./assets/images/urbanico-icon.png",
-  "bundleIdentifier": "com.surajnyavanandi.Frontend",
-  "infoPlist": {
-    "ITSAppUsesNonExemptEncryption": false
-  }
-},
+      "icon": "./assets/images/urbanico-icon.png",
+      "bundleIdentifier": "com.surajnyavanandi.Urbanico",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
@@ -22,7 +22,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.surajnyavanandi.Frontend"
+      "package": "com.surajnyavanandi.Urbanico"
     },
     "web": {
       "output": "static",
@@ -47,6 +47,7 @@
     },
     "updates": {
       "url": "https://u.expo.dev/1922d771-242d-4d6a-849f-876d79b90e70"
-    }
+    },
+    "owner": "surajnyavanandi"
   }
 }
