@@ -173,6 +173,8 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
               style={styles.headerThumbnail}
               resizeMode="cover"
               borderRadius={10}
+              preset="detail"
+              priority="high"
             />
           </View>
 

@@ -78,6 +78,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               style={styles.productImage}
               resizeMode="cover"
               borderRadius={14}
+              preset="card_list"
             />
           ) : null}
         </View>
@@ -177,6 +178,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             style={styles.productImage}
             resizeMode="cover"
             borderRadius={14}
+            preset="card"
           />
         ) : null}
 

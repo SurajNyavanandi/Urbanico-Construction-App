@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
@@ -20,6 +20,8 @@ import { FavoritesScreen } from './components/FavoritesScreen';
 import { LocationModal } from './components/LocationModal';
 import { InvoiceModal } from './components/InvoiceModal';
 import { LanguagePromptModal } from './components/LanguagePromptModal';
+import { preloadImages } from './utils/imageOptimization';
+import { BRAND_LOGO_URL } from './constants';
 
 import {
   ScreenType,
@@ -93,6 +95,16 @@ function MainAppContent() {
     });
     showToast('Address removed', 'info');
   };
+
+  // Warm up material and catalog images in the background after main thread settles
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      preloadImages([
+        ...MATERIAL_ITEMS.slice(0, 12).map((item) => ({ url: item.image, preset: 'card' as const })),
+      ]);
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, []);
 
   // User & Auth
   const [user, setUser] = useState<UserProfile>({

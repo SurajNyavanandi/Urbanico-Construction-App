@@ -15,8 +15,10 @@ import { ProductCard } from './common/ProductCard';
 import { HomeSkeleton } from './common/SkeletonLoader';
 import { ShimmerImage } from './common/ShimmerImage';
 import { Toast } from './common/Toast';
-import { HeroDisplayCard, DisplaySlide } from './common/HeroDisplayCard';
-import { ChildNavPills } from './common/ChildNavPills';
+import { HeroDisplayCard, DisplaySlide, HERO_IMAGE_URL } from './common/HeroDisplayCard';
+import { ChildNavPills, DEFAULT_CHILD_ITEMS } from './common/ChildNavPills';
+import { preloadImages } from '../utils/imageOptimization';
+import { BRAND_LOGO_URL } from '../constants';
 
 interface HomeScreenProps {
   onSelectCategory: (catId: CategoryId) => void;
@@ -73,6 +75,21 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       setToastMessage('Catalog rates refreshed');
     }, 1000);
   };
+
+  // Preload critical above-the-fold assets in the background
+  useEffect(() => {
+    preloadImages([
+      { url: HERO_IMAGE_URL, preset: 'hero' },
+      { url: BRAND_LOGO_URL, preset: 'logo' },
+      ...DEFAULT_CHILD_ITEMS.filter((item) => Boolean(item.image)).map((item) => ({
+        url: item.image!,
+        preset: 'pill' as const,
+      })),
+      ...PROMO_BANNERS.map((b) => ({ url: b.image, preset: 'banner' as const })),
+      ...SERVICES.map((s) => ({ url: s.image, preset: 'card' as const })),
+      ...CATEGORIES.map((c) => ({ url: c.image, preset: 'card' as const })),
+    ]);
+  }, []);
 
   // Auto-rotate banner every 4 seconds
   useEffect(() => {
@@ -218,6 +235,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 style={styles.fullBannerImage}
                 resizeMode="cover"
                 borderRadius={16}
+                preset="banner"
               />
             </TouchableOpacity>
           ))}

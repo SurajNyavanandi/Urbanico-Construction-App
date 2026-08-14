@@ -107,7 +107,7 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
             </View>
           </View>
 
-          {/* Embedded Live Google Maps Route Tracking */}
+          {/* Embedded Live Route Tracking */}
           <View style={{ marginVertical: 12 }}>
             <GoogleMapPicker
               center={currentCoords}

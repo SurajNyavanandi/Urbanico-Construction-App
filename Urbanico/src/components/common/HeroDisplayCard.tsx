@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
+import { ShimmerImage } from './ShimmerImage';
 
 export interface DisplaySlide {
   id: string;
@@ -15,6 +16,8 @@ interface HeroDisplayCardProps {
   onCtaPress?: (slide?: any) => void;
   onPressCta?: () => void;
 }
+
+export const HERO_IMAGE_URL = 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786620810/herocard3_ytzfhm.jpg';
 
 export const HeroDisplayCard: React.FC<HeroDisplayCardProps> = ({
   onCtaPress,
@@ -37,10 +40,13 @@ export const HeroDisplayCard: React.FC<HeroDisplayCardProps> = ({
         onPress={handlePress}
         style={[styles.cardContainer, { borderColor: theme.borderLight || '#E2E8F0' }]}
       >
-        <Image
-          source={{ uri: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786620810/herocard3_ytzfhm.jpg' }}
+        <ShimmerImage
+          source={{ uri: HERO_IMAGE_URL }}
           style={styles.image}
           resizeMode="cover"
+          preset="hero"
+          priority="high"
+          borderRadius={16}
         />
       </TouchableOpacity>
     </View>

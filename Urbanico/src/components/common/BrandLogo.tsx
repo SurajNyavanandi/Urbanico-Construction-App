@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, Image, StyleSheet, StyleProp, ViewStyle, ImageStyle } from 'react-native';
+import { View, StyleSheet, StyleProp, ViewStyle, ImageStyle } from 'react-native';
 import { BRAND_LOGO_URL } from '../../constants';
+import { ShimmerImage } from './ShimmerImage';
 
 interface BrandLogoProps {
   size?: number;
@@ -27,7 +28,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
         style,
       ]}
     >
-      <Image
+      <ShimmerImage
         source={{ uri: BRAND_LOGO_URL }}
         style={[
           styles.image,
@@ -39,6 +40,8 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
           imageStyle,
         ]}
         resizeMode="contain"
+        preset="logo"
+        borderRadius={borderRadius}
       />
     </View>
   );

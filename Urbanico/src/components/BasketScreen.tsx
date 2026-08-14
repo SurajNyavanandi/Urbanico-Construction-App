@@ -210,6 +210,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                         style={styles.itemImage}
                         resizeMode="contain"
                         borderRadius={8}
+                        preset="thumbnail"
                       />
                     </View>
 

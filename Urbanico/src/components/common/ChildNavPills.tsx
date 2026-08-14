@@ -28,7 +28,7 @@ interface ChildNavPillsProps {
  * DEFAULT CHILD NAVIGATION ITEMS
  * Image Ratio Requirement for Child Items: 1:1 Square (Recommended: 120x120 px or 200x200 px)
  */
-const DEFAULT_CHILD_ITEMS: ChildNavItem[] = [
+export const DEFAULT_CHILD_ITEMS: ChildNavItem[] = [
   {
     id: 'featured',
     label: 'Featured',
@@ -39,73 +39,73 @@ const DEFAULT_CHILD_ITEMS: ChildNavItem[] = [
     id: 'cement',
     label: 'Cement',
     iconType: 'image',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614395/cement2_s1pf60.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693431/child-cement_pwrzsr.jpg',
   },
   {
     id: 'bricks',
     label: 'Bricks',
     iconType: 'image',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614403/brick2_gjzbjh.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693431/child-bricks_bbywkp.jpg',
   },
   {
     id: 'sand',
     label: 'Sand',
     iconType: 'image',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614393/sand2_wj9sly.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693430/child-sand_qmbdo6.jpg',
   },
   {
     id: 'iron_bars',
     label: 'Steel',
     iconType: 'image',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614394/ironbars2_t1ktel.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693449/child-ironbars_ayo0id.jpg',
   },
   {
     id: 'stone',
     label: 'Stone',
     iconType: 'image',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614394/stones2_i0cjzq.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693430/child-stones_oqaced.jpg',
   },
   {
     id: 'centring',
     label: 'Centring',
     iconType: 'image',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614394/centering2_lb7s6n.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693431/child-centering_nikj90.jpg',
   },
   {
     id: 'mason',
     label: 'Mason',
     iconType: 'image',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786533919/mason_ipgxhc.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693450/child-mason_mv6ulz.jpg',
   },
   {
     id: 'fabricator',
     label: 'Fabricator',
     iconType: 'image',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786533913/fabricator_rwtwsu.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693449/child-fabricator_btw9ek.jpg',
   },
   {
     id: 'painter',
     label: 'Painter',
     iconType: 'image',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786533919/painter_q3wypn.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693430/child-painter_eoyox2.jpg',
   },
   {
     id: 'electrician',
     label: 'Electrician',
     iconType: 'image',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786533911/electrician_y491o4.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693431/child-electrician_iggrlv.jpg',
   },
   {
     id: 'plumber',
     label: 'Plumber',
     iconType: 'image',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786533905/plumber_kjuubn.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693430/child-plumber_se4nd6.jpg',
   },
   {
     id: 'carpenter',
     label: 'Carpenter',
     iconType: 'image',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786533907/carpenter_zoqlyn.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693431/child-carpenter_fr1fjp.jpg',
   },
 ];
 
@@ -161,6 +161,9 @@ export const ChildNavPills: React.FC<ChildNavPillsProps> = ({
                     style={styles.imageThumbnail}
                     resizeMode="cover"
                     borderRadius={8}
+                    preset="pill"
+                    priority="high"
+                    recyclingKey={`pill-${item.id}`}
                   />
                 ) : (
                   <View style={[styles.placeholderBox, { backgroundColor: theme.borderLight }]} />

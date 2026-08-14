@@ -98,6 +98,7 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
                     style={styles.thumbnailImage}
                     resizeMode="cover"
                     borderRadius={10}
+                    preset="thumbnail"
                   />
                 </View>
 

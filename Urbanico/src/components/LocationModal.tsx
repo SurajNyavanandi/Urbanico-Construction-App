@@ -181,16 +181,16 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                 Detect Current GPS Location
               </Text>
               <Text style={[styles.gpsSub, { color: theme.textSecondary }]}>
-                Fetch current device coordinates via Google Maps
+                Fetch current device coordinates via GPS
               </Text>
             </View>
           </TouchableOpacity>
 
-          {/* Interactive Google Map */}
+          {/* Interactive Construction Site Map */}
           <View style={styles.mapBoxSection}>
             <View style={styles.mapLabelRow}>
               <Text style={[styles.mapLabelText, { color: theme.textPrimary }]}>
-                Site Pin on Google Maps
+                Site Pin on Construction Map
               </Text>
               <Text style={[styles.mapHelpText, { color: theme.textMuted }]}>
                 Tap anywhere on map to move site pin
