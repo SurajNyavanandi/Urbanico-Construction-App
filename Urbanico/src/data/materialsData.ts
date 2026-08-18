@@ -12,6 +12,13 @@ export interface ServiceItem {
 
 export const CATEGORIES: MaterialCategory[] = [
   {
+    id: 'tiles',
+    name: 'Tiles',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1787033354/Tiles_kw4xbl.jpg',
+    count: '4 Subcategories',
+    priceLabel: '₹45 / Sq.Ft',
+  },
+  {
     id: 'cement',
     name: 'Cement',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614395/cement2_s1pf60.jpg',
@@ -121,6 +128,64 @@ export const SERVICES: ServiceItem[] = [
 ];
 
 export const MATERIAL_ITEMS: MaterialItem[] = [
+  // TILES (4 Subcategories: Vitrified Double Charge, Designer Wall, Anti-Skid Floor, Heavy Duty Paver/Parking)
+  {
+    id: 'vitrified-double-charge',
+    categoryId: 'tiles',
+    name: 'Vitrified Double Charge Tiles',
+    subtitle: '600x600 mm (2x2 ft) Premium Gloss',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1787033354/Tiles_kw4xbl.jpg',
+    actionType: 'add_to_cart',
+    defaultPrice: 58,
+    options: [
+      { id: 'v-box-4', label: '1 Box (4 Tiles / 15.5 Sq.Ft)', price: 899, type: 'radio' },
+      { id: 'v-box-10', label: '10 Boxes (~155 Sq.Ft)', price: 8750, type: 'radio' },
+      { id: 'v-box-50', label: '50 Boxes (~775 Sq.Ft)', price: 42500, type: 'radio' },
+      { id: 'v-pallet', label: '1 Pallet (~1,500 Sq.Ft)', price: 81000, type: 'radio' },
+    ],
+  },
+  {
+    id: 'ceramic-designer-wall',
+    categoryId: 'tiles',
+    name: 'Ceramic Designer Wall Tiles',
+    subtitle: '300x450 mm (1x1.5 ft) Kitchen & Bath',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1787033354/Tiles_kw4xbl.jpg',
+    actionType: 'add_to_cart',
+    defaultPrice: 42,
+    options: [
+      { id: 'w-box-6', label: '1 Box (6 Tiles / 9 Sq.Ft)', price: 380, type: 'radio' },
+      { id: 'w-box-10', label: '10 Boxes (90 Sq.Ft)', price: 3700, type: 'radio' },
+      { id: 'w-box-50', label: '50 Boxes (450 Sq.Ft)', price: 18000, type: 'radio' },
+    ],
+  },
+  {
+    id: 'antiskid-floor-tiles',
+    categoryId: 'tiles',
+    name: 'Anti-Skid Matte Floor Tiles',
+    subtitle: '300x300 mm (1x1 ft) Wet Area & Balcony',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1787033354/Tiles_kw4xbl.jpg',
+    actionType: 'add_to_cart',
+    defaultPrice: 48,
+    options: [
+      { id: 'f-box-9', label: '1 Box (9 Tiles / 9 Sq.Ft)', price: 430, type: 'radio' },
+      { id: 'f-box-10', label: '10 Boxes (90 Sq.Ft)', price: 4200, type: 'radio' },
+      { id: 'f-box-50', label: '50 Boxes (450 Sq.Ft)', price: 20500, type: 'radio' },
+    ],
+  },
+  {
+    id: 'heavy-duty-paver-tiles',
+    categoryId: 'tiles',
+    name: 'Heavy Duty Parking & Paver Tiles',
+    subtitle: '400x400 mm (16x16 inch) 12mm Outdoor Grade',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1787033354/Tiles_kw4xbl.jpg',
+    actionType: 'add_to_cart',
+    defaultPrice: 65,
+    options: [
+      { id: 'p-box-5', label: '1 Box (5 Tiles / 8.6 Sq.Ft)', price: 560, type: 'radio' },
+      { id: 'p-box-10', label: '10 Boxes (86 Sq.Ft)', price: 5400, type: 'radio' },
+      { id: 'p-box-50', label: '50 Boxes (430 Sq.Ft)', price: 26000, type: 'radio' },
+    ],
+  },
   // CEMENT
   {
     id: 'ultratech-53',
@@ -700,39 +765,11 @@ export const INITIAL_DELIVERIES: ActivityDelivery[] = [
     driverName: 'Mahesh Reddy (Tata Tipper TS 07 EH 8812)',
     vehicleType: 'Heavy Tipper Truck',
     vehicleNumber: 'TS 07 EH 8812',
-    estimatedArrival: 'Today by 2:30 PM',
-    status: 'Dispatched',
+    estimatedArrival: 'Delivered',
+    status: 'Delivered',
     siteAddress: 'Gachibowli Heights Site, Hyderabad',
-    timestamp: 'Today, 08:45 AM',
+    timestamp: 'Yesterday, 02:30 PM',
     totalAmount: 15000,
-  },
-  {
-    id: 'del-03',
-    orderNumber: 'URB-97812',
-    materialName: 'Bamboo Planks (20 ft - 8 inch x 50 Pcs)',
-    quantity: '50 Pcs',
-    driverName: 'Ramesh V.',
-    vehicleType: 'Eicher Mini Truck',
-    vehicleNumber: 'TS 09 F 1102',
-    estimatedArrival: 'Delivered',
-    status: 'Delivered',
-    siteAddress: 'Plot 42, Miyapur Heights, Phase 2, Hyderabad',
-    timestamp: 'Yesterday, 04:15 PM',
-    totalAmount: 10000,
-  },
-  {
-    id: 'del-04',
-    orderNumber: 'URB-96410',
-    materialName: 'UltraTech Cement 53 Grade (50 Bags)',
-    quantity: '50 Bags',
-    driverName: 'Venkatesh K.',
-    vehicleType: 'Covered Freight Truck',
-    vehicleNumber: 'TS 08 AB 9911',
-    estimatedArrival: 'Delivered',
-    status: 'Delivered',
-    siteAddress: 'Kukatpally Commercial Complex, Hyderabad',
-    timestamp: '21 Jul, 11:30 AM',
-    totalAmount: 18500,
   },
 ];
 

@@ -1,20 +1,24 @@
-export const APP_NAME = 'Building Material Marketplace';
+export const APP_NAME = 'Urbanico';
 
 export const BRAND_LOGO_URL = 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786533916/logo_b3cxbf.jpg';
 
 export const POPULAR_SEARCH_SUGGESTIONS = [
+  'Vitrified Double Charge Tiles',
   'UltraTech Cement 53 Grade',
   'Plastering Sand',
   'TMT 12mm Rebar',
   'Red Clay Bricks',
-  'AAC Blocks',
-  'Bamboo Planks',
   'Stone 20mm',
-  'Plumber Service',
-  'Painter Trade',
+  'Ceramic Wall Tiles',
 ];
 
 export const CATEGORY_SEARCH_MAP: Record<string, string> = {
+  tile: 'tiles',
+  tiles: 'tiles',
+  vitrified: 'tiles',
+  ceramic: 'tiles',
+  flooring: 'tiles',
+  paver: 'tiles',
   sand: 'sand',
   river: 'sand',
   'm-sand': 'sand',

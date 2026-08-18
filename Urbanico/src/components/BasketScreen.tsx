@@ -14,10 +14,8 @@ import {
   Minus,
   MapPin,
   ArrowRight,
-  ShieldCheck,
   Truck,
-  Clock,
-  FileText,
+  Check,
 } from 'lucide-react-native';
 import { CartItem, ScreenType, ActivityDelivery } from '../types';
 import { INITIAL_DELIVERIES } from '../data/materialsData';
@@ -26,10 +24,8 @@ import { useLocation } from '../context/LocationContext';
 import { RazorpayModal, RazorpayPaymentResult } from './RazorpayModal';
 import { PaymentSuccessModal } from './PaymentSuccessModal';
 import { EmptyState } from './common/EmptyState';
-import { LoadingButton } from './common/LoadingButton';
 import { ShimmerImage } from './common/ShimmerImage';
-import { Toast } from './common/Toast';
-import { GoogleMapPicker } from './common/GoogleMapPicker';
+import { useToast } from '../context/ToastContext';
 
 interface BasketScreenProps {
   cartItems: CartItem[];
@@ -43,6 +39,14 @@ interface BasketScreenProps {
   onChangeAddressRedirect?: () => void;
 }
 
+const TRACKING_STEPS = [
+  { id: 'confirmed', title: 'Order Confirmed', description: 'Order received and verified', status: 'completed' },
+  { id: 'processing', title: 'Processing', description: 'Materials batched at yard', status: 'completed' },
+  { id: 'dispatched', title: 'Dispatched', description: 'Vehicle loaded & weighed', status: 'completed' },
+  { id: 'out_for_delivery', title: 'Out for Delivery', description: 'On the way to site', status: 'active' },
+  { id: 'delivered', title: 'Delivered', description: 'Delivery completed at site', status: 'pending' },
+];
+
 export const BasketScreen: React.FC<BasketScreenProps> = ({
   cartItems,
   onUpdateQuantity,
@@ -55,19 +59,18 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   onChangeAddressRedirect,
 }) => {
   const { theme, typography } = useTheme();
-  const { selectedLocation: globalLocation, currentCoords } = useLocation();
+  const { selectedLocation: globalLocation } = useLocation();
+  const { showToast } = useToast();
   const activeLocation = globalLocation || propLocation || 'Miyapur Site, Phase 2, Hyderabad';
   const [activeTab, setActiveTab] = useState<'cart' | 'history'>('cart');
-  const [orderPlaced, setOrderPlaced] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   const handleRefresh = () => {
     setRefreshing(true);
     setTimeout(() => {
       setRefreshing(false);
-      setToastMessage('Basket & live delivery status refreshed');
+      showToast('Cart and delivery status refreshed', 'info');
     }, 800);
   };
 
@@ -79,8 +82,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
 
   const subtotal = cartItems.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
   const gstTax = Math.round(subtotal * 0.18);
-  const deliveryFee = subtotal > 10000 ? 0 : 450;
-  const grandTotal = subtotal + gstTax + deliveryFee;
+  const grandTotal = subtotal + gstTax;
 
   const activeEnRoute = deliveries.find((d) => d.status === 'En Route') || deliveries[0];
 
@@ -90,7 +92,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     setTimeout(() => {
       setIsPlacingOrder(false);
       setShowRazorpayModal(true);
-    }, 500);
+    }, 400);
   };
 
   const handlePaymentSuccess = (result: RazorpayPaymentResult) => {
@@ -106,12 +108,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
 
   return (
     <View style={{ flex: 1 }}>
-      <Toast
-        visible={Boolean(toastMessage)}
-        message={toastMessage || ''}
-        type="info"
-        onDismiss={() => setToastMessage(null)}
-      />
       <ScrollView
         style={[styles.container, { backgroundColor: theme.background }]}
         contentContainerStyle={styles.scrollContent}
@@ -125,358 +121,332 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
           />
         }
       >
-      {/* Top Segmented Tab (Cart vs Order History & Tracking) */}
-      <View style={[styles.tabContainer, { backgroundColor: theme.surfaceSecondary }]}>
-        <TouchableOpacity
-          onPress={() => setActiveTab('cart')}
-          activeOpacity={0.8}
-          style={[
-            styles.tabButton,
-            { backgroundColor: activeTab === 'cart' ? theme.primary : 'transparent' },
-          ]}
-        >
-          <ShoppingBag
-            size={16}
-            color={activeTab === 'cart' ? '#FFFFFF' : theme.textSecondary}
-          />
-          <Text
+        {/* Top Segmented Tab (Cart vs Order History & Tracking) */}
+        <View style={[styles.tabContainer, { backgroundColor: theme.surfaceSecondary }]}>
+          <TouchableOpacity
+            onPress={() => setActiveTab('cart')}
+            activeOpacity={0.8}
             style={[
-              styles.tabText,
-              { color: activeTab === 'cart' ? '#FFFFFF' : theme.textSecondary },
+              styles.tabButton,
+              { backgroundColor: activeTab === 'cart' ? '#FFFFFF' : 'transparent' },
             ]}
           >
-            My Basket ({cartItems.length})
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => setActiveTab('history')}
-          activeOpacity={0.8}
-          style={[
-            styles.tabButton,
-            { backgroundColor: activeTab === 'history' ? theme.primary : 'transparent' },
-          ]}
-        >
-          <Truck
-            size={16}
-            color={activeTab === 'history' ? '#FFFFFF' : theme.textSecondary}
-          />
-          <Text
-            style={[
-              styles.tabText,
-              { color: activeTab === 'history' ? '#FFFFFF' : theme.textSecondary },
-            ]}
-          >
-            Orders & Live Tracking
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {activeTab === 'cart' ? (
-        <>
-          {/* Location Delivery Header */}
-          <View style={[styles.locationHeader, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={styles.locationLeftRow}>
-              <View style={[styles.locationIconBox, { backgroundColor: theme.primaryLight }]}>
-                <MapPin size={16} color={theme.primaryDark} />
-              </View>
-              <View style={styles.locationTextContainer}>
-                <Text style={[styles.locationLabel, { color: theme.textMuted }]}>Delivery Site Address</Text>
-                <Text style={[styles.locationValue, { color: theme.textPrimary }]} numberOfLines={1}>
-                  {activeLocation}
-                </Text>
-              </View>
-            </View>
-            <TouchableOpacity onPress={() => (onChangeAddressRedirect ? onChangeAddressRedirect() : onNavigateScreen('profile'))}>
-              <Text style={[styles.changeBtnText, { color: theme.primary, fontWeight: '800' }]}>Change on Map</Text>
-            </TouchableOpacity>
-          </View>
-
-          {cartItems.length === 0 ? (
-            <EmptyState
-              type="empty-cart"
-              onAction={() => onNavigateScreen('home')}
-              actionLabel="Browse Catalog"
+            <ShoppingBag
+              size={15}
+              color={activeTab === 'cart' ? '#1D1D1F' : '#86868B'}
             />
-          ) : (
-            <View style={styles.cartSection}>
-              {/* Basket Items List */}
-              <View style={styles.itemsCardList}>
-                {cartItems.map((item) => (
-                  <View key={item.id} style={[styles.cartItemRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                    <View style={[styles.itemImageWrapper, { backgroundColor: theme.surfaceSecondary, borderColor: theme.borderLight }]}>
-                      <ShimmerImage
-                        source={{ uri: item.image }}
-                        style={styles.itemImage}
-                        resizeMode="contain"
-                        borderRadius={8}
-                        preset="thumbnail"
-                      />
-                    </View>
+            <Text
+              style={[
+                styles.tabText,
+                { color: activeTab === 'cart' ? '#1D1D1F' : '#86868B', fontWeight: activeTab === 'cart' ? '600' : '400' },
+              ]}
+            >
+              My Cart {cartItems.length > 0 ? `(${cartItems.length})` : ''}
+            </Text>
+          </TouchableOpacity>
 
-                    <View style={styles.itemMainInfo}>
-                      <Text style={[styles.itemName, { color: theme.textPrimary }]} numberOfLines={1}>
-                        {item.itemName}
-                      </Text>
-                      <Text style={[styles.itemOptionLabel, { color: theme.textSecondary }]}>
-                        {item.selectedOptionLabel}
-                      </Text>
-                      <Text style={[styles.itemUnitPrice, { color: theme.textPrimary }]}>
-                        ₹{item.unitPrice.toLocaleString('en-IN')} / unit
-                      </Text>
-                    </View>
+          <TouchableOpacity
+            onPress={() => setActiveTab('history')}
+            activeOpacity={0.8}
+            style={[
+              styles.tabButton,
+              { backgroundColor: activeTab === 'history' ? '#FFFFFF' : 'transparent' },
+            ]}
+          >
+            <Truck
+              size={15}
+              color={activeTab === 'history' ? '#1D1D1F' : '#86868B'}
+            />
+            <Text
+              style={[
+                styles.tabText,
+                { color: activeTab === 'history' ? '#1D1D1F' : '#86868B', fontWeight: activeTab === 'history' ? '600' : '400' },
+              ]}
+            >
+              Orders & Tracking
+            </Text>
+          </TouchableOpacity>
+        </View>
 
-                    {/* Stepper + Delete */}
-                    <View style={styles.stepperActionRow}>
-                      <View style={[styles.stepperContainer, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary }]}>
-                        <TouchableOpacity
-                          onPress={() => onUpdateQuantity(item.id, item.quantity - 1)}
-                          style={[styles.stepperBtn, { backgroundColor: theme.surface }]}
-                          activeOpacity={0.7}
-                        >
-                          <Minus size={12} color={theme.textPrimary} />
-                        </TouchableOpacity>
-                        <Text style={[styles.stepperQtyText, { color: theme.textPrimary }]}>{item.quantity}</Text>
-                        <TouchableOpacity
-                          onPress={() => onUpdateQuantity(item.id, item.quantity + 1)}
-                          style={[styles.stepperBtn, { backgroundColor: theme.surface }]}
-                          activeOpacity={0.7}
-                        >
-                          <Plus size={12} color={theme.textPrimary} />
-                        </TouchableOpacity>
-                      </View>
-                      <TouchableOpacity
-                        onPress={() => onRemoveItem(item.id)}
-                        style={styles.deleteBtn}
-                        activeOpacity={0.7}
-                      >
-                        <Trash2 size={15} color="#EF4444" />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                ))}
-              </View>
-
-              {/* Price Summary Breakdown */}
-              <View style={[styles.summaryCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                <Text style={[styles.summaryTitle, { color: theme.textMuted, borderBottomColor: theme.borderLight }]}>
-                  Payment Summary
-                </Text>
-                <View style={styles.summaryRow}>
-                  <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Materials Subtotal</Text>
-                  <Text style={[styles.summaryValue, { color: theme.textPrimary }]}>₹{subtotal.toLocaleString('en-IN')}</Text>
+        {activeTab === 'cart' ? (
+          <>
+            {/* Delivery Location Header */}
+            <View style={[styles.locationHeader, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <View style={styles.locationLeftRow}>
+                <View style={[styles.locationIconBox, { backgroundColor: theme.surfaceSecondary }]}>
+                  <MapPin size={16} color={theme.textPrimary} />
                 </View>
-                <View style={styles.summaryRow}>
-                  <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Estimated GST (18%)</Text>
-                  <Text style={[styles.summaryValue, { color: theme.textPrimary }]}>₹{gstTax.toLocaleString('en-IN')}</Text>
-                </View>
-                <View style={styles.summaryRow}>
-                  <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Heavy Vehicle Delivery</Text>
-                  <Text style={[styles.summaryValue, { color: '#059669' }]}>
-                    {deliveryFee === 0 ? 'FREE (Over ₹10k)' : `₹${deliveryFee}`}
+                <View style={styles.locationTextContainer}>
+                  <Text style={[styles.locationLabel, { color: theme.textSecondary }]}>Delivery Address</Text>
+                  <Text style={[styles.locationValue, { color: theme.textPrimary }]} numberOfLines={1}>
+                    {activeLocation}
                   </Text>
                 </View>
-                <View style={[styles.summaryRow, styles.grandTotalRow, { borderTopColor: theme.borderLight }]}>
-                  <Text style={[styles.grandTotalLabel, { color: theme.textPrimary }]}>Total Payable</Text>
-                  <Text style={[styles.grandTotalValue, { color: theme.textPrimary }]}>₹{grandTotal.toLocaleString('en-IN')}</Text>
-                </View>
               </View>
-
-              {/* Guarantee Tag */}
-              <View style={[styles.guaranteeTag, { backgroundColor: theme.primaryLight, borderColor: theme.border }]}>
-                <ShieldCheck size={18} color={theme.primaryDark} />
-                <Text style={[styles.guaranteeText, { color: theme.primaryDark }]}>
-                  Direct manufacturer dispatch with verified weighbridge slips.
-                </Text>
-              </View>
-
-              {/* Confirm Order CTA */}
-              <LoadingButton
-                title={`Confirm Order • ₹${grandTotal.toLocaleString('en-IN')}`}
-                onPress={handlePlaceOrder}
-                isLoading={isPlacingOrder}
-                variant="primary"
-                style={{ height: 52, marginTop: 8 }}
-                icon={<ArrowRight size={16} color="#FFFFFF" strokeWidth={2.5} />}
-              />
+              <TouchableOpacity onPress={() => (onChangeAddressRedirect ? onChangeAddressRedirect() : onNavigateScreen('profile'))}>
+                <Text style={[styles.changeBtnText, { color: theme.primary }]}>Change</Text>
+              </TouchableOpacity>
             </View>
-          )}
-        </>
-      ) : (
-        /* Orders & Live Tracking View inside Basket Section */
-        <View style={styles.historySection}>
-          {/* Active Live Delivery Tracking Card */}
-          {activeEnRoute && (
-            <View style={[styles.liveTrackingCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <View style={[styles.trackingHeader, { borderBottomColor: theme.borderLight }]}>
-                <View style={styles.pingRow}>
-                  <View style={styles.pingDot} />
-                  <Text style={[styles.shipmentIdText, { color: theme.textPrimary }]}>
-                    Active Delivery #{activeEnRoute.orderNumber}
-                  </Text>
-                </View>
-                <View style={[styles.etaBadge, { backgroundColor: theme.primaryLight }]}>
-                  <Text style={[styles.etaBadgeText, { color: theme.primaryDark }]}>{activeEnRoute.estimatedArrival}</Text>
-                </View>
-              </View>
 
-              <View style={styles.driverInfoRow}>
-                <View style={styles.truckIconBox}>
-                  <Truck size={20} color="#D97706" />
-                </View>
-                <View style={styles.driverDetails}>
-                  <Text style={[styles.materialName, { color: theme.textPrimary }]}>{activeEnRoute.materialName}</Text>
-                  <Text style={[styles.driverSubText, { color: theme.textSecondary }]}>
-                    Driver: {activeEnRoute.driverName} ({activeEnRoute.vehicleNumber})
-                  </Text>
-                  <View style={styles.addressRow}>
-                    <MapPin size={12} color="#EF4444" />
-                    <Text style={[styles.addressText, { color: theme.textMuted }]} numberOfLines={1}>
-                      {activeEnRoute.siteAddress}
-                    </Text>
-                  </View>
-                </View>
-              </View>
+            {cartItems.length === 0 ? (
+              <EmptyState
+                type="empty-cart"
+                onAction={() => onNavigateScreen('home')}
+                actionLabel="Browse Catalog"
+              />
+            ) : (
+              <View style={styles.cartSection}>
+                {/* Cart Items List */}
+                <View style={styles.itemsCardList}>
+                  {cartItems.map((item) => (
+                    <View key={item.id} style={[styles.cartItemRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                      <View style={[styles.itemImageWrapper, { backgroundColor: theme.surfaceSecondary, borderColor: theme.borderLight }]}>
+                        <ShimmerImage
+                          source={{ uri: item.image }}
+                          style={styles.itemImage}
+                          resizeMode="contain"
+                          borderRadius={8}
+                          preset="thumbnail"
+                        />
+                      </View>
 
-              {/* Embedded Google Maps Route Tracking */}
-              <View style={{ marginVertical: 10 }}>
-                <GoogleMapPicker
-                  center={currentCoords}
-                  markerPosition={currentCoords}
-                  markerTitle={`Site Destination: ${activeEnRoute.siteAddress}`}
-                  routeOrigin={{ lat: 17.4385, lng: 78.3820 }} // Depot
-                  routeDestination={currentCoords}
-                  height={180}
-                  interactive={true}
-                />
-              </View>
-
-              {/* Status Stepper */}
-              <View style={styles.stepperProgressRow}>
-                {['Placed', 'Dispatched', 'En Route', 'Delivered'].map((step, idx) => {
-                  const isDone = idx <= 2;
-                  const isCurrent = idx === 2;
-                  return (
-                    <View key={step} style={styles.stepItem}>
-                      <View
-                        style={[
-                          styles.stepCircle,
-                          isCurrent || isDone
-                            ? { backgroundColor: theme.primary, borderColor: theme.primary }
-                            : { backgroundColor: theme.surface, borderColor: theme.border },
-                        ]}
-                      >
-                        <Text style={[styles.stepNumberText, { color: isCurrent || isDone ? '#FFFFFF' : theme.textMuted }]}>
-                          {isDone ? '✓' : idx + 1}
+                      <View style={styles.itemMainInfo}>
+                        <Text style={[styles.itemName, { color: theme.textPrimary }]} numberOfLines={1}>
+                          {item.itemName}
+                        </Text>
+                        <Text style={[styles.itemOptionLabel, { color: theme.textSecondary }]}>
+                          {item.selectedOptionLabel}
+                        </Text>
+                        <Text style={[styles.itemUnitPrice, { color: theme.textPrimary }]}>
+                          ₹{item.unitPrice.toLocaleString('en-IN')} / unit
                         </Text>
                       </View>
-                      <Text
-                        style={[
-                          styles.stepLabel,
-                          {
-                            color: isCurrent
-                              ? theme.primary
-                              : isDone
-                              ? theme.textPrimary
-                              : theme.textMuted,
-                          },
-                        ]}
-                      >
-                        {step}
-                      </Text>
+
+                      {/* Stepper + Delete */}
+                      <View style={styles.stepperActionRow}>
+                        <View style={[styles.stepperContainer, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary }]}>
+                          <TouchableOpacity
+                            onPress={() => onUpdateQuantity(item.id, item.quantity - 1)}
+                            style={[styles.stepperBtn, { backgroundColor: theme.surface }]}
+                            activeOpacity={0.7}
+                          >
+                            <Minus size={12} color={theme.textPrimary} />
+                          </TouchableOpacity>
+                          <Text style={[styles.stepperQtyText, { color: theme.textPrimary }]}>{item.quantity}</Text>
+                          <TouchableOpacity
+                            onPress={() => onUpdateQuantity(item.id, item.quantity + 1)}
+                            style={[styles.stepperBtn, { backgroundColor: theme.surface }]}
+                            activeOpacity={0.7}
+                          >
+                            <Plus size={12} color={theme.textPrimary} />
+                          </TouchableOpacity>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => onRemoveItem(item.id)}
+                          style={styles.deleteBtn}
+                          activeOpacity={0.7}
+                        >
+                          <Trash2 size={15} color="#86868B" />
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                  );
-                })}
-              </View>
-            </View>
-          )}
+                  ))}
+                </View>
 
-          {/* Past Orders List */}
-          <View style={[styles.pastOrdersCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={[styles.pastOrdersHeader, { borderBottomColor: theme.borderLight }]}>
-              <View style={styles.pastOrdersHeaderLeft}>
-                <FileText size={16} color={theme.primary} />
-                <Text style={[styles.pastOrdersTitle, { color: theme.textPrimary }]}>Order History & Invoices</Text>
-              </View>
-              <Text style={[styles.ordersCountText, { color: theme.textSecondary }]}>{deliveries.length} Orders</Text>
-            </View>
+                {/* Price Summary Breakdown */}
+                <View style={[styles.summaryCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                  <Text style={[styles.summaryTitle, { color: theme.textPrimary, borderBottomColor: theme.borderLight }]}>
+                    Payment Summary
+                  </Text>
+                  <View style={styles.summaryRow}>
+                    <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Subtotal</Text>
+                    <Text style={[styles.summaryValue, { color: theme.textPrimary }]}>₹{subtotal.toLocaleString('en-IN')}</Text>
+                  </View>
+                  <View style={styles.summaryRow}>
+                    <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>GST (18%)</Text>
+                    <Text style={[styles.summaryValue, { color: theme.textPrimary }]}>₹{gstTax.toLocaleString('en-IN')}</Text>
+                  </View>
+                  <View style={[styles.summaryRow, styles.grandTotalRow, { borderTopColor: theme.borderLight }]}>
+                    <Text style={[styles.grandTotalLabel, { color: theme.textPrimary }]}>Total Payable</Text>
+                    <Text style={[styles.grandTotalValue, { color: theme.textPrimary }]}>₹{grandTotal.toLocaleString('en-IN')}</Text>
+                  </View>
+                </View>
 
-            <View style={styles.deliveriesList}>
-              {deliveries.map((del) => (
-                <View key={del.id} style={[styles.deliveryRow, { borderTopColor: theme.borderLight }]}>
-                  <View style={styles.deliveryLeftInfo}>
-                    <Text style={[styles.delMaterialName, { color: theme.textPrimary }]} numberOfLines={1}>
-                      {del.materialName}
+                {/* Confirm Order Apple CTA */}
+                <TouchableOpacity
+                  onPress={handlePlaceOrder}
+                  disabled={isPlacingOrder}
+                  activeOpacity={0.8}
+                  style={[styles.appleCtaBtn, { backgroundColor: theme.primary }]}
+                >
+                  <Text style={styles.appleCtaBtnText}>
+                    {isPlacingOrder ? 'Processing...' : `Pay ₹${grandTotal.toLocaleString('en-IN')}`}
+                  </Text>
+                  <ArrowRight size={16} color="#FFFFFF" strokeWidth={2} />
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
+        ) : (
+          /* Orders & Live Tracking View */
+          <View style={styles.historySection}>
+            {/* Active Live Delivery Tracking Card */}
+            {activeEnRoute && (
+              <View style={[styles.trackingCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <View style={[styles.trackingCardHeader, { borderBottomColor: theme.borderLight }]}>
+                  <View>
+                    <Text style={[styles.trackingOrderNumber, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
+                      Order #{activeEnRoute.orderNumber}
                     </Text>
-                    <View style={styles.timestampRow}>
-                      <Clock size={12} color={theme.textMuted} />
-                      <Text style={[styles.timestampText, { color: theme.textSecondary }]}>{del.timestamp}</Text>
-                    </View>
-                    <Text style={[styles.vehicleText, { color: theme.textSecondary }]}>
-                      Vehicle: {del.vehicleNumber} ({del.driverName.split(' ')[0]})
+                    <Text style={[styles.trackingMaterialName, { color: theme.textSecondary }]}>
+                      {activeEnRoute.materialName}
                     </Text>
                   </View>
+                  <View style={[styles.etaPill, { backgroundColor: theme.surfaceSecondary }]}>
+                    <Text style={[styles.etaPillText, { color: theme.textPrimary }]}>{activeEnRoute.estimatedArrival}</Text>
+                  </View>
+                </View>
 
-                  <View style={styles.deliveryRightInfo}>
-                    <Text style={[styles.delAmountText, { color: theme.textPrimary }]}>
-                      ₹{del.totalAmount.toLocaleString('en-IN')}
-                    </Text>
-                    <View
-                      style={[
-                        styles.statusBadge,
-                        del.status === 'Delivered'
-                          ? styles.badgeDelivered
-                          : del.status === 'En Route'
-                          ? styles.badgeEnRoute
-                          : { backgroundColor: theme.primaryLight },
-                      ]}
-                    >
+                {/* Delivery Meta */}
+                <View style={styles.deliveryMetaRow}>
+                  <View style={styles.deliveryMetaCol}>
+                    <Text style={[styles.metaLabelText, { color: theme.textSecondary }]}>Driver</Text>
+                    <Text style={[styles.metaValText, { color: theme.textPrimary }]}>{activeEnRoute.driverName} ({activeEnRoute.vehicleNumber})</Text>
+                  </View>
+                  <View style={styles.deliveryMetaCol}>
+                    <Text style={[styles.metaLabelText, { color: theme.textSecondary }]}>Destination</Text>
+                    <Text style={[styles.metaValText, { color: theme.textPrimary }]} numberOfLines={1}>{activeEnRoute.siteAddress}</Text>
+                  </View>
+                </View>
+
+                {/* Vertical Tracking Hierarchy */}
+                <View style={styles.verticalHierarchy}>
+                  {TRACKING_STEPS.map((step, idx) => {
+                    const isLast = idx === TRACKING_STEPS.length - 1;
+                    const isCompleted = step.status === 'completed';
+                    const isActive = step.status === 'active';
+
+                    return (
+                      <View key={step.id} style={styles.timelineRow}>
+                        <View style={styles.timelineIndicatorCol}>
+                          <View
+                            style={[
+                              styles.timelineDot,
+                              isActive
+                                ? { backgroundColor: theme.primary, borderColor: theme.primary }
+                                : isCompleted
+                                ? { backgroundColor: theme.primary, borderColor: theme.primary }
+                                : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                            ]}
+                          >
+                            {isCompleted && <Check size={10} color="#FFFFFF" strokeWidth={3} />}
+                            {isActive && <View style={styles.activeInnerDot} />}
+                          </View>
+                          {!isLast && (
+                            <View
+                              style={[
+                                styles.timelineLine,
+                                {
+                                  backgroundColor: isCompleted ? theme.primary : theme.border,
+                                },
+                              ]}
+                            />
+                          )}
+                        </View>
+
+                        <View style={[styles.timelineContent, isLast ? { paddingBottom: 0 } : { paddingBottom: 22 }]}>
+                          <Text
+                            style={[
+                              styles.timelineStepTitle,
+                              {
+                                color: isActive
+                                  ? theme.primary
+                                  : isCompleted
+                                  ? theme.textPrimary
+                                  : theme.textSecondary,
+                                fontWeight: isActive || isCompleted ? '600' : '400',
+                              },
+                            ]}
+                          >
+                            {step.title}
+                          </Text>
+                          <Text style={[styles.timelineStepDesc, { color: theme.textSecondary }]}>
+                            {step.description}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
+            {/* Past Orders List */}
+            <View style={[styles.trackingCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <View style={[styles.trackingCardHeader, { borderBottomColor: theme.borderLight }]}>
+                <Text style={[styles.trackingOrderNumber, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
+                  Previous Orders
+                </Text>
+                <Text style={[styles.metaLabelText, { color: theme.textSecondary }]}>{deliveries.length}</Text>
+              </View>
+
+              <View style={styles.deliveriesList}>
+                {deliveries.map((del, idx) => (
+                  <View key={del.id} style={[styles.deliveryRow, idx > 0 && { borderTopColor: theme.borderLight, borderTopWidth: 1 }]}>
+                    <View style={styles.deliveryLeftInfo}>
+                      <Text style={[styles.delMaterialName, { color: theme.textPrimary }]} numberOfLines={1}>
+                        {del.materialName}
+                      </Text>
+                      <Text style={[styles.timestampText, { color: theme.textSecondary }]}>
+                        {del.timestamp} • {del.vehicleNumber}
+                      </Text>
+                    </View>
+
+                    <View style={styles.deliveryRightInfo}>
+                      <Text style={[styles.delAmountText, { color: theme.textPrimary }]}>
+                        ₹{del.totalAmount.toLocaleString('en-IN')}
+                      </Text>
                       <Text
                         style={[
                           styles.statusBadgeText,
-                          del.status === 'Delivered'
-                            ? styles.textDelivered
-                            : del.status === 'En Route'
-                            ? styles.textEnRoute
-                            : { color: theme.primaryDark },
+                          { color: del.status === 'Delivered' ? theme.textSecondary : theme.primary },
                         ]}
                       >
                         {del.status}
                       </Text>
                     </View>
                   </View>
-                </View>
-              ))}
+                ))}
+              </View>
             </View>
           </View>
-        </View>
-      )}
+        )}
 
-      {/* Razorpay Test Mode Payment Modal */}
-      <RazorpayModal
-        visible={showRazorpayModal}
-        onClose={() => setShowRazorpayModal(false)}
-        amount={grandTotal}
-        orderDescription={`Order (${cartItems.length} items) - Urbanico Material Dispatch`}
-        onPaymentSuccess={handlePaymentSuccess}
-        onPaymentFailure={handlePaymentFailure}
-      />
+        {/* Razorpay Modal */}
+        <RazorpayModal
+          visible={showRazorpayModal}
+          onClose={() => setShowRazorpayModal(false)}
+          amount={grandTotal}
+          orderDescription={`Order (${cartItems.length} items) - Urbanico Supply`}
+          onPaymentSuccess={handlePaymentSuccess}
+          onPaymentFailure={handlePaymentFailure}
+        />
 
-      {/* Payment Success Confirmation Receipt Screen */}
-      <PaymentSuccessModal
-        visible={showSuccessModal}
-        paymentResult={latestPaymentResult}
-        selectedLocation={activeLocation}
-        onClose={() => setShowSuccessModal(false)}
-        onTrackOrder={() => setActiveTab('history')}
-        onViewInvoice={() => {
-          setShowSuccessModal(false);
-          if (onViewInvoice && deliveries[0]) {
-            onViewInvoice(deliveries[0]);
-          }
-        }}
-      />
-    </ScrollView>
+        {/* Payment Success Confirmation Receipt Screen */}
+        <PaymentSuccessModal
+          visible={showSuccessModal}
+          paymentResult={latestPaymentResult}
+          selectedLocation={activeLocation}
+          onClose={() => setShowSuccessModal(false)}
+          onTrackOrder={() => setActiveTab('history')}
+          onViewInvoice={() => {
+            setShowSuccessModal(false);
+            if (onViewInvoice && deliveries[0]) {
+              onViewInvoice(deliveries[0]);
+            }
+          }}
+        />
+      </ScrollView>
     </View>
   );
 };
@@ -494,20 +464,20 @@ const styles = StyleSheet.create({
   tabContainer: {
     flexDirection: 'row',
     padding: 3,
-    borderRadius: 14,
+    borderRadius: 12,
   },
   tabButton: {
     flex: 1,
-    paddingVertical: 9,
-    borderRadius: 10,
+    paddingVertical: 8,
+    borderRadius: 9,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
   },
   tabText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    letterSpacing: -0.2,
   },
   locationHeader: {
     borderRadius: 14,
@@ -534,70 +504,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   locationLabel: {
-    fontSize: 10,
-    fontWeight: '500',
-    textTransform: 'uppercase',
-    letterSpacing: 0.2,
+    fontSize: 11,
+    fontWeight: '400',
   },
   locationValue: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
+    letterSpacing: -0.2,
   },
   changeBtnText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  emptyCartCard: {
-    borderRadius: 20,
-    padding: 32,
-    borderWidth: 1,
-    alignItems: 'center',
-    gap: 16,
-    marginVertical: 16,
-  },
-  emptyIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyTextGroup: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  emptySubtitle: {
-    fontSize: 12,
-    textAlign: 'center',
-    maxWidth: 240,
-  },
-  emptyActionRow: {
-    flexDirection: 'row',
-    gap: 12,
-    paddingTop: 8,
-  },
-  primaryPillBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 999,
-  },
-  primaryPillBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  secondaryPillBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 999,
-  },
-  secondaryPillBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '500',
   },
   cartSection: {
     gap: 12,
@@ -615,8 +532,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   itemImageWrapper: {
-    width: 60,
-    height: 60,
+    width: 56,
+    height: 56,
     borderRadius: 10,
     overflow: 'hidden',
     borderWidth: 1,
@@ -632,18 +549,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   itemName: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '500',
+    letterSpacing: -0.1,
   },
   itemOptionLabel: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '400',
     marginTop: 2,
   },
   itemUnitPrice: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 2,
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 3,
+    letterSpacing: -0.1,
   },
   stepperActionRow: {
     flexDirection: 'row',
@@ -668,7 +587,7 @@ const styles = StyleSheet.create({
     width: 24,
     textAlign: 'center',
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   deleteBtn: {
     padding: 6,
@@ -680,12 +599,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   summaryTitle: {
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: '600',
-    textTransform: 'uppercase',
     borderBottomWidth: 1,
     paddingBottom: 6,
-    letterSpacing: 0.2,
+    letterSpacing: -0.2,
   },
   summaryRow: {
     flexDirection: 'row',
@@ -697,231 +615,160 @@ const styles = StyleSheet.create({
   },
   summaryValue: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   grandTotalRow: {
     paddingTop: 8,
     borderTopWidth: 1,
   },
   grandTotalLabel: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '500',
   },
   grandTotalValue: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '600',
   },
-  guaranteeTag: {
-    borderWidth: 1,
+  appleCtaBtn: {
+    height: 48,
     borderRadius: 12,
-    padding: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  guaranteeText: {
-    fontSize: 12,
-    fontWeight: '500',
-    flex: 1,
-  },
-  confirmCtaBtn: {
-    paddingVertical: 16,
-    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  ctaContentRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     gap: 8,
+    width: '100%',
+    marginTop: 4,
   },
-  confirmCtaText: {
+  appleCtaBtnText: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: -0.2,
   },
   historySection: {
     gap: 16,
   },
-  liveTrackingCard: {
+  trackingCard: {
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
     gap: 12,
   },
-  trackingHeader: {
+  trackingCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: 1,
     paddingBottom: 10,
   },
-  pingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  trackingOrderNumber: {
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
-  pingDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#10B981',
-  },
-  shipmentIdText: {
-    fontSize: 12,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-  },
-  etaBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 2,
-    borderRadius: 999,
-  },
-  etaBadgeText: {
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  driverInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  truckIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: '#FEF3C7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  driverDetails: {
-    flex: 1,
-  },
-  materialName: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  driverSubText: {
-    fontSize: 12,
+  trackingMaterialName: {
+    fontSize: 13,
     marginTop: 2,
   },
-  addressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
+  etaPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
-  addressText: {
-    fontSize: 11,
-    flex: 1,
+  etaPillText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
-  stepperProgressRow: {
+  deliveryMetaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    paddingVertical: 8,
+    gap: 12,
+  },
+  deliveryMetaCol: {
+    flex: 1,
+    gap: 2,
+  },
+  metaLabelText: {
+    fontSize: 11,
+    fontWeight: '400',
+  },
+  metaValText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  verticalHierarchy: {
     paddingTop: 8,
   },
-  stepItem: {
-    alignItems: 'center',
+  timelineRow: {
+    flexDirection: 'row',
   },
-  stepCircle: {
+  timelineIndicatorCol: {
+    alignItems: 'center',
     width: 24,
-    height: 24,
-    borderRadius: 12,
+    marginRight: 12,
+  },
+  timelineDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
+    zIndex: 1,
   },
-  stepNumberText: {
-    fontSize: 10,
-    fontWeight: '800',
+  activeInnerDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FFFFFF',
   },
-  stepLabel: {
-    fontSize: 9,
-    fontWeight: '700',
-    marginTop: 4,
+  timelineLine: {
+    width: 2,
+    flex: 1,
+    marginVertical: 2,
   },
-  pastOrdersCard: {
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    gap: 12,
+  timelineContent: {
+    flex: 1,
+    gap: 2,
   },
-  pastOrdersHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    paddingBottom: 8,
-  },
-  pastOrdersHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  pastOrdersTitle: {
+  timelineStepTitle: {
     fontSize: 14,
-    fontWeight: '800',
+    letterSpacing: -0.2,
   },
-  ordersCountText: {
+  timelineStepDesc: {
     fontSize: 12,
-    fontWeight: '800',
+    lineHeight: 16,
   },
   deliveriesList: {
-    gap: 12,
+    paddingTop: 4,
   },
   deliveryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingTop: 10,
-    borderTopWidth: 1,
+    paddingVertical: 12,
   },
   deliveryLeftInfo: {
     flex: 1,
     gap: 2,
   },
   delMaterialName: {
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  timestampRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+    fontSize: 14,
+    fontWeight: '600',
   },
   timestampText: {
-    fontSize: 11,
-  },
-  vehicleText: {
-    fontSize: 11,
-    fontWeight: '500',
+    fontSize: 12,
   },
   deliveryRightInfo: {
     alignItems: 'flex-end',
+    gap: 2,
   },
   delAmountText: {
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 2,
-    borderRadius: 999,
-    marginTop: 4,
-  },
-  badgeDelivered: {
-    backgroundColor: '#D1FAE5',
-  },
-  badgeEnRoute: {
-    backgroundColor: '#FEF3C7',
+    fontSize: 14,
+    fontWeight: '600',
   },
   statusBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  textDelivered: {
-    color: '#065F46',
-  },
-  textEnRoute: {
-    color: '#92400E',
+    fontSize: 12,
+    fontWeight: '500',
   },
 });

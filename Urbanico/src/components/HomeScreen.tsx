@@ -186,7 +186,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             style={styles.viewAllButton}
             activeOpacity={0.7}
           >
-            <Text style={[styles.viewAllText, { color: theme.textSecondary }]}>View All</Text>
+            <Text style={[styles.viewAllText, { color: theme.primary }]}>View All</Text>
           </TouchableOpacity>
         </View>
 
@@ -268,9 +268,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         {/* Section Header */}
         <View style={styles.sectionHeader}>
           <View style={styles.sectionHeaderLeft}>
-            <Text style={[styles.sectionTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-              Services
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Text style={[styles.sectionTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
+                Services
+              </Text>
+              <View style={[styles.comingSoonBadge, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                <Text style={[styles.comingSoonBadgeText, { color: theme.primary }]}>Coming Soon</Text>
+              </View>
+            </View>
             <Text style={[styles.sectionSubtitle, { color: theme.textSecondary }]}>
               Expert skilled trade professionals
             </Text>
@@ -283,7 +288,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             style={styles.viewAllButton}
             activeOpacity={0.7}
           >
-            <Text style={[styles.viewAllText, { color: theme.textSecondary }]}>View All</Text>
+            <Text style={[styles.viewAllText, { color: theme.primary }]}>View All</Text>
           </TouchableOpacity>
         </View>
 
@@ -301,7 +306,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   key={srv.id}
                   title={srv.name}
                   subtitle={srv.subtitle}
-                  priceLabel={srv.rate}
+                  priceLabel="Coming Soon"
                   image={srv.image}
                   width={CARD_WIDTH}
                   onPress={() => {
@@ -347,11 +352,22 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: '800',
+    fontWeight: '600',
     letterSpacing: -0.3,
   },
+  comingSoonBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  comingSoonBadgeText: {
+    fontSize: 11,
+    fontWeight: '500',
+    letterSpacing: -0.1,
+  },
   sectionSubtitle: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '400',
   },
   viewAllButton: {
@@ -360,7 +376,7 @@ const styles = StyleSheet.create({
   },
   viewAllText: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   horizontalScrollWrapper: {
     marginHorizontal: -16,
@@ -384,22 +400,24 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   productTextWrapper: {
-    gap: 3,
+    gap: 2,
   },
   productTitle: {
     fontSize: 14,
-    fontWeight: '700',
-    lineHeight: 18,
+    fontWeight: '500',
+    lineHeight: 19,
+    letterSpacing: -0.1,
   },
   productSubtitle: {
-    fontSize: 11,
-    fontWeight: '500',
-    lineHeight: 14,
+    fontSize: 13,
+    fontWeight: '400',
+    lineHeight: 17,
   },
   productPrice: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 2,
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 3,
+    letterSpacing: -0.1,
   },
   bannerCarouselContainer: {
     gap: 8,

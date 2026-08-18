@@ -44,8 +44,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           <Home
             size={22}
             color={isHomeActive ? activeColor : inactiveColor}
-            fill={isHomeActive ? activeColor : 'none'}
-            strokeWidth={isHomeActive ? 2 : 1.8}
+            strokeWidth={isHomeActive ? 2.2 : 1.8}
           />
           <Text
             style={[
@@ -102,8 +101,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           <Heart
             size={22}
             color={isFavoritesActive ? activeColor : inactiveColor}
-            fill={isFavoritesActive ? activeColor : 'none'}
-            strokeWidth={isFavoritesActive ? 2 : 1.8}
+            strokeWidth={isFavoritesActive ? 2.2 : 1.8}
           />
           <Text
             style={[
@@ -128,8 +126,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           <User
             size={22}
             color={isAccountActive ? activeColor : inactiveColor}
-            fill={isAccountActive ? activeColor : 'none'}
-            strokeWidth={isAccountActive ? 2 : 1.8}
+            strokeWidth={isAccountActive ? 2.2 : 1.8}
           />
           <Text
             style={[

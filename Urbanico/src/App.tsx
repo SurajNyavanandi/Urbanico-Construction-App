@@ -44,7 +44,7 @@ import { resolveSearchCategory } from './services/searchService';
 
 function MainAppContent() {
   const { theme } = useTheme();
-  const { showToast } = useToast();
+  const { showToast, showAddToCartToast } = useToast();
 
   // Navigation & Screen State
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('auth_mobile');
@@ -117,29 +117,8 @@ function MainAppContent() {
   const [selectedItemForModal, setSelectedItemForModal] = useState<MaterialItem | null>(null);
   const [selectedInvoiceDelivery, setSelectedInvoiceDelivery] = useState<ActivityDelivery | null>(null);
 
-  // Cart State
-  const [cartItems, setCartItems] = useState<CartItem[]>([
-    {
-      id: 'cart-1',
-      itemId: 'plastering-sand',
-      itemName: 'Plastering Sand',
-      categoryName: 'Sand',
-      selectedOptionLabel: 'Tractor Full level (~3 Tons)',
-      unitPrice: 2700,
-      quantity: 2,
-      image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_igslv1igslv1igsl_fjq7jv.jpg',
-    },
-    {
-      id: 'cart-2',
-      itemId: 'stone-20mm',
-      itemName: 'Stone 20mm',
-      categoryName: 'Stone',
-      selectedOptionLabel: 'Truck (~10 Tons)',
-      unitPrice: 15000,
-      quantity: 1,
-      image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477604/Gemini_Generated_Image_tib95itib95itib9_ompkp6.jpg',
-    },
-  ]);
+  // Cart State (Starts empty by default)
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
   // Deliveries data
   const [deliveries] = useState(INITIAL_DELIVERIES);
@@ -229,7 +208,36 @@ function MainAppContent() {
     };
 
     setCartItems((prev) => [newItem, ...prev]);
-    showToast(`Added ${quantity}x ${item.name} to Basket`, 'success');
+    showAddToCartToast({
+      name: item.name,
+      optionLabel: option.label,
+      price: totalPrice || option.price * quantity,
+      image: item.image,
+      quantity: quantity,
+      onViewBag: () => setCurrentScreen('basket'),
+    });
+  };
+
+  const handleBuyNowFromModal = (
+    item: MaterialItem,
+    option: UnitOption,
+    quantity: number,
+    totalPrice: number
+  ) => {
+    const newItem: CartItem = {
+      id: `cart-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+      itemId: item.id,
+      itemName: item.name,
+      categoryName: item.categoryId,
+      selectedOptionLabel: option.label,
+      unitPrice: option.price,
+      quantity: quantity,
+      image: item.image,
+    };
+
+    setCartItems((prev) => [newItem, ...prev]);
+    setSelectedItemForModal(null);
+    setCurrentScreen('basket');
   };
 
   const handleUpdateCartQty = (cartId: string, newQty: number) => {
@@ -431,6 +439,7 @@ function MainAppContent() {
         item={selectedItemForModal}
         onClose={() => setSelectedItemForModal(null)}
         onAddToCart={handleAddToCartFromModal}
+        onBuyNow={handleBuyNowFromModal}
         favoriteIds={favoriteIds}
         onToggleFavorite={handleToggleFavorite}
       />

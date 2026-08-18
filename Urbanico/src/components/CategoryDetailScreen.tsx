@@ -15,7 +15,7 @@ import { ProductCard } from './common/ProductCard';
 import { TopNavTab } from './common/TopNavTab';
 import { EmptyState } from './common/EmptyState';
 import { CatalogSkeleton } from './common/SkeletonLoader';
-import { Toast } from './common/Toast';
+import { useToast } from '../context/ToastContext';
 
 interface CategoryDetailScreenProps {
   categoryId: CategoryId | 'all';
@@ -41,14 +41,14 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
   onViewModeChange,
 }) => {
   const { theme, typography } = useTheme();
+  const { showToast } = useToast();
   const [refreshing, setRefreshing] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const handleRefresh = () => {
     setRefreshing(true);
     setTimeout(() => {
       setRefreshing(false);
-      setToastMessage('Category inventory updated');
+      showToast('Category inventory updated', 'info');
     }, 800);
   };
 
@@ -117,12 +117,6 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
 
   return (
     <View style={{ flex: 1 }}>
-      <Toast
-        visible={Boolean(toastMessage)}
-        message={toastMessage || ''}
-        type="info"
-        onDismiss={() => setToastMessage(null)}
-      />
       <ScrollView
         style={[styles.container, { backgroundColor: theme.background }]}
         contentContainerStyle={styles.scrollContent}
@@ -526,7 +520,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   categoryHeaderBanner: {
     flexDirection: 'row',
@@ -553,11 +547,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   categoryHeaderTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '600',
+    letterSpacing: -0.3,
   },
   categoryHeaderSub: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '400',
     marginTop: 2,
   },
@@ -586,13 +581,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   categoryListTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '500',
+    letterSpacing: -0.1,
   },
   categoryListSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '400',
-    marginTop: 3,
+    marginTop: 2,
   },
   categoryListArrowBadge: {
     width: 32,

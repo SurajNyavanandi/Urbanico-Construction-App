@@ -64,6 +64,11 @@ export const Header: React.FC<HeaderProps> = ({
   const [isFocused, setIsFocused] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
 
+  // Automatically dismiss search dropdown whenever the active screen changes
+  React.useEffect(() => {
+    setIsFocused(false);
+  }, [currentScreen]);
+
   const isHome = currentScreen === 'home';
   const showSearchBar = isHome;
   const locationName = activeLocation.split(',')[0] || 'Home';
@@ -227,7 +232,7 @@ export const Header: React.FC<HeaderProps> = ({
       )}
 
       {/* 4. Dropdown Suggestions & Recent Searches Overlay (Absolute Floating) */}
-      {isFocused && (
+      {showSearchBar && isFocused && (
         <View style={[styles.dropdownOverlay, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <ScrollView
             keyboardShouldPersistTaps="handled"
@@ -518,7 +523,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   chipRow: {
     flexDirection: 'row',
@@ -534,7 +539,7 @@ const styles = StyleSheet.create({
   },
   chipText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   dropdownSection: {
     gap: 16,
@@ -554,12 +559,12 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
   clearAllText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#EF4444',
   },
   recentList: {
@@ -581,7 +586,7 @@ const styles = StyleSheet.create({
   },
   recentTermText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   removeRecentBtn: {
     padding: 4,
@@ -599,15 +604,16 @@ const styles = StyleSheet.create({
   },
   suggestionTitle: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   suggestionSub: {
     fontSize: 11,
+    fontWeight: '400',
     marginTop: 1,
   },
   suggestionPrice: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '600',
   },
   serviceBadge: {
     paddingHorizontal: 8,
@@ -616,7 +622,7 @@ const styles = StyleSheet.create({
   },
   serviceBadgeText: {
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   noMatchBox: {
     alignItems: 'center',
@@ -635,6 +641,6 @@ const styles = StyleSheet.create({
   searchAllBtnText: {
     color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '600',
   },
 });

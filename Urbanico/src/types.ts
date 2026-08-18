@@ -10,6 +10,7 @@ export type ScreenType =
   | 'auth_otp';
 
 export type CategoryId =
+  | 'tiles'
   | 'sand'
   | 'bricks'
   | 'cement'

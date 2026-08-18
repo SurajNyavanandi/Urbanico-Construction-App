@@ -37,6 +37,7 @@ import {
   FONT_CONFIGS,
 } from '../context/ThemeContext';
 import { useLanguage, LanguageCode } from '../context/LanguageContext';
+import { useToast } from '../context/ToastContext';
 import { LanguagePromptModal } from './LanguagePromptModal';
 
 interface SettingsScreenProps {
@@ -64,8 +65,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   } = useTheme();
 
   const { language, setLanguage, languageOptions, currentLanguageOption, t } = useLanguage();
+  const { showToast } = useToast();
 
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isLangModalOpen, setIsLangModalOpen] = useState(false);
 
   // Notification Toggles State
@@ -81,16 +82,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   // Storage Toggle State
   const [offlineCatalog, setOfflineCatalog] = useState(true);
 
-  const triggerToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 2500);
-  };
-
   const handleClearCache = () => {
     if (onClearRecentSearches) {
       onClearRecentSearches();
     }
-    triggerToast('App Cache & Search History Cleared (14.2 MB)!');
+    showToast('App Cache & Search History Cleared (14.2 MB)!', 'info');
   };
 
   const accentOptions: { id: AccentColor; name: string; description: string; hex: string }[] = [
@@ -139,52 +135,42 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
     >
-      {/* Toast Alert */}
-      {toastMessage && (
-        <View style={[styles.toastContainer, { backgroundColor: theme.surfaceSecondary, borderColor: theme.primary }]}>
-          <CheckCircle2 size={16} color={theme.primary} />
-          <Text style={[styles.toastText, { color: theme.textPrimary }]}>{toastMessage}</Text>
-        </View>
-      )}
-
       {/* Language Popup Modal */}
       <LanguagePromptModal
         isOpen={isLangModalOpen}
         onClose={() => setIsLangModalOpen(false)}
         onConfirm={(langCode) => {
           const opt = languageOptions.find((l) => l.code === langCode);
-          if (opt) triggerToast(`Language changed to ${opt.nativeName}`);
+          if (opt) showToast(`Language changed to ${opt.nativeName}`, 'info');
         }}
       />
 
-      {/* SECTION 0: Language Preferences (Sleek Ultra-Minimal Single Row) */}
+      {/* SECTION 0: Language Preferences (Apple-styled Clean Inset Row) */}
       <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <TouchableOpacity
           onPress={() => setIsLangModalOpen(true)}
-          style={styles.langCompactRow}
+          style={styles.langItemRow}
           activeOpacity={0.7}
         >
-          <View style={styles.langCompactLeft}>
-            <View style={[styles.langIconWrapper, { backgroundColor: theme.primaryLight }]}>
-              <Languages size={18} color={theme.primary} />
+          <View style={styles.langLeftGroup}>
+            <View style={[styles.langIconBox, { backgroundColor: theme.surfaceSecondary }]}>
+              <Languages size={18} color={theme.primary} strokeWidth={2} />
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.cardTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
+            <View style={styles.langTextGroup}>
+              <Text style={[styles.rowTitle, { color: theme.textPrimary }]}>
                 {t.language}
               </Text>
-              <Text style={[styles.cardSubTitle, { color: theme.textSecondary }]}>
+              <Text style={[styles.rowSubtitle, { color: theme.textSecondary }]}>
                 {t.languageSub}
               </Text>
             </View>
           </View>
 
-          <View style={styles.langCompactRight}>
-            <View style={[styles.activeLangBadge, { backgroundColor: theme.primaryLight }]}>
-              <Text style={[styles.activeLangBadgeText, { color: theme.primaryDark }]}>
-                {currentLanguageOption.flag} {currentLanguageOption.nativeName}
-              </Text>
-            </View>
-            <ChevronRight size={18} color={theme.textMuted} />
+          <View style={styles.langRightGroup}>
+            <Text style={[styles.langValueText, { color: theme.primary }]}>
+              {currentLanguageOption.flag} {currentLanguageOption.nativeName}
+            </Text>
+            <ChevronRight size={16} color={theme.textSecondary} />
           </View>
         </TouchableOpacity>
       </View>
@@ -192,24 +178,24 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       {/* SECTION 1: App Theme & Display Layout Settings */}
       <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <View style={[styles.cardHeader, { borderBottomColor: theme.borderLight }]}>
-          <Palette size={18} color={theme.primary} />
-          <View>
+          <Palette size={18} color={theme.primary} strokeWidth={2} />
+          <View style={styles.headerTextCol}>
             <Text style={[styles.cardTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-              Theme & Display Layout
+              Theme & Display
             </Text>
             <Text style={[styles.cardSubTitle, { color: theme.textSecondary }]}>
-              Customize color theme and catalog view presentation
+              Appearance and catalog view options
             </Text>
           </View>
         </View>
 
         <View style={styles.settingRowsList}>
           {/* Theme Mode Toggle */}
-          <View style={styles.settingRow}>
+          <View style={[styles.settingRow, { borderBottomColor: theme.borderLight }]}>
             <View style={styles.settingRowLeft}>
-              <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Dark Mode Theme</Text>
+              <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Dark Mode</Text>
               <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
-                {themeMode === 'dark' ? 'Dark color scheme active' : 'Light color scheme active'}
+                {themeMode === 'dark' ? 'Dark scheme active' : 'Light scheme active'}
               </Text>
             </View>
             <Switch
@@ -217,9 +203,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               onValueChange={(val) => {
                 const nextMode = val ? 'dark' : 'light';
                 setThemeMode(nextMode);
-                triggerToast(val ? 'Dark Mode Active' : 'Light Mode Active');
+                showToast(val ? 'Dark Mode Active' : 'Light Mode Active', 'info');
               }}
-              trackColor={{ false: '#CBD5E1', true: theme.primary }}
+              trackColor={{ false: '#E5E5EA', true: theme.primary }}
               thumbColor="#FFFFFF"
             />
           </View>
@@ -227,9 +213,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           {/* Catalog Display Layout Toggle */}
           <View style={styles.settingRow}>
             <View style={styles.settingRowLeft}>
-              <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Grid Layout View (2x)</Text>
+              <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Grid Layout (2-Column)</Text>
               <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
-                {viewMode === 'grid' ? '2-column grid active' : '1-column list active'}
+                {viewMode === 'grid' ? 'Compact 2-column grid' : 'Single column list view'}
               </Text>
             </View>
             <Switch
@@ -237,9 +223,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               onValueChange={(val) => {
                 const nextMode = val ? 'grid' : 'list';
                 if (onViewModeChange) onViewModeChange(nextMode);
-                triggerToast(val ? 'Global 2x Grid View Active' : 'Global List View Active');
+                showToast(val ? '2-Column Grid Active' : 'List View Active', 'info');
               }}
-              trackColor={{ false: '#CBD5E1', true: theme.primary }}
+              trackColor={{ false: '#E5E5EA', true: theme.primary }}
               thumbColor="#FFFFFF"
             />
           </View>
@@ -249,19 +235,19 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
       {/* SECTION 2: Notification Controls */}
       <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         <View style={[styles.cardHeader, { borderBottomColor: theme.borderLight }]}>
-          <Bell size={18} color={theme.primary} />
-          <View>
+          <Bell size={18} color={theme.primary} strokeWidth={2} />
+          <View style={styles.headerTextCol}>
             <Text style={[styles.cardTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-              Notification Controls
+              Notifications
             </Text>
             <Text style={[styles.cardSubTitle, { color: theme.textSecondary }]}>
-              Manage real-time dispatch and order status notifications
+              Real-time delivery vehicle and status alerts
             </Text>
           </View>
         </View>
 
         <View style={styles.settingRowsList}>
-          <View style={styles.settingRow}>
+          <View style={[styles.settingRow, { borderBottomColor: theme.borderLight }]}>
             <View style={styles.settingRowLeft}>
               <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Push Notifications</Text>
               <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
@@ -272,46 +258,46 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               value={enableNotifications}
               onValueChange={(val) => {
                 setEnableNotifications(val);
-                triggerToast(val ? 'Push Notifications enabled' : 'Push Notifications muted');
+                showToast(val ? 'Push Notifications enabled' : 'Push Notifications muted', 'info');
               }}
-              trackColor={{ false: '#CBD5E1', true: theme.primary }}
+              trackColor={{ false: '#E5E5EA', true: theme.primary }}
               thumbColor="#FFFFFF"
             />
           </View>
 
-          <View style={styles.settingRow}>
+          <View style={[styles.settingRow, { borderBottomColor: theme.borderLight }]}>
             <View style={styles.settingRowLeft}>
-              <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Truck Dispatch Alerts</Text>
+              <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Vehicle Dispatch Alerts</Text>
               <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
-                Real-time delivery vehicle proximity alerts
+                Real-time delivery proximity alerts
               </Text>
             </View>
             <Switch
               value={dispatchAlerts}
               onValueChange={(val) => {
                 setDispatchAlerts(val);
-                triggerToast(val ? 'Dispatch alerts ON' : 'Dispatch alerts OFF');
+                showToast(val ? 'Dispatch alerts ON' : 'Dispatch alerts OFF', 'info');
               }}
               disabled={!enableNotifications}
-              trackColor={{ false: '#CBD5E1', true: theme.primary }}
+              trackColor={{ false: '#E5E5EA', true: theme.primary }}
               thumbColor="#FFFFFF"
             />
           </View>
 
           <View style={styles.settingRow}>
             <View style={styles.settingRowLeft}>
-              <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>WhatsApp Invoices & Updates</Text>
+              <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>WhatsApp Invoices</Text>
               <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
-                Receive delivery slips directly on WhatsApp
+                Delivery slips directly on WhatsApp
               </Text>
             </View>
             <Switch
               value={whatsappReceipts}
               onValueChange={(val) => {
                 setWhatsappReceipts(val);
-                triggerToast(val ? 'WhatsApp updates ON' : 'WhatsApp updates OFF');
+                showToast(val ? 'WhatsApp updates ON' : 'WhatsApp updates OFF', 'info');
               }}
-              trackColor={{ false: '#CBD5E1', true: theme.primary }}
+              trackColor={{ false: '#E5E5EA', true: theme.primary }}
               thumbColor="#FFFFFF"
             />
           </View>
@@ -360,174 +346,73 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   card: {
-    borderRadius: 20,
+    borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    gap: 14,
+    gap: 12,
   },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     borderBottomWidth: 1,
-    paddingBottom: 12,
+    paddingBottom: 10,
   },
-  cardTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-  },
-  activeLangBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-  },
-  activeLangBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  languageGrid: {
-    gap: 8,
-  },
-  languageOptionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 14,
-    borderWidth: 1.5,
-  },
-  langLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  langFlagText: {
-    fontSize: 18,
-  },
-  langNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  langNativeTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  defaultTag: {
-    paddingHorizontal: 5,
-    paddingVertical: 1.5,
-    borderRadius: 4,
-  },
-  defaultTagText: {
-    fontSize: 8,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  langSubRegion: {
-    fontSize: 10,
-    marginTop: 1,
-  },
-  radioCheck: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
+  headerTextCol: {
+    flex: 1,
   },
   cardTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: -0.2,
   },
   cardSubTitle: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: '#666666',
+    fontSize: 12,
+    marginTop: 2,
   },
-  compactCardHeader: {
+  langItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 10,
-  },
-  compactCardTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  segmentedControl: {
-    flexDirection: 'row',
-    borderRadius: 999,
-    padding: 3,
-    borderWidth: 1,
-  },
-  segmentBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 999,
-    gap: 6,
-  },
-  segmentBtnActive: {
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  segmentText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  colorDotRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
     paddingVertical: 4,
   },
-  colorDotWrapper: {
+  langLeftGroup: {
+    flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 12,
+    flex: 1,
+    paddingRight: 10,
   },
-  minimalColorDot: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  langIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  minimalColorDotActive: {
-    borderWidth: 3,
+  langTextGroup: {
+    flex: 1,
   },
-  colorDotLabel: {
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+  rowTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: -0.2,
   },
-  fontPillRow: {
+  rowSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  langRightGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  fontPill: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  fontPillText: {
-    fontSize: 12,
-    fontWeight: '800',
+  langValueText: {
+    fontSize: 13,
+    fontWeight: '500',
   },
   settingRowsList: {
-    gap: 12,
+    gap: 10,
   },
   settingRow: {
     flexDirection: 'row',
@@ -540,83 +425,12 @@ const styles = StyleSheet.create({
     paddingRight: 12,
   },
   settingTitle: {
-    fontSize: 13,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '500',
+    letterSpacing: -0.2,
   },
   settingSub: {
-    fontSize: 11,
+    fontSize: 12,
     marginTop: 2,
-  },
-  clearCacheBtn: {
-    backgroundColor: '#FFF1F2',
-    borderWidth: 1,
-    borderColor: '#FECDD3',
-    paddingVertical: 12,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 4,
-  },
-  clearCacheText: {
-    color: '#E11D48',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  infoLinkGroup: {
-    gap: 10,
-  },
-  infoMetaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  infoMetaLabel: {
-    fontSize: 12,
-  },
-  infoMetaVal: {
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  linkRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 6,
-  },
-  linkText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  /* Compact Language Row Styles */
-  langCompactRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 14,
-  },
-  langCompactLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-    paddingRight: 8,
-  },
-  langIconWrapper: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  langCompactRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  footerNote: {
-    textAlign: 'center',
-    fontSize: 11,
-    paddingTop: 8,
   },
 });

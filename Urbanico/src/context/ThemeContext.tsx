@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState } from 'react';
 
 export type ThemeMode = 'light' | 'dark';
-export type AccentColor = 'amber' | 'violet' | 'green' | 'blue' | 'black';
+export type AccentColor = 'blue' | 'black' | 'amber' | 'violet' | 'green';
 export type TypographyFontFamily = 'system' | 'inter' | 'jakarta' | 'mono';
 
 export interface ThemeColors {
@@ -73,123 +73,123 @@ export interface AccentDefinition {
 }
 
 export const ACCENT_DEFINITIONS: Record<AccentColor, AccentDefinition> = {
-  black: {
-    name: 'Nike Black & White',
-    hex: '#000000',
+  blue: {
+    name: 'Apple Blue',
+    hex: '#0071E3',
     light: {
-      primary: '#000000',
-      primaryLight: '#F4F4F5',
-      primaryDark: '#18181B',
-      cardShadow: 'rgba(0, 0, 0, 0.06)',
-      surfaceSecondary: '#F4F4F5',
-      surfaceTertiary: '#E4E4E7',
+      primary: '#0071E3',
+      primaryLight: '#EBF4FF',
+      primaryDark: '#0058B6',
+      cardShadow: 'rgba(0, 113, 227, 0.12)',
+      surfaceSecondary: '#F5F5F7',
+      surfaceTertiary: '#E5E5EA',
     },
     dark: {
-      primary: '#FFFFFF',
-      primaryLight: '#27272A',
-      primaryDark: '#FAFAFA',
-      cardShadow: 'rgba(255, 255, 255, 0.1)',
+      primary: '#0071E3',
+      primaryLight: '#1C2536',
+      primaryDark: '#2997FF',
+      cardShadow: 'rgba(0, 113, 227, 0.25)',
+    },
+  },
+  black: {
+    name: 'Monochrome',
+    hex: '#000000',
+    light: {
+      primary: '#0071E3',
+      primaryLight: '#EBF4FF',
+      primaryDark: '#0058B6',
+      cardShadow: 'rgba(0, 0, 0, 0.04)',
+      surfaceSecondary: '#F5F5F7',
+      surfaceTertiary: '#E5E5EA',
+    },
+    dark: {
+      primary: '#0071E3',
+      primaryLight: '#1C2536',
+      primaryDark: '#2997FF',
+      cardShadow: 'rgba(255, 255, 255, 0.08)',
     },
   },
   amber: {
-    name: 'Safety Amber',
-    hex: '#F59E0B',
+    name: 'Apple Blue',
+    hex: '#0071E3',
     light: {
-      primary: '#F59E0B',
-      primaryLight: '#FEF3C7',
-      primaryDark: '#D97706',
-      cardShadow: 'rgba(245, 158, 11, 0.15)',
-      surfaceSecondary: '#FFFBEB',
-      surfaceTertiary: '#FEF3C7',
+      primary: '#0071E3',
+      primaryLight: '#EBF4FF',
+      primaryDark: '#0058B6',
+      cardShadow: 'rgba(0, 113, 227, 0.12)',
+      surfaceSecondary: '#F5F5F7',
+      surfaceTertiary: '#E5E5EA',
     },
     dark: {
-      primary: '#F59E0B',
-      primaryLight: '#332308',
-      primaryDark: '#FBBF24',
-      cardShadow: 'rgba(245, 158, 11, 0.25)',
+      primary: '#0071E3',
+      primaryLight: '#1C2536',
+      primaryDark: '#2997FF',
+      cardShadow: 'rgba(0, 113, 227, 0.25)',
     },
   },
   violet: {
-    name: 'Monochrome Slate',
-    hex: '#18181B',
+    name: 'Apple Blue',
+    hex: '#0071E3',
     light: {
-      primary: '#18181B',
-      primaryLight: '#F4F4F5',
-      primaryDark: '#09090B',
-      cardShadow: 'rgba(0, 0, 0, 0.06)',
-      surfaceSecondary: '#F4F4F5',
-      surfaceTertiary: '#E4E4E7',
+      primary: '#0071E3',
+      primaryLight: '#EBF4FF',
+      primaryDark: '#0058B6',
+      cardShadow: 'rgba(0, 113, 227, 0.12)',
+      surfaceSecondary: '#F5F5F7',
+      surfaceTertiary: '#E5E5EA',
     },
     dark: {
-      primary: '#FFFFFF',
-      primaryLight: '#27272A',
-      primaryDark: '#F4F4F5',
-      cardShadow: 'rgba(255, 255, 255, 0.1)',
+      primary: '#0071E3',
+      primaryLight: '#1C2536',
+      primaryDark: '#2997FF',
+      cardShadow: 'rgba(0, 113, 227, 0.25)',
     },
   },
   green: {
-    name: 'Eco Green',
-    hex: '#059669',
+    name: 'Apple Blue',
+    hex: '#0071E3',
     light: {
-      primary: '#059669',
-      primaryLight: '#D1FAE5',
-      primaryDark: '#047857',
-      cardShadow: 'rgba(5, 150, 105, 0.15)',
-      surfaceSecondary: '#F0FDF4',
-      surfaceTertiary: '#DCFCE7',
+      primary: '#0071E3',
+      primaryLight: '#EBF4FF',
+      primaryDark: '#0058B6',
+      cardShadow: 'rgba(0, 113, 227, 0.12)',
+      surfaceSecondary: '#F5F5F7',
+      surfaceTertiary: '#E5E5EA',
     },
     dark: {
-      primary: '#10B981',
-      primaryLight: '#064E3B',
-      primaryDark: '#34D399',
-      cardShadow: 'rgba(16, 185, 129, 0.25)',
-    },
-  },
-  blue: {
-    name: 'Blueprint Blue',
-    hex: '#2563EB',
-    light: {
-      primary: '#2563EB',
-      primaryLight: '#DBEAFE',
-      primaryDark: '#1E40AF',
-      cardShadow: 'rgba(37, 99, 235, 0.15)',
-      surfaceSecondary: '#EFF6FF',
-      surfaceTertiary: '#DBEAFE',
-    },
-    dark: {
-      primary: '#3B82F6',
-      primaryLight: '#1E3A8A',
-      primaryDark: '#60A5FA',
-      cardShadow: 'rgba(59, 130, 246, 0.25)',
+      primary: '#0071E3',
+      primaryLight: '#1C2536',
+      primaryDark: '#2997FF',
+      cardShadow: 'rgba(0, 113, 227, 0.25)',
     },
   },
 };
 
 export const FONT_CONFIGS: Record<TypographyFontFamily, { name: string; family: string; headingFamily: string }> = {
   system: {
-    name: 'Nike System Font',
-    family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-    headingFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+    name: 'SF Pro System',
+    family: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Helvetica, Arial, sans-serif',
+    headingFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Helvetica, Arial, sans-serif',
   },
   inter: {
-    name: 'Inter Technical',
-    family: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    headingFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    name: 'Inter Minimal',
+    family: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
+    headingFamily: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
   },
   jakarta: {
     name: 'Plus Jakarta Display',
-    family: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    headingFamily: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    family: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif',
+    headingFamily: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif',
   },
   mono: {
-    name: 'Site Spec Mono',
+    name: 'SF Mono',
     family: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-    headingFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    headingFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
   },
 };
 
 export function getThemeColors(mode: ThemeMode, accent: AccentColor): ThemeColors {
-  const accentDef = ACCENT_DEFINITIONS[accent] || ACCENT_DEFINITIONS.black;
+  const accentDef = ACCENT_DEFINITIONS[accent] || ACCENT_DEFINITIONS.blue;
   const isLight = mode === 'light';
 
   if (isLight) {
@@ -198,19 +198,19 @@ export function getThemeColors(mode: ThemeMode, accent: AccentColor): ThemeColor
       accent,
       background: '#FFFFFF',
       surface: '#FFFFFF',
-      surfaceSecondary: accentDef.light.surfaceSecondary || '#F4F4F5',
-      surfaceTertiary: accentDef.light.surfaceTertiary || '#E4E4E7',
-      textPrimary: '#000000',
-      textSecondary: '#666666',
-      textMuted: '#999999',
-      primary: accentDef.light.primary,
-      primaryLight: accentDef.light.primaryLight,
-      primaryDark: accentDef.light.primaryDark,
-      border: '#E4E4E7',
-      borderLight: '#F4F4F5',
-      cardShadow: accentDef.light.cardShadow,
+      surfaceSecondary: '#F5F5F7',
+      surfaceTertiary: '#E5E5EA',
+      textPrimary: '#1D1D1F',
+      textSecondary: '#86868B',
+      textMuted: '#AEAEB2',
+      primary: '#0071E3',
+      primaryLight: '#EBF4FF',
+      primaryDark: '#0058B6',
+      border: '#E5E5EA',
+      borderLight: '#F5F5F7',
+      cardShadow: 'rgba(0, 0, 0, 0.04)',
       headerBg: '#FFFFFF',
-      headerText: '#000000',
+      headerText: '#1D1D1F',
       statusBarStyle: 'dark',
     };
   } else {
@@ -221,17 +221,17 @@ export function getThemeColors(mode: ThemeMode, accent: AccentColor): ThemeColor
       surface: '#121212',
       surfaceSecondary: '#1C1C1E',
       surfaceTertiary: '#2C2C2E',
-      textPrimary: '#FFFFFF',
-      textSecondary: '#A1A1AA',
-      textMuted: '#71717A',
-      primary: accentDef.dark.primary,
-      primaryLight: accentDef.dark.primaryLight,
-      primaryDark: accentDef.dark.primaryDark,
-      border: '#27272A',
-      borderLight: '#18181B',
-      cardShadow: accentDef.dark.cardShadow,
+      textPrimary: '#F5F5F7',
+      textSecondary: '#A1A1A6',
+      textMuted: '#636366',
+      primary: '#0071E3',
+      primaryLight: '#1C2536',
+      primaryDark: '#2997FF',
+      border: '#2C2C2E',
+      borderLight: '#1C1C1E',
+      cardShadow: 'rgba(0, 0, 0, 0.4)',
       headerBg: '#000000',
-      headerText: '#FFFFFF',
+      headerText: '#F5F5F7',
       statusBarStyle: 'light',
     };
   }
@@ -263,7 +263,7 @@ export function getTypographyConfig(fontFamilyKey: TypographyFontFamily): Typogr
     letterSpacing: {
       tight: -0.3,
       normal: 0,
-      wide: 0.4,
+      wide: 0.2,
     },
   };
 }
@@ -285,21 +285,21 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: getThemeColors('light', 'black'),
+  theme: getThemeColors('light', 'blue'),
   themeMode: 'light',
   setThemeMode: () => {},
-  accentColor: 'black',
+  accentColor: 'blue',
   setAccentColor: () => {},
   typography: getTypographyConfig('system'),
   typographyFont: 'system',
   setTypographyFont: () => {},
-  themeKey: 'black',
+  themeKey: 'blue',
   setThemeKey: () => {},
 });
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [themeMode, setThemeMode] = useState<ThemeMode>('light');
-  const [accentColor, setAccentColor] = useState<AccentColor>('black');
+  const [accentColor, setAccentColor] = useState<AccentColor>('blue');
   const [typographyFont, setTypographyFont] = useState<TypographyFontFamily>('system');
 
   const theme = getThemeColors(themeMode, accentColor);
@@ -313,10 +313,6 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setThemeMode('light');
     } else if (key in ACCENT_DEFINITIONS) {
       setAccentColor(key as AccentColor);
-    } else if (key === 'urbanico') {
-      setAccentColor('violet');
-    } else if (key === 'emerald') {
-      setAccentColor('green');
     }
   };
 

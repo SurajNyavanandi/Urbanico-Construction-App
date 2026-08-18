@@ -1,5 +1,14 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
+import React, { useEffect, useState, createElement } from 'react';
+import {
+  View,
+  StyleSheet,
+  ActivityIndicator,
+  Text,
+  Platform,
+  TouchableOpacity,
+  Linking,
+} from 'react-native';
+import { MapPin, Navigation, Compass, ExternalLink, Layers } from 'lucide-react-native';
 import { LatLng } from './GoogleMapPicker';
 
 interface OpenStreetMapPickerProps {
@@ -27,9 +36,18 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
 }) => {
   const selectedPos = markerPosition || center;
   const [loading, setLoading] = useState(true);
+  const [nativeAddress, setNativeAddress] = useState<string>('');
+  const [isResolvingAddress, setIsResolvingAddress] = useState(false);
 
-  // Handle postMessage from Leaflet iframe
+  const originLat = routeOrigin ? routeOrigin.lat : null;
+  const originLng = routeOrigin ? routeOrigin.lng : null;
+  const destLat = routeDestination ? routeDestination.lat : selectedPos.lat;
+  const destLng = routeDestination ? routeDestination.lng : selectedPos.lng;
+
+  // Handle postMessage from Leaflet iframe on Web
   useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+
     const handleMessage = (event: MessageEvent) => {
       if (event.data && event.data.type === 'LOCATION_SELECTED') {
         const { lat, lng, address } = event.data;
@@ -45,12 +63,43 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
     };
   }, [onLocationSelect]);
 
-  const originLat = routeOrigin ? routeOrigin.lat : null;
-  const originLng = routeOrigin ? routeOrigin.lng : null;
-  const destLat = routeDestination ? routeDestination.lat : selectedPos.lat;
-  const destLng = routeDestination ? routeDestination.lng : selectedPos.lng;
+  // Native reverse geocode lookup
+  useEffect(() => {
+    if (Platform.OS !== 'web') {
+      setIsResolvingAddress(true);
+      fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${selectedPos.lat}&lon=${selectedPos.lng}`
+      )
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.display_name) {
+            setNativeAddress(data.display_name);
+          } else {
+            setNativeAddress(`${selectedPos.lat.toFixed(4)}° N, ${selectedPos.lng.toFixed(4)}° E`);
+          }
+        })
+        .catch(() => {
+          setNativeAddress(`${selectedPos.lat.toFixed(4)}° N, ${selectedPos.lng.toFixed(4)}° E`);
+        })
+        .finally(() => {
+          setIsResolvingAddress(false);
+          setLoading(false);
+        });
+    }
+  }, [selectedPos.lat, selectedPos.lng]);
 
-  // Build standalone Leaflet HTML for iframe
+  const handleOpenExternalMaps = () => {
+    const url = Platform.select({
+      ios: `maps:0,0?q=${selectedPos.lat},${selectedPos.lng}`,
+      android: `geo:0,0?q=${selectedPos.lat},${selectedPos.lng}(${encodeURIComponent(markerTitle)})`,
+      default: `https://www.google.com/maps/search/?api=1&query=${selectedPos.lat},${selectedPos.lng}`,
+    });
+    Linking.openURL(url).catch(() => {
+      Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${selectedPos.lat},${selectedPos.lng}`);
+    });
+  };
+
+  // Build standalone Leaflet HTML for web iframe
   const leafletHtml = `
     <!DOCTYPE html>
     <html>
@@ -81,12 +130,6 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
         .popup-sub {
           font-size: 11px;
           color: #64748B;
-        }
-        .popup-badge {
-          margin-top: 6px;
-          font-size: 10px;
-          font-weight: 600;
-          color: #0EA5E9;
         }
       </style>
     </head>
@@ -160,7 +203,6 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
 
               marker.bindPopup('<div class="popup-title">' + title + '</div><div class="popup-sub">Locating address...</div>').openPopup();
 
-              // Free OpenStreetMap Nominatim reverse geocoding
               fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng)
                 .then(function(res) { return res.json(); })
                 .then(function(data) {
@@ -179,25 +221,100 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
     </html>
   `;
 
+  // On Web: use createElement to avoid React Native JSX NativeRegistry registration
+  if (Platform.OS === 'web') {
+    return (
+      <View style={[styles.container, { height }]}>
+        {createElement('iframe', {
+          title: 'OpenStreetMap Picker',
+          srcDoc: leafletHtml,
+          style: {
+            width: '100%',
+            height: '100%',
+            border: 'none',
+            borderRadius: '16px',
+          },
+          onLoad: () => setLoading(false),
+        })}
+        {loading && (
+          <View style={styles.loadingOverlay}>
+            <ActivityIndicator size="small" color="#0EA5E9" />
+            <Text style={styles.loadingText}>Loading Map (OpenStreetMap)...</Text>
+          </View>
+        )}
+      </View>
+    );
+  }
+
+  // On Native Android & iOS: Render pure React Native Interactive Location & Map Card
   return (
     <View style={[styles.container, { height }]}>
-      <iframe
-        title="OpenStreetMap Picker"
-        srcDoc={leafletHtml}
-        style={{
-          width: '100%',
-          height: '100%',
-          border: 'none',
-          borderRadius: '16px',
-        }}
-        onLoad={() => setLoading(false)}
-      />
-      {loading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="small" color="#0EA5E9" />
-          <Text style={styles.loadingText}>Loading Free Map (OpenStreetMap)...</Text>
+      {/* Visual Blueprint / Satellite Background Canvas */}
+      <View style={styles.nativeMapCanvas}>
+        {/* Grid lines */}
+        <View style={styles.mapGridRow}>
+          <View style={styles.mapGridCell} />
+          <View style={styles.mapGridCell} />
+          <View style={styles.mapGridCell} />
         </View>
-      )}
+        <View style={styles.mapGridRow}>
+          <View style={styles.mapGridCell} />
+          <View style={styles.mapGridCell} />
+          <View style={styles.mapGridCell} />
+        </View>
+
+        {/* Depot Node (if route active) */}
+        {routeOrigin && (
+          <View style={styles.depotNode}>
+            <View style={styles.depotDot} />
+            <Text style={styles.depotLabel}>Depot Warehouse</Text>
+          </View>
+        )}
+
+        {/* Trajectory Route Line (if route active) */}
+        {routeOrigin && <View style={styles.routeLine} />}
+
+        {/* Destination / Selected Site Pin */}
+        <View style={styles.siteMarkerContainer}>
+          <View style={styles.pulseRing} />
+          <View style={styles.markerBadge}>
+            <MapPin size={18} color="#FFFFFF" />
+          </View>
+          <View style={styles.markerCallout}>
+            <Text style={styles.markerCalloutTitle} numberOfLines={1}>
+              {markerTitle}
+            </Text>
+            <Text style={styles.markerCalloutCoords}>
+              {selectedPos.lat.toFixed(4)}, {selectedPos.lng.toFixed(4)}
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Bottom Floating Control Bar */}
+      <View style={styles.nativeBottomBar}>
+        <View style={styles.addressContainer}>
+          <View style={styles.addressHeaderRow}>
+            <Compass size={12} color="#0EA5E9" />
+            <Text style={styles.addressHeaderLabel}>Site GPS Coordinates</Text>
+          </View>
+          <Text style={styles.addressText} numberOfLines={1}>
+            {isResolvingAddress
+              ? 'Locating address via GPS...'
+              : nativeAddress || `${selectedPos.lat.toFixed(5)}, ${selectedPos.lng.toFixed(5)}`}
+          </Text>
+        </View>
+
+        <TouchableOpacity
+          onPress={handleOpenExternalMaps}
+          style={styles.openMapsButton}
+          activeOpacity={0.8}
+        >
+          <Navigation size={14} color="#FFFFFF" />
+          <Text style={styles.openMapsButtonText}>Navigate</Text>
+          <ExternalLink size={12} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -209,7 +326,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#CBD5E1',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#0F172A',
     position: 'relative',
   },
   loadingOverlay: {
@@ -227,5 +344,151 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748B',
     fontWeight: '600',
+  },
+  // Native React Native Mobile Styles
+  nativeMapCanvas: {
+    flex: 1,
+    backgroundColor: '#0F172A',
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  mapGridRow: {
+    flexDirection: 'row',
+    width: '100%',
+    flex: 1,
+  },
+  mapGridCell: {
+    flex: 1,
+    borderColor: '#1E293B',
+    borderWidth: 0.5,
+  },
+  depotNode: {
+    position: 'absolute',
+    top: 24,
+    left: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(16, 185, 129, 0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#10B981',
+  },
+  depotDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+  },
+  depotLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#34D399',
+  },
+  routeLine: {
+    position: 'absolute',
+    top: 48,
+    left: 45,
+    width: 120,
+    height: 2,
+    backgroundColor: '#0EA5E9',
+    transform: [{ rotate: '35deg' }],
+    borderStyle: 'dashed',
+  },
+  siteMarkerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  pulseRing: {
+    position: 'absolute',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(14, 165, 233, 0.25)',
+  },
+  markerBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#0EA5E9',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#0EA5E9',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  markerCallout: {
+    marginTop: 8,
+    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+    borderWidth: 1,
+    borderColor: '#334155',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  markerCalloutTitle: {
+    color: '#F8FAFC',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  markerCalloutCoords: {
+    color: '#94A3B8',
+    fontSize: 9,
+    marginTop: 1,
+  },
+  nativeBottomBar: {
+    backgroundColor: '#1E293B',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#334155',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  addressContainer: {
+    flex: 1,
+  },
+  addressHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 2,
+  },
+  addressHeaderLabel: {
+    color: '#0EA5E9',
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  addressText: {
+    color: '#F8FAFC',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  openMapsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0EA5E9',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 4,
+  },
+  openMapsButtonText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
 });

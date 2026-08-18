@@ -36,6 +36,12 @@ export const DEFAULT_CHILD_ITEMS: ChildNavItem[] = [
     isFeatured: true,
   },
   {
+    id: 'tiles',
+    label: 'Tiles',
+    iconType: 'image',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1787033354/Tiles_kw4xbl.jpg',
+  },
+  {
     id: 'cement',
     label: 'Cement',
     iconType: 'image',
@@ -125,6 +131,7 @@ export const ChildNavPills: React.FC<ChildNavPillsProps> = ({
       >
         {items.map((item) => {
           const isSelected = selectedId === item.id;
+          const isFeatured = item.id === 'featured' || item.isFeatured;
 
           return (
             <TouchableOpacity
@@ -134,10 +141,13 @@ export const ChildNavPills: React.FC<ChildNavPillsProps> = ({
               style={[
                 styles.childCard,
                 {
-                  backgroundColor: isSelected
-                    ? theme.surface
-                    : theme.surfaceSecondary,
-                  borderColor: isSelected ? theme.primary : theme.borderLight,
+                  backgroundColor: isFeatured
+                    ? (isSelected ? theme.surface : theme.surfaceSecondary)
+                    : (isSelected ? theme.surface : theme.surfaceSecondary),
+                  borderColor: isFeatured
+                    ? 'transparent'
+                    : (isSelected ? theme.primary : theme.border),
+                  borderWidth: isFeatured ? 0 : 1,
                 },
               ]}
             >
@@ -146,15 +156,16 @@ export const ChildNavPills: React.FC<ChildNavPillsProps> = ({
                 style={[
                   styles.iconBox,
                   {
-                    backgroundColor: item.isFeatured
-                      ? '#000000'
+                    backgroundColor: isFeatured
+                      ? (theme.mode === 'dark' ? '#27272A' : '#1D1D1F')
                       : theme.surface,
-                    borderColor: item.isFeatured ? '#000000' : theme.borderLight,
+                    borderColor: isFeatured ? 'transparent' : theme.border,
+                    borderWidth: isFeatured ? 0 : 1,
                   },
                 ]}
               >
                 {item.iconType === 'star' ? (
-                  <Star size={18} color="#FFFFFF" fill="#FFFFFF" />
+                  <Star size={17} color="#FFFFFF" fill="#FFFFFF" />
                 ) : item.image ? (
                   <ShimmerImage
                     source={{ uri: item.image }}
@@ -166,7 +177,7 @@ export const ChildNavPills: React.FC<ChildNavPillsProps> = ({
                     recyclingKey={`pill-${item.id}`}
                   />
                 ) : (
-                  <View style={[styles.placeholderBox, { backgroundColor: theme.borderLight }]} />
+                  <View style={[styles.placeholderBox, { backgroundColor: theme.surfaceSecondary }]} />
                 )}
               </View>
 
@@ -175,8 +186,10 @@ export const ChildNavPills: React.FC<ChildNavPillsProps> = ({
                 style={[
                   styles.label,
                   {
-                    color: isSelected ? theme.primary : theme.textPrimary,
-                    fontWeight: isSelected ? '700' : '500',
+                    color: isFeatured
+                      ? theme.textPrimary
+                      : (isSelected ? theme.primary : theme.textPrimary),
+                    fontWeight: isFeatured ? '500' : (isSelected ? '600' : '400'),
                   },
                 ]}
                 numberOfLines={1}

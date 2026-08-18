@@ -12,22 +12,25 @@ import {
   X,
   Minus,
   Plus,
-  ShoppingCart,
-  ShieldCheck,
-  Truck,
-  Award,
-  CheckCircle2,
+  ShoppingBag,
+  Zap,
+  Check,
   Heart,
 } from 'lucide-react-native';
 import { MaterialItem, UnitOption } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { ShimmerImage } from './common/ShimmerImage';
-import { LoadingButton } from './common/LoadingButton';
 
 interface ItemQuantityModalProps {
   item: MaterialItem | null;
   onClose: () => void;
   onAddToCart: (
+    item: MaterialItem,
+    selectedOption: UnitOption,
+    quantity: number,
+    totalPrice: number
+  ) => void;
+  onBuyNow?: (
     item: MaterialItem,
     selectedOption: UnitOption,
     quantity: number,
@@ -41,17 +44,17 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
   item,
   onClose,
   onAddToCart,
+  onBuyNow,
   favoriteIds = [],
   onToggleFavorite,
 }) => {
   const { theme, typography } = useTheme();
 
-  // ALL HOOKS MUST BE CALLED UNCONDITIONALLY AT TOP LEVEL
-  const [optionQuantities, setOptionQuantities] = useState<Record<string, number>>({});
-  const [selectedRadioOptionId, setSelectedRadioOptionId] = useState<string>('');
-  const [globalQuantity, setGlobalQuantity] = useState<number>(2);
+  // State
+  const [selectedOptionId, setSelectedOptionId] = useState<string>('');
+  const [quantity, setQuantity] = useState<number>(1);
   const [activeGalleryIndex, setActiveGalleryIndex] = useState<number>(0);
-  const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
 
   const galleryScrollRef = useRef<ScrollView>(null);
 
@@ -59,28 +62,20 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
   useEffect(() => {
     if (!item) return;
 
-    const isRadio = item.options.some((o) => o.type === 'radio');
-    
-    // Find the option with the lowest price
-    let lowestOpt = item.options[0];
+    // Find the option with lowest price or first option
+    let defaultOpt = item.options?.[0];
     if (item.options && item.options.length > 0) {
-      lowestOpt = item.options.reduce((prev, curr) => (curr.price < prev.price ? curr : prev), item.options[0]);
+      defaultOpt = item.options.reduce((prev, curr) => (curr.price < prev.price ? curr : prev), item.options[0]);
     }
 
-    const initialQtyMap: Record<string, number> = {};
-    item.options.forEach((opt) => {
-      initialQtyMap[opt.id] = (!isRadio && opt.id === lowestOpt?.id) ? 1 : 0;
-    });
-
-    setOptionQuantities(initialQtyMap);
-    setSelectedRadioOptionId(lowestOpt?.id || item.options[0]?.id || '');
-    setGlobalQuantity(1);
+    setSelectedOptionId(defaultOpt?.id || item.options?.[0]?.id || '');
+    setQuantity(1);
     setActiveGalleryIndex(0);
   }, [item]);
 
   if (!item) return null;
 
-  // Build a realistic 3-image gallery for the product
+  // Build gallery images
   const galleryImages = item.galleryImages && item.galleryImages.length > 0
     ? item.galleryImages
     : [
@@ -90,15 +85,9 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
       ];
 
   const isFav = favoriteIds.includes(item.id);
-  const isRadioType = item.options.some((o) => o.type === 'radio');
-
-  const handleUpdateOptionQty = (optId: string, delta: number) => {
-    setOptionQuantities((prev) => {
-      const current = prev[optId] || 0;
-      const next = Math.max(0, current + delta);
-      return { ...prev, [optId]: next };
-    });
-  };
+  const selectedOption = item.options.find((o) => o.id === selectedOptionId) || item.options[0];
+  const unitPrice = selectedOption?.price || item.defaultPrice || 0;
+  const totalPrice = unitPrice * quantity;
 
   const handleGalleryScroll = (e: any) => {
     const contentOffsetX = e?.nativeEvent?.contentOffset?.x || 0;
@@ -109,53 +98,32 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
     }
   };
 
-  let calculatedTotal = 0;
-
-  if (isRadioType) {
-    const selectedOpt = item.options.find((o) => o.id === selectedRadioOptionId) || item.options[0];
-    calculatedTotal = (selectedOpt?.price || 0) * globalQuantity;
-  } else {
-    item.options.forEach((opt) => {
-      const qty = optionQuantities[opt.id] || 0;
-      calculatedTotal += opt.price * qty;
-    });
-  }
-
-  const handlePrimaryAdd = () => {
-    if (isAddingToCart) return;
-    setIsAddingToCart(true);
+  const handleAddToCartClick = () => {
+    if (isAdding || !selectedOption) return;
+    setIsAdding(true);
 
     setTimeout(() => {
-      setIsAddingToCart(false);
-      if (isRadioType) {
-        const selectedOpt = item.options.find((o) => o.id === selectedRadioOptionId) || item.options[0];
-        if (selectedOpt && globalQuantity > 0) {
-          onAddToCart(item, selectedOpt, globalQuantity, calculatedTotal);
-        }
-      } else {
-        let addedAny = false;
-        item.options.forEach((opt) => {
-          const qty = optionQuantities[opt.id] || 0;
-          if (qty > 0) {
-            onAddToCart(item, opt, qty, opt.price * qty);
-            addedAny = true;
-          }
-        });
-        if (!addedAny && item.options[0]) {
-          onAddToCart(item, item.options[0], 1, item.options[0].price);
-        }
-      }
+      setIsAdding(false);
+      onAddToCart(item, selectedOption, quantity, totalPrice);
       onClose();
-    }, 400);
+    }, 250);
   };
 
-  const screenWidth = Dimensions.get('window').width;
+  const handleBuyNowClick = () => {
+    if (!selectedOption) return;
+    if (onBuyNow) {
+      onBuyNow(item, selectedOption, quantity, totalPrice);
+    } else {
+      onAddToCart(item, selectedOption, quantity, totalPrice);
+    }
+    onClose();
+  };
 
   return (
     <View style={styles.overlay}>
       <Pressable style={styles.backdrop} onPress={onClose} />
 
-      {/* Floating Dark Circular Close Button above sheet (Reference Image 2) */}
+      {/* Floating Dark Circular Close Button above sheet */}
       <TouchableOpacity
         onPress={onClose}
         activeOpacity={0.8}
@@ -165,7 +133,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
       </TouchableOpacity>
 
       <View style={[styles.sheetContainer, { backgroundColor: theme.surface }]}>
-        {/* Swiggy-Style Top Product Header: Image Thumbnail + Title */}
+        {/* Top Product Header: Image Thumbnail + Title */}
         <View style={[styles.modalHeader, { backgroundColor: theme.surface, borderBottomColor: theme.borderLight }]}>
           <View style={styles.headerThumbnailWrapper}>
             <ShimmerImage
@@ -193,8 +161,11 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
                 {item.subtitle}
               </Text>
             )}
-            <Text style={[styles.modalPriceTag, { color: theme.primaryDark }]}>
-              Starting at ₹{item.defaultPrice ? item.defaultPrice.toLocaleString('en-IN') : item.options[0]?.price.toLocaleString('en-IN')}
+            <Text style={[styles.modalPriceTag, { color: theme.textPrimary }]}>
+              ₹{unitPrice.toLocaleString('en-IN')}{' '}
+              <Text style={{ fontSize: 12, fontWeight: '400', color: theme.textSecondary }}>
+                / {selectedOption?.label || 'unit'}
+              </Text>
             </Text>
           </View>
 
@@ -219,118 +190,161 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
         </View>
 
         {/* Modal Body */}
-        <ScrollView style={[styles.modalBody, { backgroundColor: theme.surfaceSecondary }]} contentContainerStyle={styles.bodyContent}>
-          {/* Customization Options */}
+        <ScrollView
+          style={[styles.modalBody, { backgroundColor: theme.surfaceSecondary }]}
+          contentContainerStyle={styles.bodyContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Unit / Option Selection Header */}
           <View style={styles.customizationHeaderRow}>
-            <View>
-              <Text style={[styles.selectLabel, { color: theme.textPrimary }]}>
-                {isRadioType ? 'Choose Material Unit / Quantity' : 'Custom Options & Extras'}
-              </Text>
-              <Text style={[styles.selectSublabel, { color: theme.textSecondary }]}>
-                {isRadioType ? 'Select 1 option' : 'Select required units'}
-              </Text>
-            </View>
+            <Text style={[styles.selectLabel, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
+              Select Unit / Pack Size
+            </Text>
+            <Text style={[styles.selectSublabel, { color: theme.textSecondary }]}>
+              {item.options.length} options available
+            </Text>
           </View>
 
-          {isRadioType ? (
-            <View style={[styles.radioContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              {item.options.map((opt) => {
-                const isSelected = selectedRadioOptionId === opt.id;
-                return (
-                  <TouchableOpacity
-                    key={opt.id}
-                    onPress={() => setSelectedRadioOptionId(opt.id)}
-                    activeOpacity={0.7}
+          {/* Variant Selection Cards */}
+          <View style={[styles.variantContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            {item.options.map((opt) => {
+              const isSelected = selectedOptionId === opt.id;
+              return (
+                <TouchableOpacity
+                  key={opt.id}
+                  onPress={() => setSelectedOptionId(opt.id)}
+                  activeOpacity={0.7}
+                  style={[
+                    styles.variantOptionRow,
+                    isSelected
+                      ? {
+                          backgroundColor: theme.mode === 'dark' ? '#27272A' : '#F0F9FF',
+                          borderColor: theme.primary,
+                        }
+                      : {
+                          backgroundColor: 'transparent',
+                          borderColor: 'transparent',
+                        },
+                  ]}
+                >
+                  <View style={styles.variantLeftGroup}>
+                    <View
+                      style={[
+                        styles.radioIndicator,
+                        isSelected
+                          ? { borderColor: theme.primary, backgroundColor: theme.primary }
+                          : { borderColor: theme.border, backgroundColor: 'transparent' },
+                      ]}
+                    >
+                      {isSelected && <Check size={10} color="#FFFFFF" strokeWidth={3} />}
+                    </View>
+                    <Text
+                      style={[
+                        styles.variantOptionLabel,
+                        {
+                          color: theme.textPrimary,
+                          fontWeight: isSelected ? '600' : '400',
+                        },
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </View>
+
+                  <Text
                     style={[
-                      styles.radioOptionRow,
-                      isSelected && { backgroundColor: theme.primaryLight },
+                      styles.variantOptionPrice,
+                      {
+                        color: theme.textPrimary,
+                        fontWeight: isSelected ? '600' : '500',
+                      },
                     ]}
                   >
-                    <Text style={[styles.optionLabel, { color: theme.textPrimary }]}>{opt.label}</Text>
-                    <View style={styles.radioRightGroup}>
-                      <Text style={[styles.optionPrice, { color: theme.primaryDark }]}>
-                        ₹{opt.price.toLocaleString('en-IN')}
-                      </Text>
-                      <View
-                        style={[
-                          styles.outerRadioCircle,
-                          isSelected
-                            ? { borderColor: theme.primary }
-                            : { borderColor: theme.border },
-                        ]}
-                      >
-                        {isSelected && <View style={[styles.innerRadioCircle, { backgroundColor: theme.primary }]} />}
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
+                    ₹{opt.price.toLocaleString('en-IN')}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* Quantity Selector Row */}
+          <View style={[styles.quantityRowCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            <View>
+              <Text style={[styles.qtyLabel, { color: theme.textPrimary }]}>Quantity</Text>
+              <Text style={[styles.qtySublabel, { color: theme.textSecondary }]}>
+                {quantity} {selectedOption?.label || 'unit'}(s)
+              </Text>
             </View>
-          ) : (
-            <View style={[styles.stepperListContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              {item.options.map((opt) => {
-                const qty = optionQuantities[opt.id] || 0;
-                return (
-                  <View key={opt.id} style={[styles.stepperRow, { borderBottomColor: theme.borderLight }]}>
-                    <Text style={[styles.stepperOptionLabel, { color: theme.textPrimary }]}>{opt.label}</Text>
-                    <Text style={[styles.stepperOptionPrice, { color: theme.primaryDark }]}>
-                      ₹{opt.price.toLocaleString('en-IN')}
-                    </Text>
-                    <View style={[styles.stepperBox, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary }]}>
-                      <TouchableOpacity
-                        onPress={() => handleUpdateOptionQty(opt.id, -1)}
-                        style={[styles.stepBtn, { borderColor: theme.border, backgroundColor: theme.surface }]}
-                        activeOpacity={0.7}
-                      >
-                        <Minus size={14} color={theme.textPrimary} strokeWidth={2.5} />
-                      </TouchableOpacity>
-                      <Text style={[styles.stepQtyText, { color: theme.textPrimary }]}>{qty}</Text>
-                      <TouchableOpacity
-                        onPress={() => handleUpdateOptionQty(opt.id, 1)}
-                        style={[styles.stepBtn, { borderColor: theme.border, backgroundColor: theme.surface }]}
-                        activeOpacity={0.7}
-                      >
-                        <Plus size={14} color={theme.textPrimary} strokeWidth={2.5} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                );
-              })}
+
+            <View style={[styles.stepperBox, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary }]}>
+              <TouchableOpacity
+                onPress={() => setQuantity((q) => Math.max(1, q - 1))}
+                style={[
+                  styles.stepBtn,
+                  {
+                    backgroundColor: theme.surface,
+                    borderColor: theme.border,
+                    opacity: quantity <= 1 ? 0.5 : 1,
+                  },
+                ]}
+                activeOpacity={0.7}
+                disabled={quantity <= 1}
+              >
+                <Minus size={14} color={theme.textPrimary} strokeWidth={2.5} />
+              </TouchableOpacity>
+              <Text style={[styles.stepQtyText, { color: theme.textPrimary }]}>{quantity}</Text>
+              <TouchableOpacity
+                onPress={() => setQuantity((q) => q + 1)}
+                style={[styles.stepBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                activeOpacity={0.7}
+              >
+                <Plus size={14} color={theme.textPrimary} strokeWidth={2.5} />
+              </TouchableOpacity>
             </View>
-          )}
+          </View>
         </ScrollView>
 
-        {/* Modal Footer (Swiggy Add Item Bar) */}
+        {/* Modal Footer with "Add to Cart" and "Buy Now" Side by Side */}
         <View style={[styles.modalFooter, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
-          {/* Stepper on bottom left */}
-          <View style={[styles.globalStepperBox, { borderColor: '#16A34A', backgroundColor: '#F0FDF4' }]}>
-            <TouchableOpacity
-              onPress={() => setGlobalQuantity((q) => Math.max(1, q - 1))}
-              style={styles.globalStepBtn}
-              activeOpacity={0.7}
-            >
-              <Minus size={16} color="#16A34A" strokeWidth={2.5} />
-            </TouchableOpacity>
-            <Text style={[styles.globalQtyText, { color: '#16A34A' }]}>{globalQuantity}</Text>
-            <TouchableOpacity
-              onPress={() => setGlobalQuantity((q) => q + 1)}
-              style={styles.globalStepBtn}
-              activeOpacity={0.7}
-            >
-              <Plus size={16} color="#16A34A" strokeWidth={2.5} />
-            </TouchableOpacity>
-          </View>
+          {/* 1. Add to Cart Button */}
+          <TouchableOpacity
+            onPress={handleAddToCartClick}
+            activeOpacity={0.8}
+            style={[
+              styles.secondaryBtn,
+              {
+                borderColor: theme.mode === 'dark' ? '#3F3F46' : '#1D1D1F',
+                backgroundColor: 'transparent',
+              },
+            ]}
+          >
+            <ShoppingBag size={16} color={theme.textPrimary} strokeWidth={2} />
+            <Text style={[styles.secondaryBtnText, { color: theme.textPrimary }]}>
+              {isAdding ? 'Adding...' : 'Add to Cart'}
+            </Text>
+          </TouchableOpacity>
 
-          {/* Wide Add Button on right with Price & MRP */}
-          <View style={{ flex: 1 }}>
-            <LoadingButton
-              title={`Add Item | ₹${calculatedTotal.toLocaleString('en-IN')}`}
-              onPress={handlePrimaryAdd}
-              isLoading={isAddingToCart}
-              variant="primary"
-              style={{ backgroundColor: '#16A34A', height: 46 }}
-            />
-          </View>
+          {/* 2. Buy Now Button */}
+          <TouchableOpacity
+            onPress={handleBuyNowClick}
+            activeOpacity={0.85}
+            style={[
+              styles.primaryBtn,
+              {
+                backgroundColor: theme.mode === 'dark' ? '#FFFFFF' : '#1D1D1F',
+              },
+            ]}
+          >
+            <Zap size={16} color={theme.mode === 'dark' ? '#000000' : '#FFFFFF'} strokeWidth={2} />
+            <Text
+              style={[
+                styles.primaryBtnText,
+                { color: theme.mode === 'dark' ? '#000000' : '#FFFFFF' },
+              ]}
+            >
+              Buy Now • ₹{totalPrice.toLocaleString('en-IN')}
+            </Text>
+          </TouchableOpacity>
         </View>
       </View>
     </View>
@@ -357,7 +371,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#334155', // Floating dark circular close button (Swiggy reference image 2)
+    backgroundColor: '#334155',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -384,8 +398,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   headerThumbnailWrapper: {
-    width: 44,
-    height: 44,
+    width: 46,
+    height: 46,
     borderRadius: 10,
     overflow: 'hidden',
     backgroundColor: '#F1F5F9',
@@ -401,26 +415,22 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    lineHeight: 24,
-    letterSpacing: -0.2,
+    fontSize: 18,
+    fontWeight: '600',
+    lineHeight: 22,
+    letterSpacing: -0.3,
   },
   modalSubtitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '400',
-    lineHeight: 18,
+    lineHeight: 17,
     marginTop: 2,
   },
   modalPriceTag: {
-    fontSize: 18,
-    fontWeight: '700',
-    marginTop: 4,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    fontSize: 15,
+    fontWeight: '600',
+    marginTop: 3,
+    letterSpacing: -0.1,
   },
   circleFavBtn: {
     width: 34,
@@ -430,150 +440,84 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
   },
-  closeBtn: {
-    padding: 6,
-    borderRadius: 17,
-  },
   modalBody: {
     padding: 16,
   },
   bodyContent: {
-    gap: 14,
-    paddingBottom: 24,
-  },
-  galleryWrapper: {
-    alignItems: 'center',
-    gap: 8,
-  },
-  galleryScrollView: {
-    height: 170,
-    borderRadius: 16,
-  },
-  gallerySlide: {
-    height: 170,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 8,
-  },
-  galleryImage: {
-    width: '100%',
-    height: '100%',
-  },
-  dotsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    height: 12,
-  },
-  galleryDot: {
-    height: 6,
-    borderRadius: 3,
-  },
-  qualityBadgeRow: {
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-  },
-  badgeItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  badgeDivider: {
-    width: 1,
-    height: 14,
-    backgroundColor: '#CBD5E1',
+    gap: 12,
+    paddingBottom: 20,
   },
   customizationHeaderRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 4,
   },
   selectLabel: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: -0.2,
   },
   selectSublabel: {
-    fontSize: 11,
-    fontWeight: '500',
-    marginTop: 1,
-  },
-  selectAllLink: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#000000',
+    fontWeight: '400',
   },
-  radioContainer: {
-    borderRadius: 16,
-    padding: 6,
+  variantContainer: {
+    borderRadius: 14,
+    padding: 4,
     borderWidth: 1,
     gap: 4,
   },
-  radioOptionRow: {
+  variantOptionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 10,
-    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
   },
-  optionLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  radioRightGroup: {
+  variantLeftGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
+    flex: 1,
   },
-  optionPrice: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  outerRadioCircle: {
+  radioIndicator: {
     width: 18,
     height: 18,
     borderRadius: 9,
-    borderWidth: 2,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  innerRadioCircle: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+  variantOptionLabel: {
+    fontSize: 13,
+    letterSpacing: -0.1,
+    flex: 1,
   },
-  stepperListContainer: {
-    borderRadius: 16,
-    padding: 12,
+  variantOptionPrice: {
+    fontSize: 13,
+    letterSpacing: -0.1,
+  },
+  quantityRowCard: {
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     borderWidth: 1,
-    gap: 6,
-  },
-  stepperRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 6,
-    borderBottomWidth: 1,
   },
-  stepperOptionLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    flex: 1,
-  },
-  stepperOptionPrice: {
-    fontSize: 12,
+  qtyLabel: {
+    fontSize: 13,
     fontWeight: '600',
-    marginHorizontal: 8,
+    letterSpacing: -0.1,
+  },
+  qtySublabel: {
+    fontSize: 11,
+    fontWeight: '400',
+    marginTop: 1,
   },
   stepperBox: {
     flexDirection: 'row',
@@ -584,65 +528,54 @@ const styles = StyleSheet.create({
     padding: 3,
   },
   stepBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 4,
+    width: 26,
+    height: 26,
+    borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
   },
   stepQtyText: {
-    width: 22,
+    width: 24,
     textAlign: 'center',
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   modalFooter: {
-    padding: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderTopWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: 10,
   },
-  globalStepperBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderRadius: 12,
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-  },
-  globalStepBtn: {
-    width: 28,
-    height: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  globalQtyText: {
-    width: 28,
-    textAlign: 'center',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  primaryAddCta: {
+  secondaryBtn: {
     flex: 1,
-    paddingVertical: 13,
-    paddingHorizontal: 16,
+    height: 46,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  secondaryBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: -0.1,
+  },
+  primaryBtn: {
+    flex: 1.3,
+    height: 46,
     borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
   },
-  primaryAddCtaText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  primaryMrpStrikethrough: {
-    color: 'rgba(255, 255, 255, 0.75)',
-    fontSize: 12,
-    textDecorationLine: 'line-through',
+  primaryBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: -0.1,
   },
 });

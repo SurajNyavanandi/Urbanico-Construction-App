@@ -39,11 +39,13 @@ export const LocationModal: React.FC<LocationModalProps> = ({
   const [selectedSiteName, setSelectedSiteName] = useState<string>(selectedLocation);
   const [isLocating, setIsLocating] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [showMap, setShowMap] = useState<boolean>(false);
 
   if (!isOpen) return null;
 
   // Real browser/device Geolocation GPS detection
   const handleUseCurrentLocation = () => {
+    setShowMap(true);
     setIsLocating(true);
     setStatusMessage('Fetching GPS location...');
 
@@ -186,25 +188,27 @@ export const LocationModal: React.FC<LocationModalProps> = ({
             </View>
           </TouchableOpacity>
 
-          {/* Interactive Construction Site Map */}
-          <View style={styles.mapBoxSection}>
-            <View style={styles.mapLabelRow}>
-              <Text style={[styles.mapLabelText, { color: theme.textPrimary }]}>
-                Site Pin on Construction Map
-              </Text>
-              <Text style={[styles.mapHelpText, { color: theme.textMuted }]}>
-                Tap anywhere on map to move site pin
-              </Text>
+          {/* Interactive Construction Site Map - Shown when GPS is triggered */}
+          {showMap && (
+            <View style={styles.mapBoxSection}>
+              <View style={styles.mapLabelRow}>
+                <Text style={[styles.mapLabelText, { color: theme.textPrimary }]}>
+                  Site Pin on Construction Map
+                </Text>
+                <Text style={[styles.mapHelpText, { color: theme.textMuted }]}>
+                  Tap anywhere on map to move site pin
+                </Text>
+              </View>
+              <GoogleMapPicker
+                center={activeCoords}
+                markerPosition={activeCoords}
+                markerTitle={selectedSiteName}
+                onLocationSelect={handleMapLocationSelect}
+                height={220}
+                interactive={true}
+              />
             </View>
-            <GoogleMapPicker
-              center={activeCoords}
-              markerPosition={activeCoords}
-              markerTitle={selectedSiteName}
-              onLocationSelect={handleMapLocationSelect}
-              height={220}
-              interactive={true}
-            />
-          </View>
+          )}
 
           {/* Saved Delivery Sites List */}
           <View style={styles.savedSection}>

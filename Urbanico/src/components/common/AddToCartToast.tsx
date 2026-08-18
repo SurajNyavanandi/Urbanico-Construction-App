@@ -5,48 +5,33 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  ViewStyle,
   Platform,
 } from 'react-native';
-import {
-  Check,
-  AlertCircle,
-  Info,
-  Heart,
-  Bell,
-  X,
-  ArrowRight,
-  LogOut,
-  Sparkles,
-  MapPin,
-  RefreshCw,
-} from 'lucide-react-native';
+import { Check, ShoppingBag, ArrowRight, X } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
+import { ShimmerImage } from './ShimmerImage';
 
-export type ToastType = 'success' | 'error' | 'info' | 'favorite';
-
-export interface ToastProps {
-  visible: boolean;
-  message: string;
-  title?: string;
-  type?: ToastType;
-  onDismiss?: () => void;
-  duration?: number;
-  actionLabel?: string;
-  onAction?: () => void;
-  style?: ViewStyle;
+export interface CartToastPayload {
+  name: string;
+  optionLabel?: string;
+  price?: number;
+  image?: string;
+  quantity?: number;
+  onViewBag?: () => void;
 }
 
-export const Toast: React.FC<ToastProps> = ({
+interface AddToCartToastProps {
+  visible: boolean;
+  item: CartToastPayload | null;
+  onDismiss: () => void;
+  duration?: number;
+}
+
+export const AddToCartToast: React.FC<AddToCartToastProps> = ({
   visible,
-  message,
-  title,
-  type = 'success',
+  item,
   onDismiss,
-  duration = 3800,
-  actionLabel,
-  onAction,
-  style,
+  duration = 4000,
 }) => {
   const { theme, typography } = useTheme();
   const translateY = useRef(new Animated.Value(40)).current;
@@ -54,7 +39,7 @@ export const Toast: React.FC<ToastProps> = ({
   const scale = useRef(new Animated.Value(0.94)).current;
 
   useEffect(() => {
-    if (visible) {
+    if (visible && item) {
       Animated.parallel([
         Animated.spring(scale, {
           toValue: 1,
@@ -83,7 +68,7 @@ export const Toast: React.FC<ToastProps> = ({
     } else {
       handleDismiss();
     }
-  }, [visible, message]);
+  }, [visible, item]);
 
   const handleDismiss = () => {
     Animated.parallel([
@@ -103,75 +88,16 @@ export const Toast: React.FC<ToastProps> = ({
         useNativeDriver: Platform.OS !== 'web',
       }),
     ]).start(() => {
-      if (onDismiss) onDismiss();
+      onDismiss();
     });
   };
 
-  if (!visible) return null;
+  if (!visible || !item) return null;
 
-  // Determine icon & headline based on message content and type
-  const lowerMsg = (message || '').toLowerCase();
-  let defaultTitle = 'Notification';
-  let IconComponent = Info;
-  let iconColor = theme.primary;
-  let badgeColor = theme.primary;
-  let BadgeIcon = Check;
-
-  if (type === 'favorite' || lowerMsg.includes('favorite')) {
-    defaultTitle = lowerMsg.includes('removed') ? 'Favorites Updated' : 'Saved to Favorites';
-    IconComponent = Heart;
-    iconColor = '#EF4444';
-    badgeColor = '#EF4444';
-    BadgeIcon = Heart;
-  } else if (lowerMsg.includes('logout') || lowerMsg.includes('logged out')) {
-    defaultTitle = 'Account Status';
-    IconComponent = LogOut;
-    iconColor = theme.textSecondary;
-    badgeColor = theme.textSecondary;
-    BadgeIcon = LogOut;
-  } else if (lowerMsg.includes('verified') || lowerMsg.includes('welcome')) {
-    defaultTitle = 'Account Verified';
-    IconComponent = Sparkles;
-    iconColor = '#10B981';
-    badgeColor = '#10B981';
-    BadgeIcon = Check;
-  } else if (lowerMsg.includes('address') || lowerMsg.includes('location')) {
-    defaultTitle = 'Delivery Location';
-    IconComponent = MapPin;
-    iconColor = theme.primary;
-    badgeColor = '#10B981';
-    BadgeIcon = Check;
-  } else if (lowerMsg.includes('refreshed') || lowerMsg.includes('updated')) {
-    defaultTitle = 'Status Updated';
-    IconComponent = RefreshCw;
-    iconColor = theme.primary;
-    badgeColor = '#10B981';
-    BadgeIcon = Check;
-  } else if (type === 'error' || lowerMsg.includes('error') || lowerMsg.includes('failed')) {
-    defaultTitle = 'Notice';
-    IconComponent = AlertCircle;
-    iconColor = '#EF4444';
-    badgeColor = '#EF4444';
-    BadgeIcon = AlertCircle;
-  } else if (type === 'success') {
-    defaultTitle = 'Success';
-    IconComponent = Check;
-    iconColor = '#10B981';
-    badgeColor = '#10B981';
-    BadgeIcon = Check;
-  } else {
-    defaultTitle = 'Urbanico Update';
-    IconComponent = Bell;
-    iconColor = theme.primary;
-    badgeColor = '#10B981';
-    BadgeIcon = Check;
-  }
-
-  const displayTitle = title || defaultTitle;
   const AnimatedView = Animated.View as any;
 
   return (
-    <View style={[styles.bottomOverlay, style]} pointerEvents="box-none">
+    <View style={styles.bottomOverlay} pointerEvents="box-none">
       <AnimatedView
         style={[
           styles.toastCard,
@@ -184,7 +110,7 @@ export const Toast: React.FC<ToastProps> = ({
           },
         ]}
       >
-        {/* Left: Icon Thumbnail with small badge - matching AddToCartToast format */}
+        {/* Left: Product Image Thumbnail with emerald green check badge */}
         <View style={styles.imageCol}>
           <View
             style={[
@@ -195,10 +121,20 @@ export const Toast: React.FC<ToastProps> = ({
               },
             ]}
           >
-            <IconComponent size={20} color={iconColor} strokeWidth={2.2} />
+            {item.image ? (
+              <ShimmerImage
+                source={{ uri: item.image }}
+                style={styles.thumbnailImg}
+                resizeMode="cover"
+                borderRadius={10}
+                preset="pill"
+              />
+            ) : (
+              <ShoppingBag size={20} color={theme.textPrimary} />
+            )}
           </View>
-          <View style={[styles.successBadge, { backgroundColor: badgeColor }]}>
-            <BadgeIcon size={9} color="#FFFFFF" strokeWidth={3} />
+          <View style={styles.successBadge}>
+            <Check size={10} color="#FFFFFF" strokeWidth={3} />
           </View>
         </View>
 
@@ -211,29 +147,44 @@ export const Toast: React.FC<ToastProps> = ({
                 { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading },
               ]}
             >
-              {displayTitle}
+              Added to Cart
             </Text>
+            {item.quantity && item.quantity > 1 ? (
+              <View style={[styles.qtyChip, { backgroundColor: theme.surfaceSecondary }]}>
+                <Text style={[styles.qtyChipText, { color: theme.textSecondary }]}>
+                  x{item.quantity}
+                </Text>
+              </View>
+            ) : null}
           </View>
 
           <Text
             style={[styles.itemName, { color: theme.textPrimary }]}
-            numberOfLines={2}
+            numberOfLines={1}
           >
-            {message}
+            {item.name}
+          </Text>
+
+          <Text
+            style={[styles.itemSub, { color: theme.textSecondary }]}
+            numberOfLines={1}
+          >
+            {item.optionLabel || ''}
+            {item.price ? ` • ₹${item.price.toLocaleString('en-IN')}` : ''}
           </Text>
         </View>
 
-        {/* Right: Optional Action CTA + Dismiss */}
+        {/* Right: "View Bag" Button + Dismiss */}
         <View style={styles.actionsCol}>
-          {actionLabel && onAction ? (
+          {item.onViewBag ? (
             <TouchableOpacity
               onPress={() => {
                 handleDismiss();
-                onAction();
+                item.onViewBag?.();
               }}
               activeOpacity={0.85}
               style={[
-                styles.actionBtn,
+                styles.viewBagBtn,
                 {
                   backgroundColor: theme.mode === 'dark' ? '#FFFFFF' : '#1D1D1F',
                 },
@@ -241,14 +192,14 @@ export const Toast: React.FC<ToastProps> = ({
             >
               <Text
                 style={[
-                  styles.actionBtnText,
+                  styles.viewBagBtnText,
                   {
                     color: theme.mode === 'dark' ? '#000000' : '#FFFFFF',
                     fontFamily: typography.fontFamilyHeading,
                   },
                 ]}
               >
-                {actionLabel}
+                View Bag
               </Text>
               <ArrowRight
                 size={12}
@@ -308,6 +259,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  thumbnailImg: {
+    width: '100%',
+    height: '100%',
+  },
   successBadge: {
     position: 'absolute',
     bottom: -3,
@@ -315,6 +270,7 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
+    backgroundColor: '#10B981', // Emerald green check
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
@@ -335,18 +291,30 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: -0.2,
   },
+  qtyChip: {
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  qtyChipText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
   itemName: {
     fontSize: 13,
     fontWeight: '500',
     letterSpacing: -0.1,
-    lineHeight: 17,
+  },
+  itemSub: {
+    fontSize: 11,
+    fontWeight: '400',
   },
   actionsCol: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  actionBtn: {
+  viewBagBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -354,7 +322,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 11,
     borderRadius: 999,
   },
-  actionBtnText: {
+  viewBagBtnText: {
     fontSize: 12,
     fontWeight: '600',
     letterSpacing: -0.1,

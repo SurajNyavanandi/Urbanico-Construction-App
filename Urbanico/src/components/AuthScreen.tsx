@@ -140,16 +140,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag"
       >
-        {/* Modern Mobile App Brand Hero Section */}
+        {/* Modern Brand Hero Section */}
         <View style={styles.brandHeroCard}>
-          <BrandLogo size={76} borderRadius={20} style={{ marginBottom: 16 }} />
+          <BrandLogo size={72} borderRadius={18} style={{ marginBottom: 16 }} />
 
           <Text style={[styles.brandTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-            {step === 'mobile' ? 'Welcome to Urbanico' : 'Verify OTP'}
+            Urbanico Construction
           </Text>
-          {step === 'mobile' && (
+          {step === 'otp' && (
             <Text style={[styles.brandSubTitle, { color: theme.textSecondary }]}>
-              On-Demand Construction Material & Equipment Supply
+              {`Enter the 6-digit code sent to +91 ${phoneNumber}`}
             </Text>
           )}
         </View>
@@ -158,7 +158,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         {step === 'mobile' ? (
           <View style={styles.stepContainer}>
             <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Mobile Phone Number</Text>
+              <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Mobile Number</Text>
               <View
                 style={[
                   styles.phoneInputRow,
@@ -169,7 +169,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 ]}
               >
                 <View style={[styles.countryCodeBadge, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-                  <Text style={[styles.countryCodeText, { color: theme.textPrimary }]}>🇮🇳 +91</Text>
+                  <Text style={[styles.countryCodeText, { color: theme.textPrimary }]}>+91</Text>
                 </View>
                 <TextInput
                   keyboardType="number-pad"
@@ -188,24 +188,21 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             </View>
 
             {errorMessage && (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{errorMessage}</Text>
+              <View style={[styles.errorBox, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary }]}>
+                <Text style={[styles.errorText, { color: theme.textPrimary }]}>{errorMessage}</Text>
               </View>
             )}
 
-            <LoadingButton
-              title="Get OTP Code"
+            <TouchableOpacity
               onPress={handleSendOtp}
-              isLoading={isSendingOtp}
-              variant="primary"
-            />
-
-            <View style={styles.termsRow}>
-              <ShieldCheck size={14} color="#059669" />
-              <Text style={[styles.termsText, { color: theme.textMuted }]}>
-                100% Encrypted • Instant GST Invoicing Enabled
+              disabled={isSendingOtp}
+              activeOpacity={0.8}
+              style={[styles.appleCtaBtn, { backgroundColor: theme.primary }]}
+            >
+              <Text style={styles.appleCtaBtnText}>
+                {isSendingOtp ? 'Sending...' : 'Continue'}
               </Text>
-            </View>
+            </TouchableOpacity>
           </View>
         ) : (
           /* Step 2: OTP Verification Screen */
@@ -225,25 +222,18 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   style={[
                     styles.otpBox,
                     isSuccess
-                      ? styles.otpSuccess
+                      ? { borderColor: theme.primary, backgroundColor: theme.surfaceSecondary, color: theme.textPrimary }
                       : digit
-                      ? { borderColor: theme.primary, backgroundColor: theme.primaryLight, color: theme.primaryDark }
-                      : { borderColor: theme.border, backgroundColor: theme.surface, color: theme.textPrimary },
+                      ? { borderColor: theme.primary, backgroundColor: theme.surface, color: theme.textPrimary }
+                      : { borderColor: theme.border, backgroundColor: theme.surfaceSecondary, color: theme.textPrimary },
                   ]}
                 />
               ))}
             </View>
 
             {errorMessage && (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{errorMessage}</Text>
-              </View>
-            )}
-
-            {isSuccess && (
-              <View style={styles.successBox}>
-                <Check size={18} color="#047857" strokeWidth={3} />
-                <Text style={styles.successText}>OTP Verified! Logging in...</Text>
+              <View style={[styles.errorBox, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary }]}>
+                <Text style={[styles.errorText, { color: theme.textPrimary }]}>{errorMessage}</Text>
               </View>
             )}
 
@@ -257,32 +247,31 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 <TouchableOpacity
                   onPress={() => {
                     setTimer(30);
-                    setErrorMessage('New OTP code dispatched to mobile!');
+                    setErrorMessage(null);
                   }}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.resendCtaText, { color: theme.primary }]}>Resend OTP Code</Text>
+                  <Text style={[styles.resendCtaText, { color: theme.primary }]}>Resend code</Text>
                 </TouchableOpacity>
               )}
             </View>
 
-            <LoadingButton
-              title="Verify & Proceed"
+            <TouchableOpacity
               onPress={() => verifyOtpCode(otpDigits.join(''))}
-              isLoading={isVerifyingOtp}
-              variant="primary"
-              icon={<ShieldCheck size={18} color="#FFFFFF" />}
-            />
+              disabled={isVerifyingOtp || isSuccess}
+              activeOpacity={0.8}
+              style={[styles.appleCtaBtn, { backgroundColor: theme.primary }]}
+            >
+              <Text style={styles.appleCtaBtnText}>
+                {isVerifyingOtp ? 'Verifying...' : isSuccess ? 'Verified' : 'Verify'}
+              </Text>
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
 
-      {/* Minimal Footer */}
-      <View style={styles.footerContainer}>
-        <Text style={[styles.footerText, { color: theme.textMuted }]}>
-          Urbanico Construction Supply • Standard Mobile Auth
-        </Text>
-      </View>
+      {/* Ultra-Minimal Footer */}
+      <View style={styles.footerContainer} />
     </KeyboardAvoidingView>
   );
 };
@@ -385,42 +374,28 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   errorBox: {
-    backgroundColor: '#FEF2F2',
-    padding: 12,
-    borderRadius: 12,
+    padding: 10,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#FEE2E2',
     alignItems: 'center',
   },
   errorText: {
-    color: '#DC2626',
     fontSize: 12,
     fontWeight: '500',
     textAlign: 'center',
   },
-  primaryBtn: {
-    paddingVertical: 14,
-    borderRadius: 14,
+  appleCtaBtn: {
+    height: 48,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
+    width: '100%',
   },
-  primaryBtnText: {
+  appleCtaBtnText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
-  },
-  termsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: 4,
-  },
-  termsText: {
-    fontSize: 11,
-    fontWeight: '600',
+    letterSpacing: -0.2,
   },
   otpRow: {
     flexDirection: 'row',
@@ -431,65 +406,37 @@ const styles = StyleSheet.create({
     width: 44,
     height: 52,
     borderRadius: 12,
-    borderWidth: 2,
+    borderWidth: 1.5,
     textAlign: 'center',
     fontSize: 20,
-    fontWeight: '900',
-  },
-  otpSuccess: {
-    borderColor: '#10B981',
-    backgroundColor: '#ECFDF5',
-    color: '#065F46',
-  },
-  autofillCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  autofillText: {
-    fontSize: 12,
     fontWeight: '700',
   },
   successBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#ECFDF5',
-    padding: 12,
-    borderRadius: 12,
+    padding: 10,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#A7F3D0',
+    alignItems: 'center',
   },
   successText: {
-    color: '#047857',
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '600',
   },
   resendContainer: {
     alignItems: 'center',
   },
   resendTimerText: {
-    fontSize: 12,
+    fontSize: 13,
+    letterSpacing: -0.2,
   },
   boldTimerText: {
-    fontWeight: '800',
+    fontWeight: '600',
   },
   resendCtaText: {
-    fontSize: 12,
-    fontWeight: '800',
-    textDecorationLine: 'underline',
+    fontSize: 13,
+    fontWeight: '500',
+    letterSpacing: -0.2,
   },
   footerContainer: {
-    paddingBottom: 16,
-  },
-  footerText: {
-    textAlign: 'center',
-    fontSize: 11,
+    paddingBottom: 8,
   },
 });

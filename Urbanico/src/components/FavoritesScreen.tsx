@@ -11,9 +11,9 @@ import { Heart, ShoppingCart, ArrowRight, Sparkles, Check } from 'lucide-react-n
 import { MaterialItem } from '../types';
 import { MATERIAL_ITEMS } from '../data/materialsData';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../context/ToastContext';
 import { ShimmerImage } from './common/ShimmerImage';
 import { EmptyState } from './common/EmptyState';
-import { Toast } from './common/Toast';
 
 interface FavoritesScreenProps {
   onSelectItemModal: (item: MaterialItem) => void;
@@ -29,32 +29,20 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
   onToggleFavorite,
 }) => {
   const { theme, typography } = useTheme();
+  const { showToast } = useToast();
   const favorites = MATERIAL_ITEMS.filter((item) => favoriteIds.includes(item.id));
-  const [addedToast, setAddedToast] = useState<string | null>(null);
-
-  const triggerToast = (itemName: string) => {
-    setAddedToast(`Added ${itemName} to Order Modal`);
-    setTimeout(() => setAddedToast(null), 2000);
-  };
-
   const [refreshing, setRefreshing] = useState(false);
 
   const handleRefresh = () => {
     setRefreshing(true);
     setTimeout(() => {
       setRefreshing(false);
-      setAddedToast('Favorites list updated');
+      showToast('Favorites list updated', 'info');
     }, 800);
   };
 
   return (
     <View style={{ flex: 1 }}>
-      <Toast
-        visible={Boolean(addedToast)}
-        message={addedToast || ''}
-        type="info"
-        onDismiss={() => setAddedToast(null)}
-      />
       <ScrollView
         style={[styles.container, { backgroundColor: theme.background }]}
         contentContainerStyle={styles.scrollContent}
@@ -68,22 +56,11 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
           />
         }
       >
-      {/* Toast Alert */}
-      {addedToast && (
-        <View style={[styles.toastContainer, { backgroundColor: theme.surfaceSecondary, borderColor: theme.primary }]}>
-          <Check size={16} color={theme.primary} />
-          <Text style={[styles.toastText, { color: theme.textPrimary }]}>{addedToast}</Text>
-        </View>
-      )}
-
         {/* Header Info */}
         <View style={styles.headerRow}>
-          <View>
-            <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Saved Favorites</Text>
-            <Text style={[styles.headerSubtitle, { color: theme.textSecondary }]}>
-              {favorites.length} {favorites.length === 1 ? 'material' : 'materials'} saved for quick ordering
-            </Text>
-          </View>
+          <Text style={[styles.headerTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
+            Saved Favorites
+          </Text>
         </View>
 
         {/* Favorites List */}
@@ -131,7 +108,6 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
                     <TouchableOpacity
                       onPress={() => {
                         onSelectItemModal(item);
-                        triggerToast(item.name);
                       }}
                       activeOpacity={0.8}
                       style={[styles.cartBtn, { backgroundColor: theme.primary }]}
@@ -189,14 +165,9 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
+    fontSize: 20,
+    fontWeight: '600',
     letterSpacing: -0.3,
-  },
-  headerSubtitle: {
-    fontSize: 12,
-    fontWeight: '400',
-    marginTop: 2,
   },
   favoritesList: {
     gap: 10,
@@ -223,7 +194,7 @@ const styles = StyleSheet.create({
   itemContent: {
     flex: 1,
     justifyContent: 'center',
-    gap: 3,
+    gap: 2,
   },
   titleRow: {
     flexDirection: 'row',
@@ -232,12 +203,13 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   itemName: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '500',
+    letterSpacing: -0.1,
     flex: 1,
   },
   itemSubtitle: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '400',
   },
   cardBottomRow: {
@@ -247,8 +219,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   priceText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '500',
+    letterSpacing: -0.1,
   },
   heartBtn: {
     width: 28,
