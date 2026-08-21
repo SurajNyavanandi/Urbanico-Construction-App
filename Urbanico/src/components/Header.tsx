@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,10 @@ import {
   StyleSheet,
   Platform,
   ScrollView,
+  Modal,
+  Image,
+  Pressable,
+  KeyboardAvoidingView,
 } from 'react-native';
 import {
   MapPin,
@@ -18,6 +22,10 @@ import {
   Package,
   Wrench,
   Tag,
+  TrendingUp,
+  Flame,
+  ArrowUpRight,
+  CheckCircle2,
 } from 'lucide-react-native';
 import { ScreenType, MaterialItem } from '../types';
 import { MATERIAL_ITEMS, SERVICES, CATEGORIES } from '../data/materialsData';
@@ -42,6 +50,19 @@ interface HeaderProps {
   onNavigateScreen?: (screen: ScreenType) => void;
 }
 
+const POPULAR_SEARCH_PILLS = [
+  'UltraTech Cement 53',
+  'Plastering Sand',
+  'TMT 12mm Rebar',
+  'Red Clay Bricks',
+  'AAC Blocks 8-inch',
+  'M-Sand Manufactured',
+  'Centring Iron Sheets',
+  'Civil Mason Crew',
+  'River Sand Bulk',
+  'Blue Metal 20mm',
+];
+
 export const Header: React.FC<HeaderProps> = ({
   currentScreen,
   title,
@@ -61,348 +82,456 @@ export const Header: React.FC<HeaderProps> = ({
   const { t } = useLanguage();
   const { selectedLocation: globalLocation } = useLocation();
   const activeLocation = globalLocation || propLocation || 'Miyapur Site, Phase 2, Hyderabad';
-  const [isFocused, setIsFocused] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
+  
+  // Nike/Adidas Style Full Search Overlay State
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchInputText, setSearchInputText] = useState(searchQuery);
+  const searchInputRef = useRef<TextInput>(null);
 
-  // Automatically dismiss search dropdown whenever the active screen changes
-  React.useEffect(() => {
-    setIsFocused(false);
+  // Sync external search query
+  useEffect(() => {
+    setSearchInputText(searchQuery);
+  }, [searchQuery]);
+
+  // Close search overlay if screen changes
+  useEffect(() => {
+    setIsSearchOpen(false);
   }, [currentScreen]);
 
-  const isHome = currentScreen === 'home';
-  const showSearchBar = isHome;
   const locationName = activeLocation.split(',')[0] || 'Home';
+  const queryLower = searchInputText.toLowerCase().trim();
 
-  const queryLower = searchQuery.toLowerCase().trim();
+  // Synonyms and typo mapping for Indian construction terms
+  const normalizeContractorQuery = (q: string) => {
+    const raw = q.toLowerCase().trim();
+    if (raw.includes('cemet') || raw.includes('semant') || raw.includes('ciment')) return 'cement';
+    if (raw.includes('msand') || raw.includes('m sand') || raw.includes('psand') || raw.includes('p sand') || raw.includes('reti') || raw.includes('ret')) return 'sand';
+    if (raw.includes('saria') || raw.includes('rebar') || raw.includes('iron rod') || raw.includes('tmt rod') || raw.includes('daria')) return 'steel';
+    if (raw.includes('gitti') || raw.includes('kankad') || raw.includes('agregate') || raw.includes('blue metal') || raw.includes('gravel')) return 'stone';
+    if (raw.includes('eent') || raw.includes('int') || raw.includes('aac block')) return 'bricks';
+    if (raw.includes('formwork') || raw.includes('centring') || raw.includes('prop')) return 'centring';
+    return raw;
+  };
 
-  // Filter ONLY materials (excluding services category) for materials search
+  const normalizedQuery = normalizeContractorQuery(queryLower);
+
+  // Filter matching materials
   const matchingItems = queryLower
     ? MATERIAL_ITEMS.filter(
         (m) =>
           m.categoryId !== 'services' &&
           (m.name.toLowerCase().includes(queryLower) ||
-            (m.subtitle && m.subtitle.toLowerCase().includes(queryLower)))
-      ).slice(0, 5)
+            m.name.toLowerCase().includes(normalizedQuery) ||
+            (m.subtitle && (m.subtitle.toLowerCase().includes(queryLower) || m.subtitle.toLowerCase().includes(normalizedQuery))) ||
+            m.categoryId.toLowerCase().includes(queryLower) ||
+            m.categoryId.toLowerCase().includes(normalizedQuery))
+      ).slice(0, 6)
     : [];
 
+  // Filter matching services
   const matchingServices = queryLower
     ? SERVICES.filter(
         (s) =>
           s.name.toLowerCase().includes(queryLower) ||
-          s.subtitle.toLowerCase().includes(queryLower)
+          s.name.toLowerCase().includes(normalizedQuery) ||
+          (s.subtitle && (s.subtitle.toLowerCase().includes(queryLower) || s.subtitle.toLowerCase().includes(normalizedQuery)))
       ).slice(0, 3)
     : [];
 
+  // Filter matching categories
   const matchingCategories = queryLower
-    ? CATEGORIES.filter((c) => c.name.toLowerCase().includes(queryLower)).slice(0, 3)
+    ? CATEGORIES.filter(
+        (c) =>
+          c.name.toLowerCase().includes(queryLower) ||
+          c.name.toLowerCase().includes(normalizedQuery) ||
+          c.id.toLowerCase().includes(normalizedQuery)
+      ).slice(0, 3)
     : [];
 
-  const POPULAR_SUGGESTIONS = [
-    'UltraTech Cement 53 Grade',
-    'Plastering Sand',
-    'TMT 12mm Rebar',
-    'Red Clay Bricks',
-    'AAC Blocks',
-    'Bamboo Planks',
-  ];
+  const handleOpenSearch = () => {
+    setSearchInputText(searchQuery);
+    setIsSearchOpen(true);
+    setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 150);
+  };
 
-  const handleInputChange = (text: string) => {
-    onSearchChange(text);
-    if (text.trim().length > 0) {
-      setIsSearching(true);
-      setTimeout(() => setIsSearching(false), 120);
-    } else {
-      setIsSearching(false);
-    }
+  const handleCloseSearch = () => {
+    setIsSearchOpen(false);
   };
 
   const handleExecuteSearch = (queryStr: string) => {
-    onSelectSearchQuery(queryStr);
-    setIsFocused(false);
+    const clean = queryStr.trim();
+    if (!clean) return;
+    onSearchChange(clean);
+    onSelectSearchQuery(clean);
+    setIsSearchOpen(false);
     if (onNavigateScreen && currentScreen !== 'category') {
       onNavigateScreen('category');
     }
   };
 
   const handleSelectProductItem = (item: MaterialItem) => {
+    onSearchChange(item.name);
     onSelectSearchQuery(item.name);
-    setIsFocused(false);
+    setIsSearchOpen(false);
     if (onSelectItemModal) {
       onSelectItemModal(item);
     }
   };
 
+  const handleSelectCategoryPill = (catId: string) => {
+    const cat = CATEGORIES.find((c) => c.id === catId);
+    if (cat) {
+      handleExecuteSearch(cat.name);
+    }
+  };
+
   return (
-    <View style={[styles.headerContainer, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-      {/* 1. Location Bar & Brand Identity */}
+    <View style={styles.headerContainer}>
+      {/* 1. Location Bar & Brand Identity (Home screen exclusive) */}
       <View style={styles.locationRow}>
+        <TouchableOpacity
+          onPress={() => onNavigateScreen && onNavigateScreen('home')}
+          activeOpacity={0.8}
+          style={styles.brandContainer}
+        >
+          <BrandLogo size={32} borderRadius={8} />
+          <View style={styles.brandTextGroup}>
+            <Text style={styles.brandTitle}>DIRECT YARD</Text>
+            <Text style={styles.brandSub}>Wholesale Supplies</Text>
+          </View>
+        </TouchableOpacity>
+
         <TouchableOpacity
           onPress={onOpenLocationModal}
           activeOpacity={0.7}
           style={styles.locationButton}
         >
-          <MapPin color={theme.primary} size={18} />
-          <Text style={[styles.locationText, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-            {locationName}
-          </Text>
-          <ChevronDown color={theme.textPrimary} size={16} strokeWidth={2.5} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => onNavigateScreen && onNavigateScreen('home')}
-          activeOpacity={0.8}
-        >
-          <BrandLogo size={30} borderRadius={8} />
+          <MapPin color="#111111" size={13} strokeWidth={2.2} />
+          <View style={styles.locationTextWrapper}>
+            <Text style={styles.locationDeliverLabel}>DELIVER TO</Text>
+            <Text style={styles.locationText} numberOfLines={1}>
+              {locationName}
+            </Text>
+          </View>
+          <ChevronDown color="#111111" size={13} strokeWidth={2.2} />
         </TouchableOpacity>
       </View>
 
-      {/* 2. Sub-header line (Back Arrow + Category Title) for non-home screens EXCEPT category view (since category view integrates fixed back arrow into category nav bar) */}
-      {!isHome && currentScreen !== 'category' && !isFocused && (
-        <View style={styles.subHeaderRow}>
-          {onBack ? (
-            <TouchableOpacity
-              onPress={onBack}
-              style={styles.backButton}
-              accessibilityLabel="Go Back"
-              activeOpacity={0.7}
-            >
-              <ArrowLeft color={theme.textPrimary} size={22} strokeWidth={2.5} />
-            </TouchableOpacity>
-          ) : (
-            <View style={{ width: 28 }} />
-          )}
-          <Text style={[styles.headerTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-            {title || 'Materials'}
-          </Text>
-          <View style={{ width: 28 }} />
-        </View>
-      )}
+      {/* 2. Nike-style Search Bar Trigger on Home screen */}
+      <TouchableOpacity
+        onPress={handleOpenSearch}
+        activeOpacity={0.85}
+        style={styles.searchBarTrigger}
+      >
+        <Search color="#111111" size={17} strokeWidth={2.2} />
+        <Text style={styles.searchPlaceholderText} numberOfLines={1}>
+          {searchQuery ? searchQuery : t.searchPlaceholder || 'Search cement, sand, TMT steel, tools...'}
+        </Text>
+        {searchQuery ? (
+          <TouchableOpacity
+            onPress={(e) => {
+              e.stopPropagation();
+              onSearchChange('');
+            }}
+            style={styles.triggerClearBtn}
+            activeOpacity={0.7}
+          >
+            <X color="#707072" size={14} strokeWidth={2.2} />
+          </TouchableOpacity>
+        ) : null}
+      </TouchableOpacity>
 
-      {/* 3. Search Bar Container */}
-      {showSearchBar && (
-        <View style={styles.searchRow}>
-          <View style={[styles.searchContainer, isFocused && { flex: 1 }]}>
-            <TextInput
-              value={searchQuery}
-              onChangeText={handleInputChange}
-              onFocus={() => setIsFocused(true)}
-              placeholder={t.searchPlaceholder}
-              placeholderTextColor={theme.textMuted}
-              style={[
-                styles.searchInput,
-                {
-                  backgroundColor: theme.surfaceSecondary,
-                  color: theme.textPrimary,
-                  borderColor: theme.border,
-                  fontFamily: typography.fontFamily,
-                },
-              ]}
-              returnKeyType="search"
-              onSubmitEditing={() => handleExecuteSearch(searchQuery)}
-            />
-            <View style={styles.searchIconContainer}>
-              <Search color={theme.primary} size={16} strokeWidth={2.2} />
+      {/* ========================================================================= */}
+      {/* NIKE / ADIDAS / PUMA FULL-SCREEN SEARCH OVERLAY */}
+      {/* ========================================================================= */}
+      <Modal
+        visible={isSearchOpen}
+        animationType="fade"
+        transparent={false}
+        onRequestClose={handleCloseSearch}
+      >
+        <KeyboardAvoidingView
+          style={styles.searchModalRoot}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          {/* Top Search Input Bar */}
+          <View style={styles.searchModalHeader}>
+            <View style={styles.modalInputWrapper}>
+              <Search color="#111111" size={18} strokeWidth={2.2} />
+              <TextInput
+                ref={searchInputRef}
+                value={searchInputText}
+                onChangeText={(txt) => {
+                  setSearchInputText(txt);
+                  onSearchChange(txt);
+                }}
+                placeholder="Search materials, grades, trades..."
+                placeholderTextColor="#8E8E93"
+                style={styles.modalTextInput}
+                returnKeyType="search"
+                onSubmitEditing={() => handleExecuteSearch(searchInputText)}
+                autoFocus
+              />
+              {searchInputText.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => {
+                    setSearchInputText('');
+                    onSearchChange('');
+                    searchInputRef.current?.focus();
+                  }}
+                  style={styles.modalClearBtn}
+                  activeOpacity={0.7}
+                >
+                  <X color="#707072" size={16} strokeWidth={2.2} />
+                </TouchableOpacity>
+              )}
             </View>
 
-            {searchQuery.length > 0 && (
-              <TouchableOpacity
-                onPress={() => handleInputChange('')}
-                style={styles.clearIconContainer}
-                activeOpacity={0.7}
-              >
-                <X color={theme.textMuted} size={16} strokeWidth={2.5} />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {isFocused && (
             <TouchableOpacity
-              onPress={() => {
-                setIsFocused(false);
-              }}
-              style={styles.cancelBtn}
+              onPress={handleCloseSearch}
+              style={styles.cancelSearchBtn}
               activeOpacity={0.7}
             >
-              <Text style={[styles.cancelBtnText, { color: theme.primary, fontFamily: typography.fontFamilyHeading }]}>
-                Cancel
-              </Text>
+              <Text style={styles.cancelSearchBtnText}>Cancel</Text>
             </TouchableOpacity>
-          )}
-        </View>
-      )}
+          </View>
 
-      {/* 4. Dropdown Suggestions & Recent Searches Overlay (Absolute Floating) */}
-      {showSearchBar && isFocused && (
-        <View style={[styles.dropdownOverlay, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+          {/* Search Content Scroll Area */}
           <ScrollView
+            style={styles.searchModalScroll}
+            contentContainerStyle={styles.searchModalScrollContent}
             keyboardShouldPersistTaps="handled"
-            nestedScrollEnabled
-            style={styles.dropdownScroll}
             showsVerticalScrollIndicator={false}
           >
-            {/* Loading Indicator when user is typing */}
-            {isSearching && (
-              <View style={styles.loadingBox}>
-                <Text style={[styles.loadingText, { color: theme.primary }]}>Searching catalog...</Text>
-              </View>
-            )}
-
-            {/* Case A: Query is empty - Show Recent Searches */}
-            {!queryLower && !isSearching && (
-              <View style={styles.dropdownSection}>
-                {recentSearches.length > 0 ? (
-                  <View style={styles.sectionBlock}>
-                    <View style={styles.sectionHeaderRow}>
-                      <View style={styles.sectionTitleGroup}>
-                        <History size={14} color={theme.primary} />
-                        <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>Recent Searches</Text>
+            {/* ------------------------------------------------------------- */}
+            {/* VIEW A: EMPTY QUERY (Recent Searches & Trending Tags) */}
+            {/* ------------------------------------------------------------- */}
+            {!queryLower && (
+              <View style={styles.searchSectionGap}>
+                {/* Recent Searches */}
+                {recentSearches.length > 0 && (
+                  <View style={styles.searchBlock}>
+                    <View style={styles.searchSectionHeader}>
+                      <View style={styles.sectionTitleRow}>
+                        <History size={15} color="#111111" strokeWidth={2.2} />
+                        <Text style={styles.searchSectionTitle}>Recent Searches</Text>
                       </View>
                       <TouchableOpacity
                         onPress={onClearRecentSearches}
                         activeOpacity={0.7}
                       >
-                        <Text style={styles.clearAllText}>Clear All</Text>
+                        <Text style={styles.clearAllBtnText}>Clear All</Text>
                       </TouchableOpacity>
                     </View>
 
-                    <View style={styles.recentList}>
+                    <View style={styles.recentPillsContainer}>
                       {recentSearches.map((term, idx) => (
-                        <View key={`${term}-${idx}`} style={[styles.recentRow, { backgroundColor: theme.surfaceSecondary }]}>
+                        <View key={`${term}-${idx}`} style={styles.recentChip}>
                           <TouchableOpacity
                             onPress={() => handleExecuteSearch(term)}
-                            style={styles.recentTouchArea}
+                            style={styles.recentChipTextBtn}
                             activeOpacity={0.7}
                           >
-                            <History size={13} color={theme.textMuted} />
-                            <Text style={[styles.recentTermText, { color: theme.textPrimary }]}>{term}</Text>
+                            <History size={13} color="#707072" strokeWidth={1.8} />
+                            <Text style={styles.recentChipText} numberOfLines={1}>
+                              {term}
+                            </Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             onPress={() => onRemoveRecentSearch(term)}
-                            style={styles.removeRecentBtn}
+                            style={styles.recentChipRemoveBtn}
                             activeOpacity={0.7}
                           >
-                            <X size={12} color={theme.textMuted} />
+                            <X size={13} color="#8E8E93" strokeWidth={2} />
                           </TouchableOpacity>
                         </View>
                       ))}
                     </View>
                   </View>
-                ) : (
-                  <View style={styles.loadingBox}>
-                    <Text style={[styles.loadingText, { color: theme.textMuted }]}>Type to search materials catalog...</Text>
-                  </View>
                 )}
+
+                {/* Popular & Trending Now (Nike Style Rounded Pills) */}
+                <View style={styles.searchBlock}>
+                  <View style={styles.sectionTitleRow}>
+                    <Flame size={15} color="#E11D48" strokeWidth={2.2} />
+                    <Text style={styles.searchSectionTitle}>Trending Searches</Text>
+                  </View>
+
+                  <View style={styles.trendingPillsContainer}>
+                    {POPULAR_SEARCH_PILLS.map((term) => (
+                      <TouchableOpacity
+                        key={term}
+                        onPress={() => handleExecuteSearch(term)}
+                        style={styles.trendingPill}
+                        activeOpacity={0.75}
+                      >
+                        <TrendingUp size={12} color="#111111" strokeWidth={2} />
+                        <Text style={styles.trendingPillText}>{term}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* Quick Browse Categories */}
+                <View style={styles.searchBlock}>
+                  <View style={styles.sectionTitleRow}>
+                    <Tag size={15} color="#111111" strokeWidth={2.2} />
+                    <Text style={styles.searchSectionTitle}>Explore Categories</Text>
+                  </View>
+
+                  <View style={styles.categoryChipsGrid}>
+                    {CATEGORIES.map((cat) => (
+                      <TouchableOpacity
+                        key={cat.id}
+                        onPress={() => handleSelectCategoryPill(cat.id)}
+                        style={styles.categoryChipCard}
+                        activeOpacity={0.75}
+                      >
+                        <Text style={styles.categoryChipName}>{cat.name}</Text>
+                        <ArrowUpRight size={14} color="#707072" strokeWidth={2} />
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
               </View>
             )}
 
-            {/* Case B: User typed text - Show Dynamic Matches matching Materials Catalog layout */}
-            {queryLower && !isSearching && (
-              <View style={styles.dropdownSection}>
+            {/* ------------------------------------------------------------- */}
+            {/* VIEW B: ACTIVE QUERY (Live Matching Materials, Services, Cats) */}
+            {/* ------------------------------------------------------------- */}
+            {queryLower && (
+              <View style={styles.searchSectionGap}>
+                {/* 1. Direct Matching Products */}
                 {matchingItems.length > 0 && (
-                  <View style={styles.sectionBlock}>
-                    <View style={styles.sectionTitleGroup}>
-                      <Package size={14} color={theme.primary} />
-                      <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>Materials & Products</Text>
-                    </View>
-                    {matchingItems.map((item) => (
-                      <TouchableOpacity
-                        key={item.id}
-                        onPress={() => handleSelectProductItem(item)}
-                        style={[styles.suggestionItemRow, { borderBottomColor: theme.borderLight }]}
-                        activeOpacity={0.7}
-                      >
-                        <View style={styles.suggestionInfo}>
-                          <Text style={[styles.suggestionTitle, { color: theme.textPrimary }]} numberOfLines={1}>
-                            {item.name}
-                          </Text>
-                          {item.subtitle && (
-                            <Text style={[styles.suggestionSub, { color: theme.textSecondary }]} numberOfLines={1}>
-                              {item.subtitle}
-                            </Text>
-                          )}
-                        </View>
-                        {item.defaultPrice && (
-                          <Text style={[styles.suggestionPrice, { color: theme.primaryDark }]}>
-                            ₹{item.defaultPrice.toLocaleString('en-IN')}
-                          </Text>
-                        )}
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-
-                {matchingServices.length > 0 && (
-                  <View style={styles.sectionBlock}>
-                    <View style={styles.sectionTitleGroup}>
-                      <Wrench size={14} color={theme.primary} />
-                      <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>Site Services & Trades</Text>
-                    </View>
-                    {matchingServices.map((srv) => (
-                      <TouchableOpacity
-                        key={srv.id}
-                        onPress={() => handleExecuteSearch(srv.name)}
-                        style={[styles.suggestionItemRow, { borderBottomColor: theme.borderLight }]}
-                        activeOpacity={0.7}
-                      >
-                        <View style={styles.suggestionInfo}>
-                          <Text style={[styles.suggestionTitle, { color: theme.textPrimary }]} numberOfLines={1}>
-                            {srv.name} Service
-                          </Text>
-                          <Text style={[styles.suggestionSub, { color: theme.textSecondary }]} numberOfLines={1}>
-                            {srv.subtitle} • {srv.rate}
-                          </Text>
-                        </View>
-                        <View style={[styles.serviceBadge, { backgroundColor: theme.primaryLight }]}>
-                          <Text style={[styles.serviceBadgeText, { color: theme.primaryDark }]}>Labor Trade</Text>
-                        </View>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-
-                {matchingCategories.length > 0 && (
-                  <View style={styles.sectionBlock}>
-                    <View style={styles.sectionTitleGroup}>
-                      <Tag size={14} color={theme.primary} />
-                      <Text style={[styles.sectionTitle, { color: theme.textMuted }]}>Categories</Text>
-                    </View>
-                    {matchingCategories.map((cat) => (
-                      <TouchableOpacity
-                        key={cat.id}
-                        onPress={() => handleExecuteSearch(cat.name)}
-                        style={[styles.suggestionItemRow, { borderBottomColor: theme.borderLight }]}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.suggestionTitle, { color: theme.textPrimary }]}>{cat.name} Catalog</Text>
-                        <Text style={[styles.suggestionSub, { color: theme.textSecondary }]}>{cat.count}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-
-                {matchingItems.length === 0 &&
-                  matchingServices.length === 0 &&
-                  matchingCategories.length === 0 && (
-                    <View style={styles.noMatchBox}>
-                      <Text style={[styles.noMatchText, { color: theme.textMuted }]}>
-                        No exact product found for "{searchQuery}".
+                  <View style={styles.searchBlock}>
+                    <View style={styles.sectionTitleRow}>
+                      <Package size={15} color="#111111" strokeWidth={2.2} />
+                      <Text style={styles.searchSectionTitle}>
+                        Materials & Products ({matchingItems.length})
                       </Text>
-                      <TouchableOpacity
-                        onPress={() => handleExecuteSearch(searchQuery)}
-                        style={[styles.searchAllBtn, { backgroundColor: theme.primary }]}
-                        activeOpacity={0.8}
-                      >
-                        <Text style={styles.searchAllBtnText}>
-                          Search Catalog for "{searchQuery}"
-                        </Text>
-                      </TouchableOpacity>
                     </View>
-                  )}
+
+                    <View style={styles.productListContainer}>
+                      {matchingItems.map((item) => (
+                        <TouchableOpacity
+                          key={item.id}
+                          onPress={() => handleSelectProductItem(item)}
+                          style={styles.productSearchRow}
+                          activeOpacity={0.7}
+                        >
+                          <Image
+                            source={{ uri: item.image }}
+                            style={styles.productThumb}
+                            resizeMode="cover"
+                          />
+                          <View style={styles.productInfoCol}>
+                            <Text style={styles.productRowTitle} numberOfLines={1}>
+                              {item.name}
+                            </Text>
+                            <Text style={styles.productRowSub} numberOfLines={1}>
+                              {item.subtitle || `${item.categoryId.toUpperCase()} • Direct Yard`}
+                            </Text>
+                            <View style={styles.stockBadgeRow}>
+                              <CheckCircle2 size={11} color="#059669" strokeWidth={2.2} />
+                              <Text style={styles.stockBadgeText}>In Stock • Fast Yard Dispatch</Text>
+                            </View>
+                          </View>
+                          {item.defaultPrice && (
+                            <View style={styles.productPriceCol}>
+                              <Text style={styles.productPriceText}>
+                                ₹{item.defaultPrice.toLocaleString('en-IN')}
+                              </Text>
+                              <Text style={styles.productPriceUnit}>
+                                {item.options[0]?.label || 'Base Unit'}
+                              </Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* 2. Matching Trades / Site Services */}
+                {matchingServices.length > 0 && (
+                  <View style={styles.searchBlock}>
+                    <View style={styles.sectionTitleRow}>
+                      <Wrench size={15} color="#111111" strokeWidth={2.2} />
+                      <Text style={styles.searchSectionTitle}>
+                        Site Services & Trades ({matchingServices.length})
+                      </Text>
+                    </View>
+
+                    <View style={styles.productListContainer}>
+                      {matchingServices.map((srv) => (
+                        <TouchableOpacity
+                          key={srv.id}
+                          onPress={() => handleExecuteSearch(srv.name)}
+                          style={styles.productSearchRow}
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.serviceIconThumb}>
+                            <Wrench size={18} color="#111111" strokeWidth={2} />
+                          </View>
+                          <View style={styles.productInfoCol}>
+                            <Text style={styles.productRowTitle} numberOfLines={1}>
+                              {srv.name} Service
+                            </Text>
+                            <Text style={styles.productRowSub} numberOfLines={1}>
+                              {srv.subtitle}
+                            </Text>
+                          </View>
+                          <View style={styles.serviceRateBadge}>
+                            <Text style={styles.serviceRateText}>{srv.rate}</Text>
+                          </View>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* 3. Matching Categories */}
+                {matchingCategories.length > 0 && (
+                  <View style={styles.searchBlock}>
+                    <View style={styles.sectionTitleRow}>
+                      <Tag size={15} color="#111111" strokeWidth={2.2} />
+                      <Text style={styles.searchSectionTitle}>Categories</Text>
+                    </View>
+
+                    <View style={styles.categoryChipsGrid}>
+                      {matchingCategories.map((cat) => (
+                        <TouchableOpacity
+                          key={cat.id}
+                          onPress={() => handleExecuteSearch(cat.name)}
+                          style={styles.categoryChipCard}
+                          activeOpacity={0.75}
+                        >
+                          <Text style={styles.categoryChipName}>{cat.name} Catalog</Text>
+                          <ArrowUpRight size={14} color="#707072" strokeWidth={2} />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* Action CTA: Search Entire Catalog */}
+                <TouchableOpacity
+                  onPress={() => handleExecuteSearch(searchInputText)}
+                  style={styles.searchAllCatalogBtn}
+                  activeOpacity={0.85}
+                >
+                  <Search size={16} color="#FFFFFF" strokeWidth={2.2} />
+                  <Text style={styles.searchAllCatalogBtnText}>
+                    Search Catalog for "{searchInputText}"
+                  </Text>
+                </TouchableOpacity>
               </View>
             )}
           </ScrollView>
-        </View>
-      )}
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 };
@@ -410,237 +539,352 @@ export const Header: React.FC<HeaderProps> = ({
 const styles = StyleSheet.create({
   headerContainer: {
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
+    paddingTop: 8,
+    paddingBottom: 10,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    position: 'relative',
-    zIndex: 9999,
+    borderBottomColor: '#F0F0F0',
   },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 10,
+    gap: 8,
+  },
+  brandContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  brandTextGroup: {
+    justifyContent: 'center',
+  },
+  brandTitle: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#111111',
+    letterSpacing: 0.5,
+    lineHeight: 16,
+  },
+  brandSub: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#707072',
+    letterSpacing: 0.3,
+    lineHeight: 12,
+    textTransform: 'uppercase',
   },
   locationButton: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FAFAFA',
+    maxWidth: '54%',
+  },
+  locationTextWrapper: {
+    flexShrink: 1,
+  },
+  locationDeliverLabel: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#707072',
+    letterSpacing: 0.5,
+    lineHeight: 10,
   },
   locationText: {
-    fontSize: 14,
-    fontWeight: '600',
-    letterSpacing: -0.2,
-  },
-  brandBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  brandBadgeText: {
-    fontSize: 11,
-    fontWeight: '500',
-    letterSpacing: 0.5,
-  },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  searchContainer: {
-    position: 'relative',
-    justifyContent: 'center',
-    flex: 1,
-  },
-  cancelBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-  },
-  cancelBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  searchInput: {
-    borderRadius: 999,
-    paddingVertical: Platform.OS === 'ios' ? 10 : 8,
-    paddingLeft: 40,
-    paddingRight: 40,
-    fontSize: 13,
-    fontWeight: '400',
-    borderWidth: 1,
-  },
-  searchIconContainer: {
-    position: 'absolute',
-    left: 14,
-  },
-  clearIconContainer: {
-    position: 'absolute',
-    right: 14,
-    padding: 4,
-  },
-  subHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  backButton: {
-    padding: 4,
-    marginLeft: -4,
-  },
-  headerTitle: {
-    fontSize: 18,
+    fontSize: 11.5,
     fontWeight: '700',
-    textAlign: 'center',
-    flex: 1,
+    color: '#111111',
+    letterSpacing: -0.2,
+    lineHeight: 14,
   },
-  dropdownOverlay: {
-    position: 'absolute',
-    top: '100%',
-    left: 16,
-    right: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-    marginTop: 4,
-    maxHeight: 320,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    elevation: 12,
-    zIndex: 99999,
-  },
-  dropdownScroll: {
-    padding: 12,
-  },
-  loadingBox: {
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loadingText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  chipRow: {
+
+  /* Search Trigger Bar (Nike/Adidas look) */
+  searchBarTrigger: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    paddingTop: 4,
-  },
-  chip: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#F4F4F5',
     borderRadius: 999,
-    borderWidth: 1,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
   },
-  chipText: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  dropdownSection: {
-    gap: 16,
-  },
-  sectionBlock: {
-    gap: 8,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  sectionTitleGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  sectionTitle: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  clearAllText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#EF4444',
-  },
-  recentList: {
-    gap: 4,
-  },
-  recentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-  },
-  recentTouchArea: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  searchPlaceholderText: {
     flex: 1,
-  },
-  recentTermText: {
-    fontSize: 12,
+    fontSize: 13,
+    color: '#707072',
     fontWeight: '500',
   },
-  removeRecentBtn: {
-    padding: 4,
+  triggerClearBtn: {
+    padding: 2,
   },
-  suggestionItemRow: {
+
+  /* Full Screen Search Modal */
+  searchModalRoot: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  searchModalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    paddingHorizontal: 8,
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === 'ios' ? 48 : 16,
+    paddingBottom: 12,
     borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+    backgroundColor: '#FFFFFF',
   },
-  suggestionInfo: {
+  modalInputWrapper: {
     flex: 1,
-  },
-  suggestionTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  suggestionSub: {
-    fontSize: 11,
-    fontWeight: '400',
-    marginTop: 1,
-  },
-  suggestionPrice: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  serviceBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 999,
-  },
-  serviceBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  noMatchBox: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
+    backgroundColor: '#F4F4F5',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === 'ios' ? 9 : 6,
+    gap: 8,
+  },
+  modalTextInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#111111',
+    fontWeight: '500',
+    padding: 0,
+  },
+  modalClearBtn: {
+    padding: 4,
+  },
+  cancelSearchBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+  },
+  cancelSearchBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111111',
+  },
+
+  /* Scroll Content */
+  searchModalScroll: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  searchModalScrollContent: {
+    padding: 16,
+    paddingBottom: 40,
+  },
+  searchSectionGap: {
+    gap: 22,
+  },
+  searchBlock: {
     gap: 10,
   },
-  noMatchText: {
-    fontSize: 12,
-    textAlign: 'center',
+  searchSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  searchAllBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  searchSectionTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#111111',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  clearAllBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#E11D48',
+  },
+
+  /* Recent Chips */
+  recentPillsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  recentChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F4F4F5',
     borderRadius: 999,
+    paddingLeft: 12,
+    paddingRight: 6,
+    paddingVertical: 6,
+    gap: 6,
   },
-  searchAllBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
+  recentChipTextBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  recentChipText: {
+    fontSize: 12.5,
     fontWeight: '600',
+    color: '#111111',
+    maxWidth: 160,
+  },
+  recentChipRemoveBtn: {
+    padding: 4,
+  },
+
+  /* Trending Pills */
+  trendingPillsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  trendingPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  trendingPillText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#111111',
+  },
+
+  /* Category Chips Grid */
+  categoryChipsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  categoryChipCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FAFAFA',
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    width: '48%',
+  },
+  categoryChipName: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#111111',
+  },
+
+  /* Products Search Rows */
+  productListContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+    overflow: 'hidden',
+  },
+  productSearchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5',
+  },
+  productThumb: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: '#F5F5F5',
+  },
+  serviceIconThumb: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: '#F4F4F5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  productInfoCol: {
+    flex: 1,
+    minWidth: 0,
+    flexShrink: 1,
+    gap: 2,
+  },
+  productRowTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#111111',
+  },
+  productRowSub: {
+    fontSize: 11.5,
+    color: '#707072',
+  },
+  stockBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+    flexWrap: 'wrap',
+  },
+  stockBadgeText: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    color: '#059669',
+  },
+  productPriceCol: {
+    alignItems: 'flex-end',
+    flexShrink: 0,
+    marginLeft: 6,
+  },
+  productPriceText: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#111111',
+  },
+  productPriceUnit: {
+    fontSize: 10.5,
+    color: '#707072',
+  },
+  serviceRateBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    backgroundColor: '#F4F4F5',
+  },
+  serviceRateText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#111111',
+  },
+
+  /* Search All Catalog CTA */
+  searchAllCatalogBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#111111',
+    borderRadius: 999,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    marginTop: 6,
+  },
+  searchAllCatalogBtnText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

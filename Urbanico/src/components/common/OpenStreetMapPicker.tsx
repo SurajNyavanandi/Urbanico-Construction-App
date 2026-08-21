@@ -157,7 +157,7 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
 
           var primaryIcon = L.divIcon({
             className: 'custom-pin',
-            html: '<div style="background-color: #0EA5E9; width: 24px; height: 24px; border-radius: 50%; border: 3px solid #ffffff; box-shadow: 0 2px 8px rgba(14,165,233,0.5); display: flex; align-items: center; justify-content: center;"><div style="width: 8px; height: 8px; background: white; border-radius: 50%;"></div></div>',
+            html: '<div style="background-color: #111111; width: 24px; height: 24px; border-radius: 50%; border: 3px solid #ffffff; box-shadow: 0 2px 8px rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center;"><div style="width: 8px; height: 8px; background: white; border-radius: 50%;"></div></div>',
             iconSize: [24, 24],
             iconAnchor: [12, 12]
           });
@@ -181,7 +181,7 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
               [${originLat}, ${originLng}],
               [${destLat}, ${destLng}]
             ], {
-              color: '#0EA5E9',
+              color: '#111111',
               weight: 4,
               opacity: 0.85,
               dashArray: '8, 8'
@@ -238,7 +238,7 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
         })}
         {loading && (
           <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="small" color="#0EA5E9" />
+            <ActivityIndicator size="small" color="#111111" />
             <Text style={styles.loadingText}>Loading Map (OpenStreetMap)...</Text>
           </View>
         )}
@@ -295,7 +295,7 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
       <View style={styles.nativeBottomBar}>
         <View style={styles.addressContainer}>
           <View style={styles.addressHeaderRow}>
-            <Compass size={12} color="#0EA5E9" />
+            <Compass size={12} color="#111111" />
             <Text style={styles.addressHeaderLabel}>Site GPS Coordinates</Text>
           </View>
           <Text style={styles.addressText} numberOfLines={1}>
@@ -325,8 +325,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
-    backgroundColor: '#0F172A',
+    borderColor: '#EEEEEE',
+    backgroundColor: '#18181B',
     position: 'relative',
   },
   loadingOverlay: {
@@ -335,20 +335,20 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FAFAFA',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
   },
   loadingText: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#707072',
     fontWeight: '600',
   },
   // Native React Native Mobile Styles
   nativeMapCanvas: {
     flex: 1,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#18181B',
     position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
   },
   mapGridCell: {
     flex: 1,
-    borderColor: '#1E293B',
+    borderColor: '#27272A',
     borderWidth: 0.5,
   },
   depotNode: {
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
     left: 45,
     width: 120,
     height: 2,
-    backgroundColor: '#0EA5E9',
+    backgroundColor: '#FFFFFF',
     transform: [{ rotate: '35deg' }],
     borderStyle: 'dashed',
   },
@@ -409,18 +409,18 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: 'rgba(14, 165, 233, 0.25)',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
   markerBadge: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#0EA5E9',
+    backgroundColor: '#111111',
     borderWidth: 3,
     borderColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#0EA5E9',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.5,
     shadowRadius: 8,
@@ -428,30 +428,30 @@ const styles = StyleSheet.create({
   },
   markerCallout: {
     marginTop: 8,
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+    backgroundColor: 'rgba(17, 17, 17, 0.95)',
     borderWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#27272A',
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
     alignItems: 'center',
   },
   markerCalloutTitle: {
-    color: '#F8FAFC',
+    color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
   },
   markerCalloutCoords: {
-    color: '#94A3B8',
+    color: '#A1A1AA',
     fontSize: 9,
     marginTop: 1,
   },
   nativeBottomBar: {
-    backgroundColor: '#1E293B',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderTopWidth: 1,
-    borderTopColor: '#334155',
+    borderTopColor: '#EEEEEE',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -467,20 +467,20 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   addressHeaderLabel: {
-    color: '#0EA5E9',
+    color: '#111111',
     fontSize: 10,
     fontWeight: '700',
     textTransform: 'uppercase',
   },
   addressText: {
-    color: '#F8FAFC',
+    color: '#111111',
     fontSize: 11,
     fontWeight: '500',
   },
   openMapsButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0EA5E9',
+    backgroundColor: '#111111',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,

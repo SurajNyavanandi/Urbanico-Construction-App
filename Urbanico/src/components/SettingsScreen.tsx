@@ -9,34 +9,15 @@ import {
 } from 'react-native';
 import {
   Palette,
-  Check,
-  ArrowLeft,
   Bell,
-  Shield,
-  HardDrive,
-  Info,
-  CheckCircle2,
-  Trash2,
-  Globe,
-  FileText,
-  Sun,
-  Moon,
-  Type,
-  Sparkles,
-  LayoutList,
-  Grid2X2,
   Languages,
   ChevronRight,
+  Sun,
+  Grid2X2,
+  ArrowLeft,
 } from 'lucide-react-native';
-import {
-  useTheme,
-  ThemeMode,
-  AccentColor,
-  TypographyFontFamily,
-  ACCENT_DEFINITIONS,
-  FONT_CONFIGS,
-} from '../context/ThemeContext';
-import { useLanguage, LanguageCode } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
+import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
 import { LanguagePromptModal } from './LanguagePromptModal';
 
@@ -53,18 +34,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   viewMode = 'grid',
   onViewModeChange,
 }) => {
-  const {
-    theme,
-    themeMode,
-    setThemeMode,
-    accentColor,
-    setAccentColor,
-    typography,
-    typographyFont,
-    setTypographyFont,
-  } = useTheme();
-
-  const { language, setLanguage, languageOptions, currentLanguageOption, t } = useLanguage();
+  const { themeMode, setThemeMode } = useTheme();
+  const { languageOptions, currentLanguageOption, t } = useLanguage();
   const { showToast } = useToast();
 
   const [isLangModalOpen, setIsLangModalOpen] = useState(false);
@@ -72,129 +43,76 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   // Notification Toggles State
   const [enableNotifications, setEnableNotifications] = useState(true);
   const [dispatchAlerts, setDispatchAlerts] = useState(true);
-  const [priceAlerts, setPriceAlerts] = useState(false);
   const [whatsappReceipts, setWhatsappReceipts] = useState(true);
 
-  // Security Toggles State
-  const [biometricLock, setBiometricLock] = useState(true);
-  const [twoFactorOtp, setTwoFactorOtp] = useState(true);
-
-  // Storage Toggle State
-  const [offlineCatalog, setOfflineCatalog] = useState(true);
-
-  const handleClearCache = () => {
-    if (onClearRecentSearches) {
-      onClearRecentSearches();
-    }
-    showToast('App Cache & Search History Cleared (14.2 MB)!', 'info');
-  };
-
-  const accentOptions: { id: AccentColor; name: string; description: string; hex: string }[] = [
-    {
-      id: 'amber',
-      name: 'Safety Amber (Default)',
-      description: 'High visibility site safety color',
-      hex: ACCENT_DEFINITIONS.amber.hex,
-    },
-    {
-      id: 'violet',
-      name: 'Urbanico Violet',
-      description: 'Signature purple & violet builder identity',
-      hex: ACCENT_DEFINITIONS.violet.hex,
-    },
-    {
-      id: 'green',
-      name: 'Eco Green',
-      description: 'Fresh sustainable site identity',
-      hex: ACCENT_DEFINITIONS.green.hex,
-    },
-    {
-      id: 'blue',
-      name: 'Blueprint Blue',
-      description: 'Technical engineering & layout contrast',
-      hex: ACCENT_DEFINITIONS.blue.hex,
-    },
-    {
-      id: 'black',
-      name: 'Contractor Black',
-      description: 'High contrast dark slate accent',
-      hex: ACCENT_DEFINITIONS.black.hex,
-    },
-  ];
-
-  const fontOptions: { id: TypographyFontFamily; name: string; desc: string }[] = [
-    { id: 'system', name: FONT_CONFIGS.system.name, desc: 'Native OS system font' },
-    { id: 'inter', name: FONT_CONFIGS.inter.name, desc: 'Clean geometric sans-serif' },
-    { id: 'jakarta', name: FONT_CONFIGS.jakarta.name, desc: 'Modern display typography' },
-    { id: 'mono', name: FONT_CONFIGS.mono.name, desc: 'Technical spec monospace font' },
-  ];
-
   return (
-    <ScrollView
-      style={[styles.container, { backgroundColor: theme.background }]}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Language Popup Modal */}
-      <LanguagePromptModal
-        isOpen={isLangModalOpen}
-        onClose={() => setIsLangModalOpen(false)}
-        onConfirm={(langCode) => {
-          const opt = languageOptions.find((l) => l.code === langCode);
-          if (opt) showToast(`Language changed to ${opt.nativeName}`, 'info');
-        }}
-      />
-
-      {/* SECTION 0: Language Preferences (Apple-styled Clean Inset Row) */}
-      <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+    <View style={{ flex: 1, backgroundColor: '#FAFAFA' }}>
+      {/* Top Navigation Bar */}
+      <View style={styles.topNavBar}>
         <TouchableOpacity
-          onPress={() => setIsLangModalOpen(true)}
-          style={styles.langItemRow}
+          onPress={onBack}
+          style={styles.backBtn}
           activeOpacity={0.7}
+          accessibilityLabel="Go back to profile"
         >
-          <View style={styles.langLeftGroup}>
-            <View style={[styles.langIconBox, { backgroundColor: theme.surfaceSecondary }]}>
-              <Languages size={18} color={theme.primary} strokeWidth={2} />
-            </View>
-            <View style={styles.langTextGroup}>
-              <Text style={[styles.rowTitle, { color: theme.textPrimary }]}>
-                {t.language}
-              </Text>
-              <Text style={[styles.rowSubtitle, { color: theme.textSecondary }]}>
-                {t.languageSub}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.langRightGroup}>
-            <Text style={[styles.langValueText, { color: theme.primary }]}>
-              {currentLanguageOption.flag} {currentLanguageOption.nativeName}
-            </Text>
-            <ChevronRight size={16} color={theme.textSecondary} />
-          </View>
+          <ArrowLeft color="#111111" size={20} strokeWidth={2.2} />
         </TouchableOpacity>
+        <Text style={styles.navBarTitle}>Settings</Text>
+        <View style={{ width: 36 }} />
       </View>
 
-      {/* SECTION 1: App Theme & Display Layout Settings */}
-      <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <View style={[styles.cardHeader, { borderBottomColor: theme.borderLight }]}>
-          <Palette size={18} color={theme.primary} strokeWidth={2} />
-          <View style={styles.headerTextCol}>
-            <Text style={[styles.cardTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-              Theme & Display
-            </Text>
-            <Text style={[styles.cardSubTitle, { color: theme.textSecondary }]}>
-              Appearance and catalog view options
-            </Text>
-          </View>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Language Prompt Modal */}
+        <LanguagePromptModal
+          isOpen={isLangModalOpen}
+          onClose={() => setIsLangModalOpen(false)}
+          onConfirm={(langCode) => {
+            const opt = languageOptions.find((l) => l.code === langCode);
+            if (opt) showToast(`Language changed to ${opt.nativeName}`, 'info');
+          }}
+        />
+
+        {/* SECTION 0: Language Preferences (Nike Clean Inset Menu) */}
+        <View style={styles.sectionCard}>
+          <TouchableOpacity
+            onPress={() => setIsLangModalOpen(true)}
+            style={styles.menuRowOnly}
+            activeOpacity={0.7}
+          >
+            <View style={styles.menuRowLeft}>
+              <View style={styles.menuIconBox}>
+                <Languages size={19} color="#111111" strokeWidth={1.8} />
+              </View>
+              <View style={{ gap: 2 }}>
+                <Text style={styles.menuTitleText}>{t.language}</Text>
+                <Text style={styles.menuSubText}>{t.languageSub}</Text>
+              </View>
+            </View>
+
+            <View style={styles.menuRowRight}>
+              <Text style={styles.subDetailText}>
+                {currentLanguageOption.flag} {currentLanguageOption.nativeName}
+              </Text>
+              <ChevronRight size={18} color="#9CA3AF" />
+            </View>
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.settingRowsList}>
-          {/* Theme Mode Toggle */}
-          <View style={[styles.settingRow, { borderBottomColor: theme.borderLight }]}>
-            <View style={styles.settingRowLeft}>
-              <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Dark Mode</Text>
-              <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
+        {/* SECTION 1: Theme & Display Layout */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeaderRow}>
+            <Palette size={18} color="#111111" strokeWidth={2} />
+            <Text style={styles.sectionHeaderTitle}>Theme & Display</Text>
+          </View>
+
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleRowLeft}>
+              <Text style={styles.menuTitleText}>Dark Mode</Text>
+              <Text style={styles.menuSubText}>
                 {themeMode === 'dark' ? 'Dark scheme active' : 'Light scheme active'}
               </Text>
             </View>
@@ -205,17 +123,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 setThemeMode(nextMode);
                 showToast(val ? 'Dark Mode Active' : 'Light Mode Active', 'info');
               }}
-              trackColor={{ false: '#E5E5EA', true: theme.primary }}
+              trackColor={{ false: '#E5E7EB', true: '#111111' }}
               thumbColor="#FFFFFF"
             />
           </View>
 
-          {/* Catalog Display Layout Toggle */}
-          <View style={styles.settingRow}>
-            <View style={styles.settingRowLeft}>
-              <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Grid Layout (2-Column)</Text>
-              <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
-                {viewMode === 'grid' ? 'Compact 2-column grid' : 'Single column list view'}
+          <View style={styles.toggleRowLast}>
+            <View style={styles.toggleRowLeft}>
+              <Text style={styles.menuTitleText}>Grid Layout (2-Column)</Text>
+              <Text style={styles.menuSubText}>
+                {viewMode === 'grid' ? 'Compact 2-column catalog' : 'Single column list view'}
               </Text>
             </View>
             <Switch
@@ -225,32 +142,23 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 if (onViewModeChange) onViewModeChange(nextMode);
                 showToast(val ? '2-Column Grid Active' : 'List View Active', 'info');
               }}
-              trackColor={{ false: '#E5E5EA', true: theme.primary }}
+              trackColor={{ false: '#E5E7EB', true: '#111111' }}
               thumbColor="#FFFFFF"
             />
           </View>
         </View>
-      </View>
 
-      {/* SECTION 2: Notification Controls */}
-      <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-        <View style={[styles.cardHeader, { borderBottomColor: theme.borderLight }]}>
-          <Bell size={18} color={theme.primary} strokeWidth={2} />
-          <View style={styles.headerTextCol}>
-            <Text style={[styles.cardTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-              Notifications
-            </Text>
-            <Text style={[styles.cardSubTitle, { color: theme.textSecondary }]}>
-              Real-time delivery vehicle and status alerts
-            </Text>
+        {/* SECTION 2: Notification Controls */}
+        <View style={styles.sectionCard}>
+          <View style={styles.sectionHeaderRow}>
+            <Bell size={18} color="#111111" strokeWidth={2} />
+            <Text style={styles.sectionHeaderTitle}>Notifications</Text>
           </View>
-        </View>
 
-        <View style={styles.settingRowsList}>
-          <View style={[styles.settingRow, { borderBottomColor: theme.borderLight }]}>
-            <View style={styles.settingRowLeft}>
-              <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Push Notifications</Text>
-              <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleRowLeft}>
+              <Text style={styles.menuTitleText}>Push Notifications</Text>
+              <Text style={styles.menuSubText}>
                 Order status and dispatch updates
               </Text>
             </View>
@@ -260,15 +168,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 setEnableNotifications(val);
                 showToast(val ? 'Push Notifications enabled' : 'Push Notifications muted', 'info');
               }}
-              trackColor={{ false: '#E5E5EA', true: theme.primary }}
+              trackColor={{ false: '#E5E7EB', true: '#111111' }}
               thumbColor="#FFFFFF"
             />
           </View>
 
-          <View style={[styles.settingRow, { borderBottomColor: theme.borderLight }]}>
-            <View style={styles.settingRowLeft}>
-              <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Vehicle Dispatch Alerts</Text>
-              <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleRowLeft}>
+              <Text style={styles.menuTitleText}>Vehicle Dispatch Alerts</Text>
+              <Text style={styles.menuSubText}>
                 Real-time delivery proximity alerts
               </Text>
             </View>
@@ -279,15 +187,15 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 showToast(val ? 'Dispatch alerts ON' : 'Dispatch alerts OFF', 'info');
               }}
               disabled={!enableNotifications}
-              trackColor={{ false: '#E5E5EA', true: theme.primary }}
+              trackColor={{ false: '#E5E7EB', true: '#111111' }}
               thumbColor="#FFFFFF"
             />
           </View>
 
-          <View style={styles.settingRow}>
-            <View style={styles.settingRowLeft}>
-              <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>WhatsApp Invoices</Text>
-              <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
+          <View style={styles.toggleRowLast}>
+            <View style={styles.toggleRowLeft}>
+              <Text style={styles.menuTitleText}>WhatsApp Invoices</Text>
+              <Text style={styles.menuSubText}>
                 Delivery slips directly on WhatsApp
               </Text>
             </View>
@@ -297,140 +205,124 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 setWhatsappReceipts(val);
                 showToast(val ? 'WhatsApp updates ON' : 'WhatsApp updates OFF', 'info');
               }}
-              trackColor={{ false: '#E5E5EA', true: theme.primary }}
+              trackColor={{ false: '#E5E7EB', true: '#111111' }}
               thumbColor="#FFFFFF"
             />
           </View>
         </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  topNavBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  backBtn: {
+    padding: 6,
+    marginLeft: -6,
+  },
+  navBarTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#111111',
+    letterSpacing: -0.3,
+  },
   container: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 112,
+    padding: 16,
+    paddingBottom: 96,
     gap: 16,
   },
-  toastContainer: {
-    borderWidth: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 999,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    alignSelf: 'center',
-    marginBottom: 4,
-  },
-  toastText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  backBtn: {
-    padding: 8,
-    borderRadius: 12,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  card: {
+  sectionCard: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    padding: 16,
     borderWidth: 1,
-    gap: 12,
+    borderColor: '#EEEEEE',
+    overflow: 'hidden',
   },
-  cardHeader: {
+  sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
     borderBottomWidth: 1,
-    paddingBottom: 10,
+    borderBottomColor: '#F5F5F5',
   },
-  headerTextCol: {
-    flex: 1,
-  },
-  cardTitle: {
+  sectionHeaderTitle: {
     fontSize: 15,
-    fontWeight: '600',
-    letterSpacing: -0.2,
+    fontWeight: '800',
+    color: '#111111',
+    letterSpacing: -0.3,
   },
-  cardSubTitle: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  langItemRow: {
+  menuRowOnly: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 4,
+    paddingVertical: 15,
+    paddingHorizontal: 16,
   },
-  langLeftGroup: {
+  menuRowLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 14,
     flex: 1,
-    paddingRight: 10,
   },
-  langIconBox: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
+  menuIconBox: {
+    width: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  langTextGroup: {
-    flex: 1,
-  },
-  rowTitle: {
-    fontSize: 14,
+  menuTitleText: {
+    fontSize: 14.5,
     fontWeight: '600',
+    color: '#111111',
     letterSpacing: -0.2,
   },
-  rowSubtitle: {
+  menuSubText: {
     fontSize: 12,
-    marginTop: 2,
+    color: '#707072',
+    marginTop: 1,
   },
-  langRightGroup: {
+  menuRowRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
-  langValueText: {
+  subDetailText: {
     fontSize: 13,
-    fontWeight: '500',
+    color: '#707072',
   },
-  settingRowsList: {
-    gap: 10,
-  },
-  settingRow: {
+  toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 6,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5',
   },
-  settingRowLeft: {
+  toggleRowLast: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  toggleRowLeft: {
     flex: 1,
-    paddingRight: 12,
-  },
-  settingTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    letterSpacing: -0.2,
-  },
-  settingSub: {
-    fontSize: 12,
-    marginTop: 2,
+    paddingRight: 14,
   },
 });

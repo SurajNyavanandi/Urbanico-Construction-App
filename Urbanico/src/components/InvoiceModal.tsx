@@ -23,6 +23,8 @@ interface InvoiceModalProps {
   onClose: () => void;
   delivery: ActivityDelivery | null;
   user: UserProfile;
+  isLoggedIn?: boolean;
+  onOpenLoginModal?: () => void;
 }
 
 export const InvoiceModal: React.FC<InvoiceModalProps> = ({
@@ -30,6 +32,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   onClose,
   delivery,
   user,
+  isLoggedIn = true,
+  onOpenLoginModal,
 }) => {
   const { theme, typography } = useTheme();
 
@@ -55,11 +59,15 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
   // Print PDF function
   const handlePrintPdf = () => {
+    const cleanOrderNum = (delivery.orderNumber || 'DIRECT').replace(/[^a-zA-Z0-9_-]/g, '');
+    const cleanDate = new Date().toISOString().split('T')[0];
+    const docTitle = `Urbanico_Tax_Invoice_${cleanOrderNum}_${cleanDate}`;
+
     const printContent = `
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Tax Invoice - ${invoiceNum}</title>
+        <title>${docTitle}</title>
         <style>
           body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #0f172a; margin: 0; padding: 24px; background: #fff; }
           .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid ${theme.primary}; padding-bottom: 16px; margin-bottom: 20px; }
@@ -81,7 +89,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
           .totals-row { display: flex; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
           .grand-total { background: ${theme.primary}; color: #fff; font-weight: 900; font-size: 14px; }
           .footer-note { font-size: 10px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 12px; text-align: center; }
-          .stamp { text-align: right; margin-top: 20px; font-size: 11px; font-weight: 800; color: #059669; }
+          .stamp { text-align: right; margin-top: 20px; font-size: 11px; font-weight: 800; color: #059669; image-rendering: -webkit-optimize-contrast; }
           @media print {
             body { padding: 0; }
           }
@@ -242,6 +250,29 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
           contentContainerStyle={styles.invoiceContent}
           showsVerticalScrollIndicator={false}
         >
+          {!isLoggedIn && (
+            <View style={[styles.guestWarningBox, { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.guestWarningTitle, { color: '#92400E' }]}>Guest Preview Mode</Text>
+                <Text style={[styles.guestWarningSub, { color: '#B45309' }]}>
+                  Log in to generate verified tax compliance invoices with your official GSTIN and weighbridge weight slips.
+                </Text>
+              </View>
+              {onOpenLoginModal && (
+                <TouchableOpacity
+                  onPress={() => {
+                    onClose();
+                    onOpenLoginModal();
+                  }}
+                  style={styles.guestWarningLoginBtn}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.guestWarningLoginBtnText}>Sign In</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
           {/* Company Branding & Tax Header */}
           <View style={[styles.brandHeaderBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <View style={styles.brandRow}>
@@ -668,6 +699,36 @@ const styles = StyleSheet.create({
   modalFooter: {
     padding: 14,
     borderTopWidth: 1,
+  },
+  guestWarningBox: {
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    gap: 10,
+  },
+  guestWarningTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  guestWarningSub: {
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  guestWarningLoginBtn: {
+    backgroundColor: '#92400E',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  guestWarningLoginBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
   downloadPdfBtn: {
     paddingVertical: 12,

@@ -54,6 +54,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
 
   // Display View Mode Option: Global setting defaulting to two-column 'grid'
   const [internalViewMode, setInternalViewMode] = useState<'list' | 'grid'>('grid');
+  const [sortBy, setSortBy] = useState<'default' | 'price-asc' | 'price-desc' | 'savings'>('default');
   const viewMode = onViewModeChange ? externalViewMode : internalViewMode;
   const setViewMode = (mode: 'list' | 'grid') => {
     if (onViewModeChange) onViewModeChange(mode);
@@ -69,15 +70,19 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
   const activeCategoryObj = CATEGORIES.find((c) => c.id === categoryId);
 
   // Filter items strictly based on current flow (Services vs Materials) and search query
-  const items = MATERIAL_ITEMS.filter((item) => {
+  const rawItems = MATERIAL_ITEMS.filter((item) => {
     if (isServicesMode) {
       if (item.categoryId !== 'services') return false;
       if (categoryId !== 'services-catalog' && categoryId !== 'services') {
         // Specific service trade filter
-        if (
-          !item.id.toLowerCase().includes(categoryId.toLowerCase()) &&
-          !item.name.toLowerCase().includes(categoryId.toLowerCase())
-        ) {
+        const targetTrade = categoryId.toLowerCase();
+        const matchesTrade =
+          item.id.toLowerCase() === `service-${targetTrade}` ||
+          item.id.toLowerCase() === targetTrade ||
+          item.name.toLowerCase() === targetTrade ||
+          item.id.toLowerCase().includes(targetTrade) ||
+          item.name.toLowerCase().includes(targetTrade);
+        if (!matchesTrade) {
           return false;
         }
       }
@@ -102,6 +107,16 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
     return matchesSearch;
   });
 
+  // Apply sorting
+  const items = [...rawItems].sort((a, b) => {
+    const priceA = a.defaultPrice || a.options?.[0]?.price || 0;
+    const priceB = b.defaultPrice || b.options?.[0]?.price || 0;
+    if (sortBy === 'price-asc') return priceA - priceB;
+    if (sortBy === 'price-desc') return priceB - priceA;
+    if (sortBy === 'savings') return (b.options?.length || 0) - (a.options?.length || 0);
+    return 0;
+  });
+
   const filteredCategories = CATEGORIES.filter(
     (c) => !searchQuery || c.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -113,10 +128,24 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
       srv.subtitle.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const handleSmartBack = () => {
+    if (isServicesMode && categoryId !== 'services-catalog' && categoryId !== 'services') {
+      onSelectCategoryTab('services-catalog' as any);
+      return;
+    }
+    if (!isServicesMode && categoryId !== 'all') {
+      onSelectCategoryTab('all' as any);
+      return;
+    }
+    if (onBack) {
+      onBack();
+    }
+  };
+
   const isCatalogMode = categoryId === 'all' || categoryId === 'services-catalog';
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
       <ScrollView
         style={[styles.container, { backgroundColor: theme.background }]}
         contentContainerStyle={styles.scrollContent}
@@ -135,57 +164,59 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
           - If browsing Services, displays ONLY 'All Services' + Service Trades.
           - If browsing Materials, displays ONLY 'All Materials' + Material Subcategories. */}
       <View style={[styles.navBarWrapper, { backgroundColor: theme.surface, borderBottomColor: theme.borderLight }]}>
-        {onBack && (
-          <TouchableOpacity
-            onPress={onBack}
-            style={[styles.fixedBackBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
-            activeOpacity={0.7}
-            accessibilityLabel="Go Back"
-          >
-            <ArrowLeft color={theme.textPrimary} size={18} strokeWidth={2.2} />
-          </TouchableOpacity>
-        )}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.pillsScroll}
+        <TouchableOpacity
+          onPress={handleSmartBack}
+          style={[styles.fixedBackBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
+          activeOpacity={0.7}
+          accessibilityLabel="Go Back"
         >
-          {isServicesMode ? (
-            /* ================= SERVICES FLOW NAVIGATION ================= */
-            <>
-              <TopNavTab
-                label="All Services"
-                isActive={categoryId === 'services-catalog' || categoryId === 'services'}
-                onPress={() => onSelectCategoryTab('services-catalog')}
-              />
-              {SERVICES.map((srv) => (
+          <ArrowLeft color={theme.textPrimary} size={18} strokeWidth={2.2} />
+        </TouchableOpacity>
+        <View style={styles.scrollWithIndicatorWrapper}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.pillsScroll}
+          >
+            {isServicesMode ? (
+              /* ================= SERVICES FLOW NAVIGATION ================= */
+              <>
                 <TopNavTab
-                  key={srv.id}
-                  label={srv.name}
-                  isActive={categoryId === srv.id}
-                  onPress={() => onSelectCategoryTab(srv.id as any)}
+                  label="All Services"
+                  isActive={categoryId === 'services-catalog' || categoryId === 'services'}
+                  onPress={() => onSelectCategoryTab('services-catalog')}
                 />
-              ))}
-            </>
-          ) : (
-            /* ================= MATERIALS FLOW NAVIGATION ================= */
-            <>
-              <TopNavTab
-                label="All Materials"
-                isActive={categoryId === 'all'}
-                onPress={() => onSelectCategoryTab('all')}
-              />
-              {CATEGORIES.map((cat) => (
+                {SERVICES.map((srv) => (
+                  <TopNavTab
+                    key={srv.id}
+                    label={srv.name}
+                    isActive={categoryId === srv.id}
+                    onPress={() => onSelectCategoryTab(srv.id as any)}
+                  />
+                ))}
+              </>
+            ) : (
+              /* ================= MATERIALS FLOW NAVIGATION ================= */
+              <>
                 <TopNavTab
-                  key={cat.id}
-                  label={cat.name}
-                  isActive={categoryId === cat.id}
-                  onPress={() => onSelectCategoryTab(cat.id)}
+                  label="All Materials"
+                  isActive={categoryId === 'all'}
+                  onPress={() => onSelectCategoryTab('all')}
                 />
-              ))}
-            </>
-          )}
-        </ScrollView>
+                {CATEGORIES.map((cat) => (
+                  <TopNavTab
+                    key={cat.id}
+                    label={cat.name}
+                    isActive={categoryId === cat.id}
+                    onPress={() => onSelectCategoryTab(cat.id)}
+                  />
+                ))}
+              </>
+            )}
+          </ScrollView>
+          {/* Subtle Right Edge Fade Indicator to signal more horizontal pills */}
+          <View pointerEvents="none" style={[styles.horizontalFadeIndicator, { backgroundColor: theme.surface }]} />
+        </View>
       </View>
 
       {/* 1. Materials Catalog (categoryId === 'all') */}
@@ -336,6 +367,93 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
             </View>
           </View>
 
+          {/* Quick Sort Filter Chips */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.sortChipsScroll}
+          >
+            <TouchableOpacity
+              onPress={() => setSortBy('default')}
+              style={[
+                styles.sortChip,
+                sortBy === 'default'
+                  ? { backgroundColor: theme.primary, borderColor: theme.primary }
+                  : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+              ]}
+              activeOpacity={0.75}
+            >
+              <Text
+                style={[
+                  styles.sortChipText,
+                  { color: sortBy === 'default' ? '#FFFFFF' : theme.textSecondary },
+                ]}
+              >
+                Featured
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setSortBy('price-asc')}
+              style={[
+                styles.sortChip,
+                sortBy === 'price-asc'
+                  ? { backgroundColor: theme.primary, borderColor: theme.primary }
+                  : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+              ]}
+              activeOpacity={0.75}
+            >
+              <Text
+                style={[
+                  styles.sortChipText,
+                  { color: sortBy === 'price-asc' ? '#FFFFFF' : theme.textSecondary },
+                ]}
+              >
+                Price: Low to High
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setSortBy('price-desc')}
+              style={[
+                styles.sortChip,
+                sortBy === 'price-desc'
+                  ? { backgroundColor: theme.primary, borderColor: theme.primary }
+                  : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+              ]}
+              activeOpacity={0.75}
+            >
+              <Text
+                style={[
+                  styles.sortChipText,
+                  { color: sortBy === 'price-desc' ? '#FFFFFF' : theme.textSecondary },
+                ]}
+              >
+                Price: High to Low
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setSortBy('savings')}
+              style={[
+                styles.sortChip,
+                sortBy === 'savings'
+                  ? { backgroundColor: theme.primary, borderColor: theme.primary }
+                  : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+              ]}
+              activeOpacity={0.75}
+            >
+              <Text
+                style={[
+                  styles.sortChipText,
+                  { color: sortBy === 'savings' ? '#FFFFFF' : theme.textSecondary },
+                ]}
+              >
+                Bulk Discount
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+
           {/* Product Items List / Grid */}
           {items.length === 0 ? (
             <EmptyState
@@ -452,8 +570,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 10,
   },
+  scrollWithIndicatorWrapper: {
+    flex: 1,
+    position: 'relative',
+  },
+  horizontalFadeIndicator: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 20,
+    opacity: 0.85,
+  },
   pillsScroll: {
-    paddingRight: 16,
+    paddingRight: 24,
   },
   pillButton: {
     paddingHorizontal: 14,
@@ -504,6 +634,22 @@ const styles = StyleSheet.create({
   toggleBtnText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  sortChipsScroll: {
+    paddingVertical: 6,
+    gap: 8,
+    flexDirection: 'row',
+    marginBottom: 4,
+  },
+  sortChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  sortChipText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   twoColumnGridRow: {
     flexDirection: 'row',

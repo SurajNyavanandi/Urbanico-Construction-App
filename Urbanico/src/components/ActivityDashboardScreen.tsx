@@ -12,6 +12,7 @@ import {
   MapPin,
   Clock,
   Check,
+  ArrowLeft,
 } from 'lucide-react-native';
 import { ActivityDelivery } from '../types';
 import { useTheme } from '../context/ThemeContext';
@@ -34,6 +35,7 @@ const TRACKING_STEPS = [
 
 export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = ({
   deliveries,
+  onBack,
   onExploreCatalog,
 }) => {
   const { theme, typography } = useTheme();
@@ -50,8 +52,29 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
 
   const activeEnRoute = deliveries.find((d) => d.status === 'En Route') || deliveries[0];
 
+  // Dynamic real-time metrics calculated from deliveries state
+  const totalSpent = deliveries.reduce((acc, d) => acc + (d.totalAmount || 0), 0);
+  const deliveredCount = deliveries.filter((d) => d.status === 'Delivered').length;
+  const successRate = deliveries.length > 0 ? Math.round((deliveredCount / deliveries.length) * 100) : 100;
+
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+      {/* Top Nav Bar */}
+      <View style={styles.topNavBar}>
+        {onBack && (
+          <TouchableOpacity
+            onPress={onBack}
+            style={styles.backBtn}
+            activeOpacity={0.7}
+            accessibilityLabel="Go back"
+          >
+            <ArrowLeft color="#111111" size={20} strokeWidth={2.2} />
+          </TouchableOpacity>
+        )}
+        <Text style={styles.navBarTitle}>Activity & Dispatches</Text>
+        <View style={{ width: 36 }} />
+      </View>
+
       <ScrollView
         style={[styles.container, { backgroundColor: theme.background }]}
         contentContainerStyle={styles.scrollContent}
@@ -167,7 +190,37 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
               </View>
             )}
 
-            {/* 2. Order History List */}
+            {/* 2. Dynamic Real-Time Orders & Volume Summary */}
+            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <View style={[styles.cardHeader, { borderBottomColor: theme.borderLight }]}>
+                <Text style={[styles.cardTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
+                  Procurement Summary
+                </Text>
+                <View style={[styles.etaPill, { backgroundColor: '#ECFDF5' }]}>
+                  <Text style={[styles.etaPillText, { color: '#059669' }]}>
+                    {successRate}% Fulfilled
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.metricsGrid}>
+                <View style={styles.metricItem}>
+                  <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Total Invoiced</Text>
+                  <Text style={[styles.metricValue, { color: theme.textPrimary }]}>
+                    ₹{totalSpent.toLocaleString('en-IN')}
+                  </Text>
+                </View>
+                <View style={styles.metricDividerVertical} />
+                <View style={styles.metricItem}>
+                  <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Total Dispatches</Text>
+                  <Text style={[styles.metricValue, { color: theme.textPrimary }]}>
+                    {deliveries.length} Shipments
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* 3. Order History List */}
             <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
               <View style={[styles.cardHeader, { borderBottomColor: theme.borderLight }]}>
                 <Text style={[styles.cardTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
@@ -217,6 +270,26 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
 };
 
 const styles = StyleSheet.create({
+  topNavBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  backBtn: {
+    padding: 6,
+    marginLeft: -6,
+  },
+  navBarTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#111111',
+    letterSpacing: -0.3,
+  },
   container: {
     flex: 1,
   },
@@ -357,5 +430,29 @@ const styles = StyleSheet.create({
   orderStatusText: {
     fontSize: 12,
     fontWeight: '500',
+  },
+  metricsGrid: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 12,
+  },
+  metricItem: {
+    flex: 1,
+    gap: 4,
+  },
+  metricLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  metricValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  metricDividerVertical: {
+    width: 1,
+    height: 32,
+    backgroundColor: '#EEEEEE',
+    marginHorizontal: 16,
   },
 });

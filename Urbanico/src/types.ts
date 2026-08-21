@@ -1,5 +1,6 @@
 export type ScreenType =
   | 'home'
+  | 'shop'
   | 'category'
   | 'basket'
   | 'favorites'
@@ -33,6 +34,8 @@ export interface MaterialCategory {
   count?: string;
   priceLabel?: string;
   highlighted?: boolean;
+  subcategoriesText?: string;
+  tag?: string;
 }
 
 export interface UnitOption {
@@ -50,6 +53,8 @@ export interface MaterialItem {
   image: string;
   galleryImages?: string[];
   specs?: { label: string; value: string }[];
+  isCodeCompliance?: string;
+  labCertificateNo?: string;
   actionType: 'add_to_cart' | 'get_quote';
   defaultPrice?: number;
   options: UnitOption[];
@@ -73,6 +78,8 @@ export interface UserProfile {
   role: string;
   companyName?: string;
   gstin?: string;
+  siteSupervisorName?: string;
+  siteSupervisorPhone?: string;
   siteLocation: string;
   avatarUrl: string;
   isVerified: boolean;
@@ -89,11 +96,24 @@ export interface ActivityDelivery {
   materialName: string;
   quantity: string;
   driverName: string;
+  driverPhone?: string;
   vehicleType: string;
   vehicleNumber: string;
   estimatedArrival: string;
-  status: 'Placed' | 'Dispatched' | 'En Route' | 'Delivered';
+  status: 'Placed' | 'Dispatched' | 'En Route' | 'Delivered' | 'Cancelled';
   siteAddress: string;
+  siteSupervisorName?: string;
+  siteSupervisorPhone?: string;
   timestamp: string;
   totalAmount: number;
+  deliveryOtp?: string;
+  ewayBillNumber?: string;
+  weighmentSlipId?: string;
+  splitPayment?: {
+    advancePaid: number;
+    balanceDue: number;
+    paymentMode: '100_percent' | '50_split';
+  };
+  cancelReason?: string;
+  cartItemsSnapshot?: CartItem[];
 }

@@ -7,7 +7,7 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
-import { Check, ShoppingBag, ArrowRight, X } from 'lucide-react-native';
+import { Check, ShoppingCart, ArrowRight, X } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { ShimmerImage } from './ShimmerImage';
 
@@ -18,6 +18,7 @@ export interface CartToastPayload {
   image?: string;
   quantity?: number;
   onViewBag?: () => void;
+  onViewCart?: () => void;
 }
 
 interface AddToCartToastProps {
@@ -130,7 +131,7 @@ export const AddToCartToast: React.FC<AddToCartToastProps> = ({
                 preset="pill"
               />
             ) : (
-              <ShoppingBag size={20} color={theme.textPrimary} />
+              <ShoppingCart size={20} color={theme.textPrimary} />
             )}
           </View>
           <View style={styles.successBadge}>
@@ -174,13 +175,13 @@ export const AddToCartToast: React.FC<AddToCartToastProps> = ({
           </Text>
         </View>
 
-        {/* Right: "View Bag" Button + Dismiss */}
+        {/* Right: "View Cart" Button + Dismiss */}
         <View style={styles.actionsCol}>
-          {item.onViewBag ? (
+          {(item.onViewCart || item.onViewBag) ? (
             <TouchableOpacity
               onPress={() => {
                 handleDismiss();
-                item.onViewBag?.();
+                (item.onViewCart || item.onViewBag)?.();
               }}
               activeOpacity={0.85}
               style={[
@@ -199,7 +200,7 @@ export const AddToCartToast: React.FC<AddToCartToastProps> = ({
                   },
                 ]}
               >
-                View Bag
+                View Cart
               </Text>
               <ArrowRight
                 size={12}

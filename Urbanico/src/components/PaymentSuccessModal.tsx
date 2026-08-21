@@ -14,6 +14,7 @@ import {
   ArrowRight,
   Copy,
   MapPin,
+  Share2,
 } from 'lucide-react-native';
 import { RazorpayPaymentResult } from './RazorpayModal';
 
@@ -35,12 +36,33 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
   onViewInvoice,
 }) => {
   const [copied, setCopied] = React.useState(false);
+  const [shareToast, setShareToast] = React.useState(false);
 
   if (!visible || !paymentResult) return null;
 
   const handleCopyPaymentId = () => {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleShareReceipt = async () => {
+    const summaryText = `*Urbanico Construction Order Confirmed*\nOrder ID: ${paymentResult.razorpay_order_id}\nPayment ID: ${paymentResult.razorpay_payment_id}\nAmount: ₹${paymentResult.amount.toLocaleString('en-IN')}\nDelivery Site: ${selectedLocation}\nSupport Helpline: 1800-123-9876`;
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Urbanico Order Confirmation',
+          text: summaryText,
+        });
+        return;
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+      }
+    }
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(summaryText).catch(() => {});
+      setShareToast(true);
+      setTimeout(() => setShareToast(false), 2200);
+    }
   };
 
   const formattedDate = new Date().toLocaleString('en-IN', {
@@ -59,13 +81,13 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             {/* Top Minimalist Icon */}
             <View style={styles.iconBox}>
-              <CheckCircle2 size={40} color="#0071E3" strokeWidth={2} />
+              <CheckCircle2 size={36} color="#059669" strokeWidth={2.2} />
             </View>
 
             {/* Success Heading */}
             <Text style={styles.successTitle}>Order Confirmed</Text>
             <Text style={styles.successSub}>
-              Your payment of ₹{paymentResult.amount.toLocaleString('en-IN')} is verified.
+              Your payment of ₹{paymentResult.amount.toLocaleString('en-IN')} has been verified.
             </Text>
 
             {/* Transaction Receipt */}
@@ -74,7 +96,7 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
                 <Text style={styles.receiptLabel}>Payment ID</Text>
                 <TouchableOpacity onPress={handleCopyPaymentId} style={styles.copyRow}>
                   <Text style={styles.receiptValueMono}>{paymentResult.razorpay_payment_id}</Text>
-                  <Copy size={12} color="#86868B" />
+                  <Copy size={12} color="#707072" />
                 </TouchableOpacity>
               </View>
 
@@ -91,7 +113,7 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
               <View style={[styles.receiptRow, { borderBottomWidth: 0 }]}>
                 <Text style={styles.receiptLabel}>Delivery To</Text>
                 <View style={styles.locRow}>
-                  <MapPin size={12} color="#1D1D1F" />
+                  <MapPin size={12} color="#111111" />
                   <Text style={styles.receiptValueLoc} numberOfLines={1}>
                     {selectedLocation}
                   </Text>
@@ -128,9 +150,24 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
                   style={styles.secondaryBtn}
                   activeOpacity={0.8}
                 >
-                  <Receipt size={16} color="#1D1D1F" />
+                  <Receipt size={16} color="#111111" />
                   <Text style={styles.secondaryBtnText}>View Invoice</Text>
                 </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                onPress={handleShareReceipt}
+                style={styles.secondaryBtn}
+                activeOpacity={0.8}
+              >
+                <Share2 size={16} color="#111111" />
+                <Text style={styles.secondaryBtnText}>Share Order Receipt</Text>
+              </TouchableOpacity>
+
+              {shareToast && (
+                <View style={styles.copiedToast}>
+                  <Text style={styles.copiedText}>Order receipt details copied!</Text>
+                </View>
               )}
 
               <TouchableOpacity onPress={onClose} style={styles.tertiaryBtn} activeOpacity={0.7}>
@@ -147,7 +184,7 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
@@ -168,30 +205,32 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#F5F5F7',
+    backgroundColor: '#ECFDF5',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
   },
   successTitle: {
     fontSize: 22,
-    fontWeight: '700',
-    color: '#1D1D1F',
+    fontWeight: '800',
+    color: '#111111',
     textAlign: 'center',
     marginBottom: 4,
     letterSpacing: -0.3,
   },
   successSub: {
     fontSize: 14,
-    color: '#86868B',
+    color: '#707072',
     textAlign: 'center',
     lineHeight: 18,
     marginBottom: 20,
   },
   receiptCard: {
     width: '100%',
-    backgroundColor: '#F5F5F7',
+    backgroundColor: '#F8F8F8',
     borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
     padding: 14,
     marginBottom: 20,
   },
@@ -201,22 +240,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 9,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    borderBottomColor: '#EEEEEE',
   },
   receiptLabel: {
     fontSize: 13,
-    color: '#86868B',
-    fontWeight: '400',
+    color: '#707072',
+    fontWeight: '500',
   },
   receiptValue: {
     fontSize: 13,
-    color: '#1D1D1F',
+    color: '#111111',
     fontWeight: '600',
   },
   receiptValueMono: {
     fontSize: 12,
-    color: '#0071E3',
-    fontWeight: '600',
+    color: '#111111',
+    fontWeight: '700',
+    fontFamily: 'monospace',
   },
   copyRow: {
     flexDirection: 'row',
@@ -231,19 +271,19 @@ const styles = StyleSheet.create({
   },
   receiptValueLoc: {
     fontSize: 12,
-    color: '#1D1D1F',
+    color: '#111111',
     fontWeight: '600',
   },
   copiedToast: {
     marginTop: 8,
-    backgroundColor: '#E5E5EA',
+    backgroundColor: '#EEEEEE',
     padding: 6,
     borderRadius: 6,
     alignItems: 'center',
   },
   copiedText: {
     fontSize: 11,
-    color: '#1D1D1F',
+    color: '#111111',
     fontWeight: '600',
   },
   actionsGroup: {
@@ -251,7 +291,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   primaryBtn: {
-    backgroundColor: '#0071E3',
+    backgroundColor: '#111111',
     borderRadius: 12,
     height: 48,
     flexDirection: 'row',
@@ -262,11 +302,11 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
     letterSpacing: -0.2,
   },
   secondaryBtn: {
-    backgroundColor: '#F5F5F7',
+    backgroundColor: '#F4F4F5',
     borderRadius: 12,
     height: 48,
     flexDirection: 'row',
@@ -275,7 +315,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   secondaryBtnText: {
-    color: '#1D1D1F',
+    color: '#111111',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -284,8 +324,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tertiaryBtnText: {
-    color: '#86868B',
+    color: '#707072',
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 });

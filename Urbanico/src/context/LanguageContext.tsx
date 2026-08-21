@@ -243,10 +243,29 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguageState] = useState<LanguageCode>('en');
+  const [language, setLanguageState] = useState<LanguageCode>(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const stored = window.localStorage.getItem('urbanico_preferred_language') as LanguageCode;
+        if (stored && ['en', 'te', 'hi', 'kn', 'ta'].includes(stored)) {
+          return stored;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return 'en';
+  });
 
   const setLanguage = (code: LanguageCode) => {
     setLanguageState(code);
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('urbanico_preferred_language', code);
+      }
+    } catch {
+      // ignore
+    }
   };
 
   const currentLanguageOption =

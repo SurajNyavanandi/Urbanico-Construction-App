@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { Home, ShoppingBag, Heart, User } from 'lucide-react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Home, Search, Heart, ShoppingCart, User } from 'lucide-react-native';
 import { ScreenType } from '../types';
 import { useTheme } from '../context/ThemeContext';
-import { useLanguage } from '../context/LanguageContext';
 
 interface BottomNavProps {
   activeScreen: ScreenType;
@@ -16,65 +16,136 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   onSelectTab,
   cartCount,
 }) => {
-  const { theme, typography } = useTheme();
-  const { t } = useLanguage();
+  const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
 
-  const isHomeActive = activeScreen === 'home' || activeScreen === 'category';
-  const isBasketActive = activeScreen === 'basket';
+  const isHomeActive = activeScreen === 'home';
+  const isShopActive = activeScreen === 'shop' || activeScreen === 'category';
   const isFavoritesActive = activeScreen === 'favorites';
-  const isAccountActive =
+  const isCartActive = activeScreen === 'basket';
+  const isProfileActive =
     activeScreen === 'profile' ||
     activeScreen === 'settings' ||
-    activeScreen === 'activity' ||
-    activeScreen === 'auth_mobile' ||
-    activeScreen === 'auth_otp';
+    activeScreen === 'activity';
 
-  const activeColor = theme.primary;
-  const inactiveColor = theme.textMuted;
+  const activeColor = theme.textPrimary;
+  const inactiveColor = theme.textMuted || '#707072';
+  const navBgColor = theme.surface;
+  const navBorderColor = theme.borderLight;
+
+  // Dynamic bottom padding taking device safe area into account
+  const bottomPadding = Math.max(8, (insets.bottom || 0) + 4);
 
   return (
-    <View style={[styles.navContainer, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
+    <View
+      style={[
+        styles.navContainer,
+        {
+          backgroundColor: navBgColor,
+          borderTopColor: navBorderColor,
+          paddingBottom: bottomPadding,
+        },
+      ]}
+    >
       <View style={styles.navContent}>
-        {/* Home */}
+        {/* 1. Home Tab */}
         <TouchableOpacity
           onPress={() => onSelectTab('home')}
           activeOpacity={0.7}
           style={styles.tabButton}
+          accessibilityRole="button"
+          accessibilityLabel="Home Tab"
         >
           <Home
             size={22}
             color={isHomeActive ? activeColor : inactiveColor}
-            strokeWidth={isHomeActive ? 2.2 : 1.8}
+            strokeWidth={isHomeActive ? 2.4 : 1.8}
           />
           <Text
             style={[
               styles.tabLabel,
               {
-                fontFamily: typography.fontFamily,
                 color: isHomeActive ? activeColor : inactiveColor,
-                fontWeight: isHomeActive ? '800' : '500',
+                fontWeight: isHomeActive ? '700' : '500',
               },
             ]}
           >
-            {t.home}
+            Home
           </Text>
         </TouchableOpacity>
 
-        {/* Basket */}
+        {/* 2. Shop Tab */}
+        <TouchableOpacity
+          onPress={() => onSelectTab('shop')}
+          activeOpacity={0.7}
+          style={styles.tabButton}
+          accessibilityRole="button"
+          accessibilityLabel="Shop Tab"
+        >
+          <Search
+            size={22}
+            color={isShopActive ? activeColor : inactiveColor}
+            strokeWidth={isShopActive ? 2.4 : 1.8}
+          />
+          <Text
+            style={[
+              styles.tabLabel,
+              {
+                color: isShopActive ? activeColor : inactiveColor,
+                fontWeight: isShopActive ? '700' : '500',
+              },
+            ]}
+          >
+            Shop
+          </Text>
+        </TouchableOpacity>
+
+        {/* 3. Favourites Tab */}
+        <TouchableOpacity
+          onPress={() => onSelectTab('favorites')}
+          activeOpacity={0.7}
+          style={styles.tabButton}
+          accessibilityRole="button"
+          accessibilityLabel="Favourites Tab"
+        >
+          <Heart
+            size={22}
+            color={isFavoritesActive ? activeColor : inactiveColor}
+            strokeWidth={isFavoritesActive ? 2.4 : 1.8}
+            fill={isFavoritesActive ? activeColor : 'transparent'}
+          />
+          <Text
+            style={[
+              styles.tabLabel,
+              {
+                color: isFavoritesActive ? activeColor : inactiveColor,
+                fontWeight: isFavoritesActive ? '700' : '500',
+              },
+            ]}
+          >
+            Favourites
+          </Text>
+        </TouchableOpacity>
+
+        {/* 4. Cart Tab */}
         <TouchableOpacity
           onPress={() => onSelectTab('basket')}
           activeOpacity={0.7}
           style={styles.tabButton}
+          accessibilityRole="button"
+          accessibilityLabel="Cart Tab"
         >
           <View style={styles.iconBadgeWrapper}>
-            <ShoppingBag
+            <ShoppingCart
               size={22}
-              color={isBasketActive ? activeColor : inactiveColor}
-              strokeWidth={isBasketActive ? 2.2 : 1.8}
+              color={isCartActive ? activeColor : inactiveColor}
+              strokeWidth={isCartActive ? 2.4 : 1.8}
             />
             {cartCount > 0 && (
               <View style={[styles.badge, { backgroundColor: theme.primary }]}>
-                <Text style={styles.badgeText}>{cartCount}</Text>
+                <Text style={styles.badgeText}>
+                  {cartCount > 99 ? '99+' : cartCount}
+                </Text>
               </View>
             )}
           </View>
@@ -82,63 +153,38 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             style={[
               styles.tabLabel,
               {
-                fontFamily: typography.fontFamily,
-                color: isBasketActive ? activeColor : inactiveColor,
-                fontWeight: isBasketActive ? '800' : '500',
+                color: isCartActive ? activeColor : inactiveColor,
+                fontWeight: isCartActive ? '700' : '500',
               },
             ]}
           >
-            {t.basket}
+            Cart
           </Text>
         </TouchableOpacity>
 
-        {/* Favorites */}
-        <TouchableOpacity
-          onPress={() => onSelectTab('favorites')}
-          activeOpacity={0.7}
-          style={styles.tabButton}
-        >
-          <Heart
-            size={22}
-            color={isFavoritesActive ? activeColor : inactiveColor}
-            strokeWidth={isFavoritesActive ? 2.2 : 1.8}
-          />
-          <Text
-            style={[
-              styles.tabLabel,
-              {
-                fontFamily: typography.fontFamily,
-                color: isFavoritesActive ? activeColor : inactiveColor,
-                fontWeight: isFavoritesActive ? '800' : '500',
-              },
-            ]}
-          >
-            {t.favorites}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Account / Profile */}
+        {/* 5. Profile Tab */}
         <TouchableOpacity
           onPress={() => onSelectTab('profile')}
           activeOpacity={0.7}
           style={styles.tabButton}
+          accessibilityRole="button"
+          accessibilityLabel="Profile Tab"
         >
           <User
             size={22}
-            color={isAccountActive ? activeColor : inactiveColor}
-            strokeWidth={isAccountActive ? 2.2 : 1.8}
+            color={isProfileActive ? activeColor : inactiveColor}
+            strokeWidth={isProfileActive ? 2.4 : 1.8}
           />
           <Text
             style={[
               styles.tabLabel,
               {
-                fontFamily: typography.fontFamily,
-                color: isAccountActive ? activeColor : inactiveColor,
-                fontWeight: isAccountActive ? '800' : '500',
+                color: isProfileActive ? activeColor : inactiveColor,
+                fontWeight: isProfileActive ? '700' : '500',
               },
             ]}
           >
-            {t.profile}
+            Profile
           </Text>
         </TouchableOpacity>
       </View>
@@ -148,46 +194,50 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 
 const styles = StyleSheet.create({
   navContainer: {
-    borderTopWidth: 1,
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    zIndex: 30,
-    paddingHorizontal: 24,
-    paddingVertical: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingTop: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 8,
   },
   navContent: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    maxWidth: 320,
-    alignSelf: 'center',
-    width: '100%',
+    justifyContent: 'space-around',
+    paddingHorizontal: 8,
   },
   tabButton: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 4,
     gap: 3,
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 10.5,
+    letterSpacing: -0.1,
   },
   iconBadgeWrapper: {
     position: 'relative',
-  },
-  badge: {
-    position: 'absolute',
-    top: -6,
-    right: -10,
-    borderRadius: 999,
-    width: 16,
-    height: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  badge: {
+    position: 'absolute',
+    top: -5,
+    right: -10,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
   badgeText: {
     color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 9,
+    fontWeight: '800',
   },
 });

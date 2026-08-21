@@ -17,6 +17,8 @@ import { ActivityDashboardScreen } from './components/ActivityDashboardScreen';
 import { AuthScreen } from './components/AuthScreen';
 import { BasketScreen } from './components/BasketScreen';
 import { FavoritesScreen } from './components/FavoritesScreen';
+import { ShopScreen } from './components/ShopScreen';
+import { NikeAuthModal } from './components/NikeAuthModal';
 import { LocationModal } from './components/LocationModal';
 import { InvoiceModal } from './components/InvoiceModal';
 import { LanguagePromptModal } from './components/LanguagePromptModal';
@@ -46,13 +48,25 @@ function MainAppContent() {
   const { theme } = useTheme();
   const { showToast, showAddToCartToast } = useToast();
 
-  // Navigation & Screen State
-  const [currentScreen, setCurrentScreen] = useState<ScreenType>('auth_mobile');
+  // Navigation & Screen State (Opens directly to Home screen by default)
+  const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
   const [selectedCategoryId, setSelectedCategoryId] = useState<CategoryId | 'all'>('sand');
   const [globalViewMode, setGlobalViewMode] = useState<'list' | 'grid'>('grid');
   const [openProfileAddresses, setOpenProfileAddresses] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
-  // Search & Location
+  // Search & Location via LocationContext (Single Source of Truth)
+  const {
+    selectedLocation,
+    savedLocations,
+    setSelectedLocation,
+    addLocation,
+    editLocation,
+    deleteLocation,
+    resetLocationsToDefault,
+    loadUserLocations,
+  } = useLocation();
+
   const [searchQuery, setSearchQuery] = useState('');
   const [recentSearches, setRecentSearches] = useState<string[]>([
     'UltraTech Cement 53',
@@ -60,39 +74,31 @@ function MainAppContent() {
     'TMT 12mm Rebar',
     'Mason',
   ]);
-  const [savedLocations, setSavedLocations] = useState<string[]>(SAVED_LOCATIONS);
-  const [selectedLocation, setSelectedLocation] = useState(SAVED_LOCATIONS[0]);
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
 
+  // Intent resumption state when guest is asked to authenticate
+  const [pendingIntent, setPendingIntent] = useState<
+    | { type: 'favorite'; itemId: string }
+    | { type: 'checkout' }
+    | { type: 'view_invoice'; delivery: ActivityDelivery }
+    | null
+  >(null);
+
   const handleAddLocation = (newLoc: string) => {
     if (!newLoc.trim()) return;
-    const trimmed = newLoc.trim();
-    if (!savedLocations.includes(trimmed)) {
-      setSavedLocations((prev) => [trimmed, ...prev]);
-    }
-    setSelectedLocation(trimmed);
-    showToast(`Saved new delivery address: ${trimmed}`, 'success');
+    addLocation(newLoc.trim());
+    showToast(`Saved new delivery address: ${newLoc.trim()}`, 'success');
   };
 
   const handleEditLocation = (oldLoc: string, newLoc: string) => {
     if (!newLoc.trim()) return;
-    const trimmed = newLoc.trim();
-    setSavedLocations((prev) => prev.map((loc) => (loc === oldLoc ? trimmed : loc)));
-    if (selectedLocation === oldLoc) {
-      setSelectedLocation(trimmed);
-    }
+    editLocation(oldLoc, newLoc.trim());
     showToast('Delivery address updated', 'success');
   };
 
   const handleDeleteLocation = (locToDelete: string) => {
-    setSavedLocations((prev) => {
-      const filtered = prev.filter((loc) => loc !== locToDelete);
-      if (selectedLocation === locToDelete && filtered.length > 0) {
-        setSelectedLocation(filtered[0]);
-      }
-      return filtered;
-    });
+    deleteLocation(locToDelete);
     showToast('Address removed', 'info');
   };
 
@@ -106,30 +112,170 @@ function MainAppContent() {
     return () => clearTimeout(timer);
   }, []);
 
-  // User & Auth
-  const [user, setUser] = useState<UserProfile>({
-    ...INITIAL_USER,
-    isVerified: false,
+  // User & Auth with session persistence
+  const [user, setUser] = useState<UserProfile>(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const saved = window.localStorage.getItem('urbanico_auth_session');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          const phone = parsed.phone || '9666635009';
+          const savedProfile = window.localStorage.getItem(`urbanico_user_profile_${phone}`);
+          if (savedProfile) {
+            return {
+              ...INITIAL_USER,
+              ...JSON.parse(savedProfile),
+              phone,
+              isVerified: true,
+            };
+          }
+          return {
+            ...INITIAL_USER,
+            phone,
+            isVerified: true,
+          };
+        }
+      }
+    } catch {
+      // ignore storage errors
+    }
+    return {
+      ...INITIAL_USER,
+      isVerified: false,
+    };
   });
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const saved = window.localStorage.getItem('urbanico_auth_session');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          return !!parsed.isLoggedIn;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return false;
+  });
 
   // Modal Item Selection & Invoice Modal
   const [selectedItemForModal, setSelectedItemForModal] = useState<MaterialItem | null>(null);
   const [selectedInvoiceDelivery, setSelectedInvoiceDelivery] = useState<ActivityDelivery | null>(null);
 
-  // Cart State (Starts empty by default)
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  // Background scroll locking when any bottom sheet or modal is open on web
+  const isAnyModalOpen =
+    isAuthModalOpen ||
+    !!selectedItemForModal ||
+    !!selectedInvoiceDelivery ||
+    isLocationModalOpen ||
+    isLanguageModalOpen;
 
-  // Deliveries data
-  const [deliveries] = useState(INITIAL_DELIVERIES);
+  useEffect(() => {
+    if (typeof document !== 'undefined' && document.body) {
+      if (isAnyModalOpen) {
+        document.body.style.overflow = 'hidden';
+      } else {
+        document.body.style.overflow = 'auto';
+      }
+    }
+  }, [isAnyModalOpen]);
 
-  // Favorites State
-  const [favoriteIds, setFavoriteIds] = useState<string[]>([
-    'plastering-sand',
-    'stone-20mm',
-  ]);
+  // Cart State (Persisted and partition-scoped per user / guest)
+  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const authSaved = window.localStorage.getItem('urbanico_auth_session');
+        const phone = authSaved ? JSON.parse(authSaved).phone : null;
+        const key = phone ? `urbanico_cart_${phone}` : 'urbanico_cart_guest';
+        const savedCart = window.localStorage.getItem(key);
+        if (savedCart) return JSON.parse(savedCart);
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  });
+
+  // Sync cart to storage whenever changed
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const key = isLoggedIn && user.phone ? `urbanico_cart_${user.phone}` : 'urbanico_cart_guest';
+        window.localStorage.setItem(key, JSON.stringify(cartItems));
+      }
+    } catch {
+      // ignore
+    }
+  }, [cartItems, isLoggedIn, user.phone]);
+
+  // Deliveries data (persisted for live production app)
+  const [deliveries, setDeliveries] = useState<ActivityDelivery[]>(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const saved = window.localStorage.getItem('urbanico_orders');
+        if (saved) {
+          return JSON.parse(saved);
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return INITIAL_DELIVERIES;
+  });
+
+  const handleOrderCreated = (newOrder: ActivityDelivery) => {
+    setDeliveries((prev) => {
+      const updated = [newOrder, ...prev];
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem('urbanico_orders', JSON.stringify(updated));
+        }
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
+  };
+
+  // Favorites State (persisted per user or guest session)
+  const [favoriteIds, setFavoriteIds] = useState<string[]>(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const authSaved = window.localStorage.getItem('urbanico_auth_session');
+        const isAuth = authSaved ? JSON.parse(authSaved).isLoggedIn : false;
+        const phone = authSaved ? JSON.parse(authSaved).phone : null;
+        const key = isAuth && phone ? `urbanico_favorite_ids_${phone}` : 'urbanico_favorite_ids_guest';
+        const favSaved = window.localStorage.getItem(key) || window.localStorage.getItem('urbanico_favorite_ids');
+        if (favSaved) return JSON.parse(favSaved);
+        if (isAuth) return ['plastering-sand', 'stone-20mm'];
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  });
+
+  // Sync favorites with localStorage whenever changed
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const key = isLoggedIn && user.phone ? `urbanico_favorite_ids_${user.phone}` : 'urbanico_favorite_ids_guest';
+        window.localStorage.setItem(key, JSON.stringify(favoriteIds));
+      }
+    } catch {
+      // ignore
+    }
+  }, [favoriteIds, isLoggedIn, user.phone]);
 
   const handleToggleFavorite = (itemId: string) => {
+    if (!isLoggedIn) {
+      setPendingIntent({ type: 'favorite', itemId });
+      showToast('Please log in to save items to your favorites', 'info');
+      setIsAuthModalOpen(true);
+      return;
+    }
     const isFavNow = !favoriteIds.includes(itemId);
     setFavoriteIds((prev) =>
       prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId]
@@ -137,6 +283,13 @@ function MainAppContent() {
     const item = MATERIAL_ITEMS.find((m) => m.id === itemId);
     const itemName = item ? item.name : 'Item';
     showToast(isFavNow ? `Saved ${itemName} to Favorites` : `Removed ${itemName} from Favorites`, 'info');
+  };
+
+  const generateCartItemId = (): string => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return `cart-${crypto.randomUUID()}`;
+    }
+    return `cart-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
   };
 
   // Search Handlers
@@ -165,9 +318,19 @@ function MainAppContent() {
     );
   };
 
-  // Profile Update Handler
+  // Profile Update Handler with persistence
   const handleUpdateUser = (updatedData: Partial<UserProfile>) => {
-    setUser((prev) => ({ ...prev, ...updatedData }));
+    setUser((prev) => {
+      const updated = { ...prev, ...updatedData };
+      try {
+        if (typeof window !== 'undefined' && window.localStorage && updated.phone) {
+          window.localStorage.setItem(`urbanico_user_profile_${updated.phone}`, JSON.stringify(updated));
+        }
+      } catch {
+        // ignore
+      }
+      return updated;
+    });
     if (updatedData.siteLocation) {
       setSelectedLocation(updatedData.siteLocation);
     }
@@ -197,7 +360,7 @@ function MainAppContent() {
     totalPrice: number
   ) => {
     const newItem: CartItem = {
-      id: `cart-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+      id: generateCartItemId(),
       itemId: item.id,
       itemName: item.name,
       categoryName: item.categoryId,
@@ -207,14 +370,29 @@ function MainAppContent() {
       image: item.image,
     };
 
-    setCartItems((prev) => [newItem, ...prev]);
+    setCartItems((prev) => {
+      // If item with same option already in cart, increment quantity
+      const existingIdx = prev.findIndex(
+        (ci) => ci.itemId === item.id && ci.selectedOptionLabel === option.label
+      );
+      if (existingIdx >= 0) {
+        const updated = [...prev];
+        updated[existingIdx] = {
+          ...updated[existingIdx],
+          quantity: updated[existingIdx].quantity + quantity,
+        };
+        return updated;
+      }
+      return [newItem, ...prev];
+    });
+
     showAddToCartToast({
       name: item.name,
       optionLabel: option.label,
       price: totalPrice || option.price * quantity,
       image: item.image,
       quantity: quantity,
-      onViewBag: () => setCurrentScreen('basket'),
+      onViewCart: () => setCurrentScreen('basket'),
     });
   };
 
@@ -225,7 +403,7 @@ function MainAppContent() {
     totalPrice: number
   ) => {
     const newItem: CartItem = {
-      id: `cart-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+      id: generateCartItemId(),
       itemId: item.id,
       itemName: item.name,
       categoryName: item.categoryId,
@@ -235,7 +413,21 @@ function MainAppContent() {
       image: item.image,
     };
 
-    setCartItems((prev) => [newItem, ...prev]);
+    setCartItems((prev) => {
+      const existingIdx = prev.findIndex(
+        (ci) => ci.itemId === item.id && ci.selectedOptionLabel === option.label
+      );
+      if (existingIdx >= 0) {
+        const updated = [...prev];
+        updated[existingIdx] = {
+          ...updated[existingIdx],
+          quantity: updated[existingIdx].quantity + quantity,
+        };
+        return updated;
+      }
+      return [newItem, ...prev];
+    });
+
     setSelectedItemForModal(null);
     setCurrentScreen('basket');
   };
@@ -254,30 +446,116 @@ function MainAppContent() {
     const itemToRemove = cartItems.find((ci) => ci.id === cartId);
     const itemName = itemToRemove ? itemToRemove.itemName : 'Item';
     setCartItems((prev) => prev.filter((item) => item.id !== cartId));
-    showToast(`Removed ${itemName} from Basket`, 'info');
+    showToast(`Removed ${itemName} from Cart`, 'info');
   };
 
   const handleClearCart = () => {
     setCartItems([]);
-    showToast('Basket cleared', 'info');
+    showToast('Cart cleared', 'info');
   };
 
   const handleAuthSuccess = (phoneNum: string) => {
     setIsLoggedIn(true);
-    setUser((prev) => ({ ...prev, phone: phoneNum, isVerified: true }));
-    setCurrentScreen('home');
-    setIsLanguageModalOpen(true);
-    showToast('Account verified! Welcome to Urbanico.', 'success');
+    const validPhone = phoneNum || '9666635009';
+
+    // 1. Restore or initialize user profile
+    let loadedProfile = { ...INITIAL_USER, phone: validPhone, isVerified: true };
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const savedProf = window.localStorage.getItem(`urbanico_user_profile_${validPhone}`);
+        if (savedProf) {
+          loadedProfile = { ...loadedProfile, ...JSON.parse(savedProf) };
+        }
+      }
+    } catch {
+      // ignore
+    }
+    setUser(loadedProfile);
+
+    // 2. Load user addresses
+    loadUserLocations(validPhone);
+
+    // 3. Merge guest cart with existing user cart
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem(
+          'urbanico_auth_session',
+          JSON.stringify({ isLoggedIn: true, phone: validPhone })
+        );
+
+        // Merge cart items
+        const userSavedCartRaw = window.localStorage.getItem(`urbanico_cart_${validPhone}`);
+        const userSavedCart: CartItem[] = userSavedCartRaw ? JSON.parse(userSavedCartRaw) : [];
+
+        let mergedCart = [...userSavedCart];
+        cartItems.forEach((guestItem) => {
+          const matchIdx = mergedCart.findIndex(
+            (ci) => ci.itemId === guestItem.itemId && ci.selectedOptionLabel === guestItem.selectedOptionLabel
+          );
+          if (matchIdx >= 0) {
+            mergedCart[matchIdx] = {
+              ...mergedCart[matchIdx],
+              quantity: mergedCart[matchIdx].quantity + guestItem.quantity,
+            };
+          } else {
+            mergedCart.push(guestItem);
+          }
+        });
+
+        setCartItems(mergedCart);
+        window.localStorage.setItem(`urbanico_cart_${validPhone}`, JSON.stringify(mergedCart));
+
+        // Merge favorites
+        const userSavedFavsRaw = window.localStorage.getItem(`urbanico_favorite_ids_${validPhone}`);
+        const userSavedFavs: string[] = userSavedFavsRaw
+          ? JSON.parse(userSavedFavsRaw)
+          : ['plastering-sand', 'stone-20mm'];
+        const mergedFavs = Array.from(new Set([...userSavedFavs, ...favoriteIds]));
+        setFavoriteIds(mergedFavs);
+        window.localStorage.setItem(`urbanico_favorite_ids_${validPhone}`, JSON.stringify(mergedFavs));
+      }
+    } catch {
+      // ignore
+    }
+
+    // 4. Resume any pending user intent
+    if (pendingIntent) {
+      if (pendingIntent.type === 'favorite') {
+        const itemToFav = pendingIntent.itemId;
+        setFavoriteIds((prev) => (prev.includes(itemToFav) ? prev : [...prev, itemToFav]));
+        showToast('Saved item to your favorites!', 'success');
+      } else if (pendingIntent.type === 'checkout') {
+        setCurrentScreen('basket');
+      } else if (pendingIntent.type === 'view_invoice') {
+        setSelectedInvoiceDelivery(pendingIntent.delivery);
+      }
+      setPendingIntent(null);
+    } else {
+      showToast('Account verified! Welcome to Urbanico.', 'success');
+    }
   };
 
   const handleLogout = () => {
     setIsLoggedIn(false);
-    setCurrentScreen('auth_mobile');
+    setUser((prev) => ({ ...prev, isVerified: false }));
+    setCartItems([]);
+    setFavoriteIds([]);
+    resetLocationsToDefault();
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.removeItem('urbanico_auth_session');
+        window.localStorage.removeItem('urbanico_cart_guest');
+        window.localStorage.removeItem('urbanico_favorite_ids_guest');
+      }
+    } catch {
+      // ignore
+    }
     showToast('Logged out of Urbanico account', 'info');
   };
 
   // Determine current screen title for header
   const getScreenTitle = (): string => {
+    if (currentScreen === 'shop') return 'Shop';
     if (currentScreen === 'category') {
       if (selectedCategoryId === 'all') return 'Materials Catalog';
       if (selectedCategoryId === 'services-catalog' || selectedCategoryId === 'services') return 'Services Catalog';
@@ -287,9 +565,9 @@ function MainAppContent() {
       if (srv) return `${srv.name} Service`;
       return 'Materials';
     }
-    if (currentScreen === 'basket') return 'Basket';
-    if (currentScreen === 'favorites') return 'Favorites';
-    if (currentScreen === 'profile') return 'My Profile';
+    if (currentScreen === 'basket') return 'Bag';
+    if (currentScreen === 'favorites') return 'Favourites';
+    if (currentScreen === 'profile') return 'Profile';
     if (currentScreen === 'settings') return 'Settings';
     if (currentScreen === 'activity') return 'Activity Dashboard';
     if (currentScreen === 'auth_mobile' || currentScreen === 'auth_otp') return 'Account Verification';
@@ -299,20 +577,16 @@ function MainAppContent() {
   const totalCartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <SafeAreaView style={[styles.appContainer, { backgroundColor: theme.background }]} edges={['top']}>
-      <ExpoStatusBar style={theme.statusBarStyle} />
-      {/* Top Header (Visible on most screens except full Auth screen) */}
-      {currentScreen !== 'auth_mobile' && currentScreen !== 'auth_otp' && (
+    <SafeAreaView style={[styles.appContainer, { backgroundColor: '#FFFFFF' }]} edges={['top']}>
+      <ExpoStatusBar style="dark" />
+      {/* Top Header (Visible exclusively on Home screen) */}
+      {currentScreen === 'home' && (
         <Header
           currentScreen={currentScreen}
           title={getScreenTitle()}
           selectedLocation={selectedLocation}
           onOpenLocationModal={() => setIsLocationModalOpen(true)}
-          onBack={
-            currentScreen !== 'home'
-              ? () => setCurrentScreen('home')
-              : undefined
-          }
+          onBack={undefined}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
           recentSearches={recentSearches}
@@ -325,7 +599,16 @@ function MainAppContent() {
       )}
 
       {/* Main View Router */}
-      <View style={[styles.mainContent, { backgroundColor: theme.background }]}>
+      <View style={[styles.mainContent, { backgroundColor: '#FFFFFF' }]}>
+        {currentScreen === 'shop' && (
+          <ShopScreen
+            onSelectCategoryTab={handleSelectCategory}
+            onSelectItem={handleOpenItemModal}
+            favoriteIds={favoriteIds}
+            onToggleFavorite={handleToggleFavorite}
+          />
+        )}
+
         {currentScreen === 'home' && (
           <HomeScreen
             onSelectCategory={handleSelectCategory}
@@ -339,6 +622,8 @@ function MainAppContent() {
             }}
             onSelectItem={handleOpenItemModal}
             searchQuery={searchQuery}
+            favoriteIds={favoriteIds}
+            onToggleFavorite={handleToggleFavorite}
           />
         )}
 
@@ -365,11 +650,14 @@ function MainAppContent() {
             selectedLocation={selectedLocation}
             onNavigateScreen={setCurrentScreen}
             deliveries={deliveries}
+            onOrderCreated={handleOrderCreated}
             onViewInvoice={(del) => setSelectedInvoiceDelivery(del)}
             onChangeAddressRedirect={() => {
               setOpenProfileAddresses(true);
               setCurrentScreen('profile');
             }}
+            isLoggedIn={isLoggedIn}
+            onOpenLoginModal={() => setIsAuthModalOpen(true)}
           />
         )}
 
@@ -379,6 +667,8 @@ function MainAppContent() {
             onNavigateHome={() => setCurrentScreen('home')}
             favoriteIds={favoriteIds}
             onToggleFavorite={handleToggleFavorite}
+            isLoggedIn={isLoggedIn}
+            onOpenLoginModal={() => setIsAuthModalOpen(true)}
           />
         )}
 
@@ -400,6 +690,7 @@ function MainAppContent() {
             deliveries={deliveries}
             onViewInvoice={(del) => setSelectedInvoiceDelivery(del)}
             initialOpenAddressesModal={openProfileAddresses}
+            onOpenLoginModal={() => setIsAuthModalOpen(true)}
           />
         )}
 
@@ -424,15 +715,21 @@ function MainAppContent() {
             initialStep={currentScreen === 'auth_otp' ? 'otp' : 'mobile'}
             onSuccessAuth={handleAuthSuccess}
             onBack={() => {
-              if (isLoggedIn) {
-                setCurrentScreen('profile');
-              } else {
-                setCurrentScreen('auth_mobile');
-              }
+              setCurrentScreen('home');
             }}
           />
         )}
       </View>
+
+      {/* Nike Auth Modal (Login/Signup Bottom Sheet matching n1.jpeg, n2.jpeg) */}
+      <NikeAuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onSuccessAuth={(phone) => {
+          handleAuthSuccess(phone);
+          setIsAuthModalOpen(false);
+        }}
+      />
 
       {/* Item Quantity Modal (Slide-up Bottom Sheet) */}
       <ItemQuantityModal
@@ -450,6 +747,8 @@ function MainAppContent() {
         onClose={() => setSelectedInvoiceDelivery(null)}
         delivery={selectedInvoiceDelivery}
         user={user}
+        isLoggedIn={isLoggedIn}
+        onOpenLoginModal={() => setIsAuthModalOpen(true)}
       />
 
       {/* Delivery Site Location Picker Sheet */}
@@ -464,7 +763,7 @@ function MainAppContent() {
         onClose={() => setIsLanguageModalOpen(false)}
       />
 
-      {/* Fixed Bottom Navigation Bar */}
+      {/* Fixed Bottom Navigation Bar (5 tabs: Home, Shop, Favorites, Bag, Profile) */}
       {currentScreen !== 'auth_mobile' && currentScreen !== 'auth_otp' && (
         <BottomNav
           activeScreen={currentScreen}
@@ -495,7 +794,7 @@ export default function App() {
 const styles = StyleSheet.create({
   appContainer: {
     flex: 1,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
   },
   mainContent: {
     flex: 1,

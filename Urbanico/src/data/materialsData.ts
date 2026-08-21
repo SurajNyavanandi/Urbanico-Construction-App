@@ -12,54 +12,67 @@ export interface ServiceItem {
 
 export const CATEGORIES: MaterialCategory[] = [
   {
-    id: 'tiles',
-    name: 'Tiles',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1787033354/Tiles_kw4xbl.jpg',
-    count: '4 Subcategories',
-    priceLabel: '₹45 / Sq.Ft',
+    id: 'sand',
+    name: 'Sand',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614393/sand2_wj9sly.jpg',
+    count: '4 Varieties',
+    priceLabel: 'From ₹70 / Bag',
+    subcategoriesText: 'Plastering, River, Robo & Filling',
+    tag: 'SAND',
   },
   {
     id: 'cement',
     name: 'Cement',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614395/cement2_s1pf60.jpg',
     count: '7 Top Brands',
-    priceLabel: '₹380 / Bag',
-  },
-  {
-    id: 'bricks',
-    name: 'Bricks',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614403/brick2_gjzbjh.jpg',
-    count: '5 Types',
-    priceLabel: '₹6.5 / Brick',
-  },
-  {
-    id: 'sand',
-    name: 'Sand',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614393/sand2_wj9sly.jpg',
-    count: '4 Varieties',
-    priceLabel: '₹70 / Bag',
-    highlighted: false,
-  },
-  {
-    id: 'stone',
-    name: 'Stone',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614394/stones2_i0cjzq.jpg',
-    count: '5 Sizes',
-    priceLabel: '₹70 / Bag',
+    priceLabel: 'From ₹365 / Bag',
+    subcategoriesText: 'UltraTech, ACC, Ambuja, Dalmia',
+    tag: 'CEMENT',
   },
   {
     id: 'iron_bars',
-    name: 'Iron bars',
+    name: 'Iron Bars & Steel',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614394/ironbars2_t1ktel.jpg',
     count: '5 Rebar Grades',
-    priceLabel: '₹380 / Bundle',
+    priceLabel: 'From ₹380 / Bundle',
+    subcategoriesText: 'Tata Tiscon, JSW, Kamdhenu',
+    tag: 'STEEL & TMT',
+  },
+  {
+    id: 'stone',
+    name: 'Stone & Aggregates',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614394/stones2_i0cjzq.jpg',
+    count: '5 Sizes',
+    priceLabel: 'From ₹70 / Bag',
+    subcategoriesText: '10mm, 20mm, 40mm & Stone Dust',
+    tag: 'AGGREGATES',
+  },
+  {
+    id: 'bricks',
+    name: 'Bricks & Blocks',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614403/brick2_gjzbjh.jpg',
+    count: '5 Types',
+    priceLabel: 'From ₹6.5 / Brick',
+    subcategoriesText: 'Red Clay, AAC Blocks, Fly Ash',
+    tag: 'BRICKS',
+  },
+  {
+    id: 'tiles',
+    name: 'Tiles & Flooring',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1787033354/Tiles_kw4xbl.jpg',
+    count: '4 Subcategories',
+    priceLabel: 'From ₹42 / Sq.Ft',
+    subcategoriesText: 'Vitrified, Ceramic, Matte & Pavers',
+    tag: 'TILES',
   },
   {
     id: 'centring',
-    name: 'Centring',
+    name: 'Centring & Formwork',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614394/centering2_lb7s6n.jpg',
     count: '5 Formwork Types',
-    priceLabel: '₹50 / Plank',
+    priceLabel: 'From ₹50 / Plank',
+    subcategoriesText: 'Steel Sheets, Props & Wood Planks',
+    tag: 'FORMWORK',
   },
 ];
 
@@ -68,7 +81,7 @@ export const SERVICES_CATEGORY: MaterialCategory = {
   name: 'Services',
   image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786533919/mason_ipgxhc.jpg',
   count: '6 Skilled Trades',
-  priceLabel: 'From ₹750/Day',
+  priceLabel: 'Demo @ ₹99',
 };
 
 export const ALL_CATEGORIES_WITH_SERVICES: MaterialCategory[] = [
@@ -82,7 +95,7 @@ export const SERVICES: ServiceItem[] = [
     name: 'Mason',
     subtitle: 'Tile & Brickwork',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786705284/mason_nxpwh5.jpg',
-    rate: '₹850 / Day',
+    rate: '₹99 Demo Visit',
     description: 'Experienced Masons for bricklaying, plastering, stone masonry, tile fitting & concrete slab laying.',
   },
   {
@@ -90,7 +103,7 @@ export const SERVICES: ServiceItem[] = [
     name: 'Painter',
     subtitle: 'Wall Painting',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786705284/painter_dofdp9.jpg',
-    rate: '₹750 / Day',
+    rate: '₹99 Demo Visit',
     description: 'Professional Wall Painters for interior wall putty, primer coat, exterior weather-shield & texture finish.',
   },
   {
@@ -98,7 +111,7 @@ export const SERVICES: ServiceItem[] = [
     name: 'Fabricator',
     subtitle: 'Steel & Welding',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786705284/fabricator_xck9hm.jpg',
-    rate: '₹950 / Day',
+    rate: '₹99 Demo Visit',
     description: 'Certified Steel Fabricators for gates, window grills, roof trusses & heavy structural welding work.',
   },
   {
@@ -106,7 +119,7 @@ export const SERVICES: ServiceItem[] = [
     name: 'Plumber',
     subtitle: 'Piping & Sanitary',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786705284/plumber_fuqvkj.jpg',
-    rate: '₹800 / Day',
+    rate: '₹99 Demo Visit',
     description: 'Experienced Plumbers for CPVC/PVC concealed piping, overhead tanks, bathroom fittings & drainage.',
   },
   {
@@ -114,7 +127,7 @@ export const SERVICES: ServiceItem[] = [
     name: 'Carpenter',
     subtitle: 'Woodwork & Doors',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786705284/carpenter_gztqck.jpg',
-    rate: '₹900 / Day',
+    rate: '₹99 Demo Visit',
     description: 'Skilled Carpenters for door frames, window shuttering, modular kitchens & custom wood fittings.',
   },
   {
@@ -122,7 +135,7 @@ export const SERVICES: ServiceItem[] = [
     name: 'Electrician',
     subtitle: 'Wiring & Panels',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786705284/electrician_zv91to.jpg',
-    rate: '₹800 / Day',
+    rate: '₹99 Demo Visit',
     description: 'Licensed Electricians for wall conduit wiring, distribution boards, lighting fixtures & earthing.',
   },
 ];
@@ -651,11 +664,9 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     subtitle: 'Tile & Brickwork',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786705284/mason_nxpwh5.jpg',
     actionType: 'add_to_cart',
-    defaultPrice: 850,
+    defaultPrice: 99,
     options: [
-      { id: '1-day', label: '1 Day (8 Hrs)', price: 850, type: 'stepper' },
-      { id: 'half-day', label: 'Half Day (4 Hrs)', price: 500, type: 'radio' },
-      { id: '1-week', label: '1 Week Contract', price: 5500, type: 'radio' },
+      { id: 'demo-session', label: '1x Expert Site Visit Demo Session', price: 99, type: 'radio' },
     ],
   },
   {
@@ -665,10 +676,9 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     subtitle: 'Wall Painting',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786705284/painter_dofdp9.jpg',
     actionType: 'add_to_cart',
-    defaultPrice: 750,
+    defaultPrice: 99,
     options: [
-      { id: '1-day', label: '1 Day (8 Hrs)', price: 750, type: 'stepper' },
-      { id: '1-week', label: '1 Week Contract', price: 4800, type: 'radio' },
+      { id: 'demo-session', label: '1x Expert Site Visit Demo Session', price: 99, type: 'radio' },
     ],
   },
   {
@@ -678,10 +688,9 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     subtitle: 'Steel & Welding',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786705284/fabricator_xck9hm.jpg',
     actionType: 'add_to_cart',
-    defaultPrice: 950,
+    defaultPrice: 99,
     options: [
-      { id: '1-day', label: '1 Day (8 Hrs)', price: 950, type: 'stepper' },
-      { id: '1-week', label: '1 Week Contract', price: 6200, type: 'radio' },
+      { id: 'demo-session', label: '1x Expert Site Visit Demo Session', price: 99, type: 'radio' },
     ],
   },
   {
@@ -691,10 +700,9 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     subtitle: 'Wiring & Panels',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786705284/electrician_zv91to.jpg',
     actionType: 'add_to_cart',
-    defaultPrice: 800,
+    defaultPrice: 99,
     options: [
-      { id: '1-day', label: '1 Day (8 Hrs)', price: 800, type: 'stepper' },
-      { id: 'callout', label: 'Single Job Callout', price: 450, type: 'radio' },
+      { id: 'demo-session', label: '1x Expert Site Visit Demo Session', price: 99, type: 'radio' },
     ],
   },
   {
@@ -704,10 +712,9 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     subtitle: 'Piping & Sanitary',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786705284/plumber_fuqvkj.jpg',
     actionType: 'add_to_cart',
-    defaultPrice: 800,
+    defaultPrice: 99,
     options: [
-      { id: '1-day', label: '1 Day (8 Hrs)', price: 800, type: 'stepper' },
-      { id: 'callout', label: 'Single Job Callout', price: 450, type: 'radio' },
+      { id: 'demo-session', label: '1x Expert Site Visit Demo Session', price: 99, type: 'radio' },
     ],
   },
   {
@@ -717,61 +724,31 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     subtitle: 'Woodwork & Doors',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786705284/carpenter_gztqck.jpg',
     actionType: 'add_to_cart',
-    defaultPrice: 900,
+    defaultPrice: 99,
     options: [
-      { id: '1-day', label: '1 Day (8 Hrs)', price: 900, type: 'stepper' },
-      { id: '1-week', label: '1 Week Contract', price: 5800, type: 'radio' },
+      { id: 'demo-session', label: '1x Expert Site Visit Demo Session', price: 99, type: 'radio' },
     ],
   },
 ];
 
 export const INITIAL_USER: UserProfile = {
-  name: 'Rajesh Kumar',
-  phone: '+91 98765 43210',
-  email: 'rajesh.m@urbanico.in',
+  name: 'Suraj Nyavanandi',
+  phone: '+91 96666 35009',
+  email: 'kanusuraj15@gmail.com',
   role: 'General Contractor',
-  companyName: 'Kumar Infra & Construction Pvt Ltd',
+  companyName: 'Urbanico Infrastructure Pvt Ltd',
   gstin: '36AABCU12341ZV',
   siteLocation: 'Miyapur Site, Hyderabad',
   avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop',
   isVerified: true,
   verificationBadgeId: 'VERIFIED-IND-88219',
-  creditLimit: 250000,
-  usedCredit: 85000,
-  rewardPoints: 1250,
-  activeOrdersCount: 2,
+  creditLimit: 0,
+  usedCredit: 0,
+  rewardPoints: 0,
+  activeOrdersCount: 0,
 };
 
-export const INITIAL_DELIVERIES: ActivityDelivery[] = [
-  {
-    id: 'del-01',
-    orderNumber: 'URB-98421',
-    materialName: 'Plastering Sand (Tractor ~3 Tons)',
-    quantity: '3 Tons',
-    driverName: 'Suresh Rao (Eicher Tractor TS 08 U 4210)',
-    vehicleType: 'Tractor Trailer',
-    vehicleNumber: 'TS 08 U 4210',
-    estimatedArrival: 'In 18 mins',
-    status: 'En Route',
-    siteAddress: 'Plot 42, Miyapur Heights, Phase 2, Hyderabad',
-    timestamp: 'Today, 10:25 AM',
-    totalAmount: 2700,
-  },
-  {
-    id: 'del-02',
-    orderNumber: 'URB-98399',
-    materialName: 'Stone 20 mm (Truck ~10 Tons)',
-    quantity: '10 Tons',
-    driverName: 'Mahesh Reddy (Tata Tipper TS 07 EH 8812)',
-    vehicleType: 'Heavy Tipper Truck',
-    vehicleNumber: 'TS 07 EH 8812',
-    estimatedArrival: 'Delivered',
-    status: 'Delivered',
-    siteAddress: 'Gachibowli Heights Site, Hyderabad',
-    timestamp: 'Yesterday, 02:30 PM',
-    totalAmount: 15000,
-  },
-];
+export const INITIAL_DELIVERIES: ActivityDelivery[] = [];
 
 export const SAVED_LOCATIONS = [
   'Miyapur Site, Hyderabad',

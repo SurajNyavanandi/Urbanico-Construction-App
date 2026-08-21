@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#000000',
+    backgroundColor: '#FFFFFF',
     overflow: 'hidden',
   },
   image: {

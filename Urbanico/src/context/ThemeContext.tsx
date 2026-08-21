@@ -73,144 +73,143 @@ export interface AccentDefinition {
 }
 
 export const ACCENT_DEFINITIONS: Record<AccentColor, AccentDefinition> = {
-  blue: {
-    name: 'Apple Blue',
-    hex: '#0071E3',
+  black: {
+    name: 'Onyx Monochrome',
+    hex: '#111111',
     light: {
-      primary: '#0071E3',
-      primaryLight: '#EBF4FF',
-      primaryDark: '#0058B6',
-      cardShadow: 'rgba(0, 113, 227, 0.12)',
-      surfaceSecondary: '#F5F5F7',
-      surfaceTertiary: '#E5E5EA',
+      primary: '#111111',
+      primaryLight: '#F4F4F5',
+      primaryDark: '#000000',
+      cardShadow: 'rgba(0, 0, 0, 0.04)',
+      surfaceSecondary: '#F4F4F5',
+      surfaceTertiary: '#E5E7EB',
     },
     dark: {
-      primary: '#0071E3',
-      primaryLight: '#1C2536',
-      primaryDark: '#2997FF',
-      cardShadow: 'rgba(0, 113, 227, 0.25)',
+      primary: '#FFFFFF',
+      primaryLight: '#27272A',
+      primaryDark: '#F4F4F5',
+      cardShadow: 'rgba(0, 0, 0, 0.4)',
     },
   },
-  black: {
-    name: 'Monochrome',
-    hex: '#000000',
+  blue: {
+    name: 'Onyx Monochrome',
+    hex: '#111111',
     light: {
-      primary: '#0071E3',
-      primaryLight: '#EBF4FF',
-      primaryDark: '#0058B6',
+      primary: '#111111',
+      primaryLight: '#F4F4F5',
+      primaryDark: '#000000',
       cardShadow: 'rgba(0, 0, 0, 0.04)',
-      surfaceSecondary: '#F5F5F7',
-      surfaceTertiary: '#E5E5EA',
+      surfaceSecondary: '#F4F4F5',
+      surfaceTertiary: '#E5E7EB',
     },
     dark: {
-      primary: '#0071E3',
-      primaryLight: '#1C2536',
-      primaryDark: '#2997FF',
-      cardShadow: 'rgba(255, 255, 255, 0.08)',
+      primary: '#FFFFFF',
+      primaryLight: '#27272A',
+      primaryDark: '#F4F4F5',
+      cardShadow: 'rgba(0, 0, 0, 0.4)',
     },
   },
   amber: {
-    name: 'Apple Blue',
-    hex: '#0071E3',
+    name: 'Amber Construction',
+    hex: '#D97706',
     light: {
-      primary: '#0071E3',
-      primaryLight: '#EBF4FF',
-      primaryDark: '#0058B6',
-      cardShadow: 'rgba(0, 113, 227, 0.12)',
-      surfaceSecondary: '#F5F5F7',
-      surfaceTertiary: '#E5E5EA',
+      primary: '#111111',
+      primaryLight: '#FEF3C7',
+      primaryDark: '#B45309',
+      cardShadow: 'rgba(217, 119, 6, 0.12)',
+      surfaceSecondary: '#F4F4F5',
+      surfaceTertiary: '#E5E7EB',
     },
     dark: {
-      primary: '#0071E3',
-      primaryLight: '#1C2536',
-      primaryDark: '#2997FF',
-      cardShadow: 'rgba(0, 113, 227, 0.25)',
+      primary: '#F59E0B',
+      primaryLight: '#3B240B',
+      primaryDark: '#FCD34D',
+      cardShadow: 'rgba(217, 119, 6, 0.25)',
     },
   },
   violet: {
-    name: 'Apple Blue',
-    hex: '#0071E3',
+    name: 'Onyx Monochrome',
+    hex: '#111111',
     light: {
-      primary: '#0071E3',
-      primaryLight: '#EBF4FF',
-      primaryDark: '#0058B6',
-      cardShadow: 'rgba(0, 113, 227, 0.12)',
-      surfaceSecondary: '#F5F5F7',
-      surfaceTertiary: '#E5E5EA',
+      primary: '#111111',
+      primaryLight: '#F4F4F5',
+      primaryDark: '#000000',
+      cardShadow: 'rgba(0, 0, 0, 0.04)',
+      surfaceSecondary: '#F4F4F5',
+      surfaceTertiary: '#E5E7EB',
     },
     dark: {
-      primary: '#0071E3',
-      primaryLight: '#1C2536',
-      primaryDark: '#2997FF',
-      cardShadow: 'rgba(0, 113, 227, 0.25)',
+      primary: '#FFFFFF',
+      primaryLight: '#27272A',
+      primaryDark: '#F4F4F5',
+      cardShadow: 'rgba(0, 0, 0, 0.4)',
     },
   },
   green: {
-    name: 'Apple Blue',
-    hex: '#0071E3',
+    name: 'Emerald Verified',
+    hex: '#059669',
     light: {
-      primary: '#0071E3',
-      primaryLight: '#EBF4FF',
-      primaryDark: '#0058B6',
-      cardShadow: 'rgba(0, 113, 227, 0.12)',
-      surfaceSecondary: '#F5F5F7',
-      surfaceTertiary: '#E5E5EA',
+      primary: '#059669',
+      primaryLight: '#ECFDF5',
+      primaryDark: '#047857',
+      cardShadow: 'rgba(5, 150, 105, 0.12)',
+      surfaceSecondary: '#F4F4F5',
+      surfaceTertiary: '#E5E7EB',
     },
     dark: {
-      primary: '#0071E3',
-      primaryLight: '#1C2536',
-      primaryDark: '#2997FF',
-      cardShadow: 'rgba(0, 113, 227, 0.25)',
+      primary: '#10B981',
+      primaryLight: '#064E3B',
+      primaryDark: '#34D399',
+      cardShadow: 'rgba(5, 150, 105, 0.25)',
     },
   },
 };
 
 export const FONT_CONFIGS: Record<TypographyFontFamily, { name: string; family: string; headingFamily: string }> = {
+  jakarta: {
+    name: 'Plus Jakarta Sans',
+    family: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    headingFamily: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+  },
   system: {
-    name: 'SF Pro System',
-    family: '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Helvetica, Arial, sans-serif',
-    headingFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Helvetica, Arial, sans-serif',
+    name: 'Plus Jakarta Sans',
+    family: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    headingFamily: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   },
   inter: {
-    name: 'Inter Minimal',
-    family: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
-    headingFamily: '"Inter", -apple-system, BlinkMacSystemFont, sans-serif',
-  },
-  jakarta: {
-    name: 'Plus Jakarta Display',
-    family: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif',
-    headingFamily: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif',
+    name: 'Plus Jakarta Sans',
+    family: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+    headingFamily: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   },
   mono: {
     name: 'SF Mono',
     family: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-    headingFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
+    headingFamily: '"Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif',
   },
 };
 
 export function getThemeColors(mode: ThemeMode, accent: AccentColor): ThemeColors {
-  const accentDef = ACCENT_DEFINITIONS[accent] || ACCENT_DEFINITIONS.blue;
   const isLight = mode === 'light';
 
   if (isLight) {
     return {
       mode: 'light',
       accent,
-      background: '#FFFFFF',
+      background: '#FAFAFA',
       surface: '#FFFFFF',
-      surfaceSecondary: '#F5F5F7',
-      surfaceTertiary: '#E5E5EA',
-      textPrimary: '#1D1D1F',
-      textSecondary: '#86868B',
-      textMuted: '#AEAEB2',
-      primary: '#0071E3',
-      primaryLight: '#EBF4FF',
-      primaryDark: '#0058B6',
-      border: '#E5E5EA',
-      borderLight: '#F5F5F7',
+      surfaceSecondary: '#F4F4F5',
+      surfaceTertiary: '#E5E7EB',
+      textPrimary: '#111111',
+      textSecondary: '#707072',
+      textMuted: '#9CA3AF',
+      primary: '#111111',
+      primaryLight: '#F4F4F5',
+      primaryDark: '#000000',
+      border: '#EEEEEE',
+      borderLight: '#F5F5F5',
       cardShadow: 'rgba(0, 0, 0, 0.04)',
       headerBg: '#FFFFFF',
-      headerText: '#1D1D1F',
+      headerText: '#111111',
       statusBarStyle: 'dark',
     };
   } else {
@@ -224,9 +223,9 @@ export function getThemeColors(mode: ThemeMode, accent: AccentColor): ThemeColor
       textPrimary: '#F5F5F7',
       textSecondary: '#A1A1A6',
       textMuted: '#636366',
-      primary: '#0071E3',
-      primaryLight: '#1C2536',
-      primaryDark: '#2997FF',
+      primary: '#FFFFFF',
+      primaryLight: '#27272A',
+      primaryDark: '#F4F4F5',
       border: '#2C2C2E',
       borderLight: '#1C1C1E',
       cardShadow: 'rgba(0, 0, 0, 0.4)',
@@ -285,22 +284,22 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: getThemeColors('light', 'blue'),
+  theme: getThemeColors('light', 'black'),
   themeMode: 'light',
   setThemeMode: () => {},
-  accentColor: 'blue',
+  accentColor: 'black',
   setAccentColor: () => {},
-  typography: getTypographyConfig('system'),
-  typographyFont: 'system',
+  typography: getTypographyConfig('jakarta'),
+  typographyFont: 'jakarta',
   setTypographyFont: () => {},
-  themeKey: 'blue',
+  themeKey: 'black',
   setThemeKey: () => {},
 });
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [themeMode, setThemeMode] = useState<ThemeMode>('light');
-  const [accentColor, setAccentColor] = useState<AccentColor>('blue');
-  const [typographyFont, setTypographyFont] = useState<TypographyFontFamily>('system');
+  const [accentColor, setAccentColor] = useState<AccentColor>('black');
+  const [typographyFont, setTypographyFont] = useState<TypographyFontFamily>('jakarta');
 
   const theme = getThemeColors(themeMode, accentColor);
   const typography = getTypographyConfig(typographyFont);

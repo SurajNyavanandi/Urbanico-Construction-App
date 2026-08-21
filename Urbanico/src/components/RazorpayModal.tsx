@@ -124,8 +124,10 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
 
       if (simulatedStatus === 'failure') {
         setIsProcessing(false);
+        // Automatically regenerate a fresh order ID for subsequent retry attempts
+        createOrder();
         if (onPaymentFailure) {
-          onPaymentFailure('Payment declined by issuing bank (Test Mode Simulation)');
+          onPaymentFailure('Payment declined by issuing bank (Test Mode Simulation). A fresh transaction has been initialized.');
         }
         return;
       }
@@ -258,7 +260,7 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                 onPress={() => setSelectedMethod('upi')}
                 style={[styles.methodTab, selectedMethod === 'upi' && styles.methodTabActive]}
               >
-                <QrCode size={16} color={selectedMethod === 'upi' ? '#2563EB' : '#64748B'} />
+                <QrCode size={16} color={selectedMethod === 'upi' ? '#111111' : '#707072'} />
                 <Text style={[styles.methodTabText, selectedMethod === 'upi' && styles.methodTabTextActive]}>
                   UPI / QR
                 </Text>
@@ -268,7 +270,7 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                 onPress={() => setSelectedMethod('card')}
                 style={[styles.methodTab, selectedMethod === 'card' && styles.methodTabActive]}
               >
-                <CreditCard size={16} color={selectedMethod === 'card' ? '#2563EB' : '#64748B'} />
+                <CreditCard size={16} color={selectedMethod === 'card' ? '#111111' : '#707072'} />
                 <Text style={[styles.methodTabText, selectedMethod === 'card' && styles.methodTabTextActive]}>
                   Card
                 </Text>
@@ -278,7 +280,7 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                 onPress={() => setSelectedMethod('netbanking')}
                 style={[styles.methodTab, selectedMethod === 'netbanking' && styles.methodTabActive]}
               >
-                <Building2 size={16} color={selectedMethod === 'netbanking' ? '#2563EB' : '#64748B'} />
+                <Building2 size={16} color={selectedMethod === 'netbanking' ? '#111111' : '#707072'} />
                 <Text style={[styles.methodTabText, selectedMethod === 'netbanking' && styles.methodTabTextActive]}>
                   NetBanking
                 </Text>
@@ -288,7 +290,7 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                 onPress={() => setSelectedMethod('wallet')}
                 style={[styles.methodTab, selectedMethod === 'wallet' && styles.methodTabActive]}
               >
-                <Wallet size={16} color={selectedMethod === 'wallet' ? '#2563EB' : '#64748B'} />
+                <Wallet size={16} color={selectedMethod === 'wallet' ? '#111111' : '#707072'} />
                 <Text style={[styles.methodTabText, selectedMethod === 'wallet' && styles.methodTabTextActive]}>
                   Wallet
                 </Text>
@@ -379,7 +381,7 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                           selectedBank === bank && styles.bankItemActive,
                         ]}
                       >
-                        <Building2 size={16} color={selectedBank === bank ? '#2563EB' : '#64748B'} />
+                        <Building2 size={16} color={selectedBank === bank ? '#111111' : '#707072'} />
                         <Text
                           style={[
                             styles.bankItemText,
@@ -401,9 +403,9 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                 <Text style={styles.formTitle}>Select Digital Wallet</Text>
                 {['MobiKwik', 'Freecharge', 'Airtel Money', 'JioMoney'].map((walletName) => (
                   <TouchableOpacity key={walletName} style={styles.walletRow}>
-                    <Wallet size={18} color="#2563EB" />
+                    <Wallet size={18} color="#111111" />
                     <Text style={styles.walletText}>{walletName}</Text>
-                    <ChevronRight size={16} color="#94A3B8" />
+                    <ChevronRight size={16} color="#9CA3AF" />
                   </TouchableOpacity>
                 ))}
               </View>
@@ -412,7 +414,7 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
             {/* Payer Info Summary */}
             <View style={styles.payerInfoCard}>
               <Text style={styles.payerInfoText}>
-                Billing to: <Text style={{ fontWeight: '700', color: '#0F172A' }}>{userName}</Text> ({userPhone})
+                Billing to: <Text style={{ fontWeight: '700', color: '#111111' }}>{userName}</Text> ({userPhone})
               </Text>
             </View>
 
@@ -446,7 +448,7 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                 <Text style={styles.payButtonText}>
                   {simulatedStatus === 'failure'
                     ? `Test Fail Payment • ₹${amount.toLocaleString('en-IN')}`
-                    : `Pay ₹${amount.toLocaleString('en-IN')} via Razorpay Test`}
+                    : `Pay ₹${amount.toLocaleString('en-IN')} via Razorpay`}
                 </Text>
               )}
             </TouchableOpacity>
@@ -460,7 +462,7 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 16,
@@ -473,13 +475,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.15,
     shadowRadius: 24,
     elevation: 10,
     maxHeight: '90%',
   },
   header: {
-    backgroundColor: '#072654', // Authentic Razorpay Navy
+    backgroundColor: '#111111',
     padding: 18,
   },
   headerTop: {
@@ -496,7 +498,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 8,
-    backgroundColor: '#0284C7',
+    backgroundColor: '#27272A',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -512,7 +514,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   orderDesc: {
-    color: '#94A3B8',
+    color: '#A1A1AA',
     fontSize: 12,
   },
   closeBtn: {
@@ -540,15 +542,15 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   keyText: {
-    color: '#CBD5E1',
+    color: '#D4D4D8',
     fontSize: 10,
     fontFamily: 'monospace',
   },
   amountPill: {
     marginTop: 12,
-    backgroundColor: 'rgba(37, 99, 235, 0.25)',
+    backgroundColor: '#18181B',
     borderWidth: 1,
-    borderColor: '#3B82F6',
+    borderColor: '#27272A',
     borderRadius: 12,
     padding: 12,
     flexDirection: 'row',
@@ -556,7 +558,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   amountLabel: {
-    color: '#93C5FD',
+    color: '#A1A1AA',
     fontSize: 12,
     fontWeight: '600',
   },
@@ -571,7 +573,7 @@ const styles = StyleSheet.create({
   simControlCard: {
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#EEEEEE',
     borderRadius: 12,
     padding: 12,
     marginBottom: 16,
@@ -579,7 +581,7 @@ const styles = StyleSheet.create({
   simTitle: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#707072',
     textTransform: 'uppercase',
     marginBottom: 8,
   },
@@ -597,7 +599,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#E5E7EB',
     backgroundColor: '#FFFFFF',
   },
   simToggleBtnActiveSuccess: {
@@ -611,7 +613,7 @@ const styles = StyleSheet.create({
   simToggleText: {
     fontSize: 12,
     fontWeight: '700',
-    color: '#334155',
+    color: '#111111',
   },
   simToggleTextActive: {
     color: '#FFFFFF',
@@ -628,26 +630,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
+    borderColor: '#EEEEEE',
+    backgroundColor: '#FAFAFA',
     gap: 4,
   },
   methodTabActive: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#2563EB',
+    backgroundColor: '#F4F4F5',
+    borderColor: '#111111',
   },
   methodTabText: {
     fontSize: 10,
     fontWeight: '700',
-    color: '#64748B',
+    color: '#707072',
   },
   methodTabTextActive: {
-    color: '#2563EB',
+    color: '#111111',
   },
   methodFormCard: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#EEEEEE',
     borderRadius: 14,
     padding: 14,
     marginBottom: 12,
@@ -655,12 +657,12 @@ const styles = StyleSheet.create({
   formTitle: {
     fontSize: 14,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#111111',
     marginBottom: 4,
   },
   formSubtitle: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#707072',
     marginBottom: 12,
   },
   upiAppsRow: {
@@ -670,34 +672,34 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   upiAppBadge: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F4F5',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#E5E7EB',
   },
   upiAppText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#334155',
+    color: '#111111',
   },
   inputLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#475569',
+    color: '#707072',
     marginBottom: 4,
     marginTop: 8,
   },
   textInput: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FAFAFA',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
+    borderColor: '#E5E7EB',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 13,
-    color: '#0F172A',
+    color: '#111111',
   },
   twoColRow: {
     flexDirection: 'row',
@@ -716,20 +718,20 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
+    borderColor: '#EEEEEE',
+    backgroundColor: '#FAFAFA',
   },
   bankItemActive: {
-    backgroundColor: '#EFF6FF',
-    borderColor: '#2563EB',
+    backgroundColor: '#F4F4F5',
+    borderColor: '#111111',
   },
   bankItemText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#475569',
+    color: '#707072',
   },
   bankItemTextActive: {
-    color: '#2563EB',
+    color: '#111111',
     fontWeight: '800',
   },
   walletRow: {
@@ -738,24 +740,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: '#F4F4F5',
   },
   walletText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#334155',
+    color: '#111111',
     flex: 1,
     marginLeft: 10,
   },
   payerInfoCard: {
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F4F4F5',
     borderRadius: 8,
     padding: 10,
     marginBottom: 10,
   },
   payerInfoText: {
     fontSize: 11,
-    color: '#475569',
+    color: '#707072',
   },
   securityTagRow: {
     flexDirection: 'row',
@@ -772,11 +774,11 @@ const styles = StyleSheet.create({
   footer: {
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: '#EEEEEE',
     backgroundColor: '#FFFFFF',
   },
   payButton: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#111111',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
