@@ -42,7 +42,7 @@ export class OrderController {
 
   public static async getOrderById(req: Request, res: Response) {
     try {
-      const id = String(req.params.id);
+      const { id } = req.params;
       const order = await OrderService.getOrderById(id);
       if (!order) {
         return res.status(404).json({ success: false, error: 'Order not found' });
@@ -55,7 +55,7 @@ export class OrderController {
 
   public static async getOrderByOrderNumber(req: Request, res: Response) {
     try {
-      const orderNumber = String(req.params.orderNumber);
+      const { orderNumber } = req.params;
       const order = await OrderService.getOrderByOrderNumber(orderNumber);
       if (!order) {
         return res.status(404).json({ success: false, error: 'Order not found' });
@@ -68,7 +68,7 @@ export class OrderController {
 
   public static async updateStatus(req: Request, res: Response) {
     try {
-      const id = String(req.params.id);
+      const { id } = req.params;
       const { status, extraFields } = req.body;
       const updatedOrder = await OrderService.updateOrderStatus(id, status, extraFields);
       if (!updatedOrder) {

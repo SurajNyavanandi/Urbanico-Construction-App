@@ -4,7 +4,7 @@ import { DeliveryService } from '../services/deliveryService';
 export class DeliveryController {
   public static async getDeliveryByOrder(req: Request, res: Response) {
     try {
-      const orderNumber = String(req.params.orderNumber);
+      const { orderNumber } = req.params;
       const delivery = await DeliveryService.getDeliveryByOrderNumber(orderNumber);
       if (!delivery) {
         return res.status(404).json({ success: false, error: 'Delivery tracking record not found' });
@@ -17,7 +17,7 @@ export class DeliveryController {
 
   public static async verifyOtp(req: Request, res: Response) {
     try {
-      const orderNumber = String(req.params.orderNumber);
+      const { orderNumber } = req.params;
       const { otp } = req.body;
       if (!otp) {
         return res.status(400).json({ success: false, error: 'Delivery confirmation OTP is required' });
@@ -34,7 +34,7 @@ export class DeliveryController {
 
   public static async updateLocation(req: Request, res: Response) {
     try {
-      const id = String(req.params.id);
+      const { id } = req.params;
       const { latitude, longitude, speedKmH } = req.body;
       const delivery = await DeliveryService.updateDeliveryLocation(id, {
         latitude: Number(latitude),
