@@ -1,25 +1,31 @@
 import express from 'express';
-import path from 'path';
 import { connectDB, getDBStatus } from './config/db';
 import { apiRouter } from './routers';
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 // 1. JSON & URL encoding parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 2. CORS Middleware (Supports standalone frontend on http://localhost:5173, Expo, and preview proxies)
+// 2. CORS Middleware - Allow frontend from localhost, Vercel, and Render
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  // Allow all localhost origins, specific FRONTEND_URL, or echo origin
-  if (origin) {
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'http://localhost:8081',
+    'https://urbanico.vercel.app',
+    'https://urbanico-construction-app.onrender.com',
+  ];
+
+  if (origin && allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
-  } else {
+  } else if (!origin) {
     res.setHeader('Access-Control-Allow-Origin', '*');
   }
+
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -37,12 +43,11 @@ app.use('/api', apiRouter);
 app.get('/api/server-info', (req, res) => {
   res.json({
     status: 'online',
-    service: 'Urbanico Modular Backend',
+    service: 'Urbanico Backend API',
     backendPort: PORT,
-    frontendDevUrl: FRONTEND_URL,
-    frontendDevPort: 5173,
     environment: process.env.NODE_ENV || 'development',
     database: getDBStatus(),
+    frontendUrl: 'https://urbanico.vercel.app',
     endpoints: [
       '/api/health',
       '/api/server-info',
@@ -56,6 +61,15 @@ app.get('/api/server-info', (req, res) => {
   });
 });
 
+// 5. Health check
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    database: getDBStatus(),
+  });
+});
+
 export async function startServer() {
   // Connect to MongoDB Atlas
   try {
@@ -64,32 +78,12 @@ export async function startServer() {
     console.error('Initial DB connection attempt returned:', dbErr?.message || dbErr);
   }
 
-  // Vite middleware for unified development & production serving
-  if (process.env.NODE_ENV !== 'production') {
-    try {
-      const { createServer: createViteServer } = await import('vite');
-      const vite = await createViteServer({
-        server: { middlewareMode: true },
-        appType: 'spa',
-      });
-      app.use(vite.middlewares);
-    } catch (viteErr) {
-      console.warn('Vite middleware could not be loaded (running in standalone API mode):', viteErr);
-    }
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.use((req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
-  }
-
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n======================================================`);
-    console.log(`🚀 Urbanico Backend Server running on port ${PORT}`);
+    console.log(`🚀 Urbanico Backend API running on port ${PORT}`);
     console.log(`🌐 API Base URL:      http://localhost:${PORT}/api`);
-    console.log(`💻 Frontend Dev URL:  ${FRONTEND_URL} (Vite: http://localhost:5173)`);
-    console.log(`🗄️  MongoDB Database:   ${process.env.MONGODB_URI ? 'Configured via .env' : 'Not configured'}`);
+    console.log(`💻 Frontend URL:      https://urbanico.vercel.app`);
+    console.log(`🗄️  MongoDB Database:   ${process.env.MONGODB_URI ? 'Configured' : 'Not configured'}`);
     console.log(`======================================================\n`);
   });
 
