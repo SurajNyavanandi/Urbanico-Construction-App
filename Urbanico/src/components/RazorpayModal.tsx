@@ -83,8 +83,9 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
   const razorpayKeyId =
     (typeof process !== 'undefined' &&
       process.env &&
-      (process.env.VITE_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID)) ||
-    (import.meta as any)?.env?.VITE_RAZORPAY_KEY_ID ||
+      (process.env.VITE_RAZORPAY_KEY_ID ||
+        process.env.RAZORPAY_KEY_ID ||
+        process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID)) ||
     'rzp_test_TTVQamdDG0CpiN';
 
   // Initialize order on modal open

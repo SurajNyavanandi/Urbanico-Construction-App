@@ -3,70 +3,47 @@ import mongoose from 'mongoose';
 let isConnected = false;
 
 export async function connectDB(): Promise<typeof mongoose | null> {
-  // Try Atlas FIRST with longer timeout, only fall back to local if explicitly disabled
-  const atlasUri = process.env.MONGODB_URI;
-  const localUri = 'mongodb://127.0.0.1:27017/';
-  
+  const uri = process.env.MONGODB_URI;
+
+  if (!uri) {
+    console.warn('⚠️ MONGODB_URI is not set in environment variables. Running with memory/mock fallback.');
+    return null;
+  }
+
   if (isConnected && mongoose.connection.readyState === 1) {
     return mongoose;
   }
 
-  // If Atlas URI exists, try it with generous timeout
-  if (atlasUri) {
-    try {
-      console.log('🔗 Attempting MongoDB Atlas connection...');
-      const conn = await mongoose.connect(atlasUri, {
-        serverSelectionTimeoutMS: 15000, // 15 seconds for Atlas (more realistic)
-        socketTimeoutMS: 45000,
-        autoIndex: true,
-      });
-
-      isConnected = true;
-      console.log('✅ MongoDB Atlas connected successfully');
-
-      setupConnectionHandlers();
-      return conn;
-    } catch (atlasErr: any) {
-      console.error('❌ MongoDB Atlas connection failed:', atlasErr.message);
-      console.log('📍 Falling back to local MongoDB...');
-    }
-  }
-
-  // Fallback to local MongoDB
   try {
-    console.log('🔗 Attempting local MongoDB connection...');
-    const conn = await mongoose.connect(localUri, {
+    const conn = await mongoose.connect(uri, {
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
       autoIndex: true,
     });
 
     isConnected = true;
-    console.log('📍 Local MongoDB connected (production should use Atlas)');
+    console.log(`✅ MongoDB Connected successfully to: ${conn.connection.host} (DB: ${conn.connection.name})`);
 
-    setupConnectionHandlers();
+    mongoose.connection.on('error', (err) => {
+      console.error('❌ MongoDB connection error event:', err);
+    });
+
+    mongoose.connection.on('disconnected', () => {
+      console.warn('⚠️ MongoDB disconnected.');
+      isConnected = false;
+    });
+
+    mongoose.connection.on('reconnected', () => {
+      console.log('🔄 MongoDB reconnected successfully.');
+      isConnected = true;
+    });
+
     return conn;
-  } catch (localErr: any) {
-    console.error('❌ Local MongoDB also unavailable:', localErr.message);
-    console.warn('⚠️  No MongoDB connection available. Running in degraded mode.');
+  } catch (error: any) {
+    console.error('❌ Failed to connect to MongoDB:', error.message);
+    // Do not crash the entire server; allow graceful API response & retries
     return null;
   }
-}
-
-function setupConnectionHandlers() {
-  mongoose.connection.on('error', (err) => {
-    console.error('❌ MongoDB connection error event:', err);
-  });
-
-  mongoose.connection.on('disconnected', () => {
-    console.warn('⚠️ MongoDB disconnected.');
-    isConnected = false;
-  });
-
-  mongoose.connection.on('reconnected', () => {
-    console.log('🔄 MongoDB reconnected successfully.');
-    isConnected = true;
-  });
 }
 
 export function getDBStatus() {

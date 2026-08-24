@@ -204,6 +204,8 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
         editLocation,
         deleteLocation,
         getCoords,
+        resetLocationsToDefault,
+        loadUserLocations,
       }}
     >
       {children}

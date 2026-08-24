@@ -1,4 +1,6 @@
 import express from 'express';
+import path from 'path';
+import { createServer as createViteServer } from 'vite';
 import { connectDB, getDBStatus } from './config/db';
 import { apiRouter } from './routers';
 
@@ -20,7 +22,7 @@ app.use((req, res, next) => {
     'https://urbanico-construction-app.onrender.com',
   ];
 
-  if (origin && allowedOrigins.includes(origin)) {
+  if (origin && (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app') || origin.endsWith('.onrender.com'))) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   } else if (!origin) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -48,6 +50,14 @@ app.get('/api/server-info', (req, res) => {
     environment: process.env.NODE_ENV || 'development',
     database: getDBStatus(),
     frontendUrl: 'https://urbanico.vercel.app',
+    backendRenderUrl: 'https://urbanico-construction-app.onrender.com',
+    allowedOrigins: [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'http://localhost:8081',
+      'https://urbanico.vercel.app',
+      'https://urbanico-construction-app.onrender.com',
+    ],
     endpoints: [
       '/api/health',
       '/api/server-info',
@@ -78,11 +88,31 @@ export async function startServer() {
     console.error('Initial DB connection attempt returned:', dbErr?.message || dbErr);
   }
 
+  // Vite middleware for preview/frontend serving
+  if (process.env.NODE_ENV !== 'production') {
+    try {
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    } catch (viteErr) {
+      // Standalone backend mode without vite
+    }
+  } else {
+    const distPath = path.join(process.cwd(), 'dist');
+    app.use(express.static(distPath));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  }
+
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n======================================================`);
     console.log(`🚀 Urbanico Backend API running on port ${PORT}`);
     console.log(`🌐 API Base URL:      http://localhost:${PORT}/api`);
     console.log(`💻 Frontend URL:      https://urbanico.vercel.app`);
+    console.log(`☁️  Render Backend:   https://urbanico-construction-app.onrender.com`);
     console.log(`🗄️  MongoDB Database:   ${process.env.MONGODB_URI ? 'Configured' : 'Not configured'}`);
     console.log(`======================================================\n`);
   });
