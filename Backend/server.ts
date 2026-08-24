@@ -1,6 +1,5 @@
 import express from 'express';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
 import { connectDB, getDBStatus } from './config/db';
 import { apiRouter } from './routers';
 
@@ -68,6 +67,7 @@ export async function startServer() {
   // Vite middleware for unified development & production serving
   if (process.env.NODE_ENV !== 'production') {
     try {
+      const { createServer: createViteServer } = await import('vite');
       const vite = await createViteServer({
         server: { middlewareMode: true },
         appType: 'spa',
@@ -79,7 +79,7 @@ export async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('/*', (req, res) => {
+    app.use((req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

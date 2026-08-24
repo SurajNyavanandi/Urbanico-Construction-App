@@ -25,7 +25,7 @@ export class MaterialController {
 
   public static async getMaterialById(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = String(req.params.id);
       const material = await MaterialService.getMaterialById(id);
       if (!material) {
         return res.status(404).json({ success: false, error: 'Material not found' });

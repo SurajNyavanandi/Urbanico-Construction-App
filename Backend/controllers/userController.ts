@@ -14,7 +14,7 @@ export class UserController {
 
   public static async updateProfile(req: Request, res: Response) {
     try {
-      const { id } = req.params;
+      const id = String(req.params.id);
       const user = await UserService.updateUser(id, req.body);
       if (!user) {
         return res.status(404).json({ success: false, error: 'User not found' });
