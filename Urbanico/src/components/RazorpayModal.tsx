@@ -21,7 +21,13 @@ import {
   Lock,
   ChevronRight,
   FlaskConical,
+  ExternalLink,
 } from 'lucide-react-native';
+import {
+  createRazorpayOrder,
+  verifyRazorpayPayment,
+  openRazorpayStandardCheckout,
+} from '../services/razorpayService';
 
 export interface RazorpayPaymentResult {
   razorpay_payment_id: string;
@@ -78,72 +84,87 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
     (typeof process !== 'undefined' &&
       process.env &&
       (process.env.VITE_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID)) ||
-    'rzp_test_SeXkFKSXUivyDm';
+    (import.meta as any)?.env?.VITE_RAZORPAY_KEY_ID ||
+    'rzp_test_TTVQamdDG0CpiN';
 
   // Initialize order on modal open
   useEffect(() => {
     if (visible) {
-      createOrder();
+      initOrder();
     }
   }, [visible, amount]);
 
-  const createOrder = async () => {
+  const initOrder = async () => {
     try {
-      const response = await fetch('/api/razorpay/create-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount,
-          currency: 'INR',
-          receipt: `rcpt_${Date.now()}`,
-        }),
+      const data = await createRazorpayOrder({
+        amount,
+        currency: 'INR',
+        receipt: `rcpt_${Date.now()}`,
+        notes: { description: orderDescription },
       });
-
-      const data = await response.json();
-      if (data.success && data.order) {
-        setOrderId(data.order.id);
-      } else {
-        setOrderId(`order_${Math.random().toString(36).substring(2, 10).toUpperCase()}`);
+      if (data.success && data.order_id) {
+        setOrderId(data.order_id);
       }
     } catch {
       setOrderId(`order_${Math.random().toString(36).substring(2, 10).toUpperCase()}`);
     }
   };
 
+  // Launch official Razorpay standard popup
+  const handleLaunchOfficialCheckout = async () => {
+    setIsProcessing(true);
+    await openRazorpayStandardCheckout({
+      amount,
+      orderDescription,
+      userName,
+      userEmail,
+      userPhone,
+      precreatedOrderId: orderId || undefined,
+      onSuccess: (res) => {
+        setIsProcessing(false);
+        onPaymentSuccess({
+          ...res,
+          status: 'success',
+        });
+      },
+      onFailure: (err) => {
+        setIsProcessing(false);
+        if (onPaymentFailure) {
+          onPaymentFailure(err);
+        }
+      },
+      onDismiss: () => {
+        setIsProcessing(false);
+      },
+    });
+  };
+
   const handlePayNow = async () => {
     setIsProcessing(true);
 
     try {
-      // Step 1: Request verification from server endpoint
       const currentOrderId = orderId || `order_${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
       const mockPaymentId = `pay_${Math.random().toString(36).substring(2, 14)}`;
       const mockSignature = `sig_${Math.random().toString(36).substring(2, 16)}`;
 
       // Simulate network latency for payment gateway processing
-      await new Promise((resolve) => setTimeout(resolve, 1400));
+      await new Promise((resolve) => setTimeout(resolve, 1200));
 
       if (simulatedStatus === 'failure') {
         setIsProcessing(false);
-        // Automatically regenerate a fresh order ID for subsequent retry attempts
-        createOrder();
+        initOrder();
         if (onPaymentFailure) {
           onPaymentFailure('Payment declined by issuing bank (Test Mode Simulation). A fresh transaction has been initialized.');
         }
         return;
       }
 
-      // Step 2: Call verify API endpoint
-      const verifyRes = await fetch('/api/razorpay/verify-payment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          razorpay_order_id: currentOrderId,
-          razorpay_payment_id: mockPaymentId,
-          razorpay_signature: mockSignature,
-        }),
+      // Call verify payment endpoint
+      const verifyData = await verifyRazorpayPayment({
+        razorpay_order_id: currentOrderId,
+        razorpay_payment_id: mockPaymentId,
+        razorpay_signature: mockSignature,
       });
-
-      const verifyData = await verifyRes.json();
 
       setIsProcessing(false);
       onPaymentSuccess({
@@ -210,6 +231,20 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
 
           {/* Body Content */}
           <ScrollView style={styles.body} showsVerticalScrollIndicator={false}>
+            {/* Standard Checkout Popup Trigger Banner */}
+            <TouchableOpacity
+              onPress={handleLaunchOfficialCheckout}
+              disabled={isProcessing}
+              style={styles.standardPopupBanner}
+              activeOpacity={0.85}
+            >
+              <View style={styles.standardPopupLeft}>
+                <Text style={styles.standardPopupTitle}>Launch Razorpay Standard Modal</Text>
+                <Text style={styles.standardPopupDesc}>Open official checkout.js payment dialog popup</Text>
+              </View>
+              <ExternalLink size={16} color="#0284C7" />
+            </TouchableOpacity>
+
             {/* Simulation Control Switcher */}
             <View style={styles.simControlCard}>
               <Text style={styles.simTitle}>Gateway Test Simulation</Text>
@@ -570,6 +605,30 @@ const styles = StyleSheet.create({
   body: {
     padding: 16,
   },
+  standardPopupBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F0F9FF',
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 14,
+  },
+  standardPopupLeft: {
+    flex: 1,
+    gap: 2,
+  },
+  standardPopupTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#0369A1',
+  },
+  standardPopupDesc: {
+    fontSize: 11,
+    color: '#0284C7',
+  },
   simControlCard: {
     backgroundColor: '#F8FAFC',
     borderWidth: 1,
@@ -795,3 +854,4 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 });
+

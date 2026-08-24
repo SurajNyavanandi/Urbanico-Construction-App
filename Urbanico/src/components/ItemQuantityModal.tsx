@@ -27,11 +27,16 @@ import {
   FileCheck2,
   Maximize2,
   Download,
+  Scale,
+  Sparkles,
 } from 'lucide-react-native';
 import { MaterialItem, UnitOption } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { ShimmerImage } from './common/ShimmerImage';
 import { useToast } from '../context/ToastContext';
+import { BrandComparisonModal } from './common/BrandComparisonModal';
+import { AggregateVisualizerModal } from './common/AggregateVisualizerModal';
+import { isServiceablePincode } from '../utils/freightCalculator';
 
 interface ItemQuantityModalProps {
   item: MaterialItem | null;
@@ -72,6 +77,8 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
   const [pincodeChecked, setPincodeChecked] = useState<boolean>(true);
   const [showCertificateModal, setShowCertificateModal] = useState<boolean>(false);
   const [showImageLightbox, setShowImageLightbox] = useState<boolean>(false);
+  const [showCompareModal, setShowCompareModal] = useState<boolean>(false);
+  const [showVisualizerModal, setShowVisualizerModal] = useState<boolean>(false);
 
   // Sync state whenever the selected item changes
   useEffect(() => {
@@ -166,10 +173,25 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
     });
   };
 
+  const handlePincodeKeystroke = (val: string) => {
+    const clean = val.replace(/[^0-9]/g, '').slice(0, 6);
+    setPincodeInput(clean);
+    if (clean.length === 6) {
+      const isServ = isServiceablePincode(clean);
+      setPincodeChecked(isServ);
+      if (isServ) {
+        showToast(`PIN ${clean} verified: Yard express dispatch available`, 'success');
+      } else {
+        showToast(`PIN ${clean} outside primary zone: standard 24hr transit applies`, 'info');
+      }
+    }
+  };
+
   const handleCheckPincode = () => {
     if (pincodeInput.length >= 6) {
-      setPincodeChecked(true);
-      showToast(`Pincode ${pincodeInput} is serviceable for express dispatch!`, 'success');
+      const isServ = isServiceablePincode(pincodeInput);
+      setPincodeChecked(isServ);
+      showToast(isServ ? `Pincode ${pincodeInput} is serviceable for express dispatch!` : `Standard transit to ${pincodeInput}`, isServ ? 'success' : 'info');
     } else {
       showToast('Please enter a valid 6-digit site pincode', 'error');
     }
@@ -407,7 +429,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
                       type="text"
                       maxLength={6}
                       value={pincodeInput}
-                      onChange={(e) => setPincodeInput(e.target.value.replace(/[^0-9]/g, ''))}
+                      onChange={(e) => handlePincodeKeystroke(e.target.value)}
                       placeholder="Pincode"
                       style={{
                         width: 70,
@@ -448,14 +470,39 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
                   <Text style={[styles.labCertSub, { color: theme.textSecondary }]}>Lab Batch Ref: {labCertNo}</Text>
                 </View>
 
-                <TouchableOpacity
-                  onPress={() => setShowCertificateModal(true)}
-                  style={styles.viewCertBtn}
-                  activeOpacity={0.75}
-                >
-                  <FileCheck2 size={13} color="#111111" />
-                  <Text style={styles.viewCertBtnText}>View Lab Test</Text>
-                </TouchableOpacity>
+                <View style={styles.complianceActionBtnsCol}>
+                  <TouchableOpacity
+                    onPress={() => setShowCertificateModal(true)}
+                    style={styles.viewCertBtn}
+                    activeOpacity={0.75}
+                  >
+                    <FileCheck2 size={12} color="#111111" />
+                    <Text style={styles.viewCertBtnText}>Lab Report</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => setShowCompareModal(true)}
+                    style={[styles.viewCertBtn, { backgroundColor: '#F4F4F5' }]}
+                    activeOpacity={0.75}
+                  >
+                    <Scale size={12} color="#111111" />
+                    <Text style={styles.viewCertBtnText}>Compare</Text>
+                  </TouchableOpacity>
+
+                  {(item.name.toLowerCase().includes('sand') ||
+                    item.name.toLowerCase().includes('aggregate') ||
+                    item.name.toLowerCase().includes('metal') ||
+                    item.name.toLowerCase().includes('gravel')) && (
+                    <TouchableOpacity
+                      onPress={() => setShowVisualizerModal(true)}
+                      style={[styles.viewCertBtn, { backgroundColor: '#0284C7' }]}
+                      activeOpacity={0.75}
+                    >
+                      <Sparkles size={12} color="#FFFFFF" />
+                      <Text style={[styles.viewCertBtnText, { color: '#FFFFFF' }]}>Grain 360°</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
 
               {/* Unit / Option Selection Header */}
@@ -773,6 +820,20 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
           </View>
         </View>
       </Modal>
+
+      {/* Brand Comparison Modal */}
+      <BrandComparisonModal
+        visible={showCompareModal}
+        onClose={() => setShowCompareModal(false)}
+        selectedItemName={item.name}
+      />
+
+      {/* 360 Grain Sizing Scale Visualizer Modal */}
+      <AggregateVisualizerModal
+        visible={showVisualizerModal}
+        onClose={() => setShowVisualizerModal(false)}
+        materialName={item.name}
+      />
     </View>
   );
 };
@@ -970,6 +1031,10 @@ const styles = StyleSheet.create({
   },
   labCertSub: {
     fontSize: 11,
+  },
+  complianceActionBtnsCol: {
+    gap: 6,
+    alignItems: 'flex-end',
   },
   viewCertBtn: {
     backgroundColor: '#F4F4F5',

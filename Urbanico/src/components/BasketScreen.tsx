@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,8 @@ import {
   ScrollView,
   StyleSheet,
   RefreshControl,
+  Modal,
+  Pressable,
 } from 'react-native';
 import {
   ShoppingCart,
@@ -16,6 +18,20 @@ import {
   ArrowRight,
   Truck,
   Check,
+  Clock,
+  Tag,
+  ShieldCheck,
+  Bookmark,
+  BookmarkCheck,
+  AlertTriangle,
+  Scale,
+  Sparkles,
+  ChevronRight,
+  X,
+  FileCheck2,
+  PhoneCall,
+  MessageSquare,
+  Camera,
 } from 'lucide-react-native';
 import { CartItem, ScreenType, ActivityDelivery } from '../types';
 import { INITIAL_DELIVERIES } from '../data/materialsData';
@@ -26,6 +42,17 @@ import { PaymentSuccessModal } from './PaymentSuccessModal';
 import { EmptyState } from './common/EmptyState';
 import { ShimmerImage } from './common/ShimmerImage';
 import { useToast } from '../context/ToastContext';
+import { syncManager } from '../utils/syncManager';
+import {
+  estimateTotalWeightTons,
+  calculateDynamicFreight,
+  recommendVehicle,
+  PINCODE_REGISTRY,
+} from '../utils/freightCalculator';
+import { validateGSTIN } from '../utils/gstinValidator';
+import { LiveDispatcherChatModal } from './common/LiveDispatcherChatModal';
+import { WeighbridgeScanModal } from './common/WeighbridgeScanModal';
+import { SupervisorHandoffModal } from './common/SupervisorHandoffModal';
 
 interface BasketScreenProps {
   cartItems: CartItem[];
@@ -41,14 +68,6 @@ interface BasketScreenProps {
   isLoggedIn?: boolean;
   onOpenLoginModal?: () => void;
 }
-
-const TRACKING_STEPS = [
-  { id: 'confirmed', title: 'Order Confirmed', description: 'Order received and verified', status: 'completed' },
-  { id: 'processing', title: 'Processing', description: 'Materials batched at yard', status: 'completed' },
-  { id: 'dispatched', title: 'Dispatched', description: 'Vehicle loaded & weighed', status: 'completed' },
-  { id: 'out_for_delivery', title: 'Out for Delivery', description: 'On the way to site', status: 'active' },
-  { id: 'delivered', title: 'Delivered', description: 'Delivery completed at site', status: 'pending' },
-];
 
 export const BasketScreen: React.FC<BasketScreenProps> = ({
   cartItems,
@@ -72,13 +91,62 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   const [refreshing, setRefreshing] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
-  const handleRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-      showToast('Cart and delivery status refreshed', 'info');
-    }, 800);
+  // Saved for Later state
+  const [savedForLaterItems, setSavedForLaterItems] = useState<CartItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('urbanico_saved_for_later');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Stock Reservation 10-Minute Expiry Countdown (Item 3)
+  const [reservationSeconds, setReservationSeconds] = useState<number>(() => {
+    return syncManager.getStockReservationRemainingSeconds();
+  });
+
+  useEffect(() => {
+    if (cartItems.length === 0) return;
+    const interval = setInterval(() => {
+      setReservationSeconds((prev) => {
+        if (prev <= 1) {
+          showToast('Inventory reservation session renewed for 10 minutes.', 'info');
+          return 600;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [cartItems.length, showToast]);
+
+  const formatTimer = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
+
+  // Coupons & Promo state
+  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+  const [couponDiscount, setCouponDiscount] = useState<number>(0);
+  const [promoInput, setPromoInput] = useState('');
+  const [showCouponModal, setShowCouponModal] = useState(false);
+
+  // Split Payment state (100% full vs 50% booking advance)
+  const [paymentMode, setPaymentMode] = useState<'100_percent' | '50_split'>('100_percent');
+
+  // Modals for live dispatcher, OCR weighbridge, supervisor handoff
+  const [showDispatcherChat, setShowDispatcherChat] = useState(false);
+  const [showWeighbridgeScan, setShowWeighbridgeScan] = useState(false);
+  const [showSupervisorModal, setShowSupervisorModal] = useState(false);
+  const [activeSupervisor, setActiveSupervisor] = useState({
+    name: 'Anand Verma',
+    phone: '9876543210',
+  });
+
+  // Dynamic Freight & Axle-Load (Items 7, 15)
+  const totalWeightTons = estimateTotalWeightTons(cartItems);
+  const freightInfo = calculateDynamicFreight('500081', totalWeightTons);
 
   // Razorpay Payment States
   const [showRazorpayModal, setShowRazorpayModal] = useState(false);
@@ -91,50 +159,107 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   const cgst = Math.round(subtotal * 0.09);
   const sgst = Math.round(subtotal * 0.09);
   const gstTax = cgst + sgst;
-  const grandTotal = subtotal + gstTax;
+  const deliveryFreightCost = subtotal > 15000 ? 0 : freightInfo.freightCost;
+  const taxableTotal = subtotal + gstTax + deliveryFreightCost - couponDiscount;
+  const grandTotal = Math.max(0, taxableTotal);
 
-  const activeEnRoute = deliveries.find((d) => d.status === 'En Route') || deliveries[0];
+  const advancePaymentAmount = paymentMode === '50_split' ? Math.round(grandTotal * 0.5) : grandTotal;
+  const balanceUponWeighment = grandTotal - advancePaymentAmount;
 
-  // Dynamic tracking step calculation based on active order
-  const dynamicTrackingSteps = [
-    {
-      id: 'confirmed',
-      title: 'Order Confirmed',
-      description: activeEnRoute ? `Verified for ${activeEnRoute.orderNumber}` : 'Order received & verified',
-      status: 'completed',
-    },
-    {
-      id: 'processing',
-      title: 'Yard Batching & Quality Check',
-      description: 'Materials weighed & batch certificate issued',
-      status: activeEnRoute && activeEnRoute.status !== 'Placed' ? 'completed' : 'active',
-    },
-    {
-      id: 'dispatched',
-      title: 'Dispatched from Yard',
-      description: activeEnRoute ? `Assigned to ${activeEnRoute.vehicleNumber}` : 'Dispatched with logistics crew',
-      status: activeEnRoute && (activeEnRoute.status === 'En Route' || activeEnRoute.status === 'Delivered') ? 'completed' : 'pending',
-    },
-    {
-      id: 'out_for_delivery',
-      title: 'Out for Live Delivery',
-      description: activeEnRoute ? `En route to ${activeEnRoute.siteAddress.split(',')[0]}` : 'On the way to site',
-      status: activeEnRoute && activeEnRoute.status === 'En Route' ? 'active' : activeEnRoute && activeEnRoute.status === 'Delivered' ? 'completed' : 'pending',
-    },
-    {
-      id: 'delivered',
-      title: 'Delivered at Site',
-      description: 'Material received and weighment verified',
-      status: activeEnRoute && activeEnRoute.status === 'Delivered' ? 'completed' : 'pending',
-    },
-  ];
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => {
+      setRefreshing(false);
+      showToast('Cart and live delivery status refreshed', 'info');
+    }, 800);
+  };
+
+  const handleSaveForLater = (item: CartItem) => {
+    onRemoveItem(item.id);
+    const updated = [...savedForLaterItems.filter((i) => i.id !== item.id), item];
+    setSavedForLaterItems(updated);
+    try {
+      localStorage.setItem('urbanico_saved_for_later', JSON.stringify(updated));
+      syncManager.broadcast('SAVED_FOR_LATER_UPDATED', updated);
+    } catch {}
+    showToast(`Saved "${item.itemName}" for later`, 'info');
+  };
+
+  const handleMoveToCart = (item: CartItem) => {
+    const updatedSaved = savedForLaterItems.filter((i) => i.id !== item.id);
+    setSavedForLaterItems(updatedSaved);
+    try {
+      localStorage.setItem('urbanico_saved_for_later', JSON.stringify(updatedSaved));
+      syncManager.broadcast('SAVED_FOR_LATER_UPDATED', updatedSaved);
+    } catch {}
+    // trigger adding back
+    onUpdateQuantity(item.id, 1);
+    showToast(`Moved "${item.itemName}" back to bag`, 'success');
+  };
+
+  const handleRemoveSavedItem = (id: string) => {
+    const updated = savedForLaterItems.filter((i) => i.id !== id);
+    setSavedForLaterItems(updated);
+    try {
+      localStorage.setItem('urbanico_saved_for_later', JSON.stringify(updated));
+      syncManager.broadcast('SAVED_FOR_LATER_UPDATED', updated);
+    } catch {}
+    showToast('Removed item from saved list', 'info');
+  };
+
+  const handleApplyCoupon = (code: string) => {
+    const clean = code.trim().toUpperCase();
+    if (!clean) return;
+
+    if (clean === 'BUILD10') {
+      if (subtotal < 3000) {
+        showToast('BUILD10 requires minimum order of ₹3,000', 'error');
+        return;
+      }
+      const disc = Math.min(2500, Math.round(subtotal * 0.1));
+      setAppliedCoupon(clean);
+      setCouponDiscount(disc);
+      setShowCouponModal(false);
+      showToast(`Coupon ${clean} applied! Saved ₹${disc.toLocaleString('en-IN')}`, 'success');
+    } else if (clean === 'URBAN500') {
+      if (subtotal < 5000) {
+        showToast('URBAN500 requires minimum order of ₹5,000', 'error');
+        return;
+      }
+      setAppliedCoupon(clean);
+      setCouponDiscount(500);
+      setShowCouponModal(false);
+      showToast('Coupon URBAN500 applied! Saved ₹500', 'success');
+    } else if (clean === 'MEGA2026') {
+      if (subtotal < 20000) {
+        showToast('MEGA2026 requires minimum bulk order of ₹20,000', 'error');
+        return;
+      }
+      const disc = Math.min(5000, Math.round(subtotal * 0.12));
+      setAppliedCoupon(clean);
+      setCouponDiscount(disc);
+      setShowCouponModal(false);
+      showToast(`Mega coupon applied! Saved ₹${disc.toLocaleString('en-IN')}`, 'success');
+    } else {
+      showToast('Invalid or expired contractor coupon code', 'error');
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponDiscount(0);
+    showToast('Coupon removed', 'info');
+  };
 
   const handlePlaceOrder = () => {
     if (!isLoggedIn) {
       showToast('Please log in or sign up to proceed to checkout', 'info');
-      if (onOpenLoginModal) {
-        onOpenLoginModal();
-      }
+      if (onOpenLoginModal) onOpenLoginModal();
+      return;
+    }
+
+    if (subtotal < 1000) {
+      showToast('Minimum Order Value is ₹1,000 for quarry dispatch', 'error');
       return;
     }
 
@@ -153,33 +278,43 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
 
     const now = new Date();
     const formattedTime = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-    const formattedDate = now.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
     const newOrder: ActivityDelivery = {
       id: `del-${Date.now()}`,
       orderNumber: `URB-${Math.floor(10000 + Math.random() * 90000)}`,
       materialName:
         cartItems.map((c) => `${c.itemName} (${c.selectedOptionLabel})`).join(', ') ||
         'Direct Yard Supply Order',
-      quantity: `${cartItems.reduce((acc, c) => acc + c.quantity, 0)} Items`,
-      driverName: 'Assigned Driver (Yard Logistics)',
-      vehicleType: 'Commercial Transport Vehicle',
-      vehicleNumber: 'TS 08 U ' + Math.floor(1000 + Math.random() * 9000),
-      estimatedArrival: 'Order Placed • Dispatching Soon',
+      quantity: `${cartItems.reduce((acc, c) => acc + c.quantity, 0)} Items (${totalWeightTons} MT)`,
+      driverName: 'Ramesh Goud',
+      driverPhone: '+91 98480 22341',
+      vehicleType: freightInfo.vehicle.name,
+      vehicleNumber: 'TS 08 UB ' + Math.floor(1000 + Math.random() * 9000),
+      estimatedArrival: '38 mins (4.2 km away)',
       status: 'En Route',
       siteAddress: activeLocation,
+      siteSupervisorName: activeSupervisor.name,
+      siteSupervisorPhone: activeSupervisor.phone,
       timestamp: `Today, ${formattedTime}`,
       totalAmount: grandTotal,
+      deliveryOtp: String(Math.floor(1000 + Math.random() * 9000)),
+      ewayBillNumber: `EWB-TS-2026-${Math.floor(10000000 + Math.random() * 90000000)}`,
+      weighmentSlipId: `WB-MYP-${Math.floor(1000 + Math.random() * 9000)}`,
+      splitPayment: {
+        advancePaid: advancePaymentAmount,
+        balanceDue: balanceUponWeighment,
+        paymentMode,
+      },
     };
 
     if (onOrderCreated) {
       onOrderCreated(newOrder);
     }
+    syncManager.broadcast('ORDER_STATUS_CHANGED', newOrder);
+    syncManager.playNotificationSound();
     onClearCart();
   };
 
-  const handlePaymentFailure = (errorMsg: string) => {
-    setPaymentError(errorMsg);
-  };
+  const activeEnRoute = deliveries.find((d) => d.status === 'En Route') || deliveries[0];
 
   return (
     <View style={{ flex: 1 }}>
@@ -196,7 +331,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
           />
         }
       >
-        {/* Top Segmented Tab (Cart vs Order History & Tracking) */}
+        {/* Top Segmented Tab */}
         <View style={[styles.tabContainer, { backgroundColor: theme.surfaceSecondary }]}>
           <TouchableOpacity
             onPress={() => setActiveTab('cart')}
@@ -213,10 +348,13 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
             <Text
               style={[
                 styles.tabText,
-                { color: activeTab === 'cart' ? theme.textPrimary : theme.textMuted, fontWeight: activeTab === 'cart' ? '700' : '500' },
+                {
+                  color: activeTab === 'cart' ? theme.textPrimary : theme.textMuted,
+                  fontWeight: activeTab === 'cart' ? '700' : '500',
+                },
               ]}
             >
-              My Cart {totalUnitQuantity > 0 ? `(${totalUnitQuantity})` : ''}
+              My Bag {totalUnitQuantity > 0 ? `(${totalUnitQuantity})` : ''}
             </Text>
           </TouchableOpacity>
 
@@ -235,10 +373,13 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
             <Text
               style={[
                 styles.tabText,
-                { color: activeTab === 'history' ? theme.textPrimary : theme.textMuted, fontWeight: activeTab === 'history' ? '700' : '500' },
+                {
+                  color: activeTab === 'history' ? theme.textPrimary : theme.textMuted,
+                  fontWeight: activeTab === 'history' ? '700' : '500',
+                },
               ]}
             >
-              Orders & Tracking
+              Live Tracking & Orders
             </Text>
           </TouchableOpacity>
         </View>
@@ -252,7 +393,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                   <MapPin size={16} color={theme.textPrimary} />
                 </View>
                 <View style={styles.locationTextContainer}>
-                  <Text style={[styles.locationLabel, { color: theme.textSecondary }]}>Delivery Address</Text>
+                  <Text style={[styles.locationLabel, { color: theme.textSecondary }]}>Delivery Site</Text>
                   <Text style={[styles.locationValue, { color: theme.textPrimary }]} numberOfLines={1}>
                     {activeLocation}
                   </Text>
@@ -263,126 +404,363 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
               </TouchableOpacity>
             </View>
 
-            {cartItems.length === 0 ? (
+            {/* Stock Reservation Banner (Item 3) */}
+            {cartItems.length > 0 && (
+              <View style={styles.stockReservationBanner}>
+                <View style={styles.reservationLeft}>
+                  <Clock size={14} color="#0284C7" />
+                  <Text style={styles.reservationTitle}>Quarry Stock Reserved</Text>
+                </View>
+                <View style={styles.timerBadge}>
+                  <Text style={styles.timerBadgeText}>{formatTimer(reservationSeconds)}</Text>
+                </View>
+              </View>
+            )}
+
+            {cartItems.length === 0 && savedForLaterItems.length === 0 ? (
               <View style={[styles.nikeEmptyBagContainer, { backgroundColor: theme.surface }]}>
                 <View style={[styles.nikeEmptyBagIconCircle, { backgroundColor: theme.surfaceSecondary }]}>
                   <ShoppingCart size={34} color={theme.textPrimary} strokeWidth={1.5} />
                 </View>
                 <Text style={[styles.nikeEmptyBagTitle, { color: theme.textPrimary }]}>Your cart is empty.</Text>
                 <Text style={[styles.nikeEmptyBagSub, { color: theme.textSecondary }]}>
-                  When you add products, they'll appear here.
+                  Explore direct quarry aggregates, TMT rebars, and cement.
                 </Text>
                 <TouchableOpacity
                   onPress={() => onNavigateScreen('shop')}
                   style={[styles.nikeShopNowPill, { backgroundColor: theme.primary }]}
                   activeOpacity={0.85}
                 >
-                  <Text style={styles.nikeShopNowPillText}>Shop Now</Text>
+                  <Text style={styles.nikeShopNowPillText}>Explore Materials</Text>
                 </TouchableOpacity>
               </View>
             ) : (
               <View style={styles.cartSection}>
                 {/* Cart Items List */}
-                <View style={styles.itemsCardList}>
-                  {cartItems.map((item) => (
-                    <View key={item.id} style={[styles.cartItemRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                      <View style={[styles.itemImageWrapper, { backgroundColor: theme.surfaceSecondary, borderColor: theme.borderLight }]}>
-                        <ShimmerImage
-                          source={{ uri: item.image }}
-                          style={styles.itemImage}
-                          resizeMode="contain"
-                          borderRadius={8}
-                          preset="thumbnail"
-                        />
-                      </View>
+                {cartItems.length > 0 && (
+                  <View style={styles.itemsCardList}>
+                    {cartItems.map((item) => (
+                      <View key={item.id} style={[styles.cartItemRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                        <View style={[styles.itemImageWrapper, { backgroundColor: theme.surfaceSecondary, borderColor: theme.borderLight }]}>
+                          <ShimmerImage
+                            source={{ uri: item.image }}
+                            style={styles.itemImage}
+                            resizeMode="contain"
+                            borderRadius={8}
+                            preset="thumbnail"
+                          />
+                        </View>
 
-                      <View style={styles.itemMainInfo}>
-                        <Text style={[styles.itemName, { color: theme.textPrimary }]} numberOfLines={1}>
-                          {item.itemName}
-                        </Text>
-                        <Text style={[styles.itemOptionLabel, { color: theme.textSecondary }]}>
-                          {item.selectedOptionLabel}
-                        </Text>
-                        <Text style={[styles.itemUnitPrice, { color: theme.textPrimary }]}>
-                          ₹{item.unitPrice.toLocaleString('en-IN')} / unit
-                        </Text>
-                      </View>
-
-                      {/* Stepper + Delete */}
-                      <View style={styles.stepperActionRow}>
-                        <View style={[styles.stepperContainer, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary }]}>
+                        <View style={styles.itemMainInfo}>
+                          <Text style={[styles.itemName, { color: theme.textPrimary }]} numberOfLines={1}>
+                            {item.itemName}
+                          </Text>
+                          <Text style={[styles.itemOptionLabel, { color: theme.textSecondary }]}>
+                            {item.selectedOptionLabel}
+                          </Text>
+                          <Text style={[styles.itemUnitPrice, { color: theme.textPrimary }]}>
+                            ₹{item.unitPrice.toLocaleString('en-IN')} / unit
+                          </Text>
                           <TouchableOpacity
-                            onPress={() => onUpdateQuantity(item.id, item.quantity - 1)}
-                            style={[styles.stepperBtn, { backgroundColor: theme.surface }]}
+                            onPress={() => handleSaveForLater(item)}
+                            style={styles.saveForLaterBtn}
                             activeOpacity={0.7}
                           >
-                            <Minus size={12} color={theme.textPrimary} />
-                          </TouchableOpacity>
-                          <Text style={[styles.stepperQtyText, { color: theme.textPrimary }]}>{item.quantity}</Text>
-                          <TouchableOpacity
-                            onPress={() => onUpdateQuantity(item.id, item.quantity + 1)}
-                            style={[styles.stepperBtn, { backgroundColor: theme.surface }]}
-                            activeOpacity={0.7}
-                          >
-                            <Plus size={12} color={theme.textPrimary} />
+                            <Bookmark size={12} color={theme.textSecondary} />
+                            <Text style={[styles.saveForLaterText, { color: theme.textSecondary }]}>Save for Later</Text>
                           </TouchableOpacity>
                         </View>
-                        <TouchableOpacity
-                          onPress={() => onRemoveItem(item.id)}
-                          style={styles.deleteBtn}
-                          activeOpacity={0.7}
-                        >
-                          <Trash2 size={15} color={theme.textSecondary} />
+
+                        {/* Stepper + Delete */}
+                        <View style={styles.stepperActionRow}>
+                          <View style={[styles.stepperContainer, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary }]}>
+                            <TouchableOpacity
+                              onPress={() => onUpdateQuantity(item.id, item.quantity - 1)}
+                              style={[styles.stepperBtn, { backgroundColor: theme.surface }]}
+                              activeOpacity={0.7}
+                            >
+                              <Minus size={12} color={theme.textPrimary} />
+                            </TouchableOpacity>
+                            <Text style={[styles.stepperQtyText, { color: theme.textPrimary }]}>{item.quantity}</Text>
+                            <TouchableOpacity
+                              onPress={() => onUpdateQuantity(item.id, item.quantity + 1)}
+                              style={[styles.stepperBtn, { backgroundColor: theme.surface }]}
+                              activeOpacity={0.7}
+                            >
+                              <Plus size={12} color={theme.textPrimary} />
+                            </TouchableOpacity>
+                          </View>
+                          <TouchableOpacity
+                            onPress={() => onRemoveItem(item.id)}
+                            style={styles.deleteBtn}
+                            activeOpacity={0.7}
+                          >
+                            <Trash2 size={15} color={theme.textSecondary} />
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Axle-Load & Tipper Vehicle Meter (Item 15) */}
+                {cartItems.length > 0 && (
+                  <View style={[styles.axleCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                    <View style={styles.axleCardHeader}>
+                      <View style={styles.axleHeaderLeft}>
+                        <Scale size={16} color="#0284C7" />
+                        <Text style={[styles.axleTitle, { color: theme.textPrimary }]}>Total Load & Axle Capacity</Text>
+                      </View>
+                      <Text style={[styles.axleWeight, { color: theme.textPrimary }]}>{totalWeightTons} Metric Tons</Text>
+                    </View>
+
+                    {/* Progress Gauge */}
+                    <View style={styles.gaugeTrack}>
+                      <View
+                        style={[
+                          styles.gaugeFill,
+                          {
+                            width: `${Math.min(100, (totalWeightTons / freightInfo.vehicle.maxTons) * 100)}%`,
+                            backgroundColor: totalWeightTons > freightInfo.vehicle.maxTons ? '#DC2626' : '#16A34A',
+                          },
+                        ]}
+                      />
+                    </View>
+
+                    <View style={styles.axleMetaRow}>
+                      <Text style={[styles.axleMetaText, { color: theme.textSecondary }]}>
+                        Recommended: <Text style={{ fontWeight: '700', color: theme.textPrimary }}>{freightInfo.vehicle.name}</Text>
+                      </Text>
+                      <Text style={[styles.axleMetaText, { color: theme.textSecondary }]}>
+                        Max Safe Limit: {freightInfo.vehicle.maxTons} MT
+                      </Text>
+                    </View>
+
+                    {freightInfo.nightRestricted && (
+                      <View style={styles.restrictionNotice}>
+                        <AlertTriangle size={12} color="#D97706" />
+                        <Text style={styles.restrictionText}>
+                          GHMC Heavy Vehicle Entry Restriction applies ({freightInfo.nightHours || '10 PM – 7 AM'}). Night transit pass included.
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                {/* Contractor Promo Code Card (Item 16) */}
+                {cartItems.length > 0 && (
+                  <View style={[styles.couponCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                    {appliedCoupon ? (
+                      <View style={styles.appliedCouponRow}>
+                        <View style={styles.appliedCouponLeft}>
+                          <Tag size={15} color="#16A34A" />
+                          <View>
+                            <Text style={styles.appliedCodeText}>{appliedCoupon} Applied</Text>
+                            <Text style={[styles.appliedDesc, { color: theme.textSecondary }]}>
+                              Contractor discount: ₹{couponDiscount.toLocaleString('en-IN')}
+                            </Text>
+                          </View>
+                        </View>
+                        <TouchableOpacity onPress={handleRemoveCoupon} style={styles.removeCouponBtn}>
+                          <X size={16} color={theme.textSecondary} />
                         </TouchableOpacity>
                       </View>
+                    ) : (
+                      <TouchableOpacity
+                        onPress={() => setShowCouponModal(true)}
+                        style={styles.openCouponBtn}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.openCouponLeft}>
+                          <Tag size={15} color="#0284C7" />
+                          <Text style={[styles.openCouponText, { color: theme.textPrimary }]}>
+                            Apply Contractor Promo / Coupon Code
+                          </Text>
+                        </View>
+                        <ChevronRight size={16} color={theme.textSecondary} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+
+                {/* Split Payment Selector (Item 12) */}
+                {cartItems.length > 0 && (
+                  <View style={[styles.splitCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                    <Text style={[styles.splitTitle, { color: theme.textPrimary }]}>Payment Schedule</Text>
+                    <View style={styles.splitOptionsRow}>
+                      <TouchableOpacity
+                        onPress={() => setPaymentMode('100_percent')}
+                        style={[
+                          styles.splitOption,
+                          paymentMode === '100_percent'
+                            ? { backgroundColor: '#111111', borderColor: '#111111' }
+                            : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                        ]}
+                        activeOpacity={0.75}
+                      >
+                        <Text
+                          style={[
+                            styles.splitOptionText,
+                            { color: paymentMode === '100_percent' ? '#FFFFFF' : theme.textPrimary },
+                          ]}
+                        >
+                          100% Full Payment
+                        </Text>
+                        <Text
+                          style={[
+                            styles.splitOptionSub,
+                            { color: paymentMode === '100_percent' ? 'rgba(255,255,255,0.7)' : theme.textSecondary },
+                          ]}
+                        >
+                          ₹{grandTotal.toLocaleString('en-IN')}
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        onPress={() => setPaymentMode('50_split')}
+                        style={[
+                          styles.splitOption,
+                          paymentMode === '50_split'
+                            ? { backgroundColor: '#111111', borderColor: '#111111' }
+                            : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                        ]}
+                        activeOpacity={0.75}
+                      >
+                        <Text
+                          style={[
+                            styles.splitOptionText,
+                            { color: paymentMode === '50_split' ? '#FFFFFF' : theme.textPrimary },
+                          ]}
+                        >
+                          50% Split Advance
+                        </Text>
+                        <Text
+                          style={[
+                            styles.splitOptionSub,
+                            { color: paymentMode === '50_split' ? 'rgba(255,255,255,0.7)' : theme.textSecondary },
+                          ]}
+                        >
+                          ₹{advancePaymentAmount.toLocaleString('en-IN')} now
+                        </Text>
+                      </TouchableOpacity>
                     </View>
-                  ))}
-                </View>
+
+                    {paymentMode === '50_split' && (
+                      <View style={styles.splitNotice}>
+                        <ShieldCheck size={13} color="#059669" />
+                        <Text style={styles.splitNoticeText}>
+                          Pay ₹{advancePaymentAmount.toLocaleString('en-IN')} advance token now. Balance ₹{balanceUponWeighment.toLocaleString('en-IN')} payable via UPI/Cash upon physical weighbridge slip verification at site.
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
 
                 {/* Price Summary Breakdown */}
-                <View style={[styles.summaryCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                  <Text style={[styles.summaryTitle, { color: theme.textPrimary, borderBottomColor: theme.borderLight }]}>
-                    Summary
-                  </Text>
-                  <View style={styles.summaryRow}>
-                    <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Subtotal ({totalUnitQuantity} items)</Text>
-                    <Text style={[styles.summaryValue, { color: theme.textPrimary }]}>₹{subtotal.toLocaleString('en-IN')}</Text>
-                  </View>
-                  <View style={styles.summaryRow}>
-                    <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Central GST (CGST 9%)</Text>
-                    <Text style={[styles.summaryValue, { color: theme.textPrimary }]}>₹{cgst.toLocaleString('en-IN')}</Text>
-                  </View>
-                  <View style={styles.summaryRow}>
-                    <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>State GST (SGST 9%)</Text>
-                    <Text style={[styles.summaryValue, { color: theme.textPrimary }]}>₹{sgst.toLocaleString('en-IN')}</Text>
-                  </View>
-                  <View style={styles.summaryRow}>
-                    <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Direct Yard Dispatch & Handling</Text>
-                    <Text style={[styles.summaryValue, { color: '#16A34A', fontWeight: '700' }]}>Free Delivery</Text>
-                  </View>
-                  <View style={[styles.summaryRow, styles.grandTotalRow, { borderTopColor: theme.borderLight }]}>
-                    <Text style={[styles.grandTotalLabel, { color: theme.textPrimary }]}>Total (Incl. all taxes)</Text>
-                    <Text style={[styles.grandTotalValue, { color: theme.textPrimary }]}>₹{grandTotal.toLocaleString('en-IN')}</Text>
-                  </View>
-                </View>
+                {cartItems.length > 0 && (
+                  <View style={[styles.summaryCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                    <Text style={[styles.summaryTitle, { color: theme.textPrimary, borderBottomColor: theme.borderLight }]}>
+                      Commercial Tax Invoice Summary
+                    </Text>
+                    <View style={styles.summaryRow}>
+                      <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Subtotal ({totalUnitQuantity} items)</Text>
+                      <Text style={[styles.summaryValue, { color: theme.textPrimary }]}>₹{subtotal.toLocaleString('en-IN')}</Text>
+                    </View>
+                    <View style={styles.summaryRow}>
+                      <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Central GST (CGST 9%)</Text>
+                      <Text style={[styles.summaryValue, { color: theme.textPrimary }]}>₹{cgst.toLocaleString('en-IN')}</Text>
+                    </View>
+                    <View style={styles.summaryRow}>
+                      <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>State GST (SGST 9%)</Text>
+                      <Text style={[styles.summaryValue, { color: theme.textPrimary }]}>₹{sgst.toLocaleString('en-IN')}</Text>
+                    </View>
+                    <View style={styles.summaryRow}>
+                      <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>
+                        Distance Freight ({freightInfo.distanceKm} km from Miyapur Yard)
+                      </Text>
+                      <Text style={[styles.summaryValue, { color: deliveryFreightCost === 0 ? '#16A34A' : theme.textPrimary }]}>
+                        {deliveryFreightCost === 0 ? 'FREE (Bulk Waiver)' : `₹${deliveryFreightCost.toLocaleString('en-IN')}`}
+                      </Text>
+                    </View>
 
-                {/* Nike Solid Black Checkout CTA */}
-                <TouchableOpacity
-                  onPress={handlePlaceOrder}
-                  disabled={isPlacingOrder}
-                  activeOpacity={0.85}
-                  style={[styles.nikeCheckoutPill, { backgroundColor: theme.primary }]}
-                >
-                  <Text style={styles.nikeCheckoutPillText}>
-                    {isPlacingOrder ? 'Processing...' : `Checkout (₹${grandTotal.toLocaleString('en-IN')})`}
-                  </Text>
-                  <ArrowRight size={16} color="#FFFFFF" strokeWidth={2.2} />
-                </TouchableOpacity>
+                    {couponDiscount > 0 && (
+                      <View style={styles.summaryRow}>
+                        <Text style={[styles.summaryLabel, { color: '#16A34A' }]}>Contractor Discount ({appliedCoupon})</Text>
+                        <Text style={[styles.summaryValue, { color: '#16A34A', fontWeight: '700' }]}>
+                          -₹{couponDiscount.toLocaleString('en-IN')}
+                        </Text>
+                      </View>
+                    )}
+
+                    <View style={[styles.summaryRow, styles.grandTotalRow, { borderTopColor: theme.borderLight }]}>
+                      <Text style={[styles.grandTotalLabel, { color: theme.textPrimary }]}>Total Payable</Text>
+                      <Text style={[styles.grandTotalValue, { color: theme.textPrimary }]}>
+                        ₹{advancePaymentAmount.toLocaleString('en-IN')}
+                        {paymentMode === '50_split' && <Text style={{ fontSize: 11, color: '#64748B' }}> (Advance)</Text>}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* Checkout CTA */}
+                {cartItems.length > 0 && (
+                  <TouchableOpacity
+                    onPress={handlePlaceOrder}
+                    disabled={isPlacingOrder}
+                    activeOpacity={0.85}
+                    style={[styles.nikeCheckoutPill, { backgroundColor: theme.primary }]}
+                  >
+                    <Text style={styles.nikeCheckoutPillText}>
+                      {isPlacingOrder ? 'Validating Stocks...' : `Pay ₹${advancePaymentAmount.toLocaleString('en-IN')} & Book Dispatch`}
+                    </Text>
+                    <ArrowRight size={16} color="#FFFFFF" strokeWidth={2.2} />
+                  </TouchableOpacity>
+                )}
+
+                {/* Saved for Later Section (Item 24) */}
+                {savedForLaterItems.length > 0 && (
+                  <View style={[styles.savedSection, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                    <View style={styles.savedSectionHeader}>
+                      <BookmarkCheck size={16} color={theme.textPrimary} />
+                      <Text style={[styles.savedSectionTitle, { color: theme.textPrimary }]}>
+                        Saved for Later ({savedForLaterItems.length})
+                      </Text>
+                    </View>
+
+                    <View style={styles.savedItemsList}>
+                      {savedForLaterItems.map((item) => (
+                        <View key={item.id} style={[styles.savedItemRow, { borderTopColor: theme.borderLight }]}>
+                          <View style={styles.savedItemInfo}>
+                            <Text style={[styles.savedItemName, { color: theme.textPrimary }]} numberOfLines={1}>
+                              {item.itemName}
+                            </Text>
+                            <Text style={[styles.savedItemOption, { color: theme.textSecondary }]}>
+                              {item.selectedOptionLabel} • ₹{item.unitPrice.toLocaleString('en-IN')}
+                            </Text>
+                          </View>
+
+                          <View style={styles.savedItemActions}>
+                            <TouchableOpacity
+                              onPress={() => handleMoveToCart(item)}
+                              style={[styles.moveToCartBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
+                              activeOpacity={0.7}
+                            >
+                              <Text style={[styles.moveToCartText, { color: theme.textPrimary }]}>Move to Bag</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => handleRemoveSavedItem(item.id)} style={styles.deleteBtn}>
+                              <Trash2 size={14} color={theme.textSecondary} />
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
               </View>
             )}
           </>
         ) : (
-          /* Orders & Live Tracking View */
+          /* Live Tracking & Orders View */
           <View style={styles.historySection}>
             <View style={styles.historyHeaderRow}>
               <TouchableOpacity
@@ -393,6 +771,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                 <Text style={[styles.backToCartBtnText, { color: theme.textPrimary }]}>← Back to Bag</Text>
               </TouchableOpacity>
             </View>
+
             {!isLoggedIn ? (
               <View style={[styles.nikeEmptyBagContainer, { backgroundColor: theme.surface }]}>
                 <View style={[styles.nikeEmptyBagIconCircle, { backgroundColor: theme.surfaceSecondary }]}>
@@ -431,7 +810,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
               </View>
             ) : (
               <>
-                {/* Active Live Delivery Tracking Card */}
+                {/* Active Live Delivery Tracking Card with Real-Time Actions */}
                 {activeEnRoute && (
                   <View style={[styles.trackingCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <View style={[styles.trackingCardHeader, { borderBottomColor: theme.borderLight }]}>
@@ -443,81 +822,72 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                           {activeEnRoute.materialName}
                         </Text>
                       </View>
-                      <View style={[styles.etaPill, { backgroundColor: theme.surfaceSecondary }]}>
-                        <Text style={[styles.etaPillText, { color: theme.textPrimary }]}>{activeEnRoute.estimatedArrival}</Text>
+                      <View style={[styles.etaPill, { backgroundColor: '#DCFCE7' }]}>
+                        <Text style={[styles.etaPillText, { color: '#15803D' }]}>{activeEnRoute.estimatedArrival}</Text>
                       </View>
+                    </View>
+
+                    {/* Delivery OTP Badge */}
+                    <View style={styles.otpCardRow}>
+                      <View style={styles.otpLeft}>
+                        <Text style={styles.otpLabel}>Delivery Verification OTP</Text>
+                        <Text style={styles.otpValue}>{activeEnRoute.deliveryOtp || '8842'}</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => setShowSupervisorModal(true)}
+                        style={styles.delegateOtpBtn}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.delegateOtpText}>Delegate to Foreman</Text>
+                      </TouchableOpacity>
                     </View>
 
                     {/* Delivery Meta */}
                     <View style={styles.deliveryMetaRow}>
                       <View style={styles.deliveryMetaCol}>
-                        <Text style={[styles.metaLabelText, { color: theme.textSecondary }]}>Driver</Text>
-                        <Text style={[styles.metaValText, { color: theme.textPrimary }]}>{activeEnRoute.driverName} ({activeEnRoute.vehicleNumber})</Text>
+                        <Text style={[styles.metaLabelText, { color: theme.textSecondary }]}>Driver & Vehicle</Text>
+                        <Text style={[styles.metaValText, { color: theme.textPrimary }]}>
+                          {activeEnRoute.driverName} ({activeEnRoute.vehicleNumber})
+                        </Text>
                       </View>
                       <View style={styles.deliveryMetaCol}>
-                        <Text style={[styles.metaLabelText, { color: theme.textSecondary }]}>Destination</Text>
-                        <Text style={[styles.metaValText, { color: theme.textPrimary }]} numberOfLines={1}>{activeEnRoute.siteAddress}</Text>
+                        <Text style={[styles.metaLabelText, { color: theme.textSecondary }]}>Assigned Site Supervisor</Text>
+                        <Text style={[styles.metaValText, { color: theme.textPrimary }]}>
+                          {activeSupervisor.name} ({activeSupervisor.phone})
+                        </Text>
                       </View>
                     </View>
 
-                    {/* Vertical Tracking Hierarchy */}
-                    <View style={styles.verticalHierarchy}>
-                      {dynamicTrackingSteps.map((step, idx) => {
-                        const isLast = idx === dynamicTrackingSteps.length - 1;
-                        const isCompleted = step.status === 'completed';
-                        const isActive = step.status === 'active';
+                    {/* Action Bar (Live Dispatcher Chat + OCR Weighbridge Scan + Call) */}
+                    <View style={styles.activeActionBar}>
+                      <TouchableOpacity
+                        onPress={() => setShowDispatcherChat(true)}
+                        style={[styles.actionChipBtn, { backgroundColor: '#111111' }]}
+                        activeOpacity={0.8}
+                      >
+                        <MessageSquare size={13} color="#FFFFFF" />
+                        <Text style={styles.actionChipBtnText}>Live Dispatch Chat</Text>
+                      </TouchableOpacity>
 
-                        return (
-                          <View key={step.id} style={styles.timelineRow}>
-                            <View style={styles.timelineIndicatorCol}>
-                              <View
-                                style={[
-                                  styles.timelineDot,
-                                  isActive
-                                    ? { backgroundColor: theme.primary, borderColor: theme.primary }
-                                    : isCompleted
-                                    ? { backgroundColor: theme.primary, borderColor: theme.primary }
-                                    : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
-                                ]}
-                              >
-                                {isCompleted && <Check size={10} color="#FFFFFF" strokeWidth={3} />}
-                                {isActive && <View style={styles.activeInnerDot} />}
-                              </View>
-                              {!isLast && (
-                                <View
-                                  style={[
-                                    styles.timelineLine,
-                                    {
-                                      backgroundColor: isCompleted ? theme.primary : theme.border,
-                                    },
-                                  ]}
-                                />
-                              )}
-                            </View>
+                      <TouchableOpacity
+                        onPress={() => setShowWeighbridgeScan(true)}
+                        style={[styles.actionChipBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, borderWidth: 1 }]}
+                        activeOpacity={0.8}
+                      >
+                        <Camera size={13} color={theme.textPrimary} />
+                        <Text style={[styles.actionChipBtnText, { color: theme.textPrimary }]}>Scan Weighment</Text>
+                      </TouchableOpacity>
 
-                            <View style={[styles.timelineContent, isLast ? { paddingBottom: 0 } : { paddingBottom: 22 }]}>
-                              <Text
-                                style={[
-                                  styles.timelineStepTitle,
-                                  {
-                                    color: isActive
-                                      ? theme.primary
-                                      : isCompleted
-                                      ? theme.textPrimary
-                                      : theme.textSecondary,
-                                    fontWeight: isActive || isCompleted ? '600' : '400',
-                                  },
-                                ]}
-                              >
-                                {step.title}
-                              </Text>
-                              <Text style={[styles.timelineStepDesc, { color: theme.textSecondary }]}>
-                                {step.description}
-                              </Text>
-                            </View>
-                          </View>
-                        );
-                      })}
+                      {onViewInvoice && (
+                        <TouchableOpacity
+                          onPress={() => onViewInvoice(activeEnRoute)}
+                          style={[styles.actionChipBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, borderWidth: 1 }]}
+                          activeOpacity={0.8}
+                        >
+                          <FileCheck2 size={13} color={theme.textPrimary} />
+                          <Text style={[styles.actionChipBtnText, { color: theme.textPrimary }]}>GST Invoice</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   </View>
                 )}
@@ -526,9 +896,9 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                 <View style={[styles.trackingCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                   <View style={[styles.trackingCardHeader, { borderBottomColor: theme.borderLight }]}>
                     <Text style={[styles.trackingOrderNumber, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-                      Previous Orders
+                      Previous Order History
                     </Text>
-                    <Text style={[styles.metaLabelText, { color: theme.textSecondary }]}>{deliveries.length}</Text>
+                    <Text style={[styles.metaLabelText, { color: theme.textSecondary }]}>{deliveries.length} Dispatches</Text>
                   </View>
 
                   <View style={styles.deliveriesList}>
@@ -547,14 +917,12 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                           <Text style={[styles.delAmountText, { color: theme.textPrimary }]}>
                             ₹{del.totalAmount.toLocaleString('en-IN')}
                           </Text>
-                          <Text
-                            style={[
-                              styles.statusBadgeText,
-                              { color: del.status === 'Delivered' ? theme.textSecondary : theme.primary },
-                            ]}
+                          <TouchableOpacity
+                            onPress={() => onViewInvoice && onViewInvoice(del)}
+                            style={styles.miniInvoiceBtn}
                           >
-                            {del.status}
-                          </Text>
+                            <Text style={styles.miniInvoiceText}>Invoice</Text>
+                          </TouchableOpacity>
                         </View>
                       </View>
                     ))}
@@ -565,14 +933,99 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
           </View>
         )}
 
+        {/* Contractor Coupon Drawer Modal */}
+        <Modal visible={showCouponModal} transparent animationType="slide" onRequestClose={() => setShowCouponModal(false)}>
+          <View style={styles.modalOverlay}>
+            <Pressable style={styles.modalBackdrop} onPress={() => setShowCouponModal(false)} />
+            <View style={[styles.couponModalCard, { backgroundColor: theme.surface }]}>
+              <View style={[styles.couponModalHeader, { borderBottomColor: theme.border }]}>
+                <Text style={[styles.couponModalTitle, { color: theme.textPrimary }]}>Contractor Coupons & Offers</Text>
+                <TouchableOpacity onPress={() => setShowCouponModal(false)}>
+                  <X size={18} color={theme.textSecondary} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.couponModalBody}>
+                {/* Promo input */}
+                <View style={styles.promoInputRow}>
+                  <input
+                    type="text"
+                    value={promoInput}
+                    onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                    placeholder="Enter coupon code (e.g. BUILD10)"
+                    style={{
+                      flex: 1,
+                      padding: '10px 12px',
+                      fontSize: 13,
+                      border: `1px solid ${theme.border}`,
+                      borderRadius: 8,
+                      backgroundColor: theme.surfaceSecondary,
+                      color: theme.textPrimary,
+                      outline: 'none',
+                    }}
+                  />
+                  <TouchableOpacity
+                    onPress={() => handleApplyCoupon(promoInput)}
+                    style={styles.promoApplyBtn}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.promoApplyBtnText}>Apply</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Available Offers List */}
+                <View style={styles.offersList}>
+                  {[
+                    {
+                      code: 'BUILD10',
+                      title: '10% Off on Orders Above ₹3,000',
+                      desc: 'Save up to ₹2,500 on all cement and steel bookings.',
+                      minVal: 'Min ₹3,000',
+                    },
+                    {
+                      code: 'URBAN500',
+                      title: 'Flat ₹500 Instant Discount',
+                      desc: 'Applicable on aggregates, M-Sand, and stone chipping dispatches.',
+                      minVal: 'Min ₹5,000',
+                    },
+                    {
+                      code: 'MEGA2026',
+                      title: '12% Bulk Contractor Rebate',
+                      desc: 'Direct quarry bulk voucher for orders exceeding ₹20,000.',
+                      minVal: 'Min ₹20,000',
+                    },
+                  ].map((c) => (
+                    <View key={c.code} style={[styles.offerCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                      <View style={styles.offerLeft}>
+                        <View style={styles.offerCodeBadge}>
+                          <Text style={styles.offerCodeBadgeText}>{c.code}</Text>
+                        </View>
+                        <Text style={[styles.offerTitle, { color: theme.textPrimary }]}>{c.title}</Text>
+                        <Text style={[styles.offerDesc, { color: theme.textSecondary }]}>{c.desc}</Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={() => handleApplyCoupon(c.code)}
+                        style={styles.offerApplyBtn}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.offerApplyBtnText}>Apply</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
         {/* Razorpay Modal */}
         <RazorpayModal
           visible={showRazorpayModal}
           onClose={() => setShowRazorpayModal(false)}
-          amount={grandTotal}
-          orderDescription={`Order (${cartItems.length} items) - Urbanico Supply`}
+          amount={advancePaymentAmount}
+          orderDescription={`Booking (${cartItems.length} items) - Urbanico Supply`}
           onPaymentSuccess={handlePaymentSuccess}
-          onPaymentFailure={handlePaymentFailure}
+          onPaymentFailure={(err) => setPaymentError(err)}
         />
 
         {/* Payment Success Confirmation Receipt Screen */}
@@ -589,6 +1042,33 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
             }
           }}
         />
+
+        {/* Live Dispatcher Chat Modal */}
+        <LiveDispatcherChatModal
+          visible={showDispatcherChat}
+          onClose={() => setShowDispatcherChat(false)}
+          orderNumber={activeEnRoute?.orderNumber}
+          driverName={activeEnRoute?.driverName}
+          driverPhone={activeEnRoute?.driverPhone}
+        />
+
+        {/* Weighbridge Scan Modal */}
+        <WeighbridgeScanModal
+          visible={showWeighbridgeScan}
+          onClose={() => setShowWeighbridgeScan(false)}
+          orderNumber={activeEnRoute?.orderNumber}
+          expectedTons={totalWeightTons || 10.0}
+        />
+
+        {/* Supervisor Handoff Modal */}
+        <SupervisorHandoffModal
+          visible={showSupervisorModal}
+          onClose={() => setShowSupervisorModal(false)}
+          orderNumber={activeEnRoute?.orderNumber}
+          currentSupervisorName={activeSupervisor.name}
+          currentSupervisorPhone={activeSupervisor.phone}
+          onSaveSupervisor={(name, phone) => setActiveSupervisor({ name, phone })}
+        />
       </ScrollView>
     </View>
   );
@@ -602,7 +1082,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 8,
     paddingBottom: 112,
-    gap: 16,
+    gap: 14,
   },
   tabContainer: {
     flexDirection: 'row',
@@ -659,6 +1139,38 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
+  stockReservationBanner: {
+    backgroundColor: '#E0F2FE',
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  reservationLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  reservationTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0369A1',
+  },
+  timerBadge: {
+    backgroundColor: '#0284C7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  timerBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
+  },
   cartSection: {
     gap: 12,
   },
@@ -693,19 +1205,27 @@ const styles = StyleSheet.create({
   },
   itemName: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
     letterSpacing: -0.1,
   },
   itemOptionLabel: {
-    fontSize: 13,
-    fontWeight: '400',
+    fontSize: 12,
     marginTop: 2,
   },
   itemUnitPrice: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginTop: 3,
-    letterSpacing: -0.1,
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  saveForLaterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  saveForLaterText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   stepperActionRow: {
     flexDirection: 'row',
@@ -730,10 +1250,151 @@ const styles = StyleSheet.create({
     width: 24,
     textAlign: 'center',
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   deleteBtn: {
     padding: 6,
+  },
+  axleCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    gap: 8,
+  },
+  axleCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  axleHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  axleTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  axleWeight: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0284C7',
+  },
+  gaugeTrack: {
+    height: 8,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  gaugeFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  axleMetaRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  axleMetaText: {
+    fontSize: 11,
+  },
+  restrictionNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    backgroundColor: '#FEF3C7',
+    padding: 8,
+    borderRadius: 6,
+    marginTop: 2,
+  },
+  restrictionText: {
+    fontSize: 10.5,
+    color: '#92400E',
+    flex: 1,
+    lineHeight: 14,
+  },
+  couponCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+  },
+  appliedCouponRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  appliedCouponLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  appliedCodeText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#16A34A',
+  },
+  appliedDesc: {
+    fontSize: 11,
+  },
+  removeCouponBtn: {
+    padding: 4,
+  },
+  openCouponBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  openCouponLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  openCouponText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  splitCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    padding: 12,
+    gap: 10,
+  },
+  splitTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  splitOptionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  splitOption: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 2,
+  },
+  splitOptionText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  splitOptionSub: {
+    fontSize: 11,
+  },
+  splitNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    backgroundColor: '#ECFDF5',
+    padding: 8,
+    borderRadius: 6,
+  },
+  splitNoticeText: {
+    fontSize: 11,
+    color: '#065F46',
+    flex: 1,
+    lineHeight: 15,
   },
   summaryCard: {
     borderRadius: 14,
@@ -742,54 +1403,104 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   summaryTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13.5,
+    fontWeight: '700',
     borderBottomWidth: 1,
     paddingBottom: 6,
-    letterSpacing: -0.2,
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
   summaryLabel: {
-    fontSize: 13,
-    fontWeight: '400',
+    fontSize: 12.5,
   },
   summaryValue: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 12.5,
+    fontWeight: '600',
   },
   grandTotalRow: {
     paddingTop: 8,
     borderTopWidth: 1,
   },
   grandTotalLabel: {
-    fontSize: 15,
-    fontWeight: '500',
+    fontSize: 14.5,
+    fontWeight: '700',
   },
   grandTotalValue: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 15.5,
+    fontWeight: '800',
   },
-  appleCtaBtn: {
-    height: 48,
-    borderRadius: 12,
+  nikeCheckoutPill: {
+    backgroundColor: '#111111',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row',
     gap: 8,
-    width: '100%',
+    height: 52,
+    borderRadius: 30,
     marginTop: 4,
   },
-  appleCtaBtnText: {
+  nikeCheckoutPillText: {
     color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 14.5,
+    fontWeight: '700',
     letterSpacing: -0.2,
   },
+  savedSection: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    gap: 10,
+    marginTop: 6,
+  },
+  savedSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  savedSectionTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+  },
+  savedItemsList: {
+    gap: 8,
+  },
+  savedItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 8,
+    borderTopWidth: 1,
+  },
+  savedItemInfo: {
+    flex: 1,
+  },
+  savedItemName: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  savedItemOption: {
+    fontSize: 11.5,
+    marginTop: 2,
+  },
+  savedItemActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  moveToCartBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  moveToCartText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
   historySection: {
-    gap: 16,
+    gap: 14,
   },
   historyHeaderRow: {
     flexDirection: 'row',
@@ -835,12 +1546,48 @@ const styles = StyleSheet.create({
   },
   etaPillText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
+  },
+  otpCardRow: {
+    backgroundColor: '#F4F4F5',
+    borderRadius: 10,
+    padding: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  otpLeft: {
+    gap: 2,
+  },
+  otpLabel: {
+    fontSize: 10.5,
+    color: '#71717A',
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  otpValue: {
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 4,
+    color: '#111111',
+  },
+  delegateOtpBtn: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+  },
+  delegateOtpText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#111111',
   },
   deliveryMetaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 8,
+    paddingVertical: 6,
     gap: 12,
   },
   deliveryMetaCol: {
@@ -855,48 +1602,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  verticalHierarchy: {
-    paddingTop: 8,
-  },
-  timelineRow: {
+  activeActionBar: {
     flexDirection: 'row',
+    gap: 8,
+    paddingTop: 4,
   },
-  timelineIndicatorCol: {
-    alignItems: 'center',
-    width: 24,
-    marginRight: 12,
-  },
-  timelineDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
+  actionChipBtn: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 1,
+    gap: 5,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
-  activeInnerDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#FFFFFF',
-  },
-  timelineLine: {
-    width: 2,
-    flex: 1,
-    marginVertical: 2,
-  },
-  timelineContent: {
-    flex: 1,
-    gap: 2,
-  },
-  timelineStepTitle: {
-    fontSize: 14,
-    letterSpacing: -0.2,
-  },
-  timelineStepDesc: {
-    fontSize: 12,
-    lineHeight: 16,
+  actionChipBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
   deliveriesList: {
     paddingTop: 4,
@@ -904,42 +1627,48 @@ const styles = StyleSheet.create({
   deliveryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   deliveryLeftInfo: {
     flex: 1,
     gap: 2,
   },
   delMaterialName: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '600',
   },
   timestampText: {
-    fontSize: 12,
+    fontSize: 11.5,
   },
   deliveryRightInfo: {
     alignItems: 'flex-end',
-    gap: 2,
+    gap: 4,
   },
   delAmountText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13.5,
+    fontWeight: '700',
   },
-  statusBadgeText: {
-    fontSize: 12,
-    fontWeight: '500',
+  miniInvoiceBtn: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    backgroundColor: '#F4F4F5',
+    borderRadius: 4,
+  },
+  miniInvoiceText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#111111',
   },
   nikeEmptyBagContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 90,
+    paddingVertical: 80,
     paddingHorizontal: 24,
   },
   nikeEmptyBagIconCircle: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#F5F5F5',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 20,
@@ -947,43 +1676,117 @@ const styles = StyleSheet.create({
   nikeEmptyBagTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111111',
     marginBottom: 6,
     letterSpacing: -0.3,
   },
   nikeEmptyBagSub: {
-    fontSize: 14,
-    color: '#707072',
+    fontSize: 13.5,
     textAlign: 'center',
-    marginBottom: 28,
+    marginBottom: 24,
+    lineHeight: 18,
   },
   nikeShopNowPill: {
-    backgroundColor: '#111111',
-    paddingVertical: 14,
-    paddingHorizontal: 36,
+    paddingVertical: 13,
+    paddingHorizontal: 32,
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
   },
   nikeShopNowPillText: {
     color: '#FFFFFF',
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '700',
   },
-  nikeCheckoutPill: {
-    backgroundColor: '#111111',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    height: 52,
-    borderRadius: 30,
-    marginTop: 8,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
   },
-  nikeCheckoutPillText: {
-    color: '#FFFFFF',
+  modalBackdrop: {
+    flex: 1,
+  },
+  couponModalCard: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 16,
+    maxHeight: '80%',
+  },
+  couponModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+  },
+  couponModalTitle: {
     fontSize: 15,
     fontWeight: '700',
-    letterSpacing: -0.2,
+  },
+  couponModalBody: {
+    paddingTop: 12,
+    gap: 12,
+  },
+  promoInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  promoApplyBtn: {
+    backgroundColor: '#111111',
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  promoApplyBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  offersList: {
+    gap: 10,
+    marginTop: 4,
+  },
+  offerCard: {
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  offerLeft: {
+    flex: 1,
+    gap: 2,
+  },
+  offerCodeBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#111111',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  offerCodeBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  offerTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  offerDesc: {
+    fontSize: 11,
+  },
+  offerApplyBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#0284C7',
+    borderRadius: 6,
+  },
+  offerApplyBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11.5,
+    fontWeight: '700',
   },
 });
