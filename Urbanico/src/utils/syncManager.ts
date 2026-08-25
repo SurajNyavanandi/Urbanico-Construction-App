@@ -136,11 +136,16 @@ export const syncManager = {
     return Math.floor(remainingMs / 1000);
   },
 
-  // Audio Chime notification
+  // Audio Chime notification with safe audio context resume and unlock
   playNotificationSound: () => {
     try {
-      if (typeof window !== 'undefined' && 'AudioContext' in window) {
-        const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (typeof window !== 'undefined') {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        if (ctx.state === 'suspended') {
+          ctx.resume().catch(() => {});
+        }
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain);
@@ -152,6 +157,14 @@ export const syncManager = {
         gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
         osc.start();
         osc.stop(ctx.currentTime + 0.35);
+        // Clean up context after sound stops
+        setTimeout(() => {
+          try {
+            if (ctx.state !== 'closed') {
+              ctx.close().catch(() => {});
+            }
+          } catch {}
+        }, 500);
       }
     } catch (e) {
       // Audio context might be restricted before first user interaction

@@ -42,6 +42,7 @@ export interface RazorpayCheckoutOptions {
   userEmail?: string;
   userPhone?: string;
   precreatedOrderId?: string;
+  preferredMethod?: 'upi' | 'card' | 'netbanking' | 'wallet';
   onSuccess: (paymentResult: {
     razorpay_payment_id: string;
     razorpay_order_id: string;

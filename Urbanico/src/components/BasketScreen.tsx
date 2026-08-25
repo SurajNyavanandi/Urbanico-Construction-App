@@ -43,6 +43,7 @@ import { EmptyState } from './common/EmptyState';
 import { ShimmerImage } from './common/ShimmerImage';
 import { useToast } from '../context/ToastContext';
 import { syncManager } from '../utils/syncManager';
+import { apiService } from '../services/apiService';
 import {
   estimateTotalWeightTons,
   calculateDynamicFreight,
@@ -158,9 +159,11 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   const subtotal = cartItems.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
   const cgst = Math.round(subtotal * 0.09);
   const sgst = Math.round(subtotal * 0.09);
-  const gstTax = cgst + sgst;
-  const deliveryFreightCost = subtotal > 15000 ? 0 : freightInfo.freightCost;
-  const taxableTotal = subtotal + gstTax + deliveryFreightCost - couponDiscount;
+  const gstTax = cgst + sgst; // Flat 18% overall GST
+  const deliveryDistanceKm = freightInfo.distanceKm || 12;
+  const deliveryRatePerKm = freightInfo.ratePerKm || 25;
+  const deliveryCharge = freightInfo.deliveryCharge || Math.round(deliveryDistanceKm * deliveryRatePerKm);
+  const taxableTotal = subtotal + gstTax + deliveryCharge - couponDiscount;
   const grandTotal = Math.max(0, taxableTotal);
 
   const advancePaymentAmount = paymentMode === '50_split' ? Math.round(grandTotal * 0.5) : grandTotal;
@@ -263,12 +266,16 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       return;
     }
 
+    setShowCouponModal(false);
+    setShowSupervisorModal(false);
+    setShowDispatcherChat(false);
+    setShowWeighbridgeScan(false);
     setPaymentError(null);
     setIsPlacingOrder(true);
     setTimeout(() => {
       setIsPlacingOrder(false);
       setShowRazorpayModal(true);
-    }, 400);
+    }, 200);
   };
 
   const handlePaymentSuccess = (result: RazorpayPaymentResult) => {
@@ -278,9 +285,10 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
 
     const now = new Date();
     const formattedTime = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+    const generatedOrderNum = `URB-${Math.floor(10000 + Math.random() * 90000)}`;
     const newOrder: ActivityDelivery = {
       id: `del-${Date.now()}`,
-      orderNumber: `URB-${Math.floor(10000 + Math.random() * 90000)}`,
+      orderNumber: generatedOrderNum,
       materialName:
         cartItems.map((c) => `${c.itemName} (${c.selectedOptionLabel})`).join(', ') ||
         'Direct Yard Supply Order',
@@ -306,6 +314,50 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       },
     };
 
+    // Send real order data to the backend API
+    apiService.createOrder({
+      orderNumber: generatedOrderNum,
+      customerName: 'Suraj Nyavanandi',
+      customerPhone: '+91 96666 35009',
+      customerEmail: 'kanusuraj15@gmail.com',
+      gstin: '36AABCU12341ZV',
+      siteAddress: {
+        siteName: 'Miyapur Site (Tower B)',
+        street: activeLocation,
+        city: 'Hyderabad',
+        state: 'Telangana',
+        pincode: '500049',
+      },
+      items: cartItems.map((item) => ({
+        name: item.itemName,
+        category: item.itemCategory || 'General',
+        quantity: item.quantity,
+        unit: item.selectedOptionLabel || 'Unit',
+        unitPrice: item.unitPrice,
+        totalPrice: item.unitPrice * item.quantity,
+        gstAmount: 0.18,
+      })),
+      subtotal,
+      taxAmount: gstTax,
+      deliveryCharges: deliveryCharge,
+      unloadingCharges: 800,
+      totalAmount: grandTotal,
+      paymentMethod: result.method || 'Razorpay Gateway',
+      paymentStatus: 'paid',
+      paymentDetails: {
+        razorpayPaymentId: result.razorpay_payment_id,
+        razorpayOrderId: result.razorpay_order_id,
+        paymentMethod: result.method,
+        amount: grandTotal,
+        timestamp: new Date().toISOString(),
+      },
+      vehicleNumber: 'TS 08 UB ' + Math.floor(1000 + Math.random() * 9000),
+      driverName: 'Ramesh Goud',
+      driverPhone: '+91 98480 22341',
+    }).catch((err) => {
+      console.warn('Backend order recording notice:', err);
+    });
+
     if (onOrderCreated) {
       onOrderCreated(newOrder);
     }
@@ -313,6 +365,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     syncManager.playNotificationSound();
     onClearCart();
   };
+
 
   const activeEnRoute = deliveries.find((d) => d.status === 'En Route') || deliveries[0];
 
@@ -675,11 +728,16 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                       <Text style={[styles.summaryValue, { color: theme.textPrimary }]}>₹{sgst.toLocaleString('en-IN')}</Text>
                     </View>
                     <View style={styles.summaryRow}>
-                      <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>
-                        Distance Freight ({freightInfo.distanceKm} km from Miyapur Yard)
-                      </Text>
-                      <Text style={[styles.summaryValue, { color: deliveryFreightCost === 0 ? '#16A34A' : theme.textPrimary }]}>
-                        {deliveryFreightCost === 0 ? 'FREE (Bulk Waiver)' : `₹${deliveryFreightCost.toLocaleString('en-IN')}`}
+                      <View>
+                        <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>
+                          Platform Delivery Fee ({deliveryDistanceKm} km @ ₹{deliveryRatePerKm}/km)
+                        </Text>
+                        <Text style={{ fontSize: 10, color: theme.textMuted }}>
+                          Distance-based logistics • Sole platform revenue
+                        </Text>
+                      </View>
+                      <Text style={[styles.summaryValue, { color: theme.textPrimary, fontWeight: '700' }]}>
+                        ₹{deliveryCharge.toLocaleString('en-IN')}
                       </Text>
                     </View>
 

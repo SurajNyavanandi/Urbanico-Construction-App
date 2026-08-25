@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   Pressable,
+  Modal,
 } from 'react-native';
 import {
   X,
@@ -215,8 +216,9 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   };
 
   return (
-    <View style={styles.overlay}>
-      <Pressable style={styles.backdrop} onPress={onClose} />
+    <Modal visible={isOpen} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.overlay}>
+        <Pressable style={styles.backdrop} onPress={onClose} />
 
       <View style={[styles.sheetContainer, { backgroundColor: theme.surface }]}>
         {/* Modal Top Toolbar */}
@@ -388,17 +390,17 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               <Text style={[styles.totalVal, { color: theme.textPrimary }]}>₹{taxableAmount.toLocaleString('en-IN')}</Text>
             </View>
             <View style={styles.totalRow}>
-              <Text style={[styles.totalLabel, { color: theme.textSecondary }]}>CGST (9%)</Text>
+              <Text style={[styles.totalLabel, { color: theme.textSecondary }]}>Central GST (CGST 9%)</Text>
               <Text style={[styles.totalVal, { color: theme.textPrimary }]}>₹{cgst.toLocaleString('en-IN')}</Text>
             </View>
             <View style={styles.totalRow}>
-              <Text style={[styles.totalLabel, { color: theme.textSecondary }]}>SGST (9%)</Text>
+              <Text style={[styles.totalLabel, { color: theme.textSecondary }]}>State GST (SGST 9%)</Text>
               <Text style={[styles.totalVal, { color: theme.textPrimary }]}>₹{sgst.toLocaleString('en-IN')}</Text>
             </View>
             <View style={styles.totalRow}>
-              <Text style={[styles.totalLabel, { color: theme.textSecondary }]}>Delivery Logistics & Freight</Text>
-              <Text style={[styles.totalVal, { color: '#059669', fontWeight: '800' }]}>
-                FREE
+              <Text style={[styles.totalLabel, { color: theme.textSecondary }]}>Distance-Based Delivery Charge</Text>
+              <Text style={[styles.totalVal, { color: theme.textPrimary, fontWeight: '700' }]}>
+                Direct Per-Km Rate
               </Text>
             </View>
 
@@ -439,7 +441,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         </View>
       </View>
     </View>
-  );
+  </Modal>
+);
 };
 
 const styles = StyleSheet.create({

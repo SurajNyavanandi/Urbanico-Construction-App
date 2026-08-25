@@ -292,8 +292,8 @@ const VALUE_PILLARS = [
   },
   {
     icon: '🛡️',
-    title: '100% Tested',
-    sub: 'IS-standard lab certified',
+    title: 'Direct Quarry Sourced',
+    sub: 'Verified standard grade dispatch',
   },
 ];
 

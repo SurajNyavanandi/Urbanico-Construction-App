@@ -4,7 +4,7 @@ import { UserService } from '../services/userService';
 export class UserController {
   public static async getProfile(req: Request, res: Response) {
     try {
-      const phone = (req.query.phone as string) || '9876543210';
+      const phone = (req.query.phone as string) || '+919666635009';
       const user = await UserService.findOrCreateUser(phone, req.body);
       return res.status(200).json({ success: true, user });
     } catch (err: any) {
@@ -14,10 +14,12 @@ export class UserController {
 
   public static async updateProfile(req: Request, res: Response) {
     try {
-      const { id } = req.params;
-      const user = await UserService.updateUser(id, req.body);
+      const idOrPhone = req.params.id || (req.query.phone as string) || req.body.phone || '+919666635009';
+      const user = await UserService.updateUser(idOrPhone, req.body);
       if (!user) {
-        return res.status(404).json({ success: false, error: 'User not found' });
+        // If not existing, create or find
+        const newUser = await UserService.findOrCreateUser(idOrPhone, req.body);
+        return res.status(200).json({ success: true, user: newUser });
       }
       return res.status(200).json({ success: true, user });
     } catch (err: any) {
@@ -25,3 +27,4 @@ export class UserController {
     }
   }
 }
+

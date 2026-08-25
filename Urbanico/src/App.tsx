@@ -43,6 +43,7 @@ import {
   MATERIAL_ITEMS,
 } from './data/materialsData';
 import { resolveSearchCategory } from './services/searchService';
+import { apiService } from './services/apiService';
 
 function MainAppContent() {
   const { theme } = useTheme();
@@ -318,6 +319,66 @@ function MainAppContent() {
     );
   };
 
+  // Sync with backend on mount and auth changes
+  useEffect(() => {
+    // 1. Fetch live orders from backend API
+    apiService
+      .getOrders({ phone: user.phone })
+      .then((backendOrders) => {
+        if (backendOrders && backendOrders.length > 0) {
+          setDeliveries((prev) => {
+            const backendMapped: ActivityDelivery[] = backendOrders.map((bo: any) => ({
+              id: bo._id || `del-${bo.orderNumber}`,
+              orderNumber: bo.orderNumber,
+              materialName:
+                bo.items?.map((i: any) => `${i.name} (${i.unit || 'unit'})`).join(', ') ||
+                'Direct Yard Supply Order',
+              quantity: `${bo.items?.reduce((s: number, i: any) => s + (i.quantity || 1), 0) || 1} Items`,
+              driverName: bo.driverName || 'Ramesh Goud',
+              driverPhone: bo.driverPhone || '+91 98480 22341',
+              vehicleType: '10-Tyre Tipper (16T)',
+              vehicleNumber: bo.vehicleNumber || 'TS 08 UB 8821',
+              estimatedArrival: '35 mins away',
+              status: bo.orderStatus === 'delivered' ? 'Delivered' : 'En Route',
+              siteAddress: bo.siteAddress?.street || bo.siteAddress?.siteName || 'Construction Site',
+              siteSupervisorName: bo.customerName || 'Site Supervisor',
+              siteSupervisorPhone: bo.customerPhone || '+91 96666 35009',
+              timestamp: new Date(bo.createdAt || Date.now()).toLocaleDateString('en-IN', {
+                month: 'short',
+                day: 'numeric',
+              }),
+              totalAmount: bo.totalAmount || 0,
+              deliveryOtp: bo.deliveryOtp || '8842',
+              ewayBillNumber: bo.eWayBillNo || `EWB-TS-2026-${Math.floor(10000000 + Math.random() * 90000000)}`,
+              weighmentSlipId: `WB-MYP-${Math.floor(1000 + Math.random() * 9000)}`,
+            }));
+            const existingNums = new Set(prev.map((d) => d.orderNumber));
+            const newOnes = backendMapped.filter((d) => !existingNums.has(d.orderNumber));
+            return [...newOnes, ...prev];
+          });
+        }
+      })
+      .catch(() => {});
+
+    // 2. Fetch user profile from backend API
+    if (isLoggedIn && user.phone) {
+      apiService
+        .getUserProfile(user.phone)
+        .then((serverUser) => {
+          if (serverUser) {
+            setUser((prev) => ({
+              ...prev,
+              name: serverUser.name || prev.name,
+              email: serverUser.email || prev.email,
+              companyName: serverUser.companyName || prev.companyName,
+              gstin: serverUser.gstin || prev.gstin,
+            }));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isLoggedIn, user.phone]);
+
   // Profile Update Handler with persistence
   const handleUpdateUser = (updatedData: Partial<UserProfile>) => {
     setUser((prev) => {
@@ -331,11 +392,15 @@ function MainAppContent() {
       }
       return updated;
     });
+    if (updatedData.phone) {
+      apiService.updateUserProfile(updatedData.phone, updatedData).catch(() => {});
+    }
     if (updatedData.siteLocation) {
       setSelectedLocation(updatedData.siteLocation);
     }
     showToast('Profile details updated successfully', 'success');
   };
+
 
   const handleSelectLocation = (loc: string) => {
     setSelectedLocation(loc);
@@ -350,7 +415,35 @@ function MainAppContent() {
   };
 
   const handleOpenItemModal = (item: MaterialItem) => {
+    setIsAuthModalOpen(false);
+    setIsLocationModalOpen(false);
+    setIsLanguageModalOpen(false);
+    setSelectedInvoiceDelivery(null);
     setSelectedItemForModal(item);
+  };
+
+  const handleOpenAuthModal = () => {
+    setSelectedItemForModal(null);
+    setIsLocationModalOpen(false);
+    setIsLanguageModalOpen(false);
+    setSelectedInvoiceDelivery(null);
+    setIsAuthModalOpen(true);
+  };
+
+  const handleOpenLocationModal = () => {
+    setSelectedItemForModal(null);
+    setIsAuthModalOpen(false);
+    setIsLanguageModalOpen(false);
+    setSelectedInvoiceDelivery(null);
+    setIsLocationModalOpen(true);
+  };
+
+  const handleOpenInvoiceModal = (del: ActivityDelivery) => {
+    setSelectedItemForModal(null);
+    setIsAuthModalOpen(false);
+    setIsLocationModalOpen(false);
+    setIsLanguageModalOpen(false);
+    setSelectedInvoiceDelivery(del);
   };
 
   const handleAddToCartFromModal = (
@@ -585,7 +678,7 @@ function MainAppContent() {
           currentScreen={currentScreen}
           title={getScreenTitle()}
           selectedLocation={selectedLocation}
-          onOpenLocationModal={() => setIsLocationModalOpen(true)}
+          onOpenLocationModal={handleOpenLocationModal}
           onBack={undefined}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
@@ -651,13 +744,13 @@ function MainAppContent() {
             onNavigateScreen={setCurrentScreen}
             deliveries={deliveries}
             onOrderCreated={handleOrderCreated}
-            onViewInvoice={(del) => setSelectedInvoiceDelivery(del)}
+            onViewInvoice={handleOpenInvoiceModal}
             onChangeAddressRedirect={() => {
               setOpenProfileAddresses(true);
               setCurrentScreen('profile');
             }}
             isLoggedIn={isLoggedIn}
-            onOpenLoginModal={() => setIsAuthModalOpen(true)}
+            onOpenLoginModal={handleOpenAuthModal}
           />
         )}
 
@@ -668,7 +761,7 @@ function MainAppContent() {
             favoriteIds={favoriteIds}
             onToggleFavorite={handleToggleFavorite}
             isLoggedIn={isLoggedIn}
-            onOpenLoginModal={() => setIsAuthModalOpen(true)}
+            onOpenLoginModal={handleOpenAuthModal}
           />
         )}
 
@@ -688,9 +781,27 @@ function MainAppContent() {
             onDeleteLocation={handleDeleteLocation}
             onSelectLocation={handleSelectLocation}
             deliveries={deliveries}
-            onViewInvoice={(del) => setSelectedInvoiceDelivery(del)}
+            onViewInvoice={handleOpenInvoiceModal}
             initialOpenAddressesModal={openProfileAddresses}
-            onOpenLoginModal={() => setIsAuthModalOpen(true)}
+            onOpenLoginModal={handleOpenAuthModal}
+            favoriteCount={favoriteIds.length}
+            viewMode={globalViewMode}
+            onViewModeChange={setGlobalViewMode}
+            onExploreCatalog={() => {
+              setSelectedCategoryId('all');
+              setCurrentScreen('category');
+            }}
+            onReorderMaterial={(matName) => {
+              const matchedItem = MATERIAL_ITEMS.find((m) =>
+                m.name.toLowerCase().includes(matName.toLowerCase()) || matName.toLowerCase().includes(m.name.toLowerCase())
+              );
+              if (matchedItem) {
+                handleOpenItemModal(matchedItem);
+              } else {
+                setSelectedCategoryId('all');
+                setCurrentScreen('category');
+              }
+            }}
           />
         )}
 
@@ -707,6 +818,22 @@ function MainAppContent() {
           <ActivityDashboardScreen
             deliveries={deliveries}
             onBack={() => setCurrentScreen('profile')}
+            onExploreCatalog={() => {
+              setSelectedCategoryId('all');
+              setCurrentScreen('category');
+            }}
+            onViewInvoice={handleOpenInvoiceModal}
+            onReorderMaterial={(matName) => {
+              const matchedItem = MATERIAL_ITEMS.find((m) =>
+                m.name.toLowerCase().includes(matName.toLowerCase()) || matName.toLowerCase().includes(m.name.toLowerCase())
+              );
+              if (matchedItem) {
+                handleOpenItemModal(matchedItem);
+              } else {
+                setSelectedCategoryId('all');
+                setCurrentScreen('category');
+              }
+            }}
           />
         )}
 

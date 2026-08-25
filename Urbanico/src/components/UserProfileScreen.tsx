@@ -8,32 +8,34 @@ import {
   StyleSheet,
   Modal,
   TextInput,
-  Platform,
-  KeyboardAvoidingView,
-  Linking,
-  RefreshControl,
 } from 'react-native';
 import {
-  Phone,
+  Truck,
   MapPin,
-  ShieldCheck,
-  Settings,
-  ChevronRight,
-  Edit2,
   CreditCard,
+  Gift,
+  Settings as SettingsIcon,
+  HelpCircle,
+  ChevronRight,
   X,
   Plus,
   Trash2,
-  Navigation,
-  Check,
-  Mail,
-  HelpCircle,
-  ChevronDown,
-  Truck,
-  FileText,
-  Gift,
   Copy,
   Share2,
+  Check,
+  Phone,
+  Mail,
+  Building,
+  Edit2,
+  LogOut,
+  ShieldCheck,
+  CreditCard as CardIcon,
+  Smartphone,
+  Landmark,
+  MessageSquare,
+  Heart,
+  UserCheck,
+  LogIn,
 } from 'lucide-react-native';
 import { UserProfile, ScreenType, ActivityDelivery } from '../types';
 import { INITIAL_DELIVERIES } from '../data/materialsData';
@@ -41,6 +43,8 @@ import { useTheme } from '../context/ThemeContext';
 import { useLocation } from '../context/LocationContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
+import { SettingsModal } from './SettingsModal';
+import { OrdersActivityModal } from './OrdersActivityModal';
 
 interface UserProfileScreenProps {
   user: UserProfile;
@@ -56,7 +60,14 @@ interface UserProfileScreenProps {
   deliveries?: ActivityDelivery[];
   onViewInvoice?: (delivery: ActivityDelivery) => void;
   initialOpenAddressesModal?: boolean;
+  initialOpenOrdersModal?: boolean;
+  initialOpenSettingsModal?: boolean;
   onOpenLoginModal?: () => void;
+  favoriteCount?: number;
+  viewMode?: 'list' | 'grid';
+  onViewModeChange?: (mode: 'list' | 'grid') => void;
+  onExploreCatalog?: () => void;
+  onReorderMaterial?: (materialName: string) => void;
 }
 
 export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
@@ -68,1090 +79,854 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   deliveries = INITIAL_DELIVERIES,
   onViewInvoice,
   initialOpenAddressesModal = false,
+  initialOpenOrdersModal = false,
+  initialOpenSettingsModal = false,
   onOpenLoginModal,
+  favoriteCount = 0,
+  viewMode = 'grid',
+  onViewModeChange,
+  onExploreCatalog,
+  onReorderMaterial,
 }) => {
   const { theme } = useTheme();
-  const { currentLanguageOption } = useLanguage();
   const { showToast } = useToast();
+  const { currentLanguageOption } = useLanguage();
   const {
     selectedLocation,
     savedLocations,
     setSelectedLocation,
     addLocation,
-    editLocation,
     deleteLocation,
   } = useLocation();
 
-  // Modals
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  // Consistent Modals state across the entire Profile Module with strict mutual exclusivity
   const [isAddressesModalOpen, setIsAddressesModalOpen] = useState(initialOpenAddressesModal);
-  const [isPaymentsModalOpen, setIsPaymentsModalOpen] = useState(false);
-  const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
-  const [isOrdersModalOpen, setIsOrdersModalOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isReferModalOpen, setIsReferModalOpen] = useState(false);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+  const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(initialOpenSettingsModal);
+  const [isOrdersModalOpen, setIsOrdersModalOpen] = useState(initialOpenOrdersModal);
 
-  // Address edit state
+  const openSingleModal = (modalName: 'addresses' | 'payment' | 'refer' | 'help' | 'edit_profile' | 'settings' | 'orders') => {
+    setIsAddressesModalOpen(modalName === 'addresses');
+    setIsPaymentModalOpen(modalName === 'payment');
+    setIsReferModalOpen(modalName === 'refer');
+    setIsHelpModalOpen(modalName === 'help');
+    setIsEditProfileModalOpen(modalName === 'edit_profile');
+    setIsSettingsModalOpen(modalName === 'settings');
+    setIsOrdersModalOpen(modalName === 'orders');
+  };
+
+  const closeAllSubModals = () => {
+    setIsAddressesModalOpen(false);
+    setIsPaymentModalOpen(false);
+    setIsReferModalOpen(false);
+    setIsHelpModalOpen(false);
+    setIsEditProfileModalOpen(false);
+    setIsSettingsModalOpen(false);
+    setIsOrdersModalOpen(false);
+  };
+
+  // Address input state
   const [newAddressInput, setNewAddressInput] = useState('');
-  const [editingAddressOld, setEditingAddressOld] = useState<string | null>(null);
-  const [editingAddressInput, setEditingAddressInput] = useState('');
 
   // Edit profile form state
-  const [editName, setEditName] = useState(user.name);
-  const [editPhone, setEditPhone] = useState(user.phone);
-  const [editEmail, setEditEmail] = useState(user.email);
+  const [editName, setEditName] = useState(user.name || '');
+  const [editPhone, setEditPhone] = useState(user.phone || '');
+  const [editEmail, setEditEmail] = useState(user.email || '');
   const [editCompany, setEditCompany] = useState(user.companyName || '');
   const [editGstin, setEditGstin] = useState(user.gstin || '');
 
-  // Refer & Earn state dynamically generated for the active user
+  // Referral
   const referralCode = React.useMemo(() => {
     const cleanDigits = (user.phone || '').replace(/\D/g, '');
     if (cleanDigits.length >= 4) {
-      return `URBAN${cleanDigits.slice(-4)}`;
+      return `URB500-${cleanDigits.slice(-4)}`;
     }
-    if (user.name && user.name.trim()) {
-      const cleanName = user.name.replace(/[^A-Za-z0-9]/g, '').slice(0, 4).toUpperCase();
-      return `URBAN${cleanName || 'PRO'}500`;
-    }
-    return 'URBAN500';
-  }, [user.phone, user.name]);
+    return 'URB500-PRO';
+  }, [user.phone]);
 
-  React.useEffect(() => {
-    setEditName(user.name);
-    setEditPhone(user.phone);
-    setEditEmail(user.email);
+  useEffect(() => {
+    setEditName(user.name || '');
+    setEditPhone(user.phone || '');
+    setEditEmail(user.email || '');
     setEditCompany(user.companyName || '');
     setEditGstin(user.gstin || '');
   }, [user]);
 
-  // Saved Payments state with user-scoped localStorage persistence
-  const userStorageKey = isLoggedIn && user.phone ? user.phone.replace(/\D/g, '') : 'guest';
-
-  const [savedCards, setSavedCards] = useState(() => {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage && isLoggedIn) {
-        const stored = window.localStorage.getItem(`urbanico_saved_cards_${userStorageKey}`);
-        if (stored) return JSON.parse(stored);
-      }
-    } catch {
-      // ignore
-    }
-    return isLoggedIn
-      ? [
-          { id: '1', bank: 'HDFC Bank Visa', last4: '4821', type: 'Credit Card', isDefault: true },
-          { id: '2', bank: 'ICICI Bank Mastercard', last4: '9102', type: 'Debit Card', isDefault: false },
-        ]
-      : [];
-  });
-
-  const [savedUpi, setSavedUpi] = useState(() => {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage && isLoggedIn) {
-        const stored = window.localStorage.getItem(`urbanico_saved_upi_${userStorageKey}`);
-        if (stored) return stored;
-      }
-    } catch {
-      // ignore
-    }
-    return isLoggedIn ? (user.email ? `${user.email.split('@')[0]}@okhdfcbank` : 'kanusuraj15@okhdfcbank') : '';
-  });
-
-  // Re-sync saved cards & upi when user changes
-  useEffect(() => {
-    if (!isLoggedIn) {
-      setSavedCards([]);
-      setSavedUpi('');
-      return;
-    }
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const storedCards = window.localStorage.getItem(`urbanico_saved_cards_${userStorageKey}`);
-        if (storedCards) {
-          setSavedCards(JSON.parse(storedCards));
-        } else {
-          setSavedCards([
-            { id: '1', bank: 'HDFC Bank Visa', last4: '4821', type: 'Credit Card', isDefault: true },
-            { id: '2', bank: 'ICICI Bank Mastercard', last4: '9102', type: 'Debit Card', isDefault: false },
-          ]);
-        }
-        const storedUpi = window.localStorage.getItem(`urbanico_saved_upi_${userStorageKey}`);
-        if (storedUpi) {
-          setSavedUpi(storedUpi);
-        } else {
-          setSavedUpi(user.email ? `${user.email.split('@')[0]}@okhdfcbank` : 'kanusuraj15@okhdfcbank');
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }, [isLoggedIn, userStorageKey]);
-
-  // Save payments to storage
-  useEffect(() => {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage && isLoggedIn && userStorageKey !== 'guest') {
-        window.localStorage.setItem(`urbanico_saved_cards_${userStorageKey}`, JSON.stringify(savedCards));
-      }
-    } catch {
-      // ignore
-    }
-  }, [savedCards, isLoggedIn, userStorageKey]);
-
-  useEffect(() => {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage && isLoggedIn && userStorageKey !== 'guest') {
-        window.localStorage.setItem(`urbanico_saved_upi_${userStorageKey}`, savedUpi);
-      }
-    } catch {
-      // ignore
-    }
-  }, [savedUpi, isLoggedIn, userStorageKey]);
-
-  // FAQ Accordion State
-  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
-
-  const [refreshing, setRefreshing] = useState(false);
-  const [isSavingProfile, setIsSavingProfile] = useState(false);
-
-  const handleRefresh = () => {
-    setRefreshing(true);
-    setTimeout(() => {
-      setRefreshing(false);
-      showToast('Profile updated', 'info');
-    }, 800);
-  };
-
-  const handleSaveProfile = () => {
-    if (isSavingProfile) return;
-    setIsSavingProfile(true);
-    const sanitizedGstin = editGstin.trim().toUpperCase();
-    setTimeout(() => {
-      setIsSavingProfile(false);
-      onUpdateUser({
-        name: editName.trim(),
-        phone: editPhone.trim(),
-        email: editEmail.trim(),
-        companyName: editCompany.trim(),
-        gstin: sanitizedGstin,
-      });
-      setIsEditModalOpen(false);
-      showToast('Profile updated');
-    }, 400);
-  };
-
   const handleCopyReferralCode = () => {
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(referralCode).catch(() => {});
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        navigator.clipboard.writeText(referralCode);
+      }
+      showToast(`Referral code ${referralCode} copied to clipboard!`, 'success');
+    } catch {
+      showToast(`Referral code: ${referralCode}`, 'info');
     }
-    showToast(`Referral code ${referralCode} copied to clipboard!`, 'success');
   };
 
   const handleShareReferral = async () => {
-    const shareText = `Use my Urbanico referral code ${referralCode} to get ₹500 off your first construction materials or trade service order!`;
-    if (typeof navigator !== 'undefined' && navigator.share) {
-      try {
-        await navigator.share({
-          title: 'Urbanico Construction - ₹500 Discount',
-          text: shareText,
-          url: window.location.origin,
+    const shareMessage = `Join Urbanico for direct quarry & factory construction materials with flat 18% GST and per-km delivery. Use my code ${referralCode} to get ₹500 off on your first order! https://urbanico.in/join?ref=${referralCode}`;
+    try {
+      if (typeof navigator !== 'undefined' && (navigator as any).share) {
+        await (navigator as any).share({
+          title: 'Urbanico Builder Referral',
+          text: shareMessage,
+          url: `https://urbanico.in/join?ref=${referralCode}`,
         });
-        showToast('Referral invitation shared successfully!', 'success');
-        return;
-      } catch (err: any) {
-        if (err.name === 'AbortError') return;
+      } else {
+        handleCopyReferralCode();
       }
+    } catch {
+      handleCopyReferralCode();
     }
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(shareText).catch(() => {});
-    }
-    showToast(`Referral message copied to clipboard!`, 'success');
   };
 
-  const handleAddAddress = () => {
-    if (!newAddressInput.trim()) return;
+  const handleSaveProfile = () => {
+    if (!editName.trim()) {
+      showToast('Please enter your full name', 'error');
+      return;
+    }
+    onUpdateUser({
+      name: editName.trim(),
+      phone: editPhone.trim(),
+      email: editEmail.trim(),
+      companyName: editCompany.trim(),
+      gstin: editGstin.trim().toUpperCase(),
+    });
+    setIsEditProfileModalOpen(false);
+    showToast('Profile updated successfully', 'success');
+  };
+
+  const handleAddNewAddress = () => {
+    if (!newAddressInput.trim()) {
+      showToast('Please enter a valid construction site address', 'error');
+      return;
+    }
     addLocation(newAddressInput.trim());
-    showToast('New address added');
     setNewAddressInput('');
+    showToast('Site address saved', 'success');
   };
 
-  const handleUseCurrentLocationGPS = () => {
-    const gpsAddr = 'Plot 42, Hitech City, Hyderabad (GPS Location)';
-    addLocation(gpsAddr);
-    showToast('GPS Location added');
-  };
-
-  const handleStartEditAddress = (oldLoc: string) => {
-    setEditingAddressOld(oldLoc);
-    setEditingAddressInput(oldLoc);
-  };
-
-  const handleSaveEditAddress = () => {
-    if (editingAddressOld && editingAddressInput.trim()) {
-      editLocation(editingAddressOld, editingAddressInput.trim());
-      showToast('Address updated');
-    }
-    setEditingAddressOld(null);
-    setEditingAddressInput('');
-  };
-
-  const handleDeleteAddress = (locToDelete: string) => {
-    deleteLocation(locToDelete);
-    showToast('Address removed');
-  };
+  const activeOrdersCount = deliveries.length;
+  const savedAddressCount = savedLocations.length;
+  const shortAddress = selectedLocation ? selectedLocation.split(',')[0] : 'Miyapur Site';
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#FAFAFA' }}>
-      <ScrollView
-        style={styles.container}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor="#111111"
-            colors={['#111111']}
-          />
-        }
-      >
-        {/* Profile Header Identity Card (Nike Clean Member Header) */}
+    <ScrollView
+      style={[styles.container, { backgroundColor: theme.background }]}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* ======================================================== */}
+      {/* CONSOLIDATED UNIFIED ACCOUNT & PROFILE MENU              */}
+      {/* Consistent Popups for all sections (Nike/Puma model)     */}
+      {/* ======================================================== */}
+      <View style={[styles.consolidatedMenuCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        
+        {/* 1. Integrated Account / Member Header */}
         {!isLoggedIn ? (
-          <View style={styles.nikeGuestCard}>
-            <View style={styles.guestTextCol}>
-              <Text style={styles.guestTitle}>Welcome Guest</Text>
-              <Text style={styles.guestSubText}>
-                Log in or sign up to manage your orders, saved addresses & settings
-              </Text>
+          <View style={styles.authHeaderSection}>
+            <View style={styles.guestInfoRow}>
+              <View style={styles.guestAvatar}>
+                <Building size={24} color="#111111" strokeWidth={1.8} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.welcomeTitle, { color: theme.textPrimary }]}>Welcome Guest</Text>
+                <Text style={[styles.welcomeSubtitle, { color: theme.textSecondary }]}>
+                  Log in to manage orders, live GPS dispatches & GST invoices
+                </Text>
+              </View>
             </View>
+
             <TouchableOpacity
               onPress={() => {
+                closeAllSubModals();
                 if (onOpenLoginModal) {
                   onOpenLoginModal();
                 } else {
                   onNavigateScreen('auth_mobile');
                 }
               }}
-              style={styles.guestLoginBtn}
-              activeOpacity={0.8}
+              style={styles.mainAuthBtn}
+              activeOpacity={0.85}
             >
-              <Text style={styles.guestLoginBtnText}>Log In or Sign Up</Text>
+              <LogIn size={16} color="#FFFFFF" strokeWidth={2.2} />
+              <Text style={styles.mainAuthBtnText}>Log In or Sign Up</Text>
             </TouchableOpacity>
           </View>
         ) : (
-          <View style={styles.memberCard}>
-            <View style={styles.memberInfoCol}>
-              <View style={styles.memberNameRow}>
-                <Text style={styles.memberNameText}>{user.name}</Text>
-                {user.isVerified && (
-                  <View style={styles.verifiedBadge}>
-                    <ShieldCheck size={14} color="#111111" strokeWidth={2.2} />
-                    <Text style={styles.verifiedBadgeText}>Verified</Text>
-                  </View>
-                )}
+          <View style={styles.loggedInHeaderSection}>
+            <View style={styles.loggedInHeaderRow}>
+              <View style={styles.userAvatar}>
+                <UserCheck size={24} color="#059669" strokeWidth={2} />
               </View>
-              <Text style={styles.memberContactText}>
-                {user.phone}{user.email ? ` • ${user.email}` : ''}
-              </Text>
+              <View style={{ flex: 1 }}>
+                <View style={styles.nameBadgeRow}>
+                  <Text style={[styles.welcomeTitle, { color: theme.textPrimary }]}>
+                    {user.name || 'Civil Contractor'}
+                  </Text>
+                  <View style={styles.verifiedTag}>
+                    <Text style={styles.verifiedTagText}>PRO BUILDER</Text>
+                  </View>
+                </View>
+                <Text style={[styles.welcomeSubtitle, { color: theme.textSecondary }]}>
+                  {user.phone || '+91 98480 12345'} • {user.companyName || 'Apex Builders & Infra'}
+                </Text>
+                {user.gstin ? (
+                  <Text style={[styles.gstinSubText, { color: theme.textMuted }]}>
+                    GSTIN: {user.gstin} (18% Flat ITC)
+                  </Text>
+                ) : null}
+              </View>
+              <TouchableOpacity
+                onPress={() => openSingleModal('edit_profile')}
+                style={[styles.editIconBtn, { backgroundColor: theme.surfaceSecondary }]}
+                activeOpacity={0.7}
+                accessibilityLabel="Edit Profile"
+              >
+                <Edit2 size={15} color={theme.textPrimary} />
+              </TouchableOpacity>
             </View>
-
-            <TouchableOpacity
-              onPress={() => setIsEditModalOpen(true)}
-              style={styles.editProfilePillBtn}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.editProfilePillText}>Edit Profile</Text>
-            </TouchableOpacity>
           </View>
         )}
 
-        {/* Single Clean Nike Menu Structure */}
-        <View style={styles.menuContainer}>
-          {/* 1. My Orders & Dispatches */}
-          <TouchableOpacity
-            onPress={() => {
-              if (!isLoggedIn) {
-                showToast('Please log in to view orders & dispatches', 'info');
-                if (onOpenLoginModal) {
-                  onOpenLoginModal();
-                } else {
-                  onNavigateScreen('auth_mobile');
-                }
-              } else {
-                setIsOrdersModalOpen(true);
-              }
-            }}
-            style={styles.menuRow}
-            activeOpacity={0.65}
-          >
-            <View style={styles.menuRowLeft}>
-              <View style={styles.menuIconBox}>
-                <Truck size={19} color="#111111" strokeWidth={1.8} />
-              </View>
-              <Text style={styles.menuTitleText}>My Orders & Dispatches</Text>
+        <View style={[styles.menuDividerFull, { backgroundColor: theme.border }]} />
+
+        {/* 2. Order Management: My Orders & Dispatches (Popup Modal) */}
+        <TouchableOpacity
+          onPress={() => openSingleModal('orders')}
+          style={styles.menuRow}
+          activeOpacity={0.7}
+        >
+          <View style={styles.menuRowLeft}>
+            <View style={[styles.iconCircle, { backgroundColor: theme.surfaceSecondary }]}>
+              <Truck size={18} color={theme.textPrimary} strokeWidth={2} />
             </View>
-            <View style={styles.menuRowRight}>
-              <View style={styles.countBadge}>
-                <Text style={styles.countBadgeText}>
-                  {isLoggedIn ? `${deliveries.length} Active` : '0'}
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.menuRowLabel, { color: theme.textPrimary }]}>
+                My Orders & Dispatches
+              </Text>
+              <Text style={[styles.menuRowSubLabel, { color: theme.textSecondary }]}>
+                Live GPS truck tracking & E-Way bills
+              </Text>
+            </View>
+          </View>
+          <View style={styles.menuRowRight}>
+            <View style={[styles.countBadge, { backgroundColor: activeOrdersCount > 0 ? '#111111' : theme.surfaceSecondary }]}>
+              <Text style={[styles.countBadgeText, { color: activeOrdersCount > 0 ? '#FFFFFF' : theme.textPrimary }]}>
+                {activeOrdersCount}
+              </Text>
+            </View>
+            <ChevronRight size={18} color={theme.textMuted} />
+          </View>
+        </TouchableOpacity>
+
+        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
+
+        {/* 3. Address Management: Saved Addresses (Popup Modal) */}
+        <TouchableOpacity
+          onPress={() => openSingleModal('addresses')}
+          style={styles.menuRow}
+          activeOpacity={0.7}
+        >
+          <View style={styles.menuRowLeft}>
+            <View style={[styles.iconCircle, { backgroundColor: theme.surfaceSecondary }]}>
+              <MapPin size={18} color={theme.textPrimary} strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.menuRowLabel, { color: theme.textPrimary }]}>
+                Saved Addresses
+              </Text>
+              <Text style={[styles.menuRowSubLabel, { color: theme.textSecondary }]} numberOfLines={1}>
+                {shortAddress} • {savedAddressCount} Sites
+              </Text>
+            </View>
+          </View>
+          <View style={styles.menuRowRight}>
+            <Text style={[styles.subValueText, { color: theme.textSecondary }]}>
+              {savedAddressCount} Saved
+            </Text>
+            <ChevronRight size={18} color={theme.textMuted} />
+          </View>
+        </TouchableOpacity>
+
+        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
+
+        {/* 4. Payment Methods & Ledger (Popup Modal) */}
+        <TouchableOpacity
+          onPress={() => openSingleModal('payment')}
+          style={styles.menuRow}
+          activeOpacity={0.7}
+        >
+          <View style={styles.menuRowLeft}>
+            <View style={[styles.iconCircle, { backgroundColor: theme.surfaceSecondary }]}>
+              <CreditCard size={18} color={theme.textPrimary} strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.menuRowLabel, { color: theme.textPrimary }]}>
+                Payment Methods
+              </Text>
+              <Text style={[styles.menuRowSubLabel, { color: theme.textSecondary }]}>
+                UPI, Corporate Cards & RTGS Ledger
+              </Text>
+            </View>
+          </View>
+          <View style={styles.menuRowRight}>
+            <ChevronRight size={18} color={theme.textMuted} />
+          </View>
+        </TouchableOpacity>
+
+        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
+
+        {/* 5. Wishlist / Saved Materials */}
+        <TouchableOpacity
+          onPress={() => {
+            closeAllSubModals();
+            onNavigateScreen('favorites');
+          }}
+          style={styles.menuRow}
+          activeOpacity={0.7}
+        >
+          <View style={styles.menuRowLeft}>
+            <View style={[styles.iconCircle, { backgroundColor: theme.surfaceSecondary }]}>
+              <Heart size={18} color={theme.textPrimary} strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.menuRowLabel, { color: theme.textPrimary }]}>
+                Favourites & Saved Supplies
+              </Text>
+              <Text style={[styles.menuRowSubLabel, { color: theme.textSecondary }]}>
+                Quick re-ordering list
+              </Text>
+            </View>
+          </View>
+          <View style={styles.menuRowRight}>
+            {favoriteCount > 0 && (
+              <View style={[styles.countBadge, { backgroundColor: theme.surfaceSecondary }]}>
+                <Text style={[styles.countBadgeText, { color: theme.textPrimary }]}>
+                  {favoriteCount}
                 </Text>
               </View>
-              <ChevronRight size={18} color="#9CA3AF" />
-            </View>
-          </TouchableOpacity>
-
-          {/* 2. Saved Addresses */}
-          <TouchableOpacity
-            onPress={() => {
-              if (!isLoggedIn) {
-                showToast('Please log in to manage saved addresses', 'info');
-                if (onOpenLoginModal) {
-                  onOpenLoginModal();
-                } else {
-                  onNavigateScreen('auth_mobile');
-                }
-              } else {
-                setIsAddressesModalOpen(true);
-              }
-            }}
-            style={styles.menuRow}
-            activeOpacity={0.65}
-          >
-            <View style={styles.menuRowLeft}>
-              <View style={styles.menuIconBox}>
-                <MapPin size={19} color="#111111" strokeWidth={1.8} />
-              </View>
-              <Text style={styles.menuTitleText}>Saved Addresses</Text>
-            </View>
-            <View style={styles.menuRowRight}>
-              <Text style={styles.subDetailText}>{savedLocations.length} Saved</Text>
-              <ChevronRight size={18} color="#9CA3AF" />
-            </View>
-          </TouchableOpacity>
-
-          {/* 3. Payment Methods */}
-          <TouchableOpacity
-            onPress={() => {
-              if (!isLoggedIn) {
-                showToast('Please log in to manage payment methods', 'info');
-                if (onOpenLoginModal) {
-                  onOpenLoginModal();
-                } else {
-                  onNavigateScreen('auth_mobile');
-                }
-              } else {
-                setIsPaymentsModalOpen(true);
-              }
-            }}
-            style={styles.menuRow}
-            activeOpacity={0.65}
-          >
-            <View style={styles.menuRowLeft}>
-              <View style={styles.menuIconBox}>
-                <CreditCard size={19} color="#111111" strokeWidth={1.8} />
-              </View>
-              <Text style={styles.menuTitleText}>Payment Methods</Text>
-            </View>
-            <View style={styles.menuRowRight}>
-              <ChevronRight size={18} color="#9CA3AF" />
-            </View>
-          </TouchableOpacity>
-
-          {/* 4. Refer & Earn */}
-          <TouchableOpacity
-            onPress={() => {
-              if (!isLoggedIn) {
-                showToast('Please log in to access Refer & Earn', 'info');
-                if (onOpenLoginModal) {
-                  onOpenLoginModal();
-                } else {
-                  onNavigateScreen('auth_mobile');
-                }
-              } else {
-                setIsReferModalOpen(true);
-              }
-            }}
-            style={styles.menuRow}
-            activeOpacity={0.65}
-          >
-            <View style={styles.menuRowLeft}>
-              <View style={styles.menuIconBox}>
-                <Gift size={19} color="#111111" strokeWidth={1.8} />
-              </View>
-              <Text style={styles.menuTitleText}>Refer & Earn</Text>
-            </View>
-            <View style={styles.menuRowRight}>
-              <View style={styles.rewardPill}>
-                <Text style={styles.rewardPillText}>Get ₹500</Text>
-              </View>
-              <ChevronRight size={18} color="#9CA3AF" />
-            </View>
-          </TouchableOpacity>
-
-          {/* 5. Settings */}
-          <TouchableOpacity
-            onPress={() => onNavigateScreen('settings')}
-            style={styles.menuRow}
-            activeOpacity={0.65}
-          >
-            <View style={styles.menuRowLeft}>
-              <View style={styles.menuIconBox}>
-                <Settings size={19} color="#111111" strokeWidth={1.8} />
-              </View>
-              <Text style={styles.menuTitleText}>Settings</Text>
-            </View>
-            <View style={styles.menuRowRight}>
-              <Text style={styles.subDetailText}>
-                {currentLanguageOption.nativeName}
-              </Text>
-              <ChevronRight size={18} color="#9CA3AF" />
-            </View>
-          </TouchableOpacity>
-
-          {/* 6. Help & Support */}
-          <TouchableOpacity
-            onPress={() => setIsSupportModalOpen(true)}
-            style={styles.menuRowLast}
-            activeOpacity={0.65}
-          >
-            <View style={styles.menuRowLeft}>
-              <View style={styles.menuIconBox}>
-                <HelpCircle size={19} color="#111111" strokeWidth={1.8} />
-              </View>
-              <Text style={styles.menuTitleText}>Help & Support</Text>
-            </View>
-            <View style={styles.menuRowRight}>
-              <ChevronRight size={18} color="#9CA3AF" />
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        {/* Action Button: Sign Out */}
-        {isLoggedIn && (
-          <TouchableOpacity
-            onPress={onLogout}
-            style={styles.signOutBtn}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.signOutBtnText}>Sign Out</Text>
-          </TouchableOpacity>
-        )}
-      </ScrollView>
-
-      {/* ========================================================================= */}
-      {/* SUB-SCREEN 1: My Orders & Dispatches Modal */}
-      {/* ========================================================================= */}
-      <Modal visible={isOrdersModalOpen} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setIsOrdersModalOpen(false)} />
-          <View style={styles.modalSheetContainer}>
-            <View style={styles.modalHandleBar} />
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalHeaderTitle}>My Orders & Dispatches</Text>
-              <TouchableOpacity
-                onPress={() => setIsOrdersModalOpen(false)}
-                style={styles.closeModalBtn}
-                activeOpacity={0.7}
-              >
-                <X size={18} color="#111111" strokeWidth={2} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalFormScroll} contentContainerStyle={styles.modalScrollContent}>
-              {deliveries.length === 0 ? (
-                <View style={styles.emptyContainer}>
-                  <View style={styles.emptyIconCircle}>
-                    <Truck size={28} color="#111111" strokeWidth={1.5} />
-                  </View>
-                  <Text style={styles.emptyTitle}>No Orders Yet</Text>
-                  <Text style={styles.emptySubText}>
-                    When you place material orders, real-time dispatches, vehicle tracking, and GST tax invoices will appear here.
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setIsOrdersModalOpen(false);
-                      onNavigateScreen('shop');
-                    }}
-                    style={styles.primaryPillActionBtn}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.primaryPillActionBtnText}>Explore Materials</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <>
-                  <Text style={styles.modalSectionLabel}>
-                    Active Dispatches ({deliveries.length})
-                  </Text>
-
-                  {deliveries.map((del) => (
-                    <View key={del.id} style={styles.orderCard}>
-                      <View style={styles.orderCardHeader}>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.orderNumberText}>Order #{del.orderNumber}</Text>
-                          <Text style={styles.orderMaterialText}>
-                            {del.materialName} • {del.quantity}
-                          </Text>
-                        </View>
-                        <View
-                          style={[
-                            styles.statusBadge,
-                            {
-                              backgroundColor:
-                                del.status === 'Delivered'
-                                  ? '#ECFDF5'
-                                  : del.status === 'En Route'
-                                  ? '#111111'
-                                  : '#F4F4F5',
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.statusBadgeText,
-                              {
-                                color:
-                                  del.status === 'Delivered'
-                                    ? '#059669'
-                                    : del.status === 'En Route'
-                                    ? '#FFFFFF'
-                                    : '#111111',
-                              },
-                            ]}
-                          >
-                            {del.status}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.orderMetaRow}>
-                        <View style={{ flex: 1, gap: 2 }}>
-                          <Text style={styles.metaLabel}>Vehicle & Driver</Text>
-                          <Text style={styles.metaValue}>
-                            {del.vehicleNumber} ({del.driverName})
-                          </Text>
-                        </View>
-                        <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                          <Text style={styles.metaLabel}>Amount</Text>
-                          <Text style={styles.metaValuePrice}>
-                            ₹{del.totalAmount.toLocaleString('en-IN')}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View style={styles.orderActionsRow}>
-                        <TouchableOpacity
-                          onPress={() => {
-                            setIsOrdersModalOpen(false);
-                            onNavigateScreen('basket');
-                          }}
-                          style={styles.orderTrackBtn}
-                          activeOpacity={0.7}
-                        >
-                          <Truck size={14} color="#111111" strokeWidth={2} />
-                          <Text style={styles.orderTrackBtnText}>Track Live</Text>
-                        </TouchableOpacity>
-
-                        {onViewInvoice && (
-                          <TouchableOpacity
-                            onPress={() => {
-                              setIsOrdersModalOpen(false);
-                              onViewInvoice(del);
-                            }}
-                            style={styles.orderInvoiceBtn}
-                            activeOpacity={0.7}
-                          >
-                            <FileText size={14} color="#111111" strokeWidth={2} />
-                            <Text style={styles.orderInvoiceBtnText}>Invoice</Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    </View>
-                  ))}
-                </>
-              )}
-            </ScrollView>
+            )}
+            <ChevronRight size={18} color={theme.textMuted} />
           </View>
-        </View>
-      </Modal>
+        </TouchableOpacity>
 
-      {/* ========================================================================= */}
-      {/* SUB-SCREEN 2: Saved Addresses Modal */}
-      {/* ========================================================================= */}
-      <Modal visible={isAddressesModalOpen} transparent animationType="slide">
+        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
+
+        {/* 6. Refer & Earn (Popup Modal) */}
+        <TouchableOpacity
+          onPress={() => openSingleModal('refer')}
+          style={styles.menuRow}
+          activeOpacity={0.7}
+        >
+          <View style={styles.menuRowLeft}>
+            <View style={[styles.iconCircle, { backgroundColor: '#FEF3C7' }]}>
+              <Gift size={18} color="#B45309" strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.menuRowLabel, { color: theme.textPrimary }]}>
+                Refer & Earn
+              </Text>
+              <Text style={[styles.menuRowSubLabel, { color: theme.textSecondary }]}>
+                Invite builder friends & earn ₹500 wallet credit
+              </Text>
+            </View>
+          </View>
+          <View style={styles.menuRowRight}>
+            <View style={styles.referPillBadge}>
+              <Text style={styles.referPillBadgeText}>Get ₹500</Text>
+            </View>
+            <ChevronRight size={18} color={theme.textMuted} />
+          </View>
+        </TouchableOpacity>
+
+        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
+
+        {/* 7. Settings (Consistent Popup Modal) */}
+        <TouchableOpacity
+          onPress={() => openSingleModal('settings')}
+          style={styles.menuRow}
+          activeOpacity={0.7}
+        >
+          <View style={styles.menuRowLeft}>
+            <View style={[styles.iconCircle, { backgroundColor: theme.surfaceSecondary }]}>
+              <SettingsIcon size={18} color={theme.textPrimary} strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.menuRowLabel, { color: theme.textPrimary }]}>
+                Settings
+              </Text>
+              <Text style={[styles.menuRowSubLabel, { color: theme.textSecondary }]}>
+                Language, Dark mode & notifications
+              </Text>
+            </View>
+          </View>
+          <View style={styles.menuRowRight}>
+            <Text style={[styles.subValueText, { color: theme.textSecondary }]}>
+              {currentLanguageOption.name}
+            </Text>
+            <ChevronRight size={18} color={theme.textMuted} />
+          </View>
+        </TouchableOpacity>
+
+        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
+
+        {/* 8. Help & Support (Popup Modal) */}
+        <TouchableOpacity
+          onPress={() => openSingleModal('help')}
+          style={styles.menuRow}
+          activeOpacity={0.7}
+        >
+          <View style={styles.menuRowLeft}>
+            <View style={[styles.iconCircle, { backgroundColor: theme.surfaceSecondary }]}>
+              <HelpCircle size={18} color={theme.textPrimary} strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.menuRowLabel, { color: theme.textPrimary }]}>
+                Help & Support
+              </Text>
+              <Text style={[styles.menuRowSubLabel, { color: theme.textSecondary }]}>
+                24x7 Yard Logistics & Invoicing Desk
+              </Text>
+            </View>
+          </View>
+          <View style={styles.menuRowRight}>
+            <ChevronRight size={18} color={theme.textMuted} />
+          </View>
+        </TouchableOpacity>
+
+        {/* 9. Sign Out (When Logged In) */}
+        {isLoggedIn && (
+          <>
+            <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
+            <TouchableOpacity
+              onPress={() => {
+                onLogout();
+                showToast('Logged out of Urbanico account', 'info');
+              }}
+              style={styles.menuRow}
+              activeOpacity={0.7}
+            >
+              <View style={styles.menuRowLeft}>
+                <View style={[styles.iconCircle, { backgroundColor: '#FEE2E2' }]}>
+                  <LogOut size={18} color="#EF4444" strokeWidth={2} />
+                </View>
+                <Text style={[styles.menuRowLabel, { color: '#EF4444' }]}>
+                  Sign Out
+                </Text>
+              </View>
+              <View style={styles.menuRowRight}>
+                <ChevronRight size={18} color={theme.textMuted} />
+              </View>
+            </TouchableOpacity>
+          </>
+        )}
+      </View>
+
+      {/* ======================================================== */}
+      {/* POPUP MODAL 1: MY ORDERS & DISPATCHES                    */}
+      {/* ======================================================== */}
+      <OrdersActivityModal
+        visible={isOrdersModalOpen}
+        onClose={() => setIsOrdersModalOpen(false)}
+        deliveries={deliveries}
+        onExploreCatalog={() => {
+          setIsOrdersModalOpen(false);
+          if (onExploreCatalog) onExploreCatalog();
+        }}
+        onViewInvoice={(del) => {
+          setIsOrdersModalOpen(false);
+          if (onViewInvoice) onViewInvoice(del);
+        }}
+        onReorderMaterial={onReorderMaterial}
+      />
+
+      {/* ======================================================== */}
+      {/* POPUP MODAL 2: APP SETTINGS                              */}
+      {/* ======================================================== */}
+      <SettingsModal
+        visible={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        viewMode={viewMode}
+        onViewModeChange={onViewModeChange}
+      />
+
+      {/* ======================================================== */}
+      {/* POPUP MODAL 3: SAVED ADDRESSES                           */}
+      {/* ======================================================== */}
+      <Modal visible={isAddressesModalOpen} transparent animationType="fade" onRequestClose={() => setIsAddressesModalOpen(false)}>
         <View style={styles.modalOverlay}>
           <Pressable style={styles.modalBackdrop} onPress={() => setIsAddressesModalOpen(false)} />
-          <View style={styles.modalSheetContainer}>
-            <View style={styles.modalHandleBar} />
+          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalHeaderTitle}>Saved Addresses</Text>
-              <TouchableOpacity
-                onPress={() => setIsAddressesModalOpen(false)}
-                style={styles.closeModalBtn}
-                activeOpacity={0.7}
-              >
-                <X size={18} color="#111111" strokeWidth={2} />
+              <View style={styles.modalHeaderTitleRow}>
+                <MapPin size={18} color="#111111" />
+                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Saved Addresses</Text>
+              </View>
+              <TouchableOpacity onPress={() => setIsAddressesModalOpen(false)} style={styles.closeBtn}>
+                <X size={18} color={theme.textSecondary} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalFormScroll} contentContainerStyle={styles.modalScrollContent}>
-              {initialOpenAddressesModal && (
-                <TouchableOpacity
-                  onPress={() => {
-                    setIsAddressesModalOpen(false);
-                    onNavigateScreen('basket');
-                  }}
-                  style={styles.returnToCheckoutBtn}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.returnToCheckoutBtnText}>← Return to Checkout (Bag)</Text>
-                </TouchableOpacity>
-              )}
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              {savedLocations.map((loc) => {
+                const isSelected = selectedLocation === loc;
+                return (
+                  <TouchableOpacity
+                    key={loc}
+                    onPress={() => {
+                      setSelectedLocation(loc);
+                      showToast(`Delivery site set to: ${loc}`, 'success');
+                    }}
+                    style={[
+                      styles.addressItem,
+                      {
+                        backgroundColor: isSelected ? theme.surfaceSecondary : 'transparent',
+                        borderColor: isSelected ? '#111111' : theme.border,
+                      },
+                    ]}
+                    activeOpacity={0.75}
+                  >
+                    <View style={styles.addressItemLeft}>
+                      <MapPin size={16} color={isSelected ? '#111111' : theme.textSecondary} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.addressText, { color: theme.textPrimary, fontWeight: isSelected ? '700' : '400' }]}>
+                          {loc}
+                        </Text>
+                        <Text style={[styles.addressSub, { color: theme.textSecondary }]}>
+                          {isSelected ? 'Default Delivery Site' : 'Tap to select as delivery destination'}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      {isSelected && (
+                        <View style={styles.activePill}>
+                          <Text style={styles.activePillText}>DEFAULT</Text>
+                        </View>
+                      )}
+                      {savedLocations.length > 1 && (
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            deleteLocation(loc);
+                            showToast('Site address removed', 'info');
+                          }}
+                          style={{ padding: 4 }}
+                          activeOpacity={0.7}
+                        >
+                          <Trash2 size={14} color="#EF4444" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
 
-              <View style={styles.addAddressBox}>
+              <View style={[styles.addAddressBox, { borderColor: theme.border }]}>
+                <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Add New Site Address</Text>
                 <TextInput
                   value={newAddressInput}
                   onChangeText={setNewAddressInput}
-                  placeholder="Enter new site address..."
-                  placeholderTextColor="#86868B"
-                  style={styles.addAddressInput}
+                  style={[styles.modalInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border, marginBottom: 8 }]}
+                  placeholder="Enter complete site address / landmark"
+                  placeholderTextColor={theme.textMuted}
                 />
-                <TouchableOpacity
-                  onPress={handleAddAddress}
-                  style={styles.addAddressBtn}
-                  activeOpacity={0.8}
-                >
-                  <Plus size={18} color="#FFFFFF" strokeWidth={2.5} />
+                <TouchableOpacity onPress={handleAddNewAddress} style={styles.addAddressBtn} activeOpacity={0.8}>
+                  <Plus size={14} color="#FFFFFF" />
+                  <Text style={styles.addAddressBtnText}>Save Address</Text>
                 </TouchableOpacity>
               </View>
-
-              <TouchableOpacity
-                onPress={handleUseCurrentLocationGPS}
-                style={styles.gpsLocationBtn}
-                activeOpacity={0.8}
-              >
-                <Navigation size={15} color="#111111" strokeWidth={2} />
-                <Text style={styles.gpsLocationBtnText}>
-                  Detect Current Location (GPS)
-                </Text>
-              </TouchableOpacity>
-
-              <Text style={[styles.modalSectionLabel, { marginTop: 14 }]}>
-                Saved Sites ({savedLocations.length})
-              </Text>
-
-              {savedLocations.map((loc) => {
-                const isSelected = selectedLocation === loc;
-                const isEditingThis = editingAddressOld === loc;
-
-                return (
-                  <View
-                    key={loc}
-                    style={[
-                      styles.addressCard,
-                      isSelected && styles.addressCardSelected,
-                    ]}
-                  >
-                    {isEditingThis ? (
-                      <View style={styles.editAddressRow}>
-                        <TextInput
-                          value={editingAddressInput}
-                          onChangeText={setEditingAddressInput}
-                          style={styles.editAddressTextInput}
-                          autoFocus
-                        />
-                        <TouchableOpacity
-                          onPress={handleSaveEditAddress}
-                          style={styles.saveEditBtn}
-                          activeOpacity={0.8}
-                        >
-                          <Check size={14} color="#FFFFFF" strokeWidth={2.5} />
-                        </TouchableOpacity>
-                      </View>
-                    ) : (
-                      <TouchableOpacity
-                        onPress={() => {
-                          setSelectedLocation(loc);
-                          showToast('Address selected');
-                        }}
-                        style={styles.addressTouchArea}
-                        activeOpacity={0.7}
-                      >
-                        <MapPin
-                          size={16}
-                          color={isSelected ? '#111111' : '#707072'}
-                          strokeWidth={isSelected ? 2.2 : 1.8}
-                        />
-                        <Text style={[styles.addressText, isSelected && styles.addressTextActive]}>
-                          {loc}
-                        </Text>
-                        {isSelected && (
-                          <View style={styles.activeAddressPill}>
-                            <Text style={styles.activeAddressPillText}>Active</Text>
-                          </View>
-                        )}
-                      </TouchableOpacity>
-                    )}
-
-                    {!isEditingThis && (
-                      <View style={styles.addressActions}>
-                        <TouchableOpacity
-                          onPress={() => handleStartEditAddress(loc)}
-                          style={styles.iconActionBtn}
-                          activeOpacity={0.7}
-                        >
-                          <Edit2 size={14} color="#707072" strokeWidth={1.8} />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          onPress={() => handleDeleteAddress(loc)}
-                          style={styles.iconActionBtn}
-                          activeOpacity={0.7}
-                        >
-                          <Trash2 size={14} color="#707072" strokeWidth={1.8} />
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </View>
-                );
-              })}
             </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity onPress={() => setIsAddressesModalOpen(false)} style={styles.modalPrimaryBtn}>
+                <Text style={styles.modalPrimaryBtnText}>Done</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
 
-      {/* ========================================================================= */}
-      {/* SUB-SCREEN 3: Payment Methods Modal */}
-      {/* ========================================================================= */}
-      <Modal visible={isPaymentsModalOpen} transparent animationType="slide">
+      {/* ======================================================== */}
+      {/* POPUP MODAL 4: PAYMENT METHODS                           */}
+      {/* ======================================================== */}
+      <Modal visible={isPaymentModalOpen} transparent animationType="fade" onRequestClose={() => setIsPaymentModalOpen(false)}>
         <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setIsPaymentsModalOpen(false)} />
-          <View style={styles.modalSheetContainer}>
-            <View style={styles.modalHandleBar} />
+          <Pressable style={styles.modalBackdrop} onPress={() => setIsPaymentModalOpen(false)} />
+          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalHeaderTitle}>Payment Methods</Text>
-              <TouchableOpacity
-                onPress={() => setIsPaymentsModalOpen(false)}
-                style={styles.closeModalBtn}
-                activeOpacity={0.7}
-              >
-                <X size={18} color="#111111" strokeWidth={2} />
+              <View style={styles.modalHeaderTitleRow}>
+                <CreditCard size={18} color="#111111" />
+                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Payment Methods</Text>
+              </View>
+              <TouchableOpacity onPress={() => setIsPaymentModalOpen(false)} style={styles.closeBtn}>
+                <X size={18} color={theme.textSecondary} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalFormScroll} contentContainerStyle={styles.modalScrollContent}>
-              <Text style={styles.modalSectionLabel}>Saved Cards</Text>
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <Text style={[styles.sectionMicroHeader, { color: theme.textMuted }]}>SAVED UPI & ACCOUNTS</Text>
 
-              {savedCards.map((card) => (
-                <View key={card.id} style={styles.paymentCard}>
-                  <View style={styles.paymentCardHeader}>
-                    <CreditCard size={18} color="#111111" strokeWidth={1.8} />
-                    <View style={{ flex: 1, marginLeft: 12 }}>
-                      <Text style={styles.paymentBankTitle}>{card.bank}</Text>
-                      <Text style={styles.paymentSubText}>•••• {card.last4} • {card.type}</Text>
-                    </View>
-                    {card.isDefault && (
-                      <View style={styles.defaultPill}>
-                        <Text style={styles.defaultPillText}>Default</Text>
-                      </View>
-                    )}
+              <View style={[styles.paymentMethodCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                <View style={styles.paymentMethodLeft}>
+                  <Smartphone size={18} color="#111111" />
+                  <View>
+                    <Text style={[styles.paymentMethodTitle, { color: theme.textPrimary }]}>Google Pay / PhonePe UPI</Text>
+                    <Text style={[styles.paymentMethodSub, { color: theme.textSecondary }]}>9848012345@okaxis • Primary UPI</Text>
                   </View>
                 </View>
-              ))}
+                <View style={styles.verifiedGreenDot} />
+              </View>
 
-              <Text style={[styles.modalSectionLabel, { marginTop: 14 }]}>UPI ID</Text>
-              <View style={styles.paymentCard}>
-                <View style={styles.paymentCardHeader}>
-                  <View style={styles.upiIconBox}>
-                    <Text style={styles.upiIconText}>UPI</Text>
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={styles.paymentBankTitle}>{savedUpi}</Text>
-                    <Text style={styles.paymentSubText}>Auto-verified for instant checkout</Text>
+              <View style={[styles.paymentMethodCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, marginTop: 8 }]}>
+                <View style={styles.paymentMethodLeft}>
+                  <CardIcon size={18} color="#111111" />
+                  <View>
+                    <Text style={[styles.paymentMethodTitle, { color: theme.textPrimary }]}>HDFC Corporate Business Card</Text>
+                    <Text style={[styles.paymentMethodSub, { color: theme.textSecondary }]}>•••• 4242 • Expires 08/28</Text>
                   </View>
                 </View>
               </View>
+
+              <View style={[styles.paymentMethodCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, marginTop: 8 }]}>
+                <View style={styles.paymentMethodLeft}>
+                  <Landmark size={18} color="#111111" />
+                  <View>
+                    <Text style={[styles.paymentMethodTitle, { color: theme.textPrimary }]}>Commercial RTGS / NEFT Ledger</Text>
+                    <Text style={[styles.paymentMethodSub, { color: theme.textSecondary }]}>Urbanico Escrow Direct Settlement</Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={[styles.payInfoBanner, { backgroundColor: theme.surfaceSecondary }]}>
+                <ShieldCheck size={14} color="#059669" />
+                <Text style={[styles.payInfoBannerText, { color: theme.textSecondary }]}>
+                  All payment transactions are encrypted and 100% compliant with RBI digital payment directives.
+                </Text>
+              </View>
             </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity onPress={() => setIsPaymentModalOpen(false)} style={styles.modalPrimaryBtn}>
+                <Text style={styles.modalPrimaryBtnText}>Close</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
 
-      {/* ========================================================================= */}
-      {/* SUB-SCREEN 4: Refer & Earn Modal */}
-      {/* ========================================================================= */}
-      <Modal visible={isReferModalOpen} transparent animationType="slide">
+      {/* ======================================================== */}
+      {/* POPUP MODAL 5: REFER & EARN                              */}
+      {/* ======================================================== */}
+      <Modal visible={isReferModalOpen} transparent animationType="fade" onRequestClose={() => setIsReferModalOpen(false)}>
         <View style={styles.modalOverlay}>
           <Pressable style={styles.modalBackdrop} onPress={() => setIsReferModalOpen(false)} />
-          <View style={styles.modalSheetContainer}>
-            <View style={styles.modalHandleBar} />
+          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalHeaderTitle}>Refer & Earn</Text>
-              <TouchableOpacity
-                onPress={() => setIsReferModalOpen(false)}
-                style={styles.closeModalBtn}
-                activeOpacity={0.7}
-              >
-                <X size={18} color="#111111" strokeWidth={2} />
+              <View style={styles.modalHeaderTitleRow}>
+                <Gift size={18} color="#111111" />
+                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Refer & Earn</Text>
+              </View>
+              <TouchableOpacity onPress={() => setIsReferModalOpen(false)} style={styles.closeBtn}>
+                <X size={18} color={theme.textSecondary} />
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalFormScroll} contentContainerStyle={styles.modalScrollContent}>
-              <View style={styles.referHeroBanner}>
-                <View style={styles.referIconCircle}>
-                  <Gift size={24} color="#111111" strokeWidth={1.8} />
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <View style={styles.referHeroSection}>
+                <View style={styles.giftCircle}>
+                  <Gift size={32} color="#111111" />
                 </View>
-                <Text style={styles.referHeroTitle}>
-                  Earn ₹500 for Every Referred Site
-                </Text>
-                <Text style={styles.referHeroSubtitle}>
-                  Share your referral code with fellow contractors and builders. They get ₹500 off their first order, and you receive ₹500 wallet credit!
+                <Text style={[styles.referHeroTitle, { color: theme.textPrimary }]}>Earn ₹500 for every builder you invite</Text>
+                <Text style={[styles.referHeroSubtitle, { color: theme.textSecondary }]}>
+                  Share your referral link with contractor friends. When they place their first construction materials order, both of you receive ₹500 in Urbanico Wallet.
                 </Text>
               </View>
 
-              {/* Referral Code Box */}
-              <View style={styles.codeBoxContainer}>
-                <View>
-                  <Text style={styles.codeLabelText}>YOUR EXCLUSIVE CODE</Text>
-                  <Text style={styles.codeValueText}>{referralCode}</Text>
-                </View>
-                <TouchableOpacity
-                  onPress={handleCopyReferralCode}
-                  style={styles.copyCodeBtn}
-                  activeOpacity={0.8}
-                >
-                  <Copy size={14} color="#FFFFFF" strokeWidth={2} />
-                  <Text style={styles.copyCodeBtnText}>Copy</Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* Progress & Stats */}
-              <View style={styles.statsRowCard}>
-                <View style={styles.statCol}>
-                  <Text style={styles.statValue}>3</Text>
-                  <Text style={styles.statLabel}>Successful Invites</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statCol}>
-                  <Text style={styles.statValuePrice}>₹1,500</Text>
-                  <Text style={styles.statLabel}>Credits Earned</Text>
-                </View>
-              </View>
-
-              {/* Share Action */}
-              <TouchableOpacity
-                onPress={handleShareReferral}
-                style={styles.shareActionBtn}
-                activeOpacity={0.85}
-              >
-                <Share2 size={16} color="#FFFFFF" strokeWidth={2} />
-                <Text style={styles.shareActionBtnText}>Share Code with Contractors</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ========================================================================= */}
-      {/* SUB-SCREEN 5: Edit Profile Modal */}
-      {/* ========================================================================= */}
-      <Modal visible={isEditModalOpen} transparent animationType="slide">
-        <KeyboardAvoidingView
-          style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
-          <Pressable style={styles.modalBackdrop} onPress={() => setIsEditModalOpen(false)} />
-          <View style={styles.modalSheetContainer}>
-            <View style={styles.modalHandleBar} />
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalHeaderTitle}>Edit Profile</Text>
-              <TouchableOpacity
-                onPress={() => setIsEditModalOpen(false)}
-                style={styles.closeModalBtn}
-                activeOpacity={0.7}
-              >
-                <X size={18} color="#111111" strokeWidth={2} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView
-              style={styles.modalFormScroll}
-              contentContainerStyle={styles.modalScrollContent}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
-              <View style={styles.inputFieldGroup}>
-                <Text style={styles.fieldLabel}>Full Name</Text>
-                <TextInput
-                  value={editName}
-                  onChangeText={setEditName}
-                  placeholder="Full Name"
-                  placeholderTextColor="#86868B"
-                  style={styles.formInput}
-                />
-              </View>
-
-              <View style={styles.inputFieldGroup}>
-                <Text style={styles.fieldLabel}>Phone Number</Text>
-                <TextInput
-                  value={editPhone}
-                  onChangeText={setEditPhone}
-                  placeholder="Phone Number"
-                  placeholderTextColor="#86868B"
-                  keyboardType="phone-pad"
-                  style={styles.formInput}
-                />
-              </View>
-
-              <View style={styles.inputFieldGroup}>
-                <Text style={styles.fieldLabel}>Email Address</Text>
-                <TextInput
-                  value={editEmail}
-                  onChangeText={setEditEmail}
-                  placeholder="Email Address"
-                  placeholderTextColor="#86868B"
-                  keyboardType="email-address"
-                  style={styles.formInput}
-                />
-              </View>
-
-              <View style={styles.inputFieldGroup}>
-                <Text style={styles.fieldLabel}>Company / Firm Name</Text>
-                <TextInput
-                  value={editCompany}
-                  onChangeText={setEditCompany}
-                  placeholder="e.g. Kumar Infra & Construction Pvt Ltd"
-                  placeholderTextColor="#86868B"
-                  style={styles.formInput}
-                />
-              </View>
-
-              <View style={styles.inputFieldGroup}>
-                <Text style={styles.fieldLabel}>GSTIN (15 Digits)</Text>
-                <TextInput
-                  value={editGstin}
-                  onChangeText={(val) => setEditGstin(val.toUpperCase())}
-                  placeholder="e.g. 36AAACU9812A1Z4"
-                  placeholderTextColor="#86868B"
-                  autoCapitalize="characters"
-                  maxLength={15}
-                  style={styles.formInput}
-                />
-              </View>
-            </ScrollView>
-
-            <View style={styles.modalFooterActions}>
-              <TouchableOpacity
-                onPress={handleSaveProfile}
-                style={styles.modalSaveBtn}
-                activeOpacity={0.85}
-              >
-                <Text style={styles.modalSaveBtnText}>
-                  {isSavingProfile ? 'Saving...' : 'Save Changes'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* ========================================================================= */}
-      {/* SUB-SCREEN 6: Help & Support Modal */}
-      {/* ========================================================================= */}
-      <Modal visible={isSupportModalOpen} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setIsSupportModalOpen(false)} />
-          <View style={styles.modalSheetContainer}>
-            <View style={styles.modalHandleBar} />
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalHeaderTitle}>Help & Support</Text>
-              <TouchableOpacity
-                onPress={() => setIsSupportModalOpen(false)}
-                style={styles.closeModalBtn}
-                activeOpacity={0.7}
-              >
-                <X size={18} color="#111111" strokeWidth={2} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalFormScroll} contentContainerStyle={styles.modalScrollContent}>
-              <TouchableOpacity
-                onPress={() => Linking.openURL('tel:18001239876')}
-                style={styles.supportCard}
-                activeOpacity={0.7}
-              >
-                <View style={styles.supportIconBox}>
-                  <Phone size={18} color="#111111" strokeWidth={2} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.supportTitle}>Customer Support Hotline</Text>
-                  <Text style={styles.supportSub}>1800-123-9876 (Toll-Free, 24/7)</Text>
-                </View>
-                <ChevronRight size={16} color="#9CA3AF" />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => Linking.openURL('mailto:support@urbanico.in')}
-                style={styles.supportCard}
-                activeOpacity={0.7}
-              >
-                <View style={styles.supportIconBox}>
-                  <Mail size={18} color="#111111" strokeWidth={2} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.supportTitle}>Email Support</Text>
-                  <Text style={styles.supportSub}>support@urbanico.in</Text>
-                </View>
-                <ChevronRight size={16} color="#9CA3AF" />
-              </TouchableOpacity>
-
-              <Text style={[styles.modalSectionLabel, { marginTop: 14 }]}>
-                Frequently Asked Questions
-              </Text>
-
-              {[
-                {
-                  q: 'How do I track my order?',
-                  a: 'Navigate to Bag > Orders & Tracking or tap My Orders & Dispatches in your profile to view real-time delivery status.',
-                },
-                {
-                  q: 'How do I change my site address?',
-                  a: 'Tap Saved Addresses in your profile to add, edit, or select an active delivery location.',
-                },
-                {
-                  q: 'How do I download tax invoices?',
-                  a: 'Tax invoices with official billing breakdowns are generated automatically with every order and available in your order history.',
-                },
-                {
-                  q: 'What payment methods are supported?',
-                  a: 'We accept Razorpay Cards, Netbanking, UPI, and PayLater.',
-                },
-              ].map((faq, idx) => {
-                const isExpanded = expandedFaq === idx;
-                return (
-                  <TouchableOpacity
-                    key={idx}
-                    onPress={() => setExpandedFaq(isExpanded ? null : idx)}
-                    style={styles.faqCard}
-                    activeOpacity={0.8}
-                  >
-                    <View style={styles.faqHeaderRow}>
-                      <Text style={styles.faqQuestionText}>{faq.q}</Text>
-                      <ChevronDown
-                        size={16}
-                        color="#707072"
-                        style={{
-                          transform: [{ rotate: isExpanded ? '180deg' : '0deg' }],
-                        }}
-                      />
-                    </View>
-                    {isExpanded && (
-                      <Text style={styles.faqAnswerText}>{faq.a}</Text>
-                    )}
+              <View style={[styles.referCodeCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                <Text style={[styles.referCodeLabel, { color: theme.textMuted }]}>YOUR REFERRAL CODE</Text>
+                <Text style={[styles.referCodeText, { color: theme.textPrimary }]}>{referralCode}</Text>
+                <View style={styles.referActionButtons}>
+                  <TouchableOpacity onPress={handleCopyReferralCode} style={styles.referCopyBtn} activeOpacity={0.75}>
+                    <Copy size={14} color="#111111" />
+                    <Text style={styles.referCopyBtnText}>Copy Code</Text>
                   </TouchableOpacity>
-                );
-              })}
+                  <TouchableOpacity onPress={handleShareReferral} style={styles.referShareBtn} activeOpacity={0.8}>
+                    <Share2 size={14} color="#FFFFFF" />
+                    <Text style={styles.referShareBtnText}>Share on WhatsApp</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity onPress={() => setIsReferModalOpen(false)} style={styles.modalPrimaryBtn}>
+                <Text style={styles.modalPrimaryBtnText}>Done</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
-    </View>
+
+      {/* ======================================================== */}
+      {/* POPUP MODAL 6: HELP & SUPPORT                            */}
+      {/* ======================================================== */}
+      <Modal visible={isHelpModalOpen} transparent animationType="fade" onRequestClose={() => setIsHelpModalOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setIsHelpModalOpen(false)} />
+          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalHeaderTitleRow}>
+                <HelpCircle size={18} color="#111111" />
+                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Help & Support</Text>
+              </View>
+              <TouchableOpacity onPress={() => setIsHelpModalOpen(false)} style={styles.closeBtn}>
+                <X size={18} color={theme.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <TouchableOpacity
+                onPress={() => {
+                  showToast('Calling Central Dispatch Yard: +91 1800 200 8829', 'info');
+                }}
+                style={[styles.helpItemRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
+                activeOpacity={0.75}
+              >
+                <View style={styles.helpItemLeft}>
+                  <Phone size={18} color="#111111" />
+                  <View>
+                    <Text style={[styles.helpItemTitle, { color: theme.textPrimary }]}>Toll-Free Yard Support</Text>
+                    <Text style={[styles.helpItemSub, { color: theme.textSecondary }]}>+91 1800 200 8829 (6:00 AM - 10:00 PM)</Text>
+                  </View>
+                </View>
+                <ChevronRight size={16} color={theme.textSecondary} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => {
+                  showToast('Opening support email composer...', 'info');
+                }}
+                style={[styles.helpItemRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, marginTop: 8 }]}
+                activeOpacity={0.75}
+              >
+                <View style={styles.helpItemLeft}>
+                  <Mail size={18} color="#111111" />
+                  <View>
+                    <Text style={[styles.helpItemTitle, { color: theme.textPrimary }]}>Commercial Invoicing Desk</Text>
+                    <Text style={[styles.helpItemSub, { color: theme.textSecondary }]}>billing@urbanico.in</Text>
+                  </View>
+                </View>
+                <ChevronRight size={16} color={theme.textSecondary} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() => {
+                  showToast('Connecting to dispatch coordinator...', 'info');
+                }}
+                style={[styles.helpItemRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, marginTop: 8 }]}
+                activeOpacity={0.75}
+              >
+                <View style={styles.helpItemLeft}>
+                  <MessageSquare size={18} color="#111111" />
+                  <View>
+                    <Text style={[styles.helpItemTitle, { color: theme.textPrimary }]}>WhatsApp Dispatch Desk</Text>
+                    <Text style={[styles.helpItemSub, { color: theme.textSecondary }]}>Instant status of tipper & transit mixers</Text>
+                  </View>
+                </View>
+                <ChevronRight size={16} color={theme.textSecondary} />
+              </TouchableOpacity>
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity onPress={() => setIsHelpModalOpen(false)} style={styles.modalPrimaryBtn}>
+                <Text style={styles.modalPrimaryBtnText}>Close</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ======================================================== */}
+      {/* POPUP MODAL 7: EDIT CONTRACTOR PROFILE                   */}
+      {/* ======================================================== */}
+      <Modal visible={isEditProfileModalOpen} transparent animationType="fade" onRequestClose={() => setIsEditProfileModalOpen(false)}>
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setIsEditProfileModalOpen(false)} />
+          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Edit Contractor Details</Text>
+              <TouchableOpacity onPress={() => setIsEditProfileModalOpen(false)} style={styles.closeBtn}>
+                <X size={18} color={theme.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Full Name</Text>
+              <TextInput
+                value={editName}
+                onChangeText={setEditName}
+                style={[styles.modalInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border }]}
+                placeholder="Contractor full name"
+                placeholderTextColor={theme.textMuted}
+              />
+
+              <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Phone Number</Text>
+              <TextInput
+                value={editPhone}
+                onChangeText={setEditPhone}
+                keyboardType="phone-pad"
+                style={[styles.modalInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border }]}
+                placeholder="Mobile number"
+                placeholderTextColor={theme.textMuted}
+              />
+
+              <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Company / Firm Name</Text>
+              <TextInput
+                value={editCompany}
+                onChangeText={setEditCompany}
+                style={[styles.modalInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border }]}
+                placeholder="e.g. Apex Builders & Infra"
+                placeholderTextColor={theme.textMuted}
+              />
+
+              <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>GSTIN (18% Flat ITC)</Text>
+              <TextInput
+                value={editGstin}
+                onChangeText={setEditGstin}
+                autoCapitalize="characters"
+                style={[styles.modalInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border }]}
+                placeholder="e.g. 36AAACU9812A1Z4"
+                placeholderTextColor={theme.textMuted}
+              />
+
+              <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Email Address</Text>
+              <TextInput
+                value={editEmail}
+                onChangeText={setEditEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                style={[styles.modalInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border }]}
+                placeholder="billing@company.com"
+                placeholderTextColor={theme.textMuted}
+              />
+            </ScrollView>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity onPress={() => setIsEditProfileModalOpen(false)} style={styles.cancelBtn}>
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleSaveProfile} style={styles.modalPrimaryBtn}>
+                <Text style={styles.modalPrimaryBtnText}>Save Changes</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </ScrollView>
   );
 };
 
@@ -1161,125 +936,117 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 96,
-    gap: 16,
+    paddingBottom: 60,
   },
-
-  /* Nike Guest Card */
-  nikeGuestCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+  consolidatedMenuCard: {
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#EEEEEE',
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  authHeaderSection: {
     padding: 20,
-    gap: 16,
+    backgroundColor: '#FAFAFA',
   },
-  guestTextCol: {
-    gap: 4,
+  guestInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 16,
   },
-  guestTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#111111',
-    letterSpacing: -0.4,
-  },
-  guestSubText: {
-    fontSize: 13,
-    color: '#707072',
-    lineHeight: 18,
-  },
-  guestLoginBtn: {
-    backgroundColor: '#111111',
-    borderRadius: 999,
-    paddingVertical: 12,
+  guestAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#EEEEEE',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  guestLoginBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: 0.1,
+  loggedInHeaderSection: {
+    padding: 20,
+    backgroundColor: '#FAFAFA',
   },
-
-  /* Nike Member Card */
-  memberCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#EEEEEE',
-    paddingHorizontal: 18,
-    paddingVertical: 18,
+  loggedInHeaderRow: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 14,
+  },
+  userAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#ECFDF5',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
+    justifyContent: 'center',
   },
-  memberInfoCol: {
-    flex: 1,
-    gap: 4,
-  },
-  memberNameRow: {
+  nameBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexWrap: 'wrap',
+    marginBottom: 2,
   },
-  memberNameText: {
-    fontSize: 19,
-    fontWeight: '800',
-    color: '#111111',
-    letterSpacing: -0.4,
-  },
-  verifiedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
+  verifiedTag: {
+    backgroundColor: '#111111',
     paddingHorizontal: 6,
     paddingVertical: 2,
+    borderRadius: 4,
+  },
+  verifiedTagText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  welcomeTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: -0.4,
+  },
+  welcomeSubtitle: {
+    fontSize: 12.5,
+    lineHeight: 17,
+    marginTop: 2,
+  },
+  gstinSubText: {
+    fontSize: 11,
+    marginTop: 4,
+    fontWeight: '600',
+  },
+  mainAuthBtn: {
+    backgroundColor: '#111111',
     borderRadius: 999,
-    backgroundColor: '#F4F4F5',
-  },
-  verifiedBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#111111',
-  },
-  memberContactText: {
-    fontSize: 13,
-    color: '#707072',
-  },
-  editProfilePillBtn: {
-    borderWidth: 1.2,
-    borderColor: '#111111',
-    borderRadius: 999,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    backgroundColor: '#FFFFFF',
-  },
-  editProfilePillText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#111111',
-  },
-
-  /* Nike Single Menu Container */
-  menuContainer: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#EEEEEE',
-    overflow: 'hidden',
-  },
-  menuRow: {
+    paddingVertical: 13,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 15,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
+    justifyContent: 'center',
+    gap: 8,
   },
-  menuRowLast: {
+  mainAuthBtnText: {
+    color: '#FFFFFF',
+    fontSize: 14.5,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  editIconBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuDividerFull: {
+    height: StyleSheet.hairlineWidth,
+  },
+  menuDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginLeft: 62,
+  },
+  menuRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -1292,16 +1059,21 @@ const styles = StyleSheet.create({
     gap: 14,
     flex: 1,
   },
-  menuIconBox: {
-    width: 24,
+  iconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  menuTitleText: {
+  menuRowLabel: {
     fontSize: 14.5,
-    fontWeight: '600',
-    color: '#111111',
+    fontWeight: '700',
     letterSpacing: -0.2,
+  },
+  menuRowSubLabel: {
+    fontSize: 11.5,
+    marginTop: 1,
   },
   menuRowRight: {
     flexDirection: 'row',
@@ -1309,631 +1081,316 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   countBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-    backgroundColor: '#F4F4F5',
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
   },
   countBadgeText: {
     fontSize: 11,
-    fontWeight: '700',
-    color: '#111111',
+    fontWeight: '800',
   },
-  subDetailText: {
-    fontSize: 13,
-    color: '#707072',
+  subValueText: {
+    fontSize: 12.5,
+    fontWeight: '500',
   },
-  rewardPill: {
-    paddingHorizontal: 8,
+  referPillBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 9,
     paddingVertical: 3,
     borderRadius: 999,
-    backgroundColor: '#FEF3C7',
   },
-  rewardPillText: {
-    fontSize: 11,
+  referPillBadgeText: {
+    fontSize: 11.5,
     fontWeight: '800',
     color: '#B45309',
   },
-
-  /* Sign Out Button */
-  signOutBtn: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 999,
-    paddingVertical: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  signOutBtnText: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#E11D48',
-  },
-
-  /* Shared Modals / Sub-Screens (Nike Style) */
   modalOverlay: {
     flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
   },
   modalBackdrop: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
-  modalSheetContainer: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+  modalContent: {
+    width: '100%',
+    maxWidth: 440,
+    borderRadius: 16,
+    padding: 18,
     maxHeight: '85%',
-    paddingBottom: 24,
-  },
-  modalHandleBar: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: '#E5E7EB',
-    alignSelf: 'center',
-    marginTop: 10,
-    marginBottom: 4,
   },
   modalHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  modalHeaderTitle: {
-    fontSize: 16.5,
-    fontWeight: '800',
-    color: '#111111',
-    letterSpacing: -0.3,
-  },
-  closeModalBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F5F5F5',
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalFormScroll: {
-    paddingHorizontal: 20,
-    paddingTop: 16,
-  },
-  modalScrollContent: {
-    gap: 12,
-    paddingBottom: 20,
-  },
-  modalSectionLabel: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: '#707072',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-
-  /* Empty state */
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 36,
-    paddingHorizontal: 16,
-  },
-  emptyIconCircle: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: '#F5F5F5',
-    alignItems: 'center',
-    justifyContent: 'center',
     marginBottom: 14,
   },
-  emptyTitle: {
+  modalHeaderTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  modalTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#111111',
-    marginBottom: 6,
-    textAlign: 'center',
   },
-  emptySubText: {
-    fontSize: 13,
-    color: '#707072',
-    textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 20,
-    maxWidth: 280,
+  closeBtn: {
+    padding: 4,
   },
-  primaryPillActionBtn: {
+  modalBody: {
+    maxHeight: 380,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+    marginTop: 16,
+  },
+  modalPrimaryBtn: {
     backgroundColor: '#111111',
-    paddingHorizontal: 24,
-    paddingVertical: 11,
-    borderRadius: 999,
+    borderRadius: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    alignItems: 'center',
   },
-  primaryPillActionBtnText: {
+  modalPrimaryBtnText: {
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
   },
-
-  /* Orders Modal Cards */
-  orderCard: {
-    backgroundColor: '#FAFAFA',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#EEEEEE',
-    padding: 14,
-    gap: 10,
-  },
-  orderCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-  },
-  orderNumberText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#111111',
-  },
-  orderMaterialText: {
-    fontSize: 12.5,
-    color: '#707072',
-    marginTop: 2,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-  },
-  statusBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  orderMetaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
-    paddingTop: 8,
-  },
-  metaLabel: {
-    fontSize: 11,
-    color: '#707072',
-  },
-  metaValue: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#111111',
-  },
-  metaValuePrice: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#111111',
-  },
-  orderActionsRow: {
-    flexDirection: 'row',
-    gap: 8,
-    paddingTop: 4,
-  },
-  orderTrackBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  orderTrackBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#111111',
-  },
-  orderInvoiceBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  orderInvoiceBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#111111',
-  },
-
-  /* Addresses Modal */
-  addAddressBox: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  addAddressInput: {
-    flex: 1,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FAFAFA',
+  cancelBtn: {
     paddingHorizontal: 14,
     paddingVertical: 10,
+    borderRadius: 8,
+    justifyContent: 'center',
+  },
+  cancelBtnText: {
     fontSize: 13,
-    color: '#111111',
+    fontWeight: '600',
+    color: '#71717A',
+  },
+  inputLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    marginBottom: 4,
+    marginTop: 10,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 13,
+  },
+  addressItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  addressItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  addressText: {
+    fontSize: 13,
+    marginBottom: 2,
+  },
+  addressSub: {
+    fontSize: 11,
+  },
+  activePill: {
+    backgroundColor: '#111111',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 4,
+  },
+  activePillText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  addAddressBox: {
+    marginTop: 12,
+    borderTopWidth: 1,
+    paddingTop: 12,
   },
   addAddressBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
     backgroundColor: '#111111',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: 8,
   },
-  returnToCheckoutBtn: {
-    backgroundColor: '#111111',
+  addAddressBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  sectionMicroHeader: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginBottom: 10,
+  },
+  paymentMethodCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
     borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    borderWidth: 1,
+  },
+  paymentMethodLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  paymentMethodTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  paymentMethodSub: {
+    fontSize: 11,
+  },
+  verifiedGreenDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+  },
+  payInfoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 14,
+  },
+  payInfoBannerText: {
+    fontSize: 11,
+    flex: 1,
+    lineHeight: 15,
+  },
+  referHeroSection: {
+    alignItems: 'center',
+    marginVertical: 12,
+  },
+  giftCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FEF3C7',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
   },
-  returnToCheckoutBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  gpsLocationBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FAFAFA',
-    paddingVertical: 11,
-  },
-  gpsLocationBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#111111',
-  },
-  addressCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#EEEEEE',
-    backgroundColor: '#FAFAFA',
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  addressCardSelected: {
-    borderColor: '#111111',
-    backgroundColor: '#FFFFFF',
-  },
-  editAddressRow: {
-    flex: 1,
-    flexDirection: 'row',
-    gap: 8,
-  },
-  editAddressTextInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#111111',
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    fontSize: 12.5,
-    color: '#111111',
-  },
-  saveEditBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#111111',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addressTouchArea: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  addressText: {
-    flex: 1,
-    fontSize: 13,
-    color: '#707072',
-  },
-  addressTextActive: {
-    color: '#111111',
-    fontWeight: '600',
-  },
-  activeAddressPill: {
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 999,
-    backgroundColor: '#111111',
-  },
-  activeAddressPillText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  addressActions: {
-    flexDirection: 'row',
-    gap: 2,
-  },
-  iconActionBtn: {
-    padding: 6,
-  },
-
-  /* Payment Methods Modal */
-  paymentCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#EEEEEE',
-    backgroundColor: '#FAFAFA',
-    padding: 14,
-  },
-  paymentCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  paymentBankTitle: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#111111',
-  },
-  paymentSubText: {
-    fontSize: 12,
-    color: '#707072',
-    marginTop: 2,
-  },
-  defaultPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
-    backgroundColor: '#111111',
-  },
-  defaultPillText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  upiIconBox: {
-    width: 34,
-    height: 22,
-    borderRadius: 4,
-    backgroundColor: '#E5E7EB',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  upiIconText: {
-    fontSize: 9,
-    fontWeight: '900',
-    color: '#111111',
-  },
-
-  /* Refer & Earn Modal */
-  referHeroBanner: {
-    alignItems: 'center',
-    textAlign: 'center',
-    padding: 18,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#EEEEEE',
-    backgroundColor: '#FAFAFA',
-    gap: 8,
-  },
-  referIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#F5F5F5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   referHeroTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#111111',
     textAlign: 'center',
-    letterSpacing: -0.3,
+    marginBottom: 6,
   },
   referHeroSubtitle: {
-    fontSize: 12.5,
-    color: '#707072',
-    textAlign: 'center',
+    fontSize: 12,
     lineHeight: 17,
+    textAlign: 'center',
+    paddingHorizontal: 10,
   },
-  codeBoxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#111111',
-    backgroundColor: '#FFFFFF',
-  },
-  codeLabelText: {
-    fontSize: 9.5,
-    fontWeight: '800',
-    color: '#707072',
-    letterSpacing: 0.5,
-  },
-  codeValueText: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#111111',
-    letterSpacing: 1,
-    marginTop: 2,
-  },
-  copyCodeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: '#111111',
-  },
-  copyCodeBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  statsRowCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#EEEEEE',
-    backgroundColor: '#FAFAFA',
-    padding: 14,
-  },
-  statCol: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 2,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#111111',
-  },
-  statValuePrice: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#111111',
-  },
-  statLabel: {
-    fontSize: 11.5,
-    color: '#707072',
-  },
-  statDivider: {
-    width: 1,
-    height: 32,
-    backgroundColor: '#E5E7EB',
-  },
-  shareActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 13,
-    borderRadius: 999,
-    backgroundColor: '#111111',
-  },
-  shareActionBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13.5,
-    fontWeight: '700',
-  },
-
-  /* Edit Profile Form */
-  inputFieldGroup: {
-    gap: 6,
-  },
-  fieldLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#111111',
-  },
-  formInput: {
+  referCodeCard: {
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FAFAFA',
-    paddingHorizontal: 14,
-    paddingVertical: 11,
-    fontSize: 13.5,
-    color: '#111111',
-  },
-  modalFooterActions: {
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
-  },
-  modalSaveBtn: {
-    height: 46,
-    borderRadius: 999,
-    backgroundColor: '#111111',
+    padding: 14,
     alignItems: 'center',
-    justifyContent: 'center',
+    marginVertical: 12,
   },
-  modalSaveBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
+  referCodeLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginBottom: 2,
   },
-
-  /* Support & FAQ Modal */
-  supportCard: {
+  referCodeText: {
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: 1.5,
+    marginVertical: 6,
+  },
+  referActionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    width: '100%',
+    marginTop: 6,
+  },
+  referCopyBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#EEEEEE',
-    backgroundColor: '#FAFAFA',
-    padding: 14,
-  },
-  supportIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F0F0F0',
-    alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+    paddingVertical: 9,
+    borderRadius: 8,
   },
-  supportTitle: {
-    fontSize: 13.5,
+  referCopyBtnText: {
+    fontSize: 12,
     fontWeight: '700',
     color: '#111111',
   },
-  supportSub: {
+  referShareBtn: {
+    flex: 1.2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#059669',
+    paddingVertical: 9,
+    borderRadius: 8,
+  },
+  referShareBtnText: {
     fontSize: 12,
-    color: '#707072',
-    marginTop: 1,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
-  faqCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#EEEEEE',
-    backgroundColor: '#FAFAFA',
-    padding: 14,
-    gap: 8,
-  },
-  faqHeaderRow: {
+  helpItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
   },
-  faqQuestionText: {
+  helpItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  helpItemTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#111111',
-    flex: 1,
-    marginRight: 8,
+    marginBottom: 2,
   },
-  faqAnswerText: {
-    fontSize: 12.5,
-    color: '#707072',
-    lineHeight: 18,
+  helpItemSub: {
+    fontSize: 11,
   },
 });

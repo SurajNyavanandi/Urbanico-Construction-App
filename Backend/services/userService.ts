@@ -1,16 +1,60 @@
 import { User, IUser } from '../models/User';
+import mongoose from 'mongoose';
+
+const inMemoryUsers: any[] = [];
 
 export class UserService {
   public static async findOrCreateUser(phone: string, userData: Partial<IUser> = {}) {
-    let user = await User.findOne({ phone }).exec();
-    if (!user) {
-      user = new User({
-        phone,
-        name: userData.name || 'Rajesh Kumar (Miyapur Projects)',
-        email: userData.email || 'rajesh.m@urbanico.in',
+    const cleanPhone = phone ? phone.replace(/[^\d+]/g, '') : '+919666635009';
+
+    try {
+      if (mongoose.connection.readyState === 1) {
+        let user = await User.findOne({ phone: cleanPhone }).exec();
+        if (!user) {
+          user = new User({
+            phone: cleanPhone,
+            name: userData.name || 'Suraj Nyavanandi',
+            email: userData.email || 'kanusuraj15@gmail.com',
+            role: userData.role || 'contractor',
+            companyName: userData.companyName || 'Urbanico Infrastructure Pvt Ltd',
+            gstin: userData.gstin || '36AABCU12341ZV',
+            billingAddress: {
+              street: 'Plot 402, Survey 88, Miyapur Road',
+              city: 'Hyderabad',
+              state: 'Telangana',
+              pincode: '500049',
+            },
+            deliverySites: [
+              {
+                siteName: 'Miyapur Site (Tower B)',
+                address: 'Survey 114, Hafeezpet - Miyapur Main Rd, Hyderabad',
+                pincode: '500049',
+                supervisorName: 'Kishore V.',
+                supervisorPhone: '+91 98480 12345',
+                isPrimary: true,
+              },
+            ],
+            creditLimit: 500000,
+            availableCredit: 500000,
+          });
+          await user.save();
+        }
+        return user;
+      }
+    } catch (err) {
+      console.warn('MongoDB not available, using in-memory user store:', err);
+    }
+
+    let memoryUser = inMemoryUsers.find((u) => u.phone === cleanPhone);
+    if (!memoryUser) {
+      memoryUser = {
+        _id: `usr_${Date.now()}`,
+        phone: cleanPhone,
+        name: userData.name || 'Suraj Nyavanandi',
+        email: userData.email || 'kanusuraj15@gmail.com',
         role: userData.role || 'contractor',
-        companyName: userData.companyName || 'Sri Sai Infra & Developers Ltd.',
-        gstin: userData.gstin || '36AABCU9603R1ZM',
+        companyName: userData.companyName || 'Urbanico Infrastructure Pvt Ltd',
+        gstin: userData.gstin || '36AABCU12341ZV',
         billingAddress: {
           street: 'Plot 402, Survey 88, Miyapur Road',
           city: 'Hyderabad',
@@ -19,31 +63,74 @@ export class UserService {
         },
         deliverySites: [
           {
-            siteName: 'Urban Oasis Highrise (Tower B)',
-            address: 'Survey 114, Hafeezpet - Miyapur Main Rd',
+            siteName: 'Miyapur Site (Tower B)',
+            address: 'Survey 114, Hafeezpet - Miyapur Main Rd, Hyderabad',
             pincode: '500049',
             supervisorName: 'Kishore V.',
             supervisorPhone: '+91 98480 12345',
             isPrimary: true,
           },
         ],
-        creditLimit: 2500000,
-        availableCredit: 1850000,
-      });
-      await user.save();
+        creditLimit: 500000,
+        availableCredit: 500000,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      inMemoryUsers.push(memoryUser);
     }
-    return user;
+    return memoryUser;
   }
 
   public static async getUserById(id: string) {
-    return await User.findById(id).exec();
+    try {
+      if (mongoose.connection.readyState === 1) {
+        const user = await User.findById(id).exec();
+        if (user) return user;
+      }
+    } catch (err) {
+      // fallback
+    }
+    return inMemoryUsers.find((u) => u._id === id || String(u._id) === id) || null;
   }
 
   public static async getUserByPhone(phone: string) {
-    return await User.findOne({ phone }).exec();
+    const clean = phone.replace(/[^\d+]/g, '');
+    try {
+      if (mongoose.connection.readyState === 1) {
+        const user = await User.findOne({ phone: clean }).exec();
+        if (user) return user;
+      }
+    } catch (err) {
+      // fallback
+    }
+    return inMemoryUsers.find((u) => u.phone === clean || u.phone.includes(clean)) || null;
   }
 
-  public static async updateUser(id: string, updateData: Partial<IUser>) {
-    return await User.findByIdAndUpdate(id, { $set: updateData }, { new: true }).exec();
+  public static async updateUser(idOrPhone: string, updateData: Partial<IUser>) {
+    try {
+      if (mongoose.connection.readyState === 1) {
+        let user = null;
+        if (mongoose.Types.ObjectId.isValid(idOrPhone)) {
+          user = await User.findByIdAndUpdate(idOrPhone, { $set: updateData }, { new: true }).exec();
+        } else {
+          user = await User.findOneAndUpdate({ phone: idOrPhone }, { $set: updateData }, { new: true }).exec();
+        }
+        if (user) return user;
+      }
+    } catch (err) {
+      // fallback
+    }
+
+    const idx = inMemoryUsers.findIndex((u) => u._id === idOrPhone || u.phone === idOrPhone);
+    if (idx !== -1) {
+      inMemoryUsers[idx] = {
+        ...inMemoryUsers[idx],
+        ...updateData,
+        updatedAt: new Date(),
+      };
+      return inMemoryUsers[idx];
+    }
+    return null;
   }
 }
+

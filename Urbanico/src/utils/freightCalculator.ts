@@ -130,11 +130,23 @@ export function isServiceablePincode(pincode: string): boolean {
   return pincode.startsWith('500') || pincode.startsWith('501') || pincode.startsWith('502');
 }
 
+export const PLATFORM_DELIVERY_RATE_PER_KM = 25; // Rs 25 per km distance delivery charge
+
+export function calculateDistanceDeliveryCharge(
+  distanceKm: number,
+  ratePerKm: number = PLATFORM_DELIVERY_RATE_PER_KM
+): number {
+  const effectiveDistance = Math.max(1, distanceKm);
+  return Math.round(effectiveDistance * ratePerKm);
+}
+
 export function calculateDynamicFreight(
   pincode: string,
   totalTons: number
 ): {
   distanceKm: number;
+  ratePerKm: number;
+  deliveryCharge: number;
   vehicle: VehicleCapacity;
   freightCost: number;
   tollFee: number;
@@ -148,25 +160,28 @@ export function calculateDynamicFreight(
   const pinInfo = PINCODE_REGISTRY[pincode] || {
     pincode,
     areaName: 'Hyderabad Metro Site Area',
-    distanceKm: 15.0,
-    tollFee: 50,
+    distanceKm: 12.0,
+    tollFee: 0,
     nightEntryRestricted: false,
     serviceable: true,
   };
 
   const vehicle = recommendVehicle(totalTons);
   const distance = Math.max(3, pinInfo.distanceKm);
+  const ratePerKm = PLATFORM_DELIVERY_RATE_PER_KM;
+  const deliveryCharge = calculateDistanceDeliveryCharge(distance, ratePerKm);
 
-  // Freight calculation: base + (rate * km)
-  const calculated = Math.round(vehicle.baseRatePerKm * distance);
-  const freightCost = Math.max(vehicle.minFreight, calculated);
+  // Freight calculation: distance charge based on per-km rate
+  const freightCost = deliveryCharge;
   const tollFee = pinInfo.tollFee;
   const unloadingCharge = vehicle.unloadingCharge;
 
-  const totalFreight = freightCost + tollFee + unloadingCharge;
+  const totalFreight = deliveryCharge;
 
   return {
     distanceKm: distance,
+    ratePerKm,
+    deliveryCharge,
     vehicle,
     freightCost,
     tollFee,

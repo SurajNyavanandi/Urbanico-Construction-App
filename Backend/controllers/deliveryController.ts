@@ -2,6 +2,15 @@ import { Request, Response } from 'express';
 import { DeliveryService } from '../services/deliveryService';
 
 export class DeliveryController {
+  public static async getDeliveries(req: Request, res: Response) {
+    try {
+      const deliveries = await DeliveryService.getAllDeliveries();
+      return res.status(200).json({ success: true, count: deliveries.length, deliveries });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, error: err.message });
+    }
+  }
+
   public static async getDeliveryByOrder(req: Request, res: Response) {
     try {
       const { orderNumber } = req.params;

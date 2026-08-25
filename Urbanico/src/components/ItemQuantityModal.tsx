@@ -24,18 +24,12 @@ import {
   Info,
   Calendar,
   Truck,
-  FileCheck2,
   Maximize2,
-  Download,
-  Scale,
-  Sparkles,
 } from 'lucide-react-native';
 import { MaterialItem, UnitOption } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { ShimmerImage } from './common/ShimmerImage';
 import { useToast } from '../context/ToastContext';
-import { BrandComparisonModal } from './common/BrandComparisonModal';
-import { AggregateVisualizerModal } from './common/AggregateVisualizerModal';
 import { isServiceablePincode } from '../utils/freightCalculator';
 
 interface ItemQuantityModalProps {
@@ -75,10 +69,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
   const [isAdding, setIsAdding] = useState(false);
   const [pincodeInput, setPincodeInput] = useState<string>('500081');
   const [pincodeChecked, setPincodeChecked] = useState<boolean>(true);
-  const [showCertificateModal, setShowCertificateModal] = useState<boolean>(false);
   const [showImageLightbox, setShowImageLightbox] = useState<boolean>(false);
-  const [showCompareModal, setShowCompareModal] = useState<boolean>(false);
-  const [showVisualizerModal, setShowVisualizerModal] = useState<boolean>(false);
 
   // Sync state whenever the selected item changes
   useEffect(() => {
@@ -459,49 +450,15 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
                 )}
               </View>
 
-              {/* IS Code & Technical Compliance Badge */}
+              {/* Standard Grade & Fulfillment Indicator */}
               <View style={[styles.complianceCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                 <View style={styles.complianceLeftCol}>
                   <View style={styles.complianceTagRow}>
                     <ShieldCheck size={14} color="#059669" />
-                    <Text style={styles.complianceTagText}>CERTIFIED QUALITY</Text>
+                    <Text style={styles.complianceTagText}>FACTORY & QUARRY DIRECT</Text>
                   </View>
-                  <Text style={[styles.isCodeText, { color: theme.textPrimary }]}>{isCodeStandard}</Text>
-                  <Text style={[styles.labCertSub, { color: theme.textSecondary }]}>Lab Batch Ref: {labCertNo}</Text>
-                </View>
-
-                <View style={styles.complianceActionBtnsCol}>
-                  <TouchableOpacity
-                    onPress={() => setShowCertificateModal(true)}
-                    style={styles.viewCertBtn}
-                    activeOpacity={0.75}
-                  >
-                    <FileCheck2 size={12} color="#111111" />
-                    <Text style={styles.viewCertBtnText}>Lab Report</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => setShowCompareModal(true)}
-                    style={[styles.viewCertBtn, { backgroundColor: '#F4F4F5' }]}
-                    activeOpacity={0.75}
-                  >
-                    <Scale size={12} color="#111111" />
-                    <Text style={styles.viewCertBtnText}>Compare</Text>
-                  </TouchableOpacity>
-
-                  {(item.name.toLowerCase().includes('sand') ||
-                    item.name.toLowerCase().includes('aggregate') ||
-                    item.name.toLowerCase().includes('metal') ||
-                    item.name.toLowerCase().includes('gravel')) && (
-                    <TouchableOpacity
-                      onPress={() => setShowVisualizerModal(true)}
-                      style={[styles.viewCertBtn, { backgroundColor: '#0284C7' }]}
-                      activeOpacity={0.75}
-                    >
-                      <Sparkles size={12} color="#FFFFFF" />
-                      <Text style={[styles.viewCertBtnText, { color: '#FFFFFF' }]}>Grain 360°</Text>
-                    </TouchableOpacity>
-                  )}
+                  <Text style={[styles.isCodeText, { color: theme.textPrimary }]}>{item.name}</Text>
+                  <Text style={[styles.labCertSub, { color: theme.textSecondary }]}>Standard Construction Grade • Verified Dispatch</Text>
                 </View>
               </View>
 
@@ -701,104 +658,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
         </View>
       </View>
 
-      {/* ======================================================== */}
-      {/* 3. LAB TEST CERTIFICATE MODAL                            */}
-      {/* ======================================================== */}
-      <Modal
-        visible={showCertificateModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowCertificateModal(false)}
-      >
-        <View style={styles.certOverlay}>
-          <Pressable style={styles.certBackdrop} onPress={() => setShowCertificateModal(false)} />
-          <View style={[styles.certModalCard, { backgroundColor: theme.surface }]}>
-            <View style={styles.certModalHeader}>
-              <View style={styles.certHeaderTitleCol}>
-                <View style={styles.certHeaderTopRow}>
-                  <ShieldCheck size={18} color="#059669" />
-                  <Text style={styles.certModalTitle}>Certified Lab Batch Report</Text>
-                </View>
-                <Text style={styles.certModalSub}>Government Approved National Testing Laboratory</Text>
-              </View>
-              <TouchableOpacity onPress={() => setShowCertificateModal(false)} style={styles.certCloseBtn}>
-                <X size={18} color={theme.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.certModalBody} showsVerticalScrollIndicator={false}>
-              <View style={styles.certMetaGrid}>
-                <View style={styles.certMetaCol}>
-                  <Text style={styles.certMetaLabel}>Material Name</Text>
-                  <Text style={styles.certMetaVal}>{item.name}</Text>
-                </View>
-                <View style={styles.certMetaCol}>
-                  <Text style={styles.certMetaLabel}>Standard Compliance</Text>
-                  <Text style={styles.certMetaVal}>{isCodeStandard}</Text>
-                </View>
-                <View style={styles.certMetaCol}>
-                  <Text style={styles.certMetaLabel}>Lab Report Reference</Text>
-                  <Text style={styles.certMetaVal}>{labCertNo}</Text>
-                </View>
-                <View style={styles.certMetaCol}>
-                  <Text style={styles.certMetaLabel}>Test Approval Date</Text>
-                  <Text style={styles.certMetaVal}>26 July 2026</Text>
-                </View>
-              </View>
-
-              <View style={styles.certParamTable}>
-                <View style={styles.certTableRowHeader}>
-                  <Text style={styles.certTableColHead}>Test Parameter</Text>
-                  <Text style={styles.certTableColHead}>IS Standard</Text>
-                  <Text style={styles.certTableColHead}>Observed Result</Text>
-                  <Text style={styles.certTableColHead}>Status</Text>
-                </View>
-                <View style={styles.certTableRow}>
-                  <Text style={styles.certTableCell}>Compressive 28-Day Strength</Text>
-                  <Text style={styles.certTableCell}>≥ 53.0 MPa</Text>
-                  <Text style={styles.certTableCellBold}>57.4 MPa</Text>
-                  <Text style={styles.certPassPill}>PASSED</Text>
-                </View>
-                <View style={styles.certTableRow}>
-                  <Text style={styles.certTableCell}>Silt / Impurity Content</Text>
-                  <Text style={styles.certTableCell}>≤ 3.0 %</Text>
-                  <Text style={styles.certTableCellBold}>1.1 %</Text>
-                  <Text style={styles.certPassPill}>PASSED</Text>
-                </View>
-                <View style={styles.certTableRow}>
-                  <Text style={styles.certTableCell}>Tensile / Yield Ductility</Text>
-                  <Text style={styles.certTableCell}>≥ 550 N/mm²</Text>
-                  <Text style={styles.certTableCellBold}>595 N/mm²</Text>
-                  <Text style={styles.certPassPill}>PASSED</Text>
-                </View>
-              </View>
-
-              <View style={styles.certStampBox}>
-                <Text style={styles.certStampSign}>✓ Digitally Verified by Quality Assurance Bureau</Text>
-                <Text style={styles.certStampNote}>Hyderabad Testing Labs • Dispatch Approved</Text>
-              </View>
-            </ScrollView>
-
-            <View style={styles.certModalFooter}>
-              <TouchableOpacity
-                onPress={() => {
-                  showToast('Lab Certificate PDF saved to downloads', 'success');
-                  setShowCertificateModal(false);
-                }}
-                style={styles.certDownloadBtn}
-                activeOpacity={0.85}
-              >
-                <Download size={14} color="#FFFFFF" />
-                <Text style={styles.certDownloadBtnText}>Download Official PDF</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ======================================================== */}
-      {/* 4. FULLSCREEN IMAGE LIGHTBOX                             */}
-      {/* ======================================================== */}
+      {/* FULLSCREEN IMAGE LIGHTBOX */}
       <Modal
         visible={showImageLightbox}
         transparent
@@ -820,20 +680,6 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
           </View>
         </View>
       </Modal>
-
-      {/* Brand Comparison Modal */}
-      <BrandComparisonModal
-        visible={showCompareModal}
-        onClose={() => setShowCompareModal(false)}
-        selectedItemName={item.name}
-      />
-
-      {/* 360 Grain Sizing Scale Visualizer Modal */}
-      <AggregateVisualizerModal
-        visible={showVisualizerModal}
-        onClose={() => setShowVisualizerModal(false)}
-        materialName={item.name}
-      />
     </View>
   );
 };
