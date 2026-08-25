@@ -1,6 +1,5 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
 import { connectDB, getDBStatus } from './config/db';
 import { apiRouter } from './routers';
 
@@ -12,7 +11,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // 2. CORS Middleware - Allow frontend from localhost, Vercel, and Render
-app.use((req, res, next) => {
+app.use((req: Request, res: Response, next: NextFunction) => {
   const origin = req.headers.origin;
   const allowedOrigins = [
     'http://localhost:5173',
@@ -42,7 +41,7 @@ app.use((req, res, next) => {
 app.use('/api', apiRouter);
 
 // 4. Server & Integration info endpoint
-app.get('/api/server-info', (req, res) => {
+app.get('/api/server-info', (req: Request, res: Response) => {
   res.json({
     status: 'online',
     service: 'Urbanico Backend API',
@@ -72,7 +71,7 @@ app.get('/api/server-info', (req, res) => {
 });
 
 // 5. Health check
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (req: Request, res: Response) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
@@ -81,16 +80,27 @@ app.get('/api/health', (req, res) => {
 });
 
 export async function startServer() {
+  // Validate required environment variables
+  const requiredEnvVars = ['MONGODB_URI'];
+  const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
+  
+  if (missingEnvVars.length > 0) {
+    console.warn(`⚠️  Missing environment variables: ${missingEnvVars.join(', ')}`);
+    console.warn('📝 Add these to Render Environment Variables in the dashboard');
+  }
+
   // Connect to MongoDB Atlas
   try {
     await connectDB();
-  } catch (dbErr: any) {
-    console.error('Initial DB connection attempt returned:', dbErr?.message || dbErr);
+  } catch (dbErr) {
+    const errorMessage = dbErr instanceof Error ? dbErr.message : String(dbErr);
+    console.error('Initial DB connection attempt returned:', errorMessage);
   }
 
   // Vite middleware for preview/frontend serving
   if (process.env.NODE_ENV !== 'production') {
     try {
+      const { createServer: createViteServer } = await import('vite');
       const vite = await createViteServer({
         server: { middlewareMode: true },
         appType: 'spa',
@@ -102,7 +112,7 @@ export async function startServer() {
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
+    app.get(/.*/, (req: Request, res: Response) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
