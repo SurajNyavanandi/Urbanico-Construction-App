@@ -1,5 +1,4 @@
 import express, { Request, Response, NextFunction } from 'express';
-import path from 'path';
 import { connectDB, getDBStatus } from './config/db';
 import { apiRouter } from './routers';
 
@@ -79,6 +78,17 @@ app.get('/api/health', (req: Request, res: Response) => {
   });
 });
 
+// 6. Root endpoint info
+app.get('/', (req: Request, res: Response) => {
+  res.json({
+    message: 'Urbanico Backend API is running',
+    status: 'online',
+    frontend: 'https://urbanico.vercel.app',
+    apiBase: `http://localhost:${PORT}/api`,
+    docs: 'See /api/server-info for endpoints',
+  });
+});
+
 export async function startServer() {
   // Validate required environment variables
   const requiredEnvVars = ['MONGODB_URI'];
@@ -95,26 +105,6 @@ export async function startServer() {
   } catch (dbErr) {
     const errorMessage = dbErr instanceof Error ? dbErr.message : String(dbErr);
     console.error('Initial DB connection attempt returned:', errorMessage);
-  }
-
-  // Vite middleware for preview/frontend serving
-  if (process.env.NODE_ENV !== 'production') {
-    try {
-      const { createServer: createViteServer } = await import('vite');
-      const vite = await createViteServer({
-        server: { middlewareMode: true },
-        appType: 'spa',
-      });
-      app.use(vite.middlewares);
-    } catch (viteErr) {
-      // Standalone backend mode without vite
-    }
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get(/.*/, (req: Request, res: Response) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
   }
 
   app.listen(PORT, '0.0.0.0', () => {
