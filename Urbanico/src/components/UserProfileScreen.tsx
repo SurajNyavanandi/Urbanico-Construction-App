@@ -130,6 +130,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
   // Address input state
   const [newAddressInput, setNewAddressInput] = useState('');
+  const [newPincodeInput, setNewPincodeInput] = useState('');
 
   // Edit profile form state
   const [editName, setEditName] = useState(user.name || '');
@@ -204,9 +205,16 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       showToast('Please enter a valid construction site address', 'error');
       return;
     }
-    addLocation(newAddressInput.trim());
+    const cleanAddr = newAddressInput.trim();
+    const cleanPin = newPincodeInput.replace(/[^0-9]/g, '').slice(0, 6);
+    const fullAddress = cleanPin
+      ? (cleanAddr.includes(cleanPin) ? cleanAddr : `${cleanAddr} - PIN ${cleanPin}`)
+      : cleanAddr;
+
+    addLocation(fullAddress);
     setNewAddressInput('');
-    showToast('Site address saved', 'success');
+    setNewPincodeInput('');
+    showToast('Site address and pincode saved', 'success');
   };
 
   const activeOrdersCount = deliveries.length;
@@ -626,12 +634,20 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               })}
 
               <View style={[styles.addAddressBox, { borderColor: theme.border }]}>
-                <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Add New Site Address</Text>
+                <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Add New Site Address & Pincode</Text>
                 <TextInput
                   value={newAddressInput}
                   onChangeText={setNewAddressInput}
                   style={[styles.modalInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border, marginBottom: 8 }]}
-                  placeholder="Enter complete site address / landmark"
+                  placeholder="Enter site name / street address / landmark"
+                  placeholderTextColor={theme.textMuted}
+                />
+                <TextInput
+                  value={newPincodeInput}
+                  onChangeText={(t) => setNewPincodeInput(t.replace(/[^0-9]/g, '').slice(0, 6))}
+                  keyboardType="numeric"
+                  style={[styles.modalInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border, marginBottom: 8 }]}
+                  placeholder="Site Pincode (e.g. 500081)"
                   placeholderTextColor={theme.textMuted}
                 />
                 <TouchableOpacity onPress={handleAddNewAddress} style={styles.addAddressBtn} activeOpacity={0.8}>

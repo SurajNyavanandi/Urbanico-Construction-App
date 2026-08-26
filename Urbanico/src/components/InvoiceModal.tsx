@@ -51,12 +51,10 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     ? '7214'
     : '2517';
 
-  // Calculate tax breakdown
+  // Calculate tax breakdown (Flat 18% GST)
   const totalAmount = delivery.totalAmount || 45000;
   const taxableAmount = Math.round(totalAmount / 1.18);
   const totalGst = totalAmount - taxableAmount;
-  const cgst = Math.round(totalGst / 2);
-  const sgst = totalGst - cgst;
 
   // Print PDF function
   const handlePrintPdf = () => {
@@ -167,12 +165,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             <span>₹${taxableAmount.toLocaleString('en-IN')}</span>
           </div>
           <div class="totals-row">
-            <span>CGST @ 9%:</span>
-            <span>₹${cgst.toLocaleString('en-IN')}</span>
-          </div>
-          <div class="totals-row">
-            <span>SGST @ 9%:</span>
-            <span>₹${sgst.toLocaleString('en-IN')}</span>
+            <span>Goods & Services Tax (GST @ 18%):</span>
+            <span>₹${totalGst.toLocaleString('en-IN')}</span>
           </div>
           <div class="totals-row">
             <span>Dispatch Freight & Tolls:</span>
@@ -390,12 +384,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               <Text style={[styles.totalVal, { color: theme.textPrimary }]}>₹{taxableAmount.toLocaleString('en-IN')}</Text>
             </View>
             <View style={styles.totalRow}>
-              <Text style={[styles.totalLabel, { color: theme.textSecondary }]}>Central GST (CGST 9%)</Text>
-              <Text style={[styles.totalVal, { color: theme.textPrimary }]}>₹{cgst.toLocaleString('en-IN')}</Text>
-            </View>
-            <View style={styles.totalRow}>
-              <Text style={[styles.totalLabel, { color: theme.textSecondary }]}>State GST (SGST 9%)</Text>
-              <Text style={[styles.totalVal, { color: theme.textPrimary }]}>₹{sgst.toLocaleString('en-IN')}</Text>
+              <Text style={[styles.totalLabel, { color: theme.textSecondary }]}>Goods & Services Tax (GST 18%)</Text>
+              <Text style={[styles.totalVal, { color: theme.textPrimary }]}>₹{totalGst.toLocaleString('en-IN')}</Text>
             </View>
             <View style={styles.totalRow}>
               <Text style={[styles.totalLabel, { color: theme.textSecondary }]}>Distance-Based Delivery Charge</Text>

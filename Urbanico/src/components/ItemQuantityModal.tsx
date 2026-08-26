@@ -444,22 +444,10 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
                   <View style={styles.serviceableBadgeRow}>
                     <Check size={13} color="#059669" strokeWidth={2.5} />
                     <Text style={styles.serviceableText}>
-                      Express 2-3 Hr Dispatch available from Miyapur Central Yard to PIN {pincodeInput}
+                      Express 2-3 Hr Dispatch available to PIN {pincodeInput}
                     </Text>
                   </View>
                 )}
-              </View>
-
-              {/* Standard Grade & Fulfillment Indicator */}
-              <View style={[styles.complianceCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                <View style={styles.complianceLeftCol}>
-                  <View style={styles.complianceTagRow}>
-                    <ShieldCheck size={14} color="#059669" />
-                    <Text style={styles.complianceTagText}>FACTORY & QUARRY DIRECT</Text>
-                  </View>
-                  <Text style={[styles.isCodeText, { color: theme.textPrimary }]}>{item.name}</Text>
-                  <Text style={[styles.labCertSub, { color: theme.textSecondary }]}>Standard Construction Grade • Verified Dispatch</Text>
-                </View>
               </View>
 
               {/* Unit / Option Selection Header */}
@@ -588,7 +576,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
               </View>
 
               {/* Bulk Tier Discount Savings Breakdown */}
-              {bulkDiscountPercent > 0 ? (
+              {bulkDiscountPercent > 0 && (
                 <View style={[styles.bulkDiscountCard, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
                   <View style={styles.bulkDiscountRow}>
                     <Text style={[styles.bulkDiscountTitle, { color: '#065F46' }]}>
@@ -600,12 +588,6 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
                   </View>
                   <Text style={[styles.bulkDiscountSub, { color: '#059669' }]}>
                     Base: ₹{grossTotal.toLocaleString('en-IN')} • Net: ₹{totalPrice.toLocaleString('en-IN')}
-                  </Text>
-                </View>
-              ) : (
-                <View style={[styles.bulkTierHintCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                  <Text style={[styles.bulkTierHintText, { color: theme.textSecondary }]}>
-                    💡 Tip: Order 10+ units for 5% off, or 25+ units for 10% volume discount.
                   </Text>
                 </View>
               )}

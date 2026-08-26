@@ -36,6 +36,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
 
   const [activeCoords, setActiveCoords] = useState<LocationCoords>(currentCoords);
   const [addressInput, setAddressInput] = useState<string>('');
+  const [pincodeInput, setPincodeInput] = useState<string>('');
   const [selectedSiteName, setSelectedSiteName] = useState<string>(selectedLocation);
   const [isLocating, setIsLocating] = useState<boolean>(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
@@ -43,38 +44,65 @@ export const LocationModal: React.FC<LocationModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Real browser/device Geolocation GPS detection
+  // Real browser/device Geolocation GPS detection with automatic Pincode extraction
   const handleUseCurrentLocation = () => {
     setShowMap(true);
     setIsLocating(true);
-    setStatusMessage('Fetching GPS location...');
+    setStatusMessage('Fetching GPS location & resolving pincode...');
 
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
+        async (pos) => {
           const coords = {
             lat: pos.coords.latitude,
             lng: pos.coords.longitude,
           };
           setActiveCoords(coords);
-          const gpsName = `Current GPS Site (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`;
-          setSelectedSiteName(gpsName);
-          setAddressInput(gpsName);
-          addLocation(gpsName, coords);
-          setIsLocating(false);
-          setStatusMessage('GPS location detected successfully!');
+
+          try {
+            const res = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.lat}&lon=${coords.lng}`
+            );
+            const data = await res.json();
+            const postcode = data?.address?.postcode || '';
+            const suburb = data?.address?.suburb || data?.address?.neighbourhood || data?.address?.residential || data?.address?.road || 'Site Location';
+            const city = data?.address?.city || data?.address?.state_district || 'Hyderabad';
+            
+            const gpsName = postcode
+              ? `${suburb}, ${city} - PIN ${postcode}`
+              : data?.display_name
+              ? data.display_name.split(',').slice(0, 3).join(', ')
+              : `Current GPS Site (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`;
+
+            if (postcode) {
+              setPincodeInput(postcode);
+            }
+            setSelectedSiteName(gpsName);
+            setAddressInput(gpsName);
+            addLocation(gpsName, coords);
+            setIsLocating(false);
+            setStatusMessage(`GPS location & PIN ${postcode || 'detected'} found!`);
+          } catch {
+            const gpsName = `Current GPS Site (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`;
+            setSelectedSiteName(gpsName);
+            setAddressInput(gpsName);
+            addLocation(gpsName, coords);
+            setIsLocating(false);
+            setStatusMessage('GPS coordinates detected!');
+          }
+
           setTimeout(() => setStatusMessage(null), 3000);
         },
         (err) => {
           console.warn('Geolocation error:', err);
-          // Fallback to Miyapur GPS default
-          const fallbackCoords = { lat: 17.4948, lng: 78.3578 };
-          const fallbackName = 'Miyapur Site, Phase 2, Hyderabad';
+          const fallbackCoords = { lat: 17.3924, lng: 78.4738 };
+          const fallbackName = 'Hyderabad Central, Abids - PIN 500001';
           setActiveCoords(fallbackCoords);
           setSelectedSiteName(fallbackName);
+          setPincodeInput('500001');
           addLocation(fallbackName, fallbackCoords);
           setIsLocating(false);
-          setStatusMessage('Using site GPS default coordinates (Hyderabad)');
+          setStatusMessage('Using Hyderabad Central location (PIN 500001)');
           setTimeout(() => setStatusMessage(null), 3000);
         },
         { enableHighAccuracy: true, timeout: 8000 }
@@ -95,11 +123,17 @@ export const LocationModal: React.FC<LocationModalProps> = ({
 
   const handleSearchOrAddAddress = () => {
     if (!addressInput.trim()) return;
-    const name = addressInput.trim();
-    setSelectedSiteName(name);
-    addLocation(name, activeCoords);
+    const cleanAddr = addressInput.trim();
+    const cleanPin = pincodeInput.replace(/[^0-9]/g, '').slice(0, 6);
+    const fullName = cleanPin
+      ? (cleanAddr.includes(cleanPin) ? cleanAddr : `${cleanAddr} - PIN ${cleanPin}`)
+      : cleanAddr;
+
+    setSelectedSiteName(fullName);
+    addLocation(fullName, activeCoords);
     setAddressInput('');
-    setStatusMessage(`Saved "${name}" to delivery sites!`);
+    setPincodeInput('');
+    setStatusMessage(`Saved "${fullName}" to delivery sites!`);
     setTimeout(() => setStatusMessage(null), 2500);
   };
 
@@ -140,14 +174,14 @@ export const LocationModal: React.FC<LocationModalProps> = ({
             </View>
           )}
 
-          {/* Search / Add Custom Address Input */}
+          {/* Search / Add Custom Address & Pincode Input */}
           <View style={styles.searchBoxWrapper}>
-            <View style={[styles.searchBar, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+            <View style={[styles.searchBar, { flex: 1, backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
               <Search size={18} color={theme.textMuted} />
               <TextInput
                 value={addressInput}
                 onChangeText={setAddressInput}
-                placeholder="Search location or enter site address..."
+                placeholder="Site address / area..."
                 placeholderTextColor={theme.textMuted}
                 style={[styles.searchInput, { color: theme.textPrimary }]}
                 onSubmitEditing={handleSearchOrAddAddress}
@@ -157,6 +191,17 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                   <X size={16} color={theme.textMuted} />
                 </TouchableOpacity>
               )}
+            </View>
+            <View style={[styles.searchBar, { width: 90, backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+              <TextInput
+                value={pincodeInput}
+                onChangeText={(t) => setPincodeInput(t.replace(/[^0-9]/g, '').slice(0, 6))}
+                placeholder="Pincode"
+                placeholderTextColor={theme.textMuted}
+                keyboardType="numeric"
+                style={[styles.searchInput, { color: theme.textPrimary, textAlign: 'center', fontWeight: '700' }]}
+                onSubmitEditing={handleSearchOrAddAddress}
+              />
             </View>
             <TouchableOpacity
               onPress={handleSearchOrAddAddress}

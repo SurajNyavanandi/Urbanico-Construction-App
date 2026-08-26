@@ -40,23 +40,19 @@ export function formatInr(amount: number): string {
 }
 
 /**
- * Computes GST bifurcation (9% CGST + 9% SGST for intrastate supply in Telangana code 36)
+ * Computes GST calculation (Flat 18% GST for construction goods & supply)
  */
 export function computeGstBreakdown(taxableAmount: number) {
   const safeTaxable = isNaN(taxableAmount) ? 0 : Math.max(0, taxableAmount);
-  const cgst = Math.round(safeTaxable * 0.09);
-  const sgst = Math.round(safeTaxable * 0.09);
-  const totalGst = cgst + sgst;
+  const gst = Math.round(safeTaxable * 0.18);
+  const totalGst = gst;
   const grandTotal = safeTaxable + totalGst;
 
   return {
     taxableAmount: safeTaxable,
-    cgst,
-    sgst,
+    gst,
     totalGst,
     grandTotal,
-    cgstRate: '9%',
-    sgstRate: '9%',
-    igstRate: '18%',
+    gstRate: '18%',
   };
 }

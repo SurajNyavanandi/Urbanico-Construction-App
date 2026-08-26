@@ -145,7 +145,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     phone: '9876543210',
   });
 
-  // Dynamic Freight & Axle-Load (Items 7, 15)
+  // Dynamic Freight from Hyderabad Central Hub at ₹5/km
   const totalWeightTons = estimateTotalWeightTons(cartItems);
   const freightInfo = calculateDynamicFreight('500081', totalWeightTons);
 
@@ -157,17 +157,12 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
 
   const totalUnitQuantity = cartItems.reduce((acc, item) => acc + item.quantity, 0);
   const subtotal = cartItems.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
-  const cgst = Math.round(subtotal * 0.09);
-  const sgst = Math.round(subtotal * 0.09);
-  const gstTax = cgst + sgst; // Flat 18% overall GST
-  const deliveryDistanceKm = freightInfo.distanceKm || 12;
-  const deliveryRatePerKm = freightInfo.ratePerKm || 25;
+  const gstTax = Math.round(subtotal * 0.18); // Flat 18% GST
+  const deliveryDistanceKm = freightInfo.distanceKm || 10;
+  const deliveryRatePerKm = 5; // Flat ₹5/km
   const deliveryCharge = freightInfo.deliveryCharge || Math.round(deliveryDistanceKm * deliveryRatePerKm);
   const taxableTotal = subtotal + gstTax + deliveryCharge - couponDiscount;
   const grandTotal = Math.max(0, taxableTotal);
-
-  const advancePaymentAmount = paymentMode === '50_split' ? Math.round(grandTotal * 0.5) : grandTotal;
-  const balanceUponWeighment = grandTotal - advancePaymentAmount;
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -261,11 +256,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       return;
     }
 
-    if (subtotal < 1000) {
-      showToast('Minimum Order Value is ₹1,000 for quarry dispatch', 'error');
-      return;
-    }
-
     setShowCouponModal(false);
     setShowSupervisorModal(false);
     setShowDispatcherChat(false);
@@ -291,13 +281,13 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       orderNumber: generatedOrderNum,
       materialName:
         cartItems.map((c) => `${c.itemName} (${c.selectedOptionLabel})`).join(', ') ||
-        'Direct Yard Supply Order',
-      quantity: `${cartItems.reduce((acc, c) => acc + c.quantity, 0)} Items (${totalWeightTons} MT)`,
+        'Direct Supply Order',
+      quantity: `${cartItems.reduce((acc, c) => acc + c.quantity, 0)} Items`,
       driverName: 'Ramesh Goud',
       driverPhone: '+91 98480 22341',
       vehicleType: freightInfo.vehicle.name,
       vehicleNumber: 'TS 08 UB ' + Math.floor(1000 + Math.random() * 9000),
-      estimatedArrival: '38 mins (4.2 km away)',
+      estimatedArrival: '35 mins',
       status: 'En Route',
       siteAddress: activeLocation,
       siteSupervisorName: activeSupervisor.name,
@@ -306,12 +296,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       totalAmount: grandTotal,
       deliveryOtp: String(Math.floor(1000 + Math.random() * 9000)),
       ewayBillNumber: `EWB-TS-2026-${Math.floor(10000000 + Math.random() * 90000000)}`,
-      weighmentSlipId: `WB-MYP-${Math.floor(1000 + Math.random() * 9000)}`,
-      splitPayment: {
-        advancePaid: advancePaymentAmount,
-        balanceDue: balanceUponWeighment,
-        paymentMode,
-      },
+      weighmentSlipId: `WB-HYD-${Math.floor(1000 + Math.random() * 9000)}`,
     };
 
     // Send real order data to the backend API
@@ -322,11 +307,11 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       customerEmail: 'kanusuraj15@gmail.com',
       gstin: '36AABCU12341ZV',
       siteAddress: {
-        siteName: 'Miyapur Site (Tower B)',
+        siteName: 'Site Delivery Location',
         street: activeLocation,
         city: 'Hyderabad',
         state: 'Telangana',
-        pincode: '500049',
+        pincode: '500001',
       },
       items: cartItems.map((item) => ({
         name: item.itemName,
@@ -340,7 +325,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       subtotal,
       taxAmount: gstTax,
       deliveryCharges: deliveryCharge,
-      unloadingCharges: 800,
+      unloadingCharges: 0,
       totalAmount: grandTotal,
       paymentMethod: result.method || 'Razorpay Gateway',
       paymentStatus: 'paid',
@@ -457,19 +442,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
               </TouchableOpacity>
             </View>
 
-            {/* Stock Reservation Banner (Item 3) */}
-            {cartItems.length > 0 && (
-              <View style={styles.stockReservationBanner}>
-                <View style={styles.reservationLeft}>
-                  <Clock size={14} color="#0284C7" />
-                  <Text style={styles.reservationTitle}>Quarry Stock Reserved</Text>
-                </View>
-                <View style={styles.timerBadge}>
-                  <Text style={styles.timerBadgeText}>{formatTimer(reservationSeconds)}</Text>
-                </View>
-              </View>
-            )}
-
             {cartItems.length === 0 && savedForLaterItems.length === 0 ? (
               <View style={[styles.nikeEmptyBagContainer, { backgroundColor: theme.surface }]}>
                 <View style={[styles.nikeEmptyBagIconCircle, { backgroundColor: theme.surfaceSecondary }]}>
@@ -556,51 +528,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                   </View>
                 )}
 
-                {/* Axle-Load & Tipper Vehicle Meter (Item 15) */}
-                {cartItems.length > 0 && (
-                  <View style={[styles.axleCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                    <View style={styles.axleCardHeader}>
-                      <View style={styles.axleHeaderLeft}>
-                        <Scale size={16} color="#0284C7" />
-                        <Text style={[styles.axleTitle, { color: theme.textPrimary }]}>Total Load & Axle Capacity</Text>
-                      </View>
-                      <Text style={[styles.axleWeight, { color: theme.textPrimary }]}>{totalWeightTons} Metric Tons</Text>
-                    </View>
-
-                    {/* Progress Gauge */}
-                    <View style={styles.gaugeTrack}>
-                      <View
-                        style={[
-                          styles.gaugeFill,
-                          {
-                            width: `${Math.min(100, (totalWeightTons / freightInfo.vehicle.maxTons) * 100)}%`,
-                            backgroundColor: totalWeightTons > freightInfo.vehicle.maxTons ? '#DC2626' : '#16A34A',
-                          },
-                        ]}
-                      />
-                    </View>
-
-                    <View style={styles.axleMetaRow}>
-                      <Text style={[styles.axleMetaText, { color: theme.textSecondary }]}>
-                        Recommended: <Text style={{ fontWeight: '700', color: theme.textPrimary }}>{freightInfo.vehicle.name}</Text>
-                      </Text>
-                      <Text style={[styles.axleMetaText, { color: theme.textSecondary }]}>
-                        Max Safe Limit: {freightInfo.vehicle.maxTons} MT
-                      </Text>
-                    </View>
-
-                    {freightInfo.nightRestricted && (
-                      <View style={styles.restrictionNotice}>
-                        <AlertTriangle size={12} color="#D97706" />
-                        <Text style={styles.restrictionText}>
-                          GHMC Heavy Vehicle Entry Restriction applies ({freightInfo.nightHours || '10 PM – 7 AM'}). Night transit pass included.
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                )}
-
-                {/* Contractor Promo Code Card (Item 16) */}
+                {/* Contractor Promo Code Card */}
                 {cartItems.length > 0 && (
                   <View style={[styles.couponCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     {appliedCoupon ? (
@@ -636,79 +564,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                   </View>
                 )}
 
-                {/* Split Payment Selector (Item 12) */}
-                {cartItems.length > 0 && (
-                  <View style={[styles.splitCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                    <Text style={[styles.splitTitle, { color: theme.textPrimary }]}>Payment Schedule</Text>
-                    <View style={styles.splitOptionsRow}>
-                      <TouchableOpacity
-                        onPress={() => setPaymentMode('100_percent')}
-                        style={[
-                          styles.splitOption,
-                          paymentMode === '100_percent'
-                            ? { backgroundColor: '#111111', borderColor: '#111111' }
-                            : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
-                        ]}
-                        activeOpacity={0.75}
-                      >
-                        <Text
-                          style={[
-                            styles.splitOptionText,
-                            { color: paymentMode === '100_percent' ? '#FFFFFF' : theme.textPrimary },
-                          ]}
-                        >
-                          100% Full Payment
-                        </Text>
-                        <Text
-                          style={[
-                            styles.splitOptionSub,
-                            { color: paymentMode === '100_percent' ? 'rgba(255,255,255,0.7)' : theme.textSecondary },
-                          ]}
-                        >
-                          ₹{grandTotal.toLocaleString('en-IN')}
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        onPress={() => setPaymentMode('50_split')}
-                        style={[
-                          styles.splitOption,
-                          paymentMode === '50_split'
-                            ? { backgroundColor: '#111111', borderColor: '#111111' }
-                            : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
-                        ]}
-                        activeOpacity={0.75}
-                      >
-                        <Text
-                          style={[
-                            styles.splitOptionText,
-                            { color: paymentMode === '50_split' ? '#FFFFFF' : theme.textPrimary },
-                          ]}
-                        >
-                          50% Split Advance
-                        </Text>
-                        <Text
-                          style={[
-                            styles.splitOptionSub,
-                            { color: paymentMode === '50_split' ? 'rgba(255,255,255,0.7)' : theme.textSecondary },
-                          ]}
-                        >
-                          ₹{advancePaymentAmount.toLocaleString('en-IN')} now
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-
-                    {paymentMode === '50_split' && (
-                      <View style={styles.splitNotice}>
-                        <ShieldCheck size={13} color="#059669" />
-                        <Text style={styles.splitNoticeText}>
-                          Pay ₹{advancePaymentAmount.toLocaleString('en-IN')} advance token now. Balance ₹{balanceUponWeighment.toLocaleString('en-IN')} payable via UPI/Cash upon physical weighbridge slip verification at site.
-                        </Text>
-                      </View>
-                    )}
-                  </View>
-                )}
-
                 {/* Price Summary Breakdown */}
                 {cartItems.length > 0 && (
                   <View style={[styles.summaryCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -720,20 +575,16 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                       <Text style={[styles.summaryValue, { color: theme.textPrimary }]}>₹{subtotal.toLocaleString('en-IN')}</Text>
                     </View>
                     <View style={styles.summaryRow}>
-                      <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Central GST (CGST 9%)</Text>
-                      <Text style={[styles.summaryValue, { color: theme.textPrimary }]}>₹{cgst.toLocaleString('en-IN')}</Text>
-                    </View>
-                    <View style={styles.summaryRow}>
-                      <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>State GST (SGST 9%)</Text>
-                      <Text style={[styles.summaryValue, { color: theme.textPrimary }]}>₹{sgst.toLocaleString('en-IN')}</Text>
+                      <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>GST (18%)</Text>
+                      <Text style={[styles.summaryValue, { color: theme.textPrimary }]}>₹{gstTax.toLocaleString('en-IN')}</Text>
                     </View>
                     <View style={styles.summaryRow}>
                       <View>
                         <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>
-                          Platform Delivery Fee ({deliveryDistanceKm} km @ ₹{deliveryRatePerKm}/km)
+                          Platform Delivery Fee ({deliveryDistanceKm} km @ ₹5/km)
                         </Text>
                         <Text style={{ fontSize: 10, color: theme.textMuted }}>
-                          Distance-based logistics • Sole platform revenue
+                          Calculated from Hyderabad Central Hub (Abids)
                         </Text>
                       </View>
                       <Text style={[styles.summaryValue, { color: theme.textPrimary, fontWeight: '700' }]}>
@@ -753,8 +604,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                     <View style={[styles.summaryRow, styles.grandTotalRow, { borderTopColor: theme.borderLight }]}>
                       <Text style={[styles.grandTotalLabel, { color: theme.textPrimary }]}>Total Payable</Text>
                       <Text style={[styles.grandTotalValue, { color: theme.textPrimary }]}>
-                        ₹{advancePaymentAmount.toLocaleString('en-IN')}
-                        {paymentMode === '50_split' && <Text style={{ fontSize: 11, color: '#64748B' }}> (Advance)</Text>}
+                        ₹{grandTotal.toLocaleString('en-IN')}
                       </Text>
                     </View>
                   </View>
@@ -769,7 +619,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                     style={[styles.nikeCheckoutPill, { backgroundColor: theme.primary }]}
                   >
                     <Text style={styles.nikeCheckoutPillText}>
-                      {isPlacingOrder ? 'Validating Stocks...' : `Pay ₹${advancePaymentAmount.toLocaleString('en-IN')} & Book Dispatch`}
+                      {isPlacingOrder ? 'Processing...' : `Pay ₹${grandTotal.toLocaleString('en-IN')} & Book Dispatch`}
                     </Text>
                     <ArrowRight size={16} color="#FFFFFF" strokeWidth={2.2} />
                   </TouchableOpacity>
@@ -1080,7 +930,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
         <RazorpayModal
           visible={showRazorpayModal}
           onClose={() => setShowRazorpayModal(false)}
-          amount={advancePaymentAmount}
+          amount={grandTotal}
           orderDescription={`Booking (${cartItems.length} items) - Urbanico Supply`}
           onPaymentSuccess={handlePaymentSuccess}
           onPaymentFailure={(err) => setPaymentError(err)}
