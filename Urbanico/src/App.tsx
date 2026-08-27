@@ -8,7 +8,7 @@ import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
-import { HomeScreen } from './components/HomeScreen';
+import { HomeScreen, ProjectBundle } from './components/HomeScreen';
 import { CategoryDetailScreen } from './components/CategoryDetailScreen';
 import { ItemQuantityModal } from './components/ItemQuantityModal';
 import { UserProfileScreen } from './components/UserProfileScreen';
@@ -120,21 +120,23 @@ function MainAppContent() {
         const saved = window.localStorage.getItem('urbanico_auth_session');
         if (saved) {
           const parsed = JSON.parse(saved);
-          const phone = parsed.phone || '9666635009';
-          const savedProfile = window.localStorage.getItem(`urbanico_user_profile_${phone}`);
-          if (savedProfile) {
+          const phone = parsed.phone || '';
+          if (phone) {
+            const savedProfile = window.localStorage.getItem(`urbanico_user_profile_${phone}`);
+            if (savedProfile) {
+              return {
+                ...INITIAL_USER,
+                ...JSON.parse(savedProfile),
+                phone,
+                isVerified: true,
+              };
+            }
             return {
               ...INITIAL_USER,
-              ...JSON.parse(savedProfile),
               phone,
               isVerified: true,
             };
           }
-          return {
-            ...INITIAL_USER,
-            phone,
-            isVerified: true,
-          };
         }
       }
     } catch {
@@ -215,15 +217,19 @@ function MainAppContent() {
   const [deliveries, setDeliveries] = useState<ActivityDelivery[]>(() => {
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
-        const saved = window.localStorage.getItem('urbanico_orders');
-        if (saved) {
-          return JSON.parse(saved);
+        const authSaved = window.localStorage.getItem('urbanico_auth_session');
+        const isAuth = authSaved ? JSON.parse(authSaved).isLoggedIn : false;
+        if (isAuth) {
+          const saved = window.localStorage.getItem('urbanico_orders');
+          if (saved) {
+            return JSON.parse(saved);
+          }
         }
       }
     } catch {
       // ignore
     }
-    return INITIAL_DELIVERIES;
+    return [];
   });
 
   const handleOrderCreated = (newOrder: ActivityDelivery) => {
@@ -321,47 +327,47 @@ function MainAppContent() {
 
   // Sync with backend on mount and auth changes
   useEffect(() => {
-    // 1. Fetch live orders from backend API
-    apiService
-      .getOrders({ phone: user.phone })
-      .then((backendOrders) => {
-        if (backendOrders && backendOrders.length > 0) {
-          setDeliveries((prev) => {
-            const backendMapped: ActivityDelivery[] = backendOrders.map((bo: any) => ({
-              id: bo._id || `del-${bo.orderNumber}`,
-              orderNumber: bo.orderNumber,
-              materialName:
-                bo.items?.map((i: any) => `${i.name} (${i.unit || 'unit'})`).join(', ') ||
-                'Direct Yard Supply Order',
-              quantity: `${bo.items?.reduce((s: number, i: any) => s + (i.quantity || 1), 0) || 1} Items`,
-              driverName: bo.driverName || 'Ramesh Goud',
-              driverPhone: bo.driverPhone || '+91 98480 22341',
-              vehicleType: '10-Tyre Tipper (16T)',
-              vehicleNumber: bo.vehicleNumber || 'TS 08 UB 8821',
-              estimatedArrival: '35 mins away',
-              status: bo.orderStatus === 'delivered' ? 'Delivered' : 'En Route',
-              siteAddress: bo.siteAddress?.street || bo.siteAddress?.siteName || 'Construction Site',
-              siteSupervisorName: bo.customerName || 'Site Supervisor',
-              siteSupervisorPhone: bo.customerPhone || '+91 96666 35009',
-              timestamp: new Date(bo.createdAt || Date.now()).toLocaleDateString('en-IN', {
-                month: 'short',
-                day: 'numeric',
-              }),
-              totalAmount: bo.totalAmount || 0,
-              deliveryOtp: bo.deliveryOtp || '8842',
-              ewayBillNumber: bo.eWayBillNo || `EWB-TS-2026-${Math.floor(10000000 + Math.random() * 90000000)}`,
-              weighmentSlipId: `WB-MYP-${Math.floor(1000 + Math.random() * 9000)}`,
-            }));
-            const existingNums = new Set(prev.map((d) => d.orderNumber));
-            const newOnes = backendMapped.filter((d) => !existingNums.has(d.orderNumber));
-            return [...newOnes, ...prev];
-          });
-        }
-      })
-      .catch(() => {});
-
-    // 2. Fetch user profile from backend API
+    // 1. Fetch live orders from backend API only if user is logged in
     if (isLoggedIn && user.phone) {
+      apiService
+        .getOrders({ phone: user.phone })
+        .then((backendOrders) => {
+          if (backendOrders && backendOrders.length > 0) {
+            setDeliveries((prev) => {
+              const backendMapped: ActivityDelivery[] = backendOrders.map((bo: any) => ({
+                id: bo._id || `del-${bo.orderNumber}`,
+                orderNumber: bo.orderNumber,
+                materialName:
+                  bo.items?.map((i: any) => `${i.name} (${i.unit || 'unit'})`).join(', ') ||
+                  'Direct Yard Supply Order',
+                quantity: `${bo.items?.reduce((s: number, i: any) => s + (i.quantity || 1), 0) || 1} Items`,
+                driverName: bo.driverName || 'Ramesh Goud',
+                driverPhone: bo.driverPhone || '+91 98480 22341',
+                vehicleType: '10-Tyre Tipper (16T)',
+                vehicleNumber: bo.vehicleNumber || 'TS 08 UB 8821',
+                estimatedArrival: '35 mins away',
+                status: bo.orderStatus === 'delivered' ? 'Delivered' : 'En Route',
+                siteAddress: bo.siteAddress?.street || bo.siteAddress?.siteName || 'Construction Site',
+                siteSupervisorName: bo.customerName || 'Site Supervisor',
+                siteSupervisorPhone: bo.customerPhone || user.phone,
+                timestamp: new Date(bo.createdAt || Date.now()).toLocaleDateString('en-IN', {
+                  month: 'short',
+                  day: 'numeric',
+                }),
+                totalAmount: bo.totalAmount || 0,
+                deliveryOtp: bo.deliveryOtp || '8842',
+                ewayBillNumber: bo.eWayBillNo || `EWB-TS-2026-${Math.floor(10000000 + Math.random() * 90000000)}`,
+                weighmentSlipId: `WB-MYP-${Math.floor(1000 + Math.random() * 9000)}`,
+              }));
+              const existingNums = new Set(prev.map((d) => d.orderNumber));
+              const newOnes = backendMapped.filter((d) => !existingNums.has(d.orderNumber));
+              return [...newOnes, ...prev];
+            });
+          }
+        })
+        .catch(() => {});
+
+      // 2. Fetch user profile from backend API
       apiService
         .getUserProfile(user.phone)
         .then((serverUser) => {
@@ -525,6 +531,40 @@ function MainAppContent() {
     setCurrentScreen('basket');
   };
 
+  const handleAddBundleToCartAndNavigate = (bundle: ProjectBundle) => {
+    const itemsToAdd: CartItem[] = bundle.bundleItems.map((bi) => ({
+      id: generateCartItemId(),
+      itemId: bi.itemId,
+      itemName: bi.itemName,
+      categoryName: bi.categoryName,
+      selectedOptionLabel: bi.optionLabel,
+      unitPrice: bi.unitPrice,
+      quantity: bi.quantity,
+      image: bi.image,
+    }));
+
+    setCartItems((prev) => {
+      const updated = [...prev];
+      itemsToAdd.forEach((newItem) => {
+        const existingIdx = updated.findIndex(
+          (ci) => ci.itemId === newItem.itemId && ci.selectedOptionLabel === newItem.selectedOptionLabel
+        );
+        if (existingIdx >= 0) {
+          updated[existingIdx] = {
+            ...updated[existingIdx],
+            quantity: updated[existingIdx].quantity + newItem.quantity,
+          };
+        } else {
+          updated.unshift(newItem);
+        }
+      });
+      return updated;
+    });
+
+    showToast(`Added ${bundle.bundleItems.length} items from ${bundle.title} to Bag!`, 'success');
+    setCurrentScreen('basket');
+  };
+
   const handleUpdateCartQty = (cartId: string, newQty: number) => {
     if (newQty <= 0) {
       handleRemoveCartItem(cartId);
@@ -630,13 +670,15 @@ function MainAppContent() {
 
   const handleLogout = () => {
     setIsLoggedIn(false);
-    setUser((prev) => ({ ...prev, isVerified: false }));
+    setUser(INITIAL_USER);
+    setDeliveries([]);
     setCartItems([]);
     setFavoriteIds([]);
     resetLocationsToDefault();
     try {
       if (typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.removeItem('urbanico_auth_session');
+        window.localStorage.removeItem('urbanico_orders');
         window.localStorage.removeItem('urbanico_cart_guest');
         window.localStorage.removeItem('urbanico_favorite_ids_guest');
       }
@@ -672,24 +714,6 @@ function MainAppContent() {
   return (
     <SafeAreaView style={[styles.appContainer, { backgroundColor: '#FFFFFF' }]} edges={['top']}>
       <ExpoStatusBar style="dark" />
-      {/* Top Header (Visible exclusively on Home screen) */}
-      {currentScreen === 'home' && (
-        <Header
-          currentScreen={currentScreen}
-          title={getScreenTitle()}
-          selectedLocation={selectedLocation}
-          onOpenLocationModal={handleOpenLocationModal}
-          onBack={undefined}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          recentSearches={recentSearches}
-          onSelectSearchQuery={handleSelectSearchQuery}
-          onClearRecentSearches={handleClearRecentSearches}
-          onRemoveRecentSearch={handleRemoveRecentSearch}
-          onSelectItemModal={handleOpenItemModal}
-          onNavigateScreen={setCurrentScreen}
-        />
-      )}
 
       {/* Main View Router */}
       <View style={[styles.mainContent, { backgroundColor: '#FFFFFF' }]}>
@@ -704,6 +728,23 @@ function MainAppContent() {
 
         {currentScreen === 'home' && (
           <HomeScreen
+            headerComponent={
+              <Header
+                currentScreen={currentScreen}
+                title={getScreenTitle()}
+                selectedLocation={selectedLocation}
+                onOpenLocationModal={handleOpenLocationModal}
+                onBack={undefined}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                recentSearches={recentSearches}
+                onSelectSearchQuery={handleSelectSearchQuery}
+                onClearRecentSearches={handleClearRecentSearches}
+                onRemoveRecentSearch={handleRemoveRecentSearch}
+                onSelectItemModal={handleOpenItemModal}
+                onNavigateScreen={setCurrentScreen}
+              />
+            }
             onSelectCategory={handleSelectCategory}
             onNavigateAllMaterials={() => {
               setSelectedCategoryId('all');
@@ -717,6 +758,7 @@ function MainAppContent() {
             searchQuery={searchQuery}
             favoriteIds={favoriteIds}
             onToggleFavorite={handleToggleFavorite}
+            onAddBundleToCartAndNavigate={handleAddBundleToCartAndNavigate}
           />
         )}
 

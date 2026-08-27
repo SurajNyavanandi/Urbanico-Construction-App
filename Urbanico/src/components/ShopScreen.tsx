@@ -23,6 +23,7 @@ import {
 import { MaterialItem, CategoryId } from '../types';
 import { MATERIAL_ITEMS, CATEGORIES, SERVICES } from '../data/materialsData';
 import { ShimmerImage } from './common/ShimmerImage';
+import { TopNavTab } from './common/TopNavTab';
 import { useToast } from '../context/ToastContext';
 
 interface ShopScreenProps {
@@ -32,6 +33,18 @@ interface ShopScreenProps {
   onToggleFavorite?: (id: string) => void;
 }
 
+const SHOP_TABS: Array<{ id: string; label: string }> = [
+  { id: 'all', label: 'All Items' },
+  { id: 'cement', label: 'Cement' },
+  { id: 'bricks', label: 'Bricks & Blocks' },
+  { id: 'sand', label: 'Sand' },
+  { id: 'stone', label: 'Stone Aggregates' },
+  { id: 'iron_bars', label: 'TMT Steel' },
+  { id: 'centring', label: 'Centring Sheets' },
+  { id: 'tiles', label: 'Vitrified Tiles' },
+  { id: 'services', label: 'Trade Services' },
+];
+
 export const ShopScreen: React.FC<ShopScreenProps> = ({
   onSelectItem,
   onSelectCategoryTab,
@@ -39,7 +52,7 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({
   onToggleFavorite,
 }) => {
   const { showToast } = useToast();
-  const [activeSegment, setActiveSegment] = useState<'all' | 'materials' | 'services'>('all');
+  const [activeTab, setActiveTab] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -60,13 +73,11 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({
 
     if (!matchesSearch) return false;
 
-    if (activeSegment === 'materials') {
-      return item.categoryId !== 'services-catalog' && item.categoryId !== 'services';
-    }
-    if (activeSegment === 'services') {
+    if (activeTab === 'all') return true;
+    if (activeTab === 'services') {
       return item.categoryId === 'services-catalog' || item.categoryId === 'services';
     }
-    return true;
+    return item.categoryId === activeTab;
   });
 
   return (
@@ -90,6 +101,24 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({
         </View>
       </View>
 
+      {/* Scrollable Top Navigation Bar (matching Materials section header style) */}
+      <View style={styles.topNavContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.topNavScroll}
+        >
+          {SHOP_TABS.map((tab) => (
+            <TopNavTab
+              key={tab.id}
+              label={tab.label}
+              isActive={activeTab === tab.id}
+              onPress={() => setActiveTab(tab.id)}
+            />
+          ))}
+        </ScrollView>
+      </View>
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -102,60 +131,6 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({
           />
         }
       >
-        {/* Segment Filter Pills */}
-        <View style={styles.segmentRow}>
-          <TouchableOpacity
-            onPress={() => setActiveSegment('all')}
-            style={[
-              styles.segmentPill,
-              activeSegment === 'all' && styles.segmentPillActive,
-            ]}
-          >
-            <Text
-              style={[
-                styles.segmentPillText,
-                activeSegment === 'all' && styles.segmentPillTextActive,
-              ]}
-            >
-              All Items ({MATERIAL_ITEMS.length})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => setActiveSegment('materials')}
-            style={[
-              styles.segmentPill,
-              activeSegment === 'materials' && styles.segmentPillActive,
-            ]}
-          >
-            <Text
-              style={[
-                styles.segmentPillText,
-                activeSegment === 'materials' && styles.segmentPillTextActive,
-              ]}
-            >
-              Building Materials
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => setActiveSegment('services')}
-            style={[
-              styles.segmentPill,
-              activeSegment === 'services' && styles.segmentPillActive,
-            ]}
-          >
-            <Text
-              style={[
-                styles.segmentPillText,
-                activeSegment === 'services' && styles.segmentPillTextActive,
-              ]}
-            >
-              Trade Services
-            </Text>
-          </TouchableOpacity>
-        </View>
-
         {/* Categories Horizontal Carousel */}
         <View style={styles.categoriesSection}>
           <Text style={styles.sectionHeading}>Shop By Category</Text>
@@ -167,7 +142,10 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({
             {CATEGORIES.map((cat) => (
               <TouchableOpacity
                 key={cat.id}
-                onPress={() => onSelectCategoryTab(cat.id)}
+                onPress={() => {
+                  setActiveTab(cat.id);
+                  onSelectCategoryTab(cat.id);
+                }}
                 style={styles.categoryCard}
                 activeOpacity={0.8}
               >
@@ -193,11 +171,7 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({
         <View style={styles.productGridSection}>
           <View style={styles.gridHeader}>
             <Text style={styles.sectionHeading}>
-              {activeSegment === 'materials'
-                ? 'Building Materials'
-                : activeSegment === 'services'
-                ? 'Verified Trade Services'
-                : 'All Products & Services'}
+              {SHOP_TABS.find((t) => t.id === activeTab)?.label || 'Products'}
             </Text>
             <Text style={styles.itemCountText}>
               {filteredItems.length} {filteredItems.length === 1 ? 'item' : 'items'}
@@ -314,28 +288,15 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 96,
   },
-  segmentRow: {
-    flexDirection: 'row',
+  topNavContainer: {
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
+  },
+  topNavScroll: {
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    gap: 8,
-  },
-  segmentPill: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#F5F5F5',
-  },
-  segmentPillActive: {
-    backgroundColor: '#111111',
-  },
-  segmentPillText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#707072',
-  },
-  segmentPillTextActive: {
-    color: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   categoriesSection: {
     paddingTop: 8,

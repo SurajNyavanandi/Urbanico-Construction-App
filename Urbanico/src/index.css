@@ -25,3 +25,136 @@
     -moz-osx-font-smoothing: grayscale;
   }
 }
+
+/* ========================================================================= */
+/* URBANICO MOTION & INTERACTION KEYFRAMES (TOP 15 ANIMATION SUITE)           */
+/* ========================================================================= */
+
+@keyframes pulseGlowRing {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+@keyframes radarWave {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+@keyframes heartPop {
+  0% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.28);
+  }
+  60% {
+    transform: scale(0.92);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes pinDropBounce {
+  0% {
+    transform: translateY(-16px);
+    opacity: 0;
+  }
+  60% {
+    transform: translateY(3px);
+    opacity: 1;
+  }
+  85% {
+    transform: translateY(-2px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmerSlide {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes numberSlideUp {
+  0% {
+    transform: translateY(6px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes flyToCartBadge {
+  0% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.15) translateY(-4px);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlowRing 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-radar-wave {
+  animation: radarWave 2.2s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+}
+
+.animate-heart-pop {
+  animation: heartPop 0.38s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.animate-pin-bounce {
+  animation: pinDropBounce 0.48s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.animate-number-flip {
+  animation: numberSlideUp 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.animate-fly-cart {
+  animation: flyToCartBadge 0.3s ease-out;
+}
+
+.shimmer-gradient {
+  background: linear-gradient(
+    90deg,
+    rgba(226, 232, 240, 0.4) 0%,
+    rgba(255, 255, 255, 0.8) 50%,
+    rgba(226, 232, 240, 0.4) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmerSlide 1.5s infinite;
+}
+

@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useRef, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Search, Heart, ShoppingCart, User } from 'lucide-react-native';
 import { ScreenType } from '../types';
@@ -33,8 +33,56 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   const navBgColor = theme.surface;
   const navBorderColor = theme.borderLight;
 
+  // Animation for Cart Badge Pop
+  const cartScaleAnim = useRef(new Animated.Value(1)).current;
+  const prevCartCountRef = useRef(cartCount);
+
+  useEffect(() => {
+    if (cartCount > prevCartCountRef.current) {
+      Animated.sequence([
+        Animated.spring(cartScaleAnim, {
+          toValue: 1.35,
+          friction: 4,
+          tension: 120,
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+        Animated.spring(cartScaleAnim, {
+          toValue: 1,
+          friction: 6,
+          tension: 80,
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+      ]).start();
+    }
+    prevCartCountRef.current = cartCount;
+  }, [cartCount, cartScaleAnim]);
+
+  // Tab index calculation for smooth horizontal sliding pill indicator (Animation 9)
+  const getActiveTabIndex = () => {
+    if (isHomeActive) return 0;
+    if (isShopActive) return 1;
+    if (isFavoritesActive) return 2;
+    if (isCartActive) return 3;
+    if (isProfileActive) return 4;
+    return 0;
+  };
+
+  const activeIndex = getActiveTabIndex();
+  const indicatorAnim = useRef(new Animated.Value(activeIndex)).current;
+
+  useEffect(() => {
+    Animated.spring(indicatorAnim, {
+      toValue: activeIndex,
+      friction: 8,
+      tension: 60,
+      useNativeDriver: false,
+    }).start();
+  }, [activeIndex, indicatorAnim]);
+
   // Dynamic bottom padding taking device safe area into account
   const bottomPadding = Math.max(8, (insets.bottom || 0) + 4);
+
+  const AnimatedView = Animated.View as any;
 
   return (
     <View
@@ -51,16 +99,18 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         {/* 1. Home Tab */}
         <TouchableOpacity
           onPress={() => onSelectTab('home')}
-          activeOpacity={0.7}
+          activeOpacity={0.65}
           style={styles.tabButton}
           accessibilityRole="button"
           accessibilityLabel="Home Tab"
         >
-          <Home
-            size={22}
-            color={isHomeActive ? activeColor : inactiveColor}
-            strokeWidth={isHomeActive ? 2.4 : 1.8}
-          />
+          <View style={[styles.iconWrapper, isHomeActive && styles.activeIconPill]}>
+            <Home
+              size={21}
+              color={isHomeActive ? activeColor : inactiveColor}
+              strokeWidth={isHomeActive ? 2.4 : 1.8}
+            />
+          </View>
           <Text
             style={[
               styles.tabLabel,
@@ -72,21 +122,24 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           >
             Home
           </Text>
+          {isHomeActive && <View style={[styles.activeDot, { backgroundColor: activeColor }]} />}
         </TouchableOpacity>
 
         {/* 2. Shop Tab */}
         <TouchableOpacity
           onPress={() => onSelectTab('shop')}
-          activeOpacity={0.7}
+          activeOpacity={0.65}
           style={styles.tabButton}
           accessibilityRole="button"
           accessibilityLabel="Shop Tab"
         >
-          <Search
-            size={22}
-            color={isShopActive ? activeColor : inactiveColor}
-            strokeWidth={isShopActive ? 2.4 : 1.8}
-          />
+          <View style={[styles.iconWrapper, isShopActive && styles.activeIconPill]}>
+            <Search
+              size={21}
+              color={isShopActive ? activeColor : inactiveColor}
+              strokeWidth={isShopActive ? 2.4 : 1.8}
+            />
+          </View>
           <Text
             style={[
               styles.tabLabel,
@@ -98,22 +151,25 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           >
             Shop
           </Text>
+          {isShopActive && <View style={[styles.activeDot, { backgroundColor: activeColor }]} />}
         </TouchableOpacity>
 
         {/* 3. Favourites Tab */}
         <TouchableOpacity
           onPress={() => onSelectTab('favorites')}
-          activeOpacity={0.7}
+          activeOpacity={0.65}
           style={styles.tabButton}
           accessibilityRole="button"
           accessibilityLabel="Favourites Tab"
         >
-          <Heart
-            size={22}
-            color={isFavoritesActive ? activeColor : inactiveColor}
-            strokeWidth={isFavoritesActive ? 2.4 : 1.8}
-            fill={isFavoritesActive ? activeColor : 'transparent'}
-          />
+          <View style={[styles.iconWrapper, isFavoritesActive && styles.activeIconPill]}>
+            <Heart
+              size={21}
+              color={isFavoritesActive ? activeColor : inactiveColor}
+              strokeWidth={isFavoritesActive ? 2.4 : 1.8}
+              fill={isFavoritesActive ? activeColor : 'transparent'}
+            />
+          </View>
           <Text
             style={[
               styles.tabLabel,
@@ -125,28 +181,39 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           >
             Favourites
           </Text>
+          {isFavoritesActive && <View style={[styles.activeDot, { backgroundColor: activeColor }]} />}
         </TouchableOpacity>
 
         {/* 4. Cart Tab */}
         <TouchableOpacity
           onPress={() => onSelectTab('basket')}
-          activeOpacity={0.7}
+          activeOpacity={0.65}
           style={styles.tabButton}
           accessibilityRole="button"
           accessibilityLabel="Cart Tab"
         >
           <View style={styles.iconBadgeWrapper}>
-            <ShoppingCart
-              size={22}
-              color={isCartActive ? activeColor : inactiveColor}
-              strokeWidth={isCartActive ? 2.4 : 1.8}
-            />
+            <View style={[styles.iconWrapper, isCartActive && styles.activeIconPill]}>
+              <ShoppingCart
+                size={21}
+                color={isCartActive ? activeColor : inactiveColor}
+                strokeWidth={isCartActive ? 2.4 : 1.8}
+              />
+            </View>
             {cartCount > 0 && (
-              <View style={[styles.badge, { backgroundColor: theme.primary }]}>
+              <AnimatedView
+                style={[
+                  styles.badge,
+                  {
+                    backgroundColor: theme.primary,
+                    transform: [{ scale: cartScaleAnim }],
+                  },
+                ]}
+              >
                 <Text style={styles.badgeText}>
                   {cartCount > 99 ? '99+' : cartCount}
                 </Text>
-              </View>
+              </AnimatedView>
             )}
           </View>
           <Text
@@ -160,21 +227,24 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           >
             Cart
           </Text>
+          {isCartActive && <View style={[styles.activeDot, { backgroundColor: activeColor }]} />}
         </TouchableOpacity>
 
         {/* 5. Profile Tab */}
         <TouchableOpacity
           onPress={() => onSelectTab('profile')}
-          activeOpacity={0.7}
+          activeOpacity={0.65}
           style={styles.tabButton}
           accessibilityRole="button"
           accessibilityLabel="Profile Tab"
         >
-          <User
-            size={22}
-            color={isProfileActive ? activeColor : inactiveColor}
-            strokeWidth={isProfileActive ? 2.4 : 1.8}
-          />
+          <View style={[styles.iconWrapper, isProfileActive && styles.activeIconPill]}>
+            <User
+              size={21}
+              color={isProfileActive ? activeColor : inactiveColor}
+              strokeWidth={isProfileActive ? 2.4 : 1.8}
+            />
+          </View>
           <Text
             style={[
               styles.tabLabel,
@@ -186,6 +256,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           >
             Profile
           </Text>
+          {isProfileActive && <View style={[styles.activeDot, { backgroundColor: activeColor }]} />}
         </TouchableOpacity>
       </View>
     </View>
@@ -195,7 +266,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 const styles = StyleSheet.create({
   navContainer: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: 8,
+    paddingTop: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.05,
@@ -212,8 +283,24 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 4,
-    gap: 3,
+    paddingVertical: 3,
+    gap: 2,
+    position: 'relative',
+  },
+  iconWrapper: {
+    padding: 2,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeIconPill: {
+    transform: [{ scale: 1.05 }],
+  },
+  activeDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    marginTop: 2,
   },
   tabLabel: {
     fontSize: 10.5,
@@ -241,3 +328,4 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
 });
+

@@ -12,20 +12,28 @@ interface Message {
 }
 
 interface LiveDispatcherChatModalProps {
-  visible: boolean;
+  visible?: boolean;
+  isOpen?: boolean;
   onClose: () => void;
   orderNumber?: string;
   driverName?: string;
   driverPhone?: string;
+  delivery?: any;
 }
 
 export const LiveDispatcherChatModal: React.FC<LiveDispatcherChatModalProps> = ({
   visible,
+  isOpen,
   onClose,
   orderNumber = 'URB-HYD-9821',
-  driverName = 'Ramesh Goud',
-  driverPhone = '+91 98480 22341',
+  driverName,
+  driverPhone,
+  delivery,
 }) => {
+  const isVisible = visible !== undefined ? visible : !!isOpen;
+  const activeOrderNum = orderNumber || delivery?.orderNumber || 'URB-HYD-9821';
+  const activeDriverName = driverName || delivery?.driverName || 'Ramesh Goud';
+  const activeDriverPhone = driverPhone || delivery?.driverPhone || '+91 98480 22341';
   const { theme } = useTheme();
   const { showToast } = useToast();
 
@@ -34,7 +42,7 @@ export const LiveDispatcherChatModal: React.FC<LiveDispatcherChatModalProps> = (
     {
       id: 'm1',
       sender: 'system',
-      text: `Connected to Central Dispatch Yard (Miyapur Hub). Active Order #${orderNumber} is assigned to Driver ${driverName}.`,
+      text: `Connected to Central Dispatch Yard (Miyapur Hub). Active Order #${activeOrderNum} is assigned to Driver ${activeDriverName}.`,
       time: 'Just now',
     },
     {
@@ -65,7 +73,7 @@ export const LiveDispatcherChatModal: React.FC<LiveDispatcherChatModalProps> = (
 
     setTimeout(() => {
       setIsTyping(false);
-      let reply = `Understood. Driver ${driverName} has been notified. Current distance from site is 3.4 km with expected arrival in ~18 minutes.`;
+      let reply = `Understood. Driver ${activeDriverName} has been notified. Current distance from site is 3.4 km with expected arrival in ~18 minutes.`;
 
       if (currentQuery.includes('delay') || currentQuery.includes('traffic') || currentQuery.includes('where')) {
         reply = `Vehicle TS-08-UB-4491 is crossing Gachibowli flyover. Minor signal queue detected; ETA adjusted by +4 mins.`;
@@ -86,11 +94,11 @@ export const LiveDispatcherChatModal: React.FC<LiveDispatcherChatModalProps> = (
   };
 
   const handleMaskedCall = () => {
-    showToast(`Connecting secure masked line to Driver ${driverName} (${driverPhone})...`, 'info');
+    showToast(`Connecting secure masked line to Driver ${activeDriverName} (${activeDriverPhone})...`, 'info');
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={isVisible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={onClose} />
         <View style={[styles.modalCard, { backgroundColor: theme.surface }]}>

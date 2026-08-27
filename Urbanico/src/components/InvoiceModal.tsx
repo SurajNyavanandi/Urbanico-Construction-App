@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Pressable,
   Modal,
+  Platform,
 } from 'react-native';
 import {
   X,
@@ -15,9 +16,25 @@ import {
   FileText,
   ShieldCheck,
   Scale,
+  Copy,
+  Check,
+  Truck,
+  Building2,
+  QrCode,
+  Share2,
+  Info,
+  CreditCard,
+  MapPin,
+  ExternalLink,
 } from 'lucide-react-native';
 import { UserProfile, ActivityDelivery } from '../types';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../context/ToastContext';
+import {
+  getHSNCodeForMaterial,
+  numberToWordsIndian,
+  generateIRNHash,
+} from '../utils/invoiceHelper';
 
 interface InvoiceModalProps {
   isOpen: boolean;
@@ -37,160 +54,468 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   onOpenLoginModal,
 }) => {
   const { theme, typography } = useTheme();
+  const { showToast } = useToast();
+  const [activeTab, setActiveTab] = useState<'invoice' | 'weighbridge' | 'bank'>('invoice');
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   if (!isOpen || !delivery) return null;
 
-  const invoiceNum = `INV-2026-${delivery.orderNumber || '88412'}`;
+  // Invoice identifiers & metadata
+  const rawOrderNum = delivery.orderNumber || '88412';
+  const cleanOrderNum = rawOrderNum.replace(/[^0-9]/g, '') || '88412';
+  const invoiceNum = `URB/2026-27/${cleanOrderNum.padStart(6, '0')}`;
+  const ewayBillNum = `3610 ${cleanOrderNum.slice(0, 4)} 8892`;
   const invoiceDate = delivery.timestamp || '28 July 2026, 09:30 AM';
-  const hsnCode = delivery.materialName.toLowerCase().includes('sand')
-    ? '2505'
-    : delivery.materialName.toLowerCase().includes('cement')
-    ? '2523'
-    : delivery.materialName.toLowerCase().includes('rebar') ||
-      delivery.materialName.toLowerCase().includes('iron')
-    ? '7214'
-    : '2517';
+  const irnHash = generateIRNHash(cleanOrderNum, invoiceDate);
 
-  // Calculate tax breakdown (Flat 18% GST)
+  // Material & Items calculation
+  const isMultiItem = delivery.cartItemsSnapshot && delivery.cartItemsSnapshot.length > 0;
   const totalAmount = delivery.totalAmount || 45000;
   const taxableAmount = Math.round(totalAmount / 1.18);
   const totalGst = totalAmount - taxableAmount;
+  const cgstAmount = Math.round(totalGst / 2);
+  const sgstAmount = totalGst - cgstAmount;
 
-  // Print PDF function
+  // HSN resolution for primary material
+  const primaryHsnInfo = getHSNCodeForMaterial(delivery.materialName);
+
+  // Copy helper
+  const handleCopy = (text: string, label: string) => {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedField(label);
+      showToast(`${label} copied to clipboard`, 'success');
+      setTimeout(() => setCopiedField(null), 2500);
+    }
+  };
+
+  // High-End Minimalist A4 Print PDF Generator
   const handlePrintPdf = () => {
-    const cleanOrderNum = (delivery.orderNumber || 'DIRECT').replace(/[^a-zA-Z0-9_-]/g, '');
-    const cleanDate = new Date().toISOString().split('T')[0];
-    const docTitle = `Urbanico_Tax_Invoice_${cleanOrderNum}_${cleanDate}`;
+    const docTitle = `Tax_Invoice_${invoiceNum.replace(/\//g, '_')}`;
+
+    // Itemized table rows HTML for print
+    let itemsTableHtml = '';
+    if (isMultiItem && delivery.cartItemsSnapshot) {
+      itemsTableHtml = delivery.cartItemsSnapshot
+        .map((item, idx) => {
+          const itemTotal = item.item.price * item.quantity;
+          const itemTaxable = Math.round(itemTotal / 1.18);
+          const itemCgst = Math.round((itemTotal - itemTaxable) / 2);
+          const itemSgst = itemTotal - itemTaxable - itemCgst;
+          const hsn = getHSNCodeForMaterial(item.item.name);
+          return `
+            <tr>
+              <td style="text-align: center; color: #64748b;">${idx + 1}</td>
+              <td>
+                <div style="font-weight: 700; color: #0f172a;">${item.item.name}</div>
+                <div style="font-size: 10px; color: #64748b;">${hsn.desc} • Quarry Certified</div>
+              </td>
+              <td style="text-align: center; font-family: monospace; font-size: 11px;">${hsn.code}</td>
+              <td style="text-align: center;">${item.quantity} ${item.item.unit || 'Ton'}</td>
+              <td style="text-align: right;">₹${Math.round(itemTaxable / (item.quantity || 1)).toLocaleString('en-IN')}</td>
+              <td style="text-align: right; font-weight: 600;">₹${itemTaxable.toLocaleString('en-IN')}</td>
+              <td style="text-align: right; font-size: 11px;">₹${itemCgst.toLocaleString('en-IN')} (9%)</td>
+              <td style="text-align: right; font-size: 11px;">₹${itemSgst.toLocaleString('en-IN')} (9%)</td>
+              <td style="text-align: right; font-weight: 700; color: #0f172a;">₹${itemTotal.toLocaleString('en-IN')}</td>
+            </tr>
+          `;
+        })
+        .join('');
+    } else {
+      itemsTableHtml = `
+        <tr>
+          <td style="text-align: center; color: #64748b;">1</td>
+          <td>
+            <div style="font-weight: 700; color: #0f172a;">${delivery.materialName}</div>
+            <div style="font-size: 10px; color: #64748b;">${primaryHsnInfo.desc} • High Grade Quarry Direct</div>
+          </td>
+          <td style="text-align: center; font-family: monospace; font-size: 11px;">${primaryHsnInfo.code}</td>
+          <td style="text-align: center;">${delivery.quantity}</td>
+          <td style="text-align: right;">₹${Math.round(taxableAmount / 10).toLocaleString('en-IN')}</td>
+          <td style="text-align: right; font-weight: 600;">₹${taxableAmount.toLocaleString('en-IN')}</td>
+          <td style="text-align: right; font-size: 11px;">₹${cgstAmount.toLocaleString('en-IN')} (9%)</td>
+          <td style="text-align: right; font-size: 11px;">₹${sgstAmount.toLocaleString('en-IN')} (9%)</td>
+          <td style="text-align: right; font-weight: 700; color: #0f172a;">₹${totalAmount.toLocaleString('en-IN')}</td>
+        </tr>
+      `;
+    }
 
     const printContent = `
       <!DOCTYPE html>
-      <html>
+      <html lang="en">
       <head>
+        <meta charset="utf-8">
         <title>${docTitle}</title>
         <style>
-          body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #0f172a; margin: 0; padding: 24px; background: #fff; }
-          .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid ${theme.primary}; padding-bottom: 16px; margin-bottom: 20px; }
-          .company-name { font-size: 20px; font-weight: 900; color: ${theme.primary}; text-transform: uppercase; letter-spacing: 0.5px; }
-          .sub { font-size: 11px; color: #64748b; margin-top: 4px; }
-          .badge { background: ${theme.primaryLight}; color: ${theme.primaryDark}; font-weight: 800; padding: 4px 10px; border-radius: 99px; border: 1px solid ${theme.border}; font-size: 11px; display: inline-block; }
-          .invoice-title { font-size: 24px; font-weight: 900; color: #0f172a; text-align: right; }
-          .meta-grid { display: flex; justify-content: space-between; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; margin-bottom: 20px; }
-          .meta-col { width: 48%; }
-          .meta-title { font-size: 11px; font-weight: 800; color: ${theme.primary}; text-transform: uppercase; margin-bottom: 6px; }
-          .meta-text { font-size: 12px; font-weight: 600; color: #1e293b; line-height: 1.5; }
-          .slip-box { background: ${theme.primaryLight}; border: 1px dashed ${theme.primary}; border-radius: 10px; padding: 12px; margin-bottom: 20px; font-size: 12px; }
-          .slip-title { font-weight: 800; color: ${theme.primaryDark}; margin-bottom: 6px; }
-          table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-          th { background: ${theme.primary}; color: #fff; font-size: 11px; font-weight: 800; text-transform: uppercase; padding: 10px; text-align: left; }
-          td { border-bottom: 1px solid #e2e8f0; padding: 10px; font-size: 12px; color: #1e293b; }
-          .amount-col { text-align: right; }
-          .totals-table { width: 320px; margin-left: auto; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
-          .totals-row { display: flex; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
-          .grand-total { background: ${theme.primary}; color: #fff; font-weight: 900; font-size: 14px; }
-          .footer-note { font-size: 10px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 12px; text-align: center; }
-          .stamp { text-align: right; margin-top: 20px; font-size: 11px; font-weight: 800; color: #059669; image-rendering: -webkit-optimize-contrast; }
+          @page {
+            size: A4 portrait;
+            margin: 12mm;
+          }
+          * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+          }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            color: #0f172a;
+            background: #ffffff;
+            font-size: 11.5px;
+            line-height: 1.45;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .invoice-sheet {
+            max-width: 800px;
+            margin: 0 auto;
+            border: 1px solid #e2e8f0;
+            padding: 24px;
+            background: #ffffff;
+          }
+          .top-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid #0f172a;
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+          }
+          .brand-title {
+            font-size: 18px;
+            font-weight: 900;
+            letter-spacing: 0.5px;
+            color: #0f172a;
+            text-transform: uppercase;
+          }
+          .brand-sub {
+            font-size: 10px;
+            color: #475569;
+            margin-top: 3px;
+          }
+          .tax-title-box {
+            text-align: right;
+          }
+          .tax-heading {
+            font-size: 20px;
+            font-weight: 900;
+            letter-spacing: 1px;
+            color: #0f172a;
+          }
+          .original-badge {
+            display: inline-block;
+            font-size: 9px;
+            font-weight: 800;
+            padding: 2px 8px;
+            border: 1px solid #0f172a;
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 10px 14px;
+            margin-bottom: 16px;
+          }
+          .meta-item-label {
+            font-size: 9.5px;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+          }
+          .meta-item-val {
+            font-size: 11px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-top: 2px;
+          }
+          .parties-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 16px;
+          }
+          .party-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 12px;
+          }
+          .party-header {
+            font-size: 10px;
+            font-weight: 800;
+            color: #0f172a;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #f1f5f9;
+            padding-bottom: 6px;
+            margin-bottom: 6px;
+          }
+          .party-name {
+            font-size: 12px;
+            font-weight: 800;
+            color: #0f172a;
+            margin-bottom: 4px;
+          }
+          .party-row {
+            font-size: 10.5px;
+            color: #334155;
+            margin-bottom: 2px;
+          }
+          .party-row b {
+            color: #0f172a;
+          }
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 14px;
+          }
+          th {
+            background: #f1f5f9;
+            color: #0f172a;
+            font-size: 9.5px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            padding: 8px 6px;
+            border-top: 1px solid #0f172a;
+            border-bottom: 1px solid #0f172a;
+            text-align: left;
+          }
+          td {
+            padding: 8px 6px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 10.5px;
+            color: #1e293b;
+          }
+          .totals-wrapper {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 16px;
+            gap: 16px;
+          }
+          .words-card {
+            flex: 1;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 10px 12px;
+            background: #f8fafc;
+          }
+          .words-title {
+            font-size: 9.5px;
+            font-weight: 800;
+            color: #64748b;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+          }
+          .words-val {
+            font-size: 11px;
+            font-weight: 700;
+            color: #0f172a;
+            font-style: italic;
+          }
+          .calc-table {
+            width: 320px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            overflow: hidden;
+          }
+          .calc-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 10px;
+            font-size: 10.5px;
+            border-bottom: 1px solid #f1f5f9;
+          }
+          .calc-grand-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 10px;
+            background: #0f172a;
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 12.5px;
+          }
+          .weighbridge-strip {
+            border: 1px dashed #cbd5e1;
+            background: #f8fafc;
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin-bottom: 16px;
+            font-size: 10.5px;
+          }
+          .bottom-grid {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 14px;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 14px;
+          }
+          .bank-box {
+            font-size: 10px;
+            color: #334155;
+            line-height: 1.6;
+          }
+          .sign-box {
+            text-align: right;
+            font-size: 10px;
+            color: #475569;
+          }
+          .sign-stamp {
+            font-weight: 800;
+            color: #0f172a;
+            font-size: 11px;
+            margin-bottom: 2px;
+          }
+          .legal-footer {
+            margin-top: 16px;
+            padding-top: 8px;
+            border-top: 1px solid #f1f5f9;
+            text-align: center;
+            font-size: 9px;
+            color: #94a3b8;
+          }
           @media print {
             body { padding: 0; }
+            .invoice-sheet { border: none; padding: 0; }
           }
         </style>
       </head>
       <body>
-        <div class="header">
-          <div>
-            <div class="company-name">URBANICO LOGISTICS & INFRASTRUCTURE PVT LTD</div>
-            <div class="sub">Corporate Office: Plot 142, HiTech City Phase 2, Hyderabad, TS - 500081</div>
-            <div class="sub">GSTIN: <b>36AAACU9812A1Z4</b> | CIN: U45200TG2022PTC168234</div>
-            <div class="sub">Email: billing@urbanico.in | Support: +91 1800 200 8829</div>
-          </div>
-          <div>
-            <div class="invoice-title">TAX INVOICE</div>
-            <div class="badge">ORIGINAL FOR RECIPIENT</div>
-          </div>
-        </div>
-
-        <div class="meta-grid">
-          <div class="meta-col">
-            <div class="meta-title">Invoice & Dispatch Reference</div>
-            <div class="meta-text">
-              <b>Invoice No:</b> ${invoiceNum}<br>
-              <b>Date & Time:</b> ${invoiceDate}<br>
-              <b>Order Ref:</b> #${delivery.orderNumber}<br>
-              <b>Place of Supply:</b> Telangana (Code 36)<br>
-              <b>Transport Mode:</b> ${delivery.vehicleType || 'Tipper Heavy Truck'} (${delivery.vehicleNumber})
+        <div class="invoice-sheet">
+          <div class="top-header">
+            <div>
+              <div class="brand-title">URBANICO INFRASTRUCTURE & LOGISTICS TECHNOLOGIES PVT. LTD.</div>
+              <div class="brand-sub">Registered Office: Plot 142, HiTech City Phase 2, Madhapur, Hyderabad, Telangana - 500081</div>
+              <div class="brand-sub"><b>GSTIN:</b> 36AAACU9812A1Z4 | <b>PAN:</b> AAACU9812A | <b>CIN:</b> U45200TG2022PTC168234</div>
+              <div class="brand-sub"><b>State:</b> Telangana (State Code: 36) | <b>Email:</b> billing@urbanico.in | <b>Desk:</b> +91 1800 200 8829</div>
+            </div>
+            <div class="tax-title-box">
+              <div class="tax-heading">TAX INVOICE</div>
+              <div class="original-badge">ORIGINAL FOR RECIPIENT</div>
             </div>
           </div>
-          <div class="meta-col">
-            <div class="meta-title">Billed & Shipped To (Contractor)</div>
-            <div class="meta-text">
-              <b>Company:</b> ${user.companyName || 'Kumar Infra & Construction Pvt Ltd'}<br>
-              <b>Contact:</b> ${user.name} (${user.phone})<br>
-              <b>GSTIN:</b> ${user.gstin || '36AABCU12341ZV'}<br>
-              <b>Site Address:</b> ${delivery.siteAddress || user.siteLocation}
+
+          <div class="meta-grid">
+            <div>
+              <div class="meta-item-label">Invoice Number</div>
+              <div class="meta-item-val" style="font-family: monospace;">${invoiceNum}</div>
+            </div>
+            <div>
+              <div class="meta-item-label">Invoice Date</div>
+              <div class="meta-item-val">${invoiceDate}</div>
+            </div>
+            <div>
+              <div class="meta-item-label">E-Way Bill No</div>
+              <div class="meta-item-val" style="font-family: monospace;">${ewayBillNum}</div>
+            </div>
+            <div>
+              <div class="meta-item-label">Place of Supply</div>
+              <div class="meta-item-val">Telangana (36)</div>
             </div>
           </div>
-        </div>
 
-        <div class="slip-box">
-          <div class="slip-title">⚖ ELECTRONIC WEIGHBRIDGE WEIGHT SLIP VERIFICATION</div>
-          <div>Slip No: <b>WB-2026-99120</b> | Weighbridge ID: WB-HYD-04 | Verified Driver: <b>${delivery.driverName}</b></div>
-          <div>Gross Vehicle Wt: 28,450 kg | Tare Vehicle Wt: 10,150 kg | <b>Net Material Weight Delivered: 18,300 kg</b></div>
-        </div>
+          <div class="parties-grid">
+            <div class="party-card">
+              <div class="party-header">Details of Receiver / Billed To</div>
+              <div class="party-name">${user.companyName || 'Kumar Infra & Construction Pvt Ltd'}</div>
+              <div class="party-row"><b>Contact Person:</b> ${user.name} (${user.phone})</div>
+              <div class="party-row"><b>GSTIN / UIN:</b> ${user.gstin || '36AABCU12341ZV'}</div>
+              <div class="party-row"><b>PAN:</b> ${user.gstin ? user.gstin.slice(2, 12) : 'AABCU12341'}</div>
+              <div class="party-row"><b>State & Code:</b> Telangana (36)</div>
+            </div>
 
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Material Description</th>
-              <th>HSN Code</th>
-              <th>Quantity / Unit</th>
-              <th>Unit Rate (₹)</th>
-              <th class="amount-col">Taxable Value (₹)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>1</td>
-              <td><b>${delivery.materialName}</b><br><small style="color:#64748b;">Direct Quarry Dispatch • High Grade Certified</small></td>
-              <td>${hsnCode}</td>
-              <td>${delivery.quantity}</td>
-              <td>₹${Math.round(taxableAmount / 10).toLocaleString('en-IN')}</td>
-              <td class="amount-col">₹${taxableAmount.toLocaleString('en-IN')}</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div class="totals-table">
-          <div class="totals-row">
-            <span>Taxable Amount:</span>
-            <span>₹${taxableAmount.toLocaleString('en-IN')}</span>
+            <div class="party-card">
+              <div class="party-header">Details of Consignee / Shipped To</div>
+              <div class="party-name">${delivery.siteAddress || user.siteLocation || 'Financial District Tower Site, Hyderabad'}</div>
+              <div class="party-row"><b>Dispatch Hub:</b> Miyapur Mega Material Quarry Cluster</div>
+              <div class="party-row"><b>Transport Mode:</b> ${delivery.vehicleType || '10-Wheel Hydraulic Tipper'}</div>
+              <div class="party-row"><b>Vehicle No:</b> <b>${delivery.vehicleNumber || 'TS 09 UB 4821'}</b></div>
+              <div class="party-row"><b>Driver:</b> ${delivery.driverName || 'Suresh Reddy'} (Ph: +91 98480 22199)</div>
+            </div>
           </div>
-          <div class="totals-row">
-            <span>Goods & Services Tax (GST @ 18%):</span>
-            <span>₹${totalGst.toLocaleString('en-IN')}</span>
-          </div>
-          <div class="totals-row">
-            <span>Dispatch Freight & Tolls:</span>
-            <span style="color:#059669; font-weight:800;">INCLUDED (FREE)</span>
-          </div>
-          <div class="totals-row grand-total">
-            <span>Grand Total:</span>
-            <span>₹${totalAmount.toLocaleString('en-IN')}</span>
-          </div>
-        </div>
 
-        <div style="margin-bottom: 20px; font-size: 11px; line-height: 1.6; color: #334155;">
-          <b>Bank Payment Details:</b><br>
-          Account Name: Urbanico Logistics Pvt Ltd | Bank: Axis Bank Ltd, Hitech City Branch<br>
-          Account No: 922020018829102 | IFSC: UTIB0000122 | UPI ID: urbanico@axisbank
-        </div>
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 24px; text-align: center;">#</th>
+                <th>Material Description & Grade</th>
+                <th style="text-align: center; width: 60px;">HSN/SAC</th>
+                <th style="text-align: center; width: 80px;">Qty / Unit</th>
+                <th style="text-align: right; width: 80px;">Rate (₹)</th>
+                <th style="text-align: right; width: 90px;">Taxable (₹)</th>
+                <th style="text-align: right; width: 80px;">CGST</th>
+                <th style="text-align: right; width: 80px;">SGST</th>
+                <th style="text-align: right; width: 95px;">Total (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsTableHtml}
+            </tbody>
+          </table>
 
-        <div class="stamp">
-          ✓ Digitally Signed & Sealed by Urbanico Authorized Signatory<br>
-          <small style="color:#64748b;">This is a computer generated tax invoice. No signature required.</small>
-        </div>
+          <div class="totals-wrapper">
+            <div class="words-card">
+              <div class="words-title">Invoice Amount in Words</div>
+              <div class="words-val">${numberToWordsIndian(totalAmount)}</div>
+              <div style="font-size: 10px; color: #64748b; margin-top: 6px;">
+                <b>IRN:</b> <span style="font-family: monospace; font-size: 9px;">${irnHash.slice(0, 36)}...</span>
+              </div>
+            </div>
 
-        <div class="footer-note" style="margin-top: 30px;">
-          Thank you for trusting Urbanico Construction Supplies! • www.urbanico.in
+            <div class="calc-table">
+              <div class="calc-row">
+                <span style="color: #64748b;">Total Taxable Value:</span>
+                <span style="font-weight: 700;">₹${taxableAmount.toLocaleString('en-IN')}</span>
+              </div>
+              <div class="calc-row">
+                <span style="color: #64748b;">Central Tax (CGST @ 9%):</span>
+                <span>₹${cgstAmount.toLocaleString('en-IN')}</span>
+              </div>
+              <div class="calc-row">
+                <span style="color: #64748b;">State Tax (SGST @ 9%):</span>
+                <span>₹${sgstAmount.toLocaleString('en-IN')}</span>
+              </div>
+              <div class="calc-row">
+                <span style="color: #64748b;">Freight & Handling:</span>
+                <span style="color: #059669; font-weight: 700;">INCLUDED (FREE)</span>
+              </div>
+              <div class="calc-grand-row">
+                <span>Total Invoice Value:</span>
+                <span>₹${totalAmount.toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="weighbridge-strip">
+            <b>⚖ ELECTRONIC WEIGHBRIDGE WEIGHT SLIP VERIFICATION:</b><br>
+            Slip No: <b>WB-2026-${cleanOrderNum}</b> | Weighbridge ID: <b>WB-HYD-04 (Miyapur Quarry)</b> | Driver: <b>${delivery.driverName}</b><br>
+            Gross Weight: <b>28,450 kg</b> | Tare (Empty) Weight: <b>10,150 kg</b> | <b>Net Material Delivered: 18,300 kg (18.30 MT)</b>
+          </div>
+
+          <div class="bottom-grid">
+            <div class="bank-box">
+              <div style="font-weight: 800; color: #0f172a; margin-bottom: 2px;">Bank & RTGS/NEFT Remittance Details</div>
+              Bank Name: <b>Axis Bank Ltd</b> | Branch: <b>HiTech City Corporate, Hyderabad</b><br>
+              Account Name: <b>Urbanico Infrastructure & Logistics Technologies Pvt Ltd</b><br>
+              Current A/C No: <b>9220 2001 8829 102</b> | IFSC Code: <b>UTIB0000122</b> | UPI ID: <b>urbanico@axisbank</b>
+            </div>
+
+            <div class="sign-box">
+              <div class="sign-stamp">For URBANICO INFRASTRUCTURE & LOGISTICS TECHNOLOGIES PVT. LTD.</div>
+              <div style="margin-top: 16px; font-weight: 700; color: #059669;">✓ DIGITALLY SIGNED & VERIFIED</div>
+              <div style="font-size: 9.5px; color: #64748b;">Authorized Signatory (Automated Tax Engine)</div>
+            </div>
+          </div>
+
+          <div class="legal-footer">
+            This is a system-generated Electronic Tax Invoice issued in accordance with Section 31 of CGST Act, 2017. Valid for Input Tax Credit (ITC) claiming.
+          </div>
         </div>
       </body>
       </html>
@@ -214,225 +539,508 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
       <View style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={onClose} />
 
-      <View style={[styles.sheetContainer, { backgroundColor: theme.surface }]}>
-        {/* Modal Top Toolbar */}
-        <View style={[styles.modalHeader, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-          <View style={styles.headerLeftGroup}>
-            <FileText size={20} color={theme.primary} />
-            <Text style={[styles.modalTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-              Official GST Tax Invoice
-            </Text>
+        <View style={[styles.sheetContainer, { backgroundColor: '#FFFFFF' }]}>
+          {/* Executive Top Navigation Bar */}
+          <View style={styles.modalHeader}>
+            <View style={styles.headerLeftGroup}>
+              <View style={styles.brandIconMark}>
+                <Building2 size={18} color="#FFFFFF" strokeWidth={2.2} />
+              </View>
+              <View>
+                <View style={styles.titleWithBadgeRow}>
+                  <Text style={styles.modalTitle}>Tax Invoice</Text>
+                  <View style={styles.invoiceNumPill}>
+                    <Text style={styles.invoiceNumPillText}>{invoiceNum}</Text>
+                  </View>
+                </View>
+                <Text style={styles.modalSubtitle}>
+                  GST Compliance • ITC Eligible • E-Way Bill Generated
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.headerRightActions}>
+              <TouchableOpacity
+                onPress={handlePrintPdf}
+                style={styles.printActionBtn}
+                activeOpacity={0.8}
+                accessibilityLabel="Print or download PDF invoice"
+              >
+                <Printer size={15} color="#FFFFFF" strokeWidth={2.2} />
+                <Text style={styles.printActionText}>Print / PDF</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={onClose}
+                style={styles.closeBtn}
+                accessibilityLabel="Close invoice modal"
+              >
+                <X size={18} color="#64748B" strokeWidth={2.5} />
+              </TouchableOpacity>
+            </View>
           </View>
 
-          <View style={styles.headerRightActions}>
+          {/* Minimalist Segment Control / View Switcher */}
+          <View style={styles.segmentNav}>
             <TouchableOpacity
-              onPress={handlePrintPdf}
-              style={[styles.printActionBtn, { backgroundColor: theme.primary }]}
+              onPress={() => setActiveTab('invoice')}
+              style={[
+                styles.segmentTab,
+                activeTab === 'invoice' && styles.segmentTabActive,
+              ]}
               activeOpacity={0.8}
             >
-              <Printer size={15} color="#FFFFFF" />
-              <Text style={styles.printActionText}>Print / Save PDF</Text>
+              <FileText size={14} color={activeTab === 'invoice' ? '#0F172A' : '#64748B'} />
+              <Text
+                style={[
+                  styles.segmentLabel,
+                  activeTab === 'invoice' && styles.segmentLabelActive,
+                ]}
+              >
+                Tax Breakdown
+              </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-              <X size={20} color={theme.textMuted} />
+            <TouchableOpacity
+              onPress={() => setActiveTab('weighbridge')}
+              style={[
+                styles.segmentTab,
+                activeTab === 'weighbridge' && styles.segmentTabActive,
+              ]}
+              activeOpacity={0.8}
+            >
+              <Scale size={14} color={activeTab === 'weighbridge' ? '#0F172A' : '#64748B'} />
+              <Text
+                style={[
+                  styles.segmentLabel,
+                  activeTab === 'weighbridge' && styles.segmentLabelActive,
+                ]}
+              >
+                Weight Slip
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setActiveTab('bank')}
+              style={[
+                styles.segmentTab,
+                activeTab === 'bank' && styles.segmentTabActive,
+              ]}
+              activeOpacity={0.8}
+            >
+              <CreditCard size={14} color={activeTab === 'bank' ? '#0F172A' : '#64748B'} />
+              <Text
+                style={[
+                  styles.segmentLabel,
+                  activeTab === 'bank' && styles.segmentLabelActive,
+                ]}
+              >
+                Bank & Remittance
+              </Text>
             </TouchableOpacity>
           </View>
-        </View>
 
-        {/* Invoice Printable Preview Container */}
-        <ScrollView
-          style={[styles.invoiceScrollView, { backgroundColor: theme.surfaceSecondary }]}
-          contentContainerStyle={styles.invoiceContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {!isLoggedIn && (
-            <View style={[styles.guestWarningBox, { backgroundColor: '#FEF3C7', borderColor: '#F59E0B' }]}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.guestWarningTitle, { color: '#92400E' }]}>Guest Preview Mode</Text>
-                <Text style={[styles.guestWarningSub, { color: '#B45309' }]}>
-                  Log in to generate verified tax compliance invoices with your official GSTIN and weighbridge weight slips.
-                </Text>
-              </View>
-              {onOpenLoginModal && (
-                <TouchableOpacity
-                  onPress={() => {
-                    onClose();
-                    onOpenLoginModal();
-                  }}
-                  style={styles.guestWarningLoginBtn}
-                  activeOpacity={0.8}
-                >
-                  <Text style={styles.guestWarningLoginBtnText}>Sign In</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-
-          {/* Company Branding & Tax Header */}
-          <View style={[styles.brandHeaderBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={styles.brandRow}>
-              <View>
-                <Text style={[styles.companyName, { color: theme.primary, fontFamily: typography.fontFamilyHeading }]}>
-                  URBANICO LOGISTICS PVT LTD
-                </Text>
-                <Text style={[styles.companySub, { color: theme.textSecondary }]}>
-                  Plot 142, HiTech City Phase 2, Hyderabad, TS - 500081
-                </Text>
-                <Text style={[styles.companyMeta, { color: theme.textSecondary }]}>
-                  GSTIN: <Text style={[styles.boldMeta, { color: theme.textPrimary }]}>36AAACU9812A1Z4</Text> • CIN: U45200TG2022
-                </Text>
-              </View>
-              <View style={styles.invoiceTagBox}>
-                <Text style={[styles.invoiceTagText, { color: theme.textPrimary }]}>TAX INVOICE</Text>
-                <Text style={[styles.recipientPill, { backgroundColor: theme.primaryLight, color: theme.primaryDark, borderColor: theme.border }]}>
-                  ORIGINAL
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Reference Meta Grid */}
-          <View style={[styles.metaGrid, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={styles.metaCol}>
-              <Text style={[styles.metaColTitle, { color: theme.primary }]}>INVOICE DETAILS</Text>
-              <Text style={[styles.metaText, { color: theme.textSecondary }]}>
-                Invoice No: <Text style={[styles.metaVal, { color: theme.textPrimary }]}>{invoiceNum}</Text>
-              </Text>
-              <Text style={[styles.metaText, { color: theme.textSecondary }]}>
-                Order Ref: <Text style={[styles.metaVal, { color: theme.textPrimary }]}>#{delivery.orderNumber}</Text>
-              </Text>
-              <Text style={[styles.metaText, { color: theme.textSecondary }]}>
-                Date: <Text style={[styles.metaVal, { color: theme.textPrimary }]}>{invoiceDate}</Text>
-              </Text>
-              <Text style={[styles.metaText, { color: theme.textSecondary }]}>
-                Vehicle: <Text style={[styles.metaVal, { color: theme.textPrimary }]}>{delivery.vehicleNumber}</Text>
-              </Text>
-            </View>
-
-            <View style={[styles.metaColDivider, { backgroundColor: theme.borderLight }]} />
-
-            <View style={styles.metaCol}>
-              <Text style={[styles.metaColTitle, { color: theme.primary }]}>BILLED & SHIPPED TO</Text>
-              <Text style={[styles.metaText, { color: theme.textSecondary }]} numberOfLines={1}>
-                {user.companyName || 'Kumar Infra & Construction'}
-              </Text>
-              <Text style={[styles.metaText, { color: theme.textSecondary }]}>
-                GSTIN: <Text style={[styles.metaVal, { color: theme.textPrimary }]}>{user.gstin || '36AABCU12341ZV'}</Text>
-              </Text>
-              <Text style={[styles.metaText, { color: theme.textSecondary }]}>
-                Contractor: <Text style={[styles.metaVal, { color: theme.textPrimary }]}>{user.name}</Text>
-              </Text>
-              <Text style={[styles.metaText, { color: theme.textSecondary }]} numberOfLines={1}>
-                Site: <Text style={[styles.metaVal, { color: theme.textPrimary }]}>{delivery.siteAddress || user.siteLocation}</Text>
-              </Text>
-            </View>
-          </View>
-
-          {/* Electronic Weighbridge Slip Banner */}
-          <View style={[styles.weighbridgeBox, { backgroundColor: theme.primaryLight, borderColor: theme.primary }]}>
-            <View style={styles.wbHeaderRow}>
-              <Scale size={16} color={theme.primaryDark} />
-              <Text style={[styles.wbTitle, { color: theme.primaryDark }]}>ELECTRONIC WEIGHBRIDGE NET WEIGHT SLIP</Text>
-            </View>
-            <View style={[styles.wbMetricsGrid, { backgroundColor: theme.surface }]}>
-              <View style={styles.wbMetricItem}>
-                <Text style={[styles.wbLabel, { color: theme.textMuted }]}>Slip No</Text>
-                <Text style={[styles.wbVal, { color: theme.textPrimary }]}>WB-2026-99120</Text>
-              </View>
-              <View style={styles.wbMetricItem}>
-                <Text style={[styles.wbLabel, { color: theme.textMuted }]}>Gross Weight</Text>
-                <Text style={[styles.wbVal, { color: theme.textPrimary }]}>28.45 Tons</Text>
-              </View>
-              <View style={styles.wbMetricItem}>
-                <Text style={[styles.wbLabel, { color: theme.textMuted }]}>Tare Weight</Text>
-                <Text style={[styles.wbVal, { color: theme.textPrimary }]}>10.15 Tons</Text>
-              </View>
-              <View style={styles.wbMetricItem}>
-                <Text style={[styles.wbLabel, { color: theme.textMuted }]}>Net Delivered</Text>
-                <Text style={[styles.wbVal, { color: '#059669' }]}>18.30 Tons</Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Itemized Table */}
-          <View style={[styles.itemTableCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={[styles.tableHeaderRow, { backgroundColor: theme.primary }]}>
-              <Text style={[styles.thCell, { flex: 2 }]}>Item Description</Text>
-              <Text style={[styles.thCell, { flex: 1 }]}>HSN</Text>
-              <Text style={[styles.thCell, { flex: 1 }]}>Qty</Text>
-              <Text style={[styles.thCell, { flex: 1, textAlign: 'right' }]}>Amount</Text>
-            </View>
-
-            <View style={styles.tableBodyRow}>
-              <View style={{ flex: 2 }}>
-                <Text style={[styles.itemNameText, { color: theme.textPrimary }]}>{delivery.materialName}</Text>
-                <Text style={[styles.itemSubText, { color: theme.textSecondary }]}>Direct Quarry Tipper Dispatch</Text>
-              </View>
-              <Text style={[styles.tdCell, { flex: 1, color: theme.textSecondary }]}>{hsnCode}</Text>
-              <Text style={[styles.tdCell, { flex: 1, color: theme.textSecondary }]}>{delivery.quantity}</Text>
-              <Text style={[styles.tdCell, { flex: 1, textAlign: 'right', fontWeight: '800', color: theme.textPrimary }]}>
-                ₹{taxableAmount.toLocaleString('en-IN')}
-              </Text>
-            </View>
-          </View>
-
-          {/* Tax Breakdown & Grand Total Box */}
-          <View style={[styles.totalsBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-            <View style={styles.totalRow}>
-              <Text style={[styles.totalLabel, { color: theme.textSecondary }]}>Taxable Material Amount</Text>
-              <Text style={[styles.totalVal, { color: theme.textPrimary }]}>₹{taxableAmount.toLocaleString('en-IN')}</Text>
-            </View>
-            <View style={styles.totalRow}>
-              <Text style={[styles.totalLabel, { color: theme.textSecondary }]}>Goods & Services Tax (GST 18%)</Text>
-              <Text style={[styles.totalVal, { color: theme.textPrimary }]}>₹{totalGst.toLocaleString('en-IN')}</Text>
-            </View>
-            <View style={styles.totalRow}>
-              <Text style={[styles.totalLabel, { color: theme.textSecondary }]}>Distance-Based Delivery Charge</Text>
-              <Text style={[styles.totalVal, { color: theme.textPrimary, fontWeight: '700' }]}>
-                Direct Per-Km Rate
-              </Text>
-            </View>
-
-            <View style={[styles.grandTotalDivider, { backgroundColor: theme.borderLight }]} />
-
-            <View style={styles.grandTotalRow}>
-              <Text style={[styles.grandTotalLabel, { color: theme.textPrimary }]}>Grand Total Amount</Text>
-              <Text style={[styles.grandTotalVal, { color: theme.primaryDark }]}>
-                ₹{totalAmount.toLocaleString('en-IN')}
-              </Text>
-            </View>
-          </View>
-
-          {/* Verified Stamp */}
-          <View style={styles.stampCard}>
-            <ShieldCheck size={20} color="#059669" />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.stampTitle}>Digitally Signed GST Invoice</Text>
-              <Text style={styles.stampSub}>
-                Verified by Urbanico Automated Billing Engine • Valid for GST Input Tax Credit (ITC)
-              </Text>
-            </View>
-          </View>
-        </ScrollView>
-
-        {/* Modal Footer CTA */}
-        <View style={[styles.modalFooter, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
-          <TouchableOpacity
-            onPress={handlePrintPdf}
-            style={[styles.downloadPdfBtn, { backgroundColor: theme.primary }]}
-            activeOpacity={0.8}
+          {/* Main Invoice Document View */}
+          <ScrollView
+            style={styles.invoiceScrollView}
+            contentContainerStyle={styles.invoiceContent}
+            showsVerticalScrollIndicator={false}
           >
-            <Download size={16} color="#FFFFFF" />
-            <Text style={styles.downloadPdfBtnText}>
-              Download Official PDF Invoice
-            </Text>
-          </TouchableOpacity>
+            {!isLoggedIn && (
+              <View style={styles.guestNoticeCard}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.guestNoticeTitle}>Guest Preview Mode</Text>
+                  <Text style={styles.guestNoticeSub}>
+                    Log in with your phone to automatically attach your company GSTIN and verified site address for GST Input Tax Credit (ITC).
+                  </Text>
+                </View>
+                {onOpenLoginModal && (
+                  <TouchableOpacity
+                    onPress={() => {
+                      onClose();
+                      onOpenLoginModal();
+                    }}
+                    style={styles.guestNoticeBtn}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.guestNoticeBtnText}>Sign In</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+
+            {/* TAB 1: TAX INVOICE */}
+            {activeTab === 'invoice' && (
+              <View style={styles.documentCard}>
+                {/* Document Header */}
+                <View style={styles.docHeaderRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.docSellerName}>
+                      URBANICO INFRASTRUCTURE & LOGISTICS TECHNOLOGIES PVT. LTD.
+                    </Text>
+                    <Text style={styles.docSellerSub}>
+                      Plot 142, HiTech City Phase 2, Madhapur, Hyderabad, TS - 500081
+                    </Text>
+                    <View style={styles.docSellerTagsRow}>
+                      <Text style={styles.docSellerTag}>GSTIN: <Text style={styles.docBold}>36AAACU9812A1Z4</Text></Text>
+                      <Text style={styles.docSellerTag}>State Code: <Text style={styles.docBold}>36 (Telangana)</Text></Text>
+                      <Text style={styles.docSellerTag}>PAN: <Text style={styles.docBold}>AAACU9812A</Text></Text>
+                    </View>
+                  </View>
+                  <View style={styles.docTypeBadgeBox}>
+                    <Text style={styles.docTypeHeading}>TAX INVOICE</Text>
+                    <View style={styles.docRecipientPill}>
+                      <Text style={styles.docRecipientPillText}>ORIGINAL FOR RECIPIENT</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Metadata Summary Grid */}
+                <View style={styles.metaStrip}>
+                  <View style={styles.metaCol}>
+                    <Text style={styles.metaColLabel}>INVOICE NO</Text>
+                    <Text style={styles.metaColVal}>{invoiceNum}</Text>
+                  </View>
+                  <View style={styles.metaCol}>
+                    <Text style={styles.metaColLabel}>INVOICE DATE</Text>
+                    <Text style={styles.metaColVal}>{invoiceDate}</Text>
+                  </View>
+                  <View style={styles.metaCol}>
+                    <Text style={styles.metaColLabel}>E-WAY BILL NO</Text>
+                    <Text style={styles.metaColVal}>{ewayBillNum}</Text>
+                  </View>
+                  <View style={styles.metaCol}>
+                    <Text style={styles.metaColLabel}>PLACE OF SUPPLY</Text>
+                    <Text style={styles.metaColVal}>Telangana (36)</Text>
+                  </View>
+                </View>
+
+                {/* Parties Information (Seller & Buyer side-by-side) */}
+                <View style={styles.partiesRow}>
+                  <View style={styles.partyBox}>
+                    <Text style={styles.partyBoxHeader}>BILLED TO (RECEIVER)</Text>
+                    <Text style={styles.partyBoxName} numberOfLines={1}>
+                      {user.companyName || 'Kumar Infra & Construction Pvt Ltd'}
+                    </Text>
+                    <Text style={styles.partyBoxLine}>
+                      Contact: <Text style={styles.docBold}>{user.name} ({user.phone})</Text>
+                    </Text>
+                    <Text style={styles.partyBoxLine}>
+                      GSTIN: <Text style={styles.docBold}>{user.gstin || '36AABCU12341ZV'}</Text>
+                    </Text>
+                    <Text style={styles.partyBoxLine}>
+                      PAN: <Text style={styles.docBold}>{user.gstin ? user.gstin.slice(2, 12) : 'AABCU12341'}</Text>
+                    </Text>
+                  </View>
+
+                  <View style={styles.partyBox}>
+                    <Text style={styles.partyBoxHeader}>SHIPPED TO (CONSIGNEE)</Text>
+                    <Text style={styles.partyBoxName} numberOfLines={1}>
+                      {delivery.siteAddress || user.siteLocation || 'Financial District Site'}
+                    </Text>
+                    <Text style={styles.partyBoxLine}>
+                      Vehicle: <Text style={styles.docBold}>{delivery.vehicleNumber || 'TS 09 UB 4821'}</Text>
+                    </Text>
+                    <Text style={styles.partyBoxLine}>
+                      Transport: <Text style={styles.docBold}>{delivery.vehicleType || '10-Wheel Hydraulic Tipper'}</Text>
+                    </Text>
+                    <Text style={styles.partyBoxLine}>
+                      Driver: <Text style={styles.docBold}>{delivery.driverName || 'Suresh Reddy'}</Text>
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Itemized Materials Table */}
+                <View style={styles.materialsTable}>
+                  <View style={styles.materialsTableHead}>
+                    <Text style={[styles.mthText, { flex: 2.2 }]}>Item & Specification</Text>
+                    <Text style={[styles.mthText, { flex: 0.9, textAlign: 'center' }]}>HSN</Text>
+                    <Text style={[styles.mthText, { flex: 0.9, textAlign: 'center' }]}>Qty</Text>
+                    <Text style={[styles.mthText, { flex: 1.1, textAlign: 'right' }]}>Rate (₹)</Text>
+                    <Text style={[styles.mthText, { flex: 1.2, textAlign: 'right' }]}>Taxable (₹)</Text>
+                    <Text style={[styles.mthText, { flex: 1.2, textAlign: 'right' }]}>Total (₹)</Text>
+                  </View>
+
+                  {isMultiItem && delivery.cartItemsSnapshot ? (
+                    delivery.cartItemsSnapshot.map((item, idx) => {
+                      const itemTotal = item.item.price * item.quantity;
+                      const itemTaxable = Math.round(itemTotal / 1.18);
+                      const hsn = getHSNCodeForMaterial(item.item.name);
+                      return (
+                        <View key={item.item.id + idx} style={styles.materialsTableRow}>
+                          <View style={{ flex: 2.2 }}>
+                            <Text style={styles.mtdItemName}>{item.item.name}</Text>
+                            <Text style={styles.mtdItemSub}>{hsn.desc}</Text>
+                          </View>
+                          <Text style={[styles.mtdText, { flex: 0.9, textAlign: 'center', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }]}>
+                            {hsn.code}
+                          </Text>
+                          <Text style={[styles.mtdText, { flex: 0.9, textAlign: 'center' }]}>
+                            {item.quantity} {item.item.unit || 'Ton'}
+                          </Text>
+                          <Text style={[styles.mtdText, { flex: 1.1, textAlign: 'right' }]}>
+                            ₹{Math.round(itemTaxable / (item.quantity || 1)).toLocaleString('en-IN')}
+                          </Text>
+                          <Text style={[styles.mtdText, { flex: 1.2, textAlign: 'right', fontWeight: '600' }]}>
+                            ₹{itemTaxable.toLocaleString('en-IN')}
+                          </Text>
+                          <Text style={[styles.mtdText, { flex: 1.2, textAlign: 'right', fontWeight: '800', color: '#0F172A' }]}>
+                            ₹{itemTotal.toLocaleString('en-IN')}
+                          </Text>
+                        </View>
+                      );
+                    })
+                  ) : (
+                    <View style={styles.materialsTableRow}>
+                      <View style={{ flex: 2.2 }}>
+                        <Text style={styles.mtdItemName}>{delivery.materialName}</Text>
+                        <Text style={styles.mtdItemSub}>{primaryHsnInfo.desc} • High Grade</Text>
+                      </View>
+                      <Text style={[styles.mtdText, { flex: 0.9, textAlign: 'center', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }]}>
+                        {primaryHsnInfo.code}
+                      </Text>
+                      <Text style={[styles.mtdText, { flex: 0.9, textAlign: 'center' }]}>
+                        {delivery.quantity}
+                      </Text>
+                      <Text style={[styles.mtdText, { flex: 1.1, textAlign: 'right' }]}>
+                        ₹{Math.round(taxableAmount / 10).toLocaleString('en-IN')}
+                      </Text>
+                      <Text style={[styles.mtdText, { flex: 1.2, textAlign: 'right', fontWeight: '600' }]}>
+                        ₹{taxableAmount.toLocaleString('en-IN')}
+                      </Text>
+                      <Text style={[styles.mtdText, { flex: 1.2, textAlign: 'right', fontWeight: '800', color: '#0F172A' }]}>
+                        ₹{totalAmount.toLocaleString('en-IN')}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Tax Breakdown & Calculations Summary */}
+                <View style={styles.calculationSection}>
+                  <View style={styles.wordsBox}>
+                    <Text style={styles.wordsLabel}>INVOICE AMOUNT IN WORDS</Text>
+                    <Text style={styles.wordsContent}>{numberToWordsIndian(totalAmount)}</Text>
+                    <View style={styles.irnBox}>
+                      <Text style={styles.irnLabel}>IRN:</Text>
+                      <Text style={styles.irnHashText} numberOfLines={1}>
+                        {irnHash}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.calcCard}>
+                    <View style={styles.calcRow}>
+                      <Text style={styles.calcLabel}>Taxable Value</Text>
+                      <Text style={styles.calcVal}>₹{taxableAmount.toLocaleString('en-IN')}</Text>
+                    </View>
+                    <View style={styles.calcRow}>
+                      <Text style={styles.calcLabel}>Central Tax (CGST @ 9%)</Text>
+                      <Text style={styles.calcVal}>₹{cgstAmount.toLocaleString('en-IN')}</Text>
+                    </View>
+                    <View style={styles.calcRow}>
+                      <Text style={styles.calcLabel}>State Tax (SGST @ 9%)</Text>
+                      <Text style={styles.calcVal}>₹{sgstAmount.toLocaleString('en-IN')}</Text>
+                    </View>
+                    <View style={styles.calcRow}>
+                      <Text style={styles.calcLabel}>Quarry Freight & Tolls</Text>
+                      <Text style={[styles.calcVal, { color: '#059669', fontWeight: '800' }]}>INCLUDED</Text>
+                    </View>
+                    <View style={styles.calcGrandTotalRow}>
+                      <Text style={styles.calcGrandTotalLabel}>Total Invoice Amount</Text>
+                      <Text style={styles.calcGrandTotalVal}>₹{totalAmount.toLocaleString('en-IN')}</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Digital Verification Seal & Legal Signatory */}
+                <View style={styles.signatureFooterRow}>
+                  <View style={styles.sealBadge}>
+                    <ShieldCheck size={18} color="#059669" strokeWidth={2.2} />
+                    <View>
+                      <Text style={styles.sealTitle}>Digitally Signed & Certified</Text>
+                      <Text style={styles.sealSubtitle}>
+                        Urbanico Billing Engine • Valid under Section 31 CGST Act 2017
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.copyNumAction}>
+                    <TouchableOpacity
+                      onPress={() => handleCopy(invoiceNum, 'Invoice Number')}
+                      style={styles.copyPill}
+                      activeOpacity={0.7}
+                    >
+                      {copiedField === 'Invoice Number' ? (
+                        <Check size={13} color="#059669" strokeWidth={2.5} />
+                      ) : (
+                        <Copy size={13} color="#64748B" />
+                      )}
+                      <Text style={styles.copyPillText}>
+                        {copiedField === 'Invoice Number' ? 'Copied' : 'Copy Invoice #'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* TAB 2: WEIGHBRIDGE WEIGHT SLIP */}
+            {activeTab === 'weighbridge' && (
+              <View style={styles.documentCard}>
+                <View style={styles.wbCardHeader}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Scale size={20} color="#0F172A" />
+                    <View>
+                      <Text style={styles.wbCardTitle}>ELECTRONIC WEIGHBRIDGE SLIP</Text>
+                      <Text style={styles.wbCardSub}>Slip No: WB-2026-{cleanOrderNum} • Miyapur Quarry Station</Text>
+                    </View>
+                  </View>
+                  <View style={styles.wbCertifiedPill}>
+                    <ShieldCheck size={12} color="#059669" />
+                    <Text style={styles.wbCertifiedText}>CALIBRATED</Text>
+                  </View>
+                </View>
+
+                <View style={styles.wbMetricsContainer}>
+                  <View style={styles.wbMetricBox}>
+                    <Text style={styles.wbMetricLabel}>GROSS VEHICLE WT</Text>
+                    <Text style={styles.wbMetricValue}>28,450 kg</Text>
+                    <Text style={styles.wbMetricSub}>Loaded Tipper</Text>
+                  </View>
+                  <View style={styles.wbMetricBox}>
+                    <Text style={styles.wbMetricLabel}>TARE (EMPTY) WT</Text>
+                    <Text style={styles.wbMetricValue}>10,150 kg</Text>
+                    <Text style={styles.wbMetricSub}>Tare Scaled</Text>
+                  </View>
+                  <View style={[styles.wbMetricBox, { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' }]}>
+                    <Text style={[styles.wbMetricLabel, { color: '#166534' }]}>NET DELIVERED WT</Text>
+                    <Text style={[styles.wbMetricValue, { color: '#15803D' }]}>18,300 kg</Text>
+                    <Text style={[styles.wbMetricSub, { color: '#166534', fontWeight: '700' }]}>18.30 Metric Tons</Text>
+                  </View>
+                </View>
+
+                <View style={styles.wbDetailsList}>
+                  <View style={styles.wbDetailRow}>
+                    <Text style={styles.wbDetailKey}>Weighbridge Terminal ID</Text>
+                    <Text style={styles.wbDetailVal}>WB-HYD-04 (Miyapur Aggregate Terminal)</Text>
+                  </View>
+                  <View style={styles.wbDetailRow}>
+                    <Text style={styles.wbDetailKey}>Weighbridge Operator</Text>
+                    <Text style={styles.wbDetailVal}>K. Rajesh (Govt. Certified Weights & Measures)</Text>
+                  </View>
+                  <View style={styles.wbDetailRow}>
+                    <Text style={styles.wbDetailKey}>Vehicle Registration</Text>
+                    <Text style={styles.wbDetailVal}>{delivery.vehicleNumber || 'TS 09 UB 4821'} ({delivery.vehicleType || '10-Wheel Tipper'})</Text>
+                  </View>
+                  <View style={styles.wbDetailRow}>
+                    <Text style={styles.wbDetailKey}>Driver Name</Text>
+                    <Text style={styles.wbDetailVal}>{delivery.driverName || 'Suresh Reddy'} (+91 98480 22199)</Text>
+                  </View>
+                  <View style={styles.wbDetailRow}>
+                    <Text style={styles.wbDetailKey}>Calibration Validity</Text>
+                    <Text style={styles.wbDetailVal}>Valid until 31 Dec 2026 (Govt Cert #WM/TS/8812)</Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* TAB 3: BANK & REMITTANCE DETAILS */}
+            {activeTab === 'bank' && (
+              <View style={styles.documentCard}>
+                <View style={styles.bankHeaderRow}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <CreditCard size={20} color="#0F172A" />
+                    <View>
+                      <Text style={styles.bankCardTitle}>Official Corporate Bank Account</Text>
+                      <Text style={styles.bankCardSub}>NEFT / RTGS / IMPS / Corporate NetBanking</Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={styles.bankFieldsGrid}>
+                  <View style={styles.bankFieldItem}>
+                    <Text style={styles.bankFieldLabel}>BENEFICIARY ACCOUNT NAME</Text>
+                    <Text style={styles.bankFieldValue}>
+                      Urbanico Infrastructure & Logistics Technologies Pvt Ltd
+                    </Text>
+                  </View>
+
+                  <View style={styles.bankFieldItem}>
+                    <Text style={styles.bankFieldLabel}>BANK NAME & BRANCH</Text>
+                    <Text style={styles.bankFieldValue}>
+                      Axis Bank Ltd, HiTech City Corporate Branch, Hyderabad
+                    </Text>
+                  </View>
+
+                  <View style={styles.bankFieldItem}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={styles.bankFieldLabel}>CURRENT ACCOUNT NUMBER</Text>
+                      <TouchableOpacity
+                        onPress={() => handleCopy('922020018829102', 'Account Number')}
+                        style={styles.copySmallBtn}
+                      >
+                        <Copy size={11} color="#0F172A" />
+                        <Text style={styles.copySmallBtnText}>Copy</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={[styles.bankFieldValue, { fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 14 }]}>
+                      9220 2001 8829 102
+                    </Text>
+                  </View>
+
+                  <View style={styles.bankFieldItem}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={styles.bankFieldLabel}>IFSC CODE</Text>
+                      <TouchableOpacity
+                        onPress={() => handleCopy('UTIB0000122', 'IFSC Code')}
+                        style={styles.copySmallBtn}
+                      >
+                        <Copy size={11} color="#0F172A" />
+                        <Text style={styles.copySmallBtnText}>Copy</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={[styles.bankFieldValue, { fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 14 }]}>
+                      UTIB0000122
+                    </Text>
+                  </View>
+
+                  <View style={styles.bankFieldItem}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={styles.bankFieldLabel}>UPI VIRTUAL PAYMENT ADDRESS (VPA)</Text>
+                      <TouchableOpacity
+                        onPress={() => handleCopy('urbanico@axisbank', 'UPI ID')}
+                        style={styles.copySmallBtn}
+                      >
+                        <Copy size={11} color="#0F172A" />
+                        <Text style={styles.copySmallBtnText}>Copy</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={[styles.bankFieldValue, { fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 14 }]}>
+                      urbanico@axisbank
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
+          </ScrollView>
+
+          {/* Modal Bottom CTA Bar */}
+          <View style={styles.modalFooter}>
+            <TouchableOpacity
+              onPress={handlePrintPdf}
+              style={styles.downloadPdfBtn}
+              activeOpacity={0.85}
+            >
+              <Download size={16} color="#FFFFFF" strokeWidth={2.2} />
+              <Text style={styles.downloadPdfBtnText}>
+                Download GST Invoice (PDF)
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
-    </View>
-  </Modal>
-);
+    </Modal>
+  );
 };
 
 const styles = StyleSheet.create({
@@ -450,28 +1058,64 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sheetContainer: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: '92%',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '94%',
     width: '100%',
     overflow: 'hidden',
+    borderTopWidth: 1,
+    borderColor: '#E2E8F0',
   },
   modalHeader: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
     borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
   },
   headerLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  brandIconMark: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    backgroundColor: '#0F172A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  titleWithBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
   modalTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.2,
+  },
+  invoiceNumPill: {
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  invoiceNumPillText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#334155',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  modalSubtitle: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
   },
   headerRightActions: {
     flexDirection: 'row',
@@ -480,252 +1124,536 @@ const styles = StyleSheet.create({
   },
   printActionBtn: {
     paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
+    paddingVertical: 7,
+    borderRadius: 8,
+    backgroundColor: '#0F172A',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
   printActionText: {
     color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '800',
+    fontSize: 12,
+    fontWeight: '700',
   },
   closeBtn: {
     padding: 6,
+    borderRadius: 8,
+    backgroundColor: '#F8FAFC',
+  },
+  segmentNav: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 14,
+  },
+  segmentTab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  segmentTabActive: {
+    borderBottomColor: '#0F172A',
+    backgroundColor: '#FFFFFF',
+  },
+  segmentLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  segmentLabelActive: {
+    fontWeight: '700',
+    color: '#0F172A',
   },
   invoiceScrollView: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    backgroundColor: '#F8FAFC',
   },
   invoiceContent: {
+    padding: 16,
     gap: 12,
-    paddingBottom: 24,
+    paddingBottom: 28,
   },
-  brandHeaderBox: {
-    borderRadius: 16,
-    padding: 14,
+  guestNoticeCard: {
+    backgroundColor: '#FFFBEB',
     borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 10,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
   },
-  brandRow: {
+  guestNoticeTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#92400E',
+  },
+  guestNoticeSub: {
+    fontSize: 11,
+    color: '#B45309',
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  guestNoticeBtn: {
+    backgroundColor: '#92400E',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  guestNoticeBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  documentCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 16,
+    gap: 14,
+  },
+  docHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+    borderBottomWidth: 1.5,
+    borderBottomColor: '#0F172A',
+    paddingBottom: 12,
   },
-  companyName: {
-    fontSize: 13,
-    fontWeight: '900',
-    letterSpacing: 0.3,
-  },
-  companySub: {
-    fontSize: 10,
-    marginTop: 2,
-  },
-  companyMeta: {
-    fontSize: 10,
-    marginTop: 2,
-  },
-  boldMeta: {
+  docSellerName: {
+    fontSize: 12.5,
     fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: 0.2,
   },
-  invoiceTagBox: {
+  docSellerSub: {
+    fontSize: 10.5,
+    color: '#64748B',
+    marginTop: 2,
+  },
+  docSellerTagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  docSellerTag: {
+    fontSize: 10,
+    color: '#475569',
+  },
+  docBold: {
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  docTypeBadgeBox: {
     alignItems: 'flex-end',
     gap: 4,
   },
-  invoiceTagText: {
-    fontSize: 14,
+  docTypeHeading: {
+    fontSize: 15,
     fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: 0.5,
   },
-  recipientPill: {
-    fontSize: 9,
-    fontWeight: '800',
+  docRecipientPill: {
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 999,
-    borderWidth: 1,
+    borderRadius: 4,
   },
-  metaGrid: {
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1,
+  docRecipientPillText: {
+    fontSize: 8.5,
+    fontWeight: '800',
+    color: '#334155',
+    letterSpacing: 0.4,
+  },
+  metaStrip: {
     flexDirection: 'row',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    padding: 10,
   },
   metaCol: {
     flex: 1,
-    gap: 3,
+    gap: 2,
   },
-  metaColDivider: {
-    width: 1,
-    marginHorizontal: 10,
-  },
-  metaColTitle: {
-    fontSize: 10,
-    fontWeight: '900',
-    marginBottom: 2,
-    letterSpacing: 0.5,
-  },
-  metaText: {
-    fontSize: 11,
-  },
-  metaVal: {
-    fontWeight: '700',
-  },
-  weighbridgeBox: {
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    gap: 8,
-  },
-  wbHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  wbTitle: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  wbMetricsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    borderRadius: 10,
-    padding: 8,
-  },
-  wbMetricItem: {
-    alignItems: 'center',
-  },
-  wbLabel: {
+  metaColLabel: {
     fontSize: 9,
-    fontWeight: '600',
-  },
-  wbVal: {
-    fontSize: 11,
     fontWeight: '800',
-    marginTop: 2,
+    color: '#64748B',
+    letterSpacing: 0.3,
   },
-  itemTableCard: {
-    borderRadius: 16,
+  metaColVal: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  partiesRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  partyBox: {
+    flex: 1,
     borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    padding: 10,
+    gap: 3,
+    backgroundColor: '#FFFFFF',
+  },
+  partyBoxHeader: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    paddingBottom: 4,
+    marginBottom: 2,
+  },
+  partyBoxName: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#0F172A',
+    marginBottom: 2,
+  },
+  partyBoxLine: {
+    fontSize: 10.5,
+    color: '#475569',
+    lineHeight: 15,
+  },
+  materialsTable: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
     overflow: 'hidden',
   },
-  tableHeaderRow: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+  materialsTableHead: {
     flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
   },
-  thCell: {
-    color: '#FFFFFF',
-    fontSize: 10,
+  mthText: {
+    fontSize: 9.5,
     fontWeight: '800',
+    color: '#334155',
     textTransform: 'uppercase',
+    letterSpacing: 0.3,
   },
-  tableBodyRow: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+  materialsTableRow: {
     flexDirection: 'row',
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
     alignItems: 'center',
   },
-  itemNameText: {
-    fontSize: 12,
-    fontWeight: '800',
+  mtdItemName: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#0F172A',
   },
-  itemSubText: {
-    fontSize: 10,
+  mtdItemSub: {
+    fontSize: 9.5,
+    color: '#64748B',
   },
-  tdCell: {
+  mtdText: {
     fontSize: 11,
-    fontWeight: '600',
+    color: '#334155',
   },
-  totalsBox: {
-    borderRadius: 16,
-    padding: 12,
-    borderWidth: 1,
-    gap: 6,
-  },
-  totalRow: {
+  calculationSection: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 12,
+    alignItems: 'flex-start',
   },
-  totalLabel: {
-    fontSize: 11,
+  wordsBox: {
+    flex: 1.1,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    padding: 10,
+    backgroundColor: '#F8FAFC',
+    gap: 4,
   },
-  totalVal: {
+  wordsLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.3,
+  },
+  wordsContent: {
     fontSize: 11,
     fontWeight: '700',
+    color: '#0F172A',
+    fontStyle: 'italic',
+    lineHeight: 15,
   },
-  grandTotalDivider: {
-    height: 1,
-    marginVertical: 4,
+  irnBox: {
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
   },
-  grandTotalRow: {
+  irnLabel: {
+    fontSize: 8.5,
+    fontWeight: '800',
+    color: '#64748B',
+  },
+  irnHashText: {
+    fontSize: 9,
+    color: '#475569',
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    marginTop: 1,
+  },
+  calcCard: {
+    flex: 0.9,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  calcRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
+  },
+  calcLabel: {
+    fontSize: 10.5,
+    color: '#64748B',
+  },
+  calcVal: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  calcGrandTotalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
-  grandTotalLabel: {
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  grandTotalVal: {
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  stampCard: {
-    backgroundColor: '#ECFDF5',
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  stampTitle: {
+  calcGrandTotalLabel: {
     fontSize: 11,
     fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  calcGrandTotalVal: {
+    fontSize: 13,
+    fontWeight: '900',
+    color: '#FFFFFF',
+  },
+  signatureFooterRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 10,
+  },
+  sealBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  sealTitle: {
+    fontSize: 11,
+    fontWeight: '700',
     color: '#059669',
   },
-  stampSub: {
+  sealSubtitle: {
+    fontSize: 9.5,
+    color: '#64748B',
+  },
+  copyNumAction: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  copyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+  },
+  copyPillText: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  wbCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingBottom: 10,
+  },
+  wbCardTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  wbCardSub: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  wbCertifiedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  wbCertifiedText: {
     fontSize: 10,
-    color: '#047857',
+    fontWeight: '800',
+    color: '#15803D',
+  },
+  wbMetricsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  wbMetricBox: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    padding: 10,
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    gap: 2,
+  },
+  wbMetricLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#64748B',
+  },
+  wbMetricValue: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#0F172A',
+    marginTop: 2,
+  },
+  wbMetricSub: {
+    fontSize: 9.5,
+    color: '#64748B',
+  },
+  wbDetailsList: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  wbDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F8FAFC',
+  },
+  wbDetailKey: {
+    fontSize: 11,
+    color: '#64748B',
+  },
+  wbDetailVal: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  bankHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    paddingBottom: 10,
+  },
+  bankCardTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0F172A',
+  },
+  bankCardSub: {
+    fontSize: 11,
+    color: '#64748B',
+    marginTop: 1,
+  },
+  bankFieldsGrid: {
+    gap: 10,
+  },
+  bankFieldItem: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 8,
+    padding: 10,
+    backgroundColor: '#F8FAFC',
+    gap: 3,
+  },
+  bankFieldLabel: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.3,
+  },
+  bankFieldValue: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  copySmallBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#E2E8F0',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  copySmallBtnText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#0F172A',
   },
   modalFooter: {
     padding: 14,
     borderTopWidth: 1,
-  },
-  guestWarningBox: {
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-    gap: 10,
-  },
-  guestWarningTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    marginBottom: 2,
-  },
-  guestWarningSub: {
-    fontSize: 11,
-    lineHeight: 15,
-  },
-  guestWarningLoginBtn: {
-    backgroundColor: '#92400E',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  guestWarningLoginBtnText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
+    borderTopColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
   },
   downloadPdfBtn: {
+    backgroundColor: '#0F172A',
     paddingVertical: 12,
-    borderRadius: 999,
+    borderRadius: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -734,6 +1662,6 @@ const styles = StyleSheet.create({
   downloadPdfBtnText: {
     color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '700',
   },
 });

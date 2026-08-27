@@ -5,27 +5,37 @@ import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 
 interface SupervisorHandoffModalProps {
-  visible: boolean;
+  visible?: boolean;
+  isOpen?: boolean;
   onClose: () => void;
   orderNumber?: string;
   currentSupervisorName?: string;
   currentSupervisorPhone?: string;
-  onSaveSupervisor: (name: string, phone: string) => void;
+  supervisor?: { name: string; phone: string };
+  onSaveSupervisor?: (name: string, phone: string) => void;
+  onSave?: (data: { name: string; phone: string }) => void;
 }
 
 export const SupervisorHandoffModal: React.FC<SupervisorHandoffModalProps> = ({
   visible,
+  isOpen,
   onClose,
   orderNumber = 'URB-HYD-9821',
-  currentSupervisorName = 'Anand Verma',
-  currentSupervisorPhone = '9876543210',
+  currentSupervisorName,
+  currentSupervisorPhone,
+  supervisor,
   onSaveSupervisor,
+  onSave,
 }) => {
+  const isVisible = visible !== undefined ? visible : !!isOpen;
+  const initialName = currentSupervisorName || supervisor?.name || 'Anand Verma';
+  const initialPhone = currentSupervisorPhone || supervisor?.phone || '9876543210';
+
   const { theme } = useTheme();
   const { showToast } = useToast();
 
-  const [name, setName] = useState(currentSupervisorName);
-  const [phone, setPhone] = useState(currentSupervisorPhone);
+  const [name, setName] = useState(initialName);
+  const [phone, setPhone] = useState(initialPhone);
 
   const handleSave = () => {
     if (!name.trim()) {
@@ -37,13 +47,18 @@ export const SupervisorHandoffModal: React.FC<SupervisorHandoffModalProps> = ({
       return;
     }
 
-    onSaveSupervisor(name.trim(), phone.trim());
+    if (typeof onSaveSupervisor === 'function') {
+      onSaveSupervisor(name.trim(), phone.trim());
+    }
+    if (typeof onSave === 'function') {
+      onSave({ name: name.trim(), phone: phone.trim() });
+    }
     showToast(`Delivery OTP authorization delegated to ${name} (${phone})`, 'success');
     onClose();
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={isVisible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={onClose} />
         <View style={[styles.card, { backgroundColor: theme.surface }]}>

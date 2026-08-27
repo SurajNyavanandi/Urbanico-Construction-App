@@ -26,6 +26,7 @@ import {
   Flame,
   ArrowUpRight,
   CheckCircle2,
+  Bell,
 } from 'lucide-react-native';
 import { ScreenType, MaterialItem } from '../types';
 import { MATERIAL_ITEMS, SERVICES, CATEGORIES } from '../data/materialsData';
@@ -33,6 +34,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useLocation } from '../context/LocationContext';
 import { useLanguage } from '../context/LanguageContext';
 import { BrandLogo } from './common/BrandLogo';
+import { NotificationsModal } from './NotificationsModal';
 
 interface HeaderProps {
   currentScreen: ScreenType;
@@ -87,6 +89,9 @@ export const Header: React.FC<HeaderProps> = ({
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchInputText, setSearchInputText] = useState(searchQuery);
   const searchInputRef = useRef<TextInput>(null);
+
+  // Notification Center Modal State
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
   // Sync external search query
   useEffect(() => {
@@ -196,26 +201,35 @@ export const Header: React.FC<HeaderProps> = ({
           activeOpacity={0.8}
           style={styles.brandContainer}
         >
-          <BrandLogo size={32} borderRadius={8} />
-          <View style={styles.brandTextGroup}>
-            <Text style={styles.brandTitle}>DIRECT YARD</Text>
-            <Text style={styles.brandSub}>Wholesale Supplies</Text>
-          </View>
+          <BrandLogo size={36} borderRadius={10} />
         </TouchableOpacity>
 
         <TouchableOpacity
           onPress={onOpenLocationModal}
-          activeOpacity={0.7}
+          activeOpacity={0.75}
           style={styles.locationButton}
         >
-          <MapPin color="#111111" size={13} strokeWidth={2.2} />
+          <View style={styles.locationPinBox}>
+            <MapPin color="#111111" size={14} strokeWidth={2.4} />
+          </View>
           <View style={styles.locationTextWrapper}>
             <Text style={styles.locationDeliverLabel}>DELIVER TO</Text>
-            <Text style={styles.locationText} numberOfLines={1}>
-              {locationName}
-            </Text>
+            <View style={styles.locationNameRow}>
+              <Text style={styles.locationText} numberOfLines={1}>
+                {locationName}
+              </Text>
+              <ChevronDown color="#111111" size={13} strokeWidth={2.4} />
+            </View>
           </View>
-          <ChevronDown color="#111111" size={13} strokeWidth={2.2} />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={() => setIsNotificationsOpen(true)}
+          activeOpacity={0.7}
+          style={styles.notificationButton}
+        >
+          <Bell color="#111111" size={16} strokeWidth={2.2} />
+          <View style={styles.notificationDot} />
         </TouchableOpacity>
       </View>
 
@@ -532,6 +546,13 @@ export const Header: React.FC<HeaderProps> = ({
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* 3. Site Notifications Center Modal */}
+      <NotificationsModal
+        visible={isNotificationsOpen}
+        onClose={() => setIsNotificationsOpen(false)}
+        onNavigateScreen={onNavigateScreen}
+      />
     </View>
   );
 };
@@ -552,57 +573,84 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     gap: 8,
   },
-  brandContainer: {
+  topRightActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 1,
+    justifyContent: 'flex-end',
   },
-  brandTextGroup: {
-    justifyContent: 'center',
-  },
-  brandTitle: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#111111',
-    letterSpacing: 0.5,
-    lineHeight: 16,
-  },
-  brandSub: {
-    fontSize: 9.5,
-    fontWeight: '700',
-    color: '#707072',
-    letterSpacing: 0.3,
-    lineHeight: 12,
-    textTransform: 'uppercase',
-  },
-  locationButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 999,
+  notificationButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F4F4F5',
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    backgroundColor: '#FAFAFA',
-    maxWidth: '54%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  notificationDot: {
+    position: 'absolute',
+    top: 7,
+    right: 8,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#0284C7',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
+  },
+  brandContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  locationButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    minHeight: 38,
+    marginHorizontal: 4,
+  },
+  locationPinBox: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   locationTextWrapper: {
-    flexShrink: 1,
+    flex: 1,
+    justifyContent: 'center',
   },
   locationDeliverLabel: {
-    fontSize: 8,
+    fontSize: 8.5,
     fontWeight: '800',
-    color: '#707072',
-    letterSpacing: 0.5,
-    lineHeight: 10,
+    color: '#64748B',
+    letterSpacing: 0.6,
+    lineHeight: 11,
+    textTransform: 'uppercase',
+  },
+  locationNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   locationText: {
-    fontSize: 11.5,
+    fontSize: 12.5,
     fontWeight: '700',
-    color: '#111111',
+    color: '#0F172A',
     letterSpacing: -0.2,
-    lineHeight: 14,
+    lineHeight: 16,
   },
 
   /* Search Trigger Bar (Nike/Adidas look) */

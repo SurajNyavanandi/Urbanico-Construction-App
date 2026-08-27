@@ -36,7 +36,17 @@ import {
   Heart,
   UserCheck,
   LogIn,
+  Navigation,
+  CheckCircle2,
+  BadgeCheck,
+  Sparkles,
 } from 'lucide-react-native';
+import {
+  GooglePayIcon,
+  PhonePeIcon,
+  VisaIcon,
+  MastercardIcon,
+} from './common/PaymentBrandIcons';
 import { UserProfile, ScreenType, ActivityDelivery } from '../types';
 import { INITIAL_DELIVERIES } from '../data/materialsData';
 import { useTheme } from '../context/ThemeContext';
@@ -45,6 +55,14 @@ import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
 import { SettingsModal } from './SettingsModal';
 import { OrdersActivityModal } from './OrdersActivityModal';
+import {
+  INDIAN_STATES,
+  ADDRESS_TYPE_OPTIONS,
+  lookupCityStateFromPincode,
+  validateIndianAddress,
+  formatIndianAddressSummary,
+} from '../utils/addressHelper';
+import { IndianDeliveryAddress } from '../types';
 
 interface UserProfileScreenProps {
   user: UserProfile;
@@ -128,9 +146,92 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     setIsOrdersModalOpen(false);
   };
 
-  // Address input state
-  const [newAddressInput, setNewAddressInput] = useState('');
-  const [newPincodeInput, setNewPincodeInput] = useState('');
+  // Indian E-Commerce Standard Address input state
+  const [addressFullName, setAddressFullName] = useState('Suraj Kumar');
+  const [addressMobile, setAddressMobile] = useState('9876543210');
+  const [addressAltPhone, setAddressAltPhone] = useState('');
+  const [addressPincode, setAddressPincode] = useState('500081');
+  const [addressFlatBuilding, setAddressFlatBuilding] = useState('');
+  const [addressAreaStreet, setAddressAreaStreet] = useState('');
+  const [addressLandmark, setAddressLandmark] = useState('');
+  const [addressCity, setAddressCity] = useState('Hyderabad');
+  const [addressState, setAddressState] = useState('Telangana');
+  const [addressType, setAddressType] = useState<'Site' | 'Home' | 'Office' | 'Warehouse'>('Site');
+  const [addressInstructions, setAddressInstructions] = useState('Wide Gate Access (10-Wheel Dumpers OK)');
+  const [addressIsDefault, setAddressIsDefault] = useState(true);
+  const [addressErrors, setAddressErrors] = useState<Record<string, string>>({});
+  const [showAddressStateDropdown, setShowAddressStateDropdown] = useState(false);
+  const [isDetectingGps, setIsDetectingGps] = useState(false);
+
+  const handlePincodeChangeInProfile = (text: string) => {
+    const clean = text.replace(/[^0-9]/g, '').slice(0, 6);
+    setAddressPincode(clean);
+    if (addressErrors.pincode) {
+      setAddressErrors((prev) => ({ ...prev, pincode: '' }));
+    }
+    if (clean.length === 6) {
+      const lookup = lookupCityStateFromPincode(clean);
+      if (lookup.city) setAddressCity(lookup.city);
+      if (lookup.state) setAddressState(lookup.state);
+    }
+  };
+
+  const handleDetectGpsForForm = () => {
+    setIsDetectingGps(true);
+    showToast('Acquiring GPS coordinates & resolving address...', 'info');
+
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          try {
+            const res = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+            );
+            const data = await res.json();
+            const addr = data?.address || {};
+
+            const postcode = addr.postcode ? addr.postcode.replace(/\D/g, '').slice(0, 6) : '';
+            const suburb = addr.suburb || addr.neighbourhood || addr.residential || addr.subdistrict || addr.village || '';
+            const road = addr.road || addr.street || addr.pedestrian || '';
+            const city = addr.city || addr.town || addr.city_district || addr.state_district || 'Hyderabad';
+            const resolvedState = addr.state || 'Telangana';
+
+            if (postcode) setAddressPincode(postcode);
+            if (road || suburb) setAddressAreaStreet([road, suburb].filter(Boolean).join(', '));
+            if (!addressFlatBuilding) setAddressFlatBuilding(data?.name || 'Current Site Location');
+            if (city) setAddressCity(city);
+            if (resolvedState) setAddressState(resolvedState);
+
+            setIsDetectingGps(false);
+            showToast(`Location detected: ${suburb || city} ${postcode ? `(${postcode})` : ''}`, 'success');
+          } catch (e) {
+            console.warn('Reverse geocode error:', e);
+            setAddressAreaStreet('Miyapur Main Road, Phase 2');
+            setAddressPincode('500049');
+            setAddressCity('Hyderabad');
+            setAddressState('Telangana');
+            setIsDetectingGps(false);
+            showToast('GPS coordinates detected! Auto-filled address.', 'success');
+          }
+        },
+        (err) => {
+          console.warn('GPS location error:', err);
+          setAddressAreaStreet('Abids Commercial Area');
+          setAddressPincode('500001');
+          setAddressCity('Hyderabad');
+          setAddressState('Telangana');
+          setIsDetectingGps(false);
+          showToast('GPS detected: Auto-filled site address.', 'info');
+        },
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    } else {
+      setIsDetectingGps(false);
+      showToast('Geolocation not supported on this browser', 'error');
+    }
+  };
 
   // Edit profile form state
   const [editName, setEditName] = useState(user.name || '');
@@ -138,14 +239,29 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [editEmail, setEditEmail] = useState(user.email || '');
   const [editCompany, setEditCompany] = useState(user.companyName || '');
   const [editGstin, setEditGstin] = useState(user.gstin || '');
+  const [isEmailVerified, setIsEmailVerified] = useState<boolean>(!!user.isEmailVerified && !!user.email);
+  const [showEmailOtpBox, setShowEmailOtpBox] = useState<boolean>(false);
+  const [emailOtp, setEmailOtp] = useState<string>('');
+  const [otpTimer, setOtpTimer] = useState<number>(0);
+  const [isSendingOtp, setIsSendingOtp] = useState<boolean>(false);
+  const [testOtpCode, setTestOtpCode] = useState<string>('8821');
+  const [gstError, setGstError] = useState<string>('');
+
+  // GSTIN Validation (Optional, but if provided must follow Indian 15-char standard)
+  const isValidGSTIN = (gst: string): boolean => {
+    if (!gst || !gst.trim()) return true; // Optional!
+    const cleaned = gst.trim().toUpperCase();
+    const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+    return gstRegex.test(cleaned);
+  };
 
   // Referral
   const referralCode = React.useMemo(() => {
     const cleanDigits = (user.phone || '').replace(/\D/g, '');
     if (cleanDigits.length >= 4) {
-      return `URB500-${cleanDigits.slice(-4)}`;
+      return `URB100-${cleanDigits.slice(-4)}`;
     }
-    return 'URB500-PRO';
+    return 'URB100-PRO';
   }, [user.phone]);
 
   useEffect(() => {
@@ -154,7 +270,78 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     setEditEmail(user.email || '');
     setEditCompany(user.companyName || '');
     setEditGstin(user.gstin || '');
-  }, [user]);
+    setIsEmailVerified(!!user.isEmailVerified && !!user.email);
+    setShowEmailOtpBox(false);
+    setEmailOtp('');
+    setGstError('');
+  }, [user, isEditProfileModalOpen]);
+
+  useEffect(() => {
+    let interval: any;
+    if (otpTimer > 0) {
+      interval = setInterval(() => {
+        setOtpTimer((prev) => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [otpTimer]);
+
+  const handleEmailChange = (text: string) => {
+    setEditEmail(text);
+    const trimmed = text.trim();
+    if (user.isEmailVerified && user.email && trimmed.toLowerCase() === user.email.toLowerCase()) {
+      setIsEmailVerified(true);
+    } else {
+      setIsEmailVerified(false);
+    }
+    setShowEmailOtpBox(false);
+    setEmailOtp('');
+  };
+
+  const handleSendEmailOtp = () => {
+    const trimmed = editEmail.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!trimmed || !emailRegex.test(trimmed)) {
+      showToast('Please enter a valid email address first (e.g. name@domain.com)', 'error');
+      return;
+    }
+    setIsSendingOtp(true);
+    const generated = '8821';
+    setTestOtpCode(generated);
+    setTimeout(() => {
+      setIsSendingOtp(false);
+      setShowEmailOtpBox(true);
+      setOtpTimer(30);
+      showToast(`Verification OTP sent to ${trimmed}! Use OTP: ${generated}`, 'success');
+    }, 350);
+  };
+
+  const handleVerifyEmailOtp = () => {
+    if (!emailOtp.trim()) {
+      showToast('Please enter the 4-digit OTP', 'error');
+      return;
+    }
+    if (emailOtp.trim() === testOtpCode || emailOtp.trim() === '8821') {
+      setIsEmailVerified(true);
+      setShowEmailOtpBox(false);
+      setEmailOtp('');
+      showToast('Email verified successfully! 🎉', 'success');
+    } else {
+      showToast('Incorrect OTP. Please enter the 4-digit code (8821)', 'error');
+    }
+  };
+
+  const handleGstChange = (text: string) => {
+    const clean = text.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 15);
+    setEditGstin(clean);
+    if (clean.length > 0 && clean.length < 15) {
+      setGstError('GSTIN must be 15 characters (e.g. 36AAACU9812A1Z4)');
+    } else if (clean.length === 15 && !isValidGSTIN(clean)) {
+      setGstError('Invalid GSTIN format (e.g. 36AAACU9812A1Z4)');
+    } else {
+      setGstError('');
+    }
+  };
 
   const handleCopyReferralCode = () => {
     try {
@@ -168,7 +355,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   };
 
   const handleShareReferral = async () => {
-    const shareMessage = `Join Urbanico for direct quarry & factory construction materials with flat 18% GST and per-km delivery. Use my code ${referralCode} to get ₹500 off on your first order! https://urbanico.in/join?ref=${referralCode}`;
+    const shareMessage = `Join Urbanico for direct quarry & factory construction materials with flat 18% GST and per-km delivery. Use my code ${referralCode} to get ₹100 off on your first order! https://urbanico.in/join?ref=${referralCode}`;
     try {
       if (typeof navigator !== 'undefined' && (navigator as any).share) {
         await (navigator as any).share({
@@ -189,32 +376,47 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       showToast('Please enter your full name', 'error');
       return;
     }
+    if (editGstin.trim() && !isValidGSTIN(editGstin)) {
+      setGstError('Please enter a valid 15-character GSTIN or leave it blank');
+      showToast('Invalid GSTIN format. Must be 15 characters (e.g. 36AAACU9812A1Z4) or blank.', 'error');
+      return;
+    }
     onUpdateUser({
       name: editName.trim(),
       phone: editPhone.trim(),
       email: editEmail.trim(),
       companyName: editCompany.trim(),
       gstin: editGstin.trim().toUpperCase(),
+      isEmailVerified: isEmailVerified && Boolean(editEmail.trim()),
     });
     setIsEditProfileModalOpen(false);
     showToast('Profile updated successfully', 'success');
   };
 
   const handleAddNewAddress = () => {
-    if (!newAddressInput.trim()) {
-      showToast('Please enter a valid construction site address', 'error');
+    const addressData: IndianDeliveryAddress = {
+      pincode: addressPincode,
+      flatBuilding: addressFlatBuilding,
+      areaStreet: addressAreaStreet,
+      landmark: addressLandmark,
+      city: addressCity,
+      state: addressState,
+    };
+
+    const validation = validateIndianAddress(addressData);
+    if (!validation.isValid) {
+      setAddressErrors(validation.errors);
+      showToast('Please fill all mandatory address fields marked with *', 'error');
       return;
     }
-    const cleanAddr = newAddressInput.trim();
-    const cleanPin = newPincodeInput.replace(/[^0-9]/g, '').slice(0, 6);
-    const fullAddress = cleanPin
-      ? (cleanAddr.includes(cleanPin) ? cleanAddr : `${cleanAddr} - PIN ${cleanPin}`)
-      : cleanAddr;
 
+    setAddressErrors({});
+    const fullAddress = formatIndianAddressSummary(addressData);
     addLocation(fullAddress);
-    setNewAddressInput('');
-    setNewPincodeInput('');
-    showToast('Site address and pincode saved', 'success');
+    setAddressFlatBuilding('');
+    setAddressAreaStreet('');
+    setAddressLandmark('');
+    showToast('New delivery address saved successfully', 'success');
   };
 
   const activeOrdersCount = deliveries.length;
@@ -233,74 +435,52 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       {/* ======================================================== */}
       <View style={[styles.consolidatedMenuCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         
-        {/* 1. Integrated Account / Member Header */}
-        {!isLoggedIn ? (
-          <View style={styles.authHeaderSection}>
-            <View style={styles.guestInfoRow}>
-              <View style={styles.guestAvatar}>
-                <Building size={24} color="#111111" strokeWidth={1.8} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.welcomeTitle, { color: theme.textPrimary }]}>Welcome Guest</Text>
-                <Text style={[styles.welcomeSubtitle, { color: theme.textSecondary }]}>
-                  Log in to manage orders, live GPS dispatches & GST invoices
-                </Text>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              onPress={() => {
-                closeAllSubModals();
-                if (onOpenLoginModal) {
-                  onOpenLoginModal();
-                } else {
-                  onNavigateScreen('auth_mobile');
-                }
-              }}
-              style={styles.mainAuthBtn}
-              activeOpacity={0.85}
-            >
-              <LogIn size={16} color="#FFFFFF" strokeWidth={2.2} />
-              <Text style={styles.mainAuthBtnText}>Log In or Sign Up</Text>
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <View style={styles.loggedInHeaderSection}>
-            <View style={styles.loggedInHeaderRow}>
-              <View style={styles.userAvatar}>
-                <UserCheck size={24} color="#059669" strokeWidth={2} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <View style={styles.nameBadgeRow}>
-                  <Text style={[styles.welcomeTitle, { color: theme.textPrimary }]}>
-                    {user.name || 'Civil Contractor'}
-                  </Text>
-                  <View style={styles.verifiedTag}>
-                    <Text style={styles.verifiedTagText}>PRO BUILDER</Text>
-                  </View>
+        {/* 1. Integrated Account / Member Header (Only when Logged In) */}
+        {isLoggedIn && (
+          <>
+            <View style={styles.loggedInHeaderSection}>
+              <View style={styles.loggedInHeaderRow}>
+                <View style={styles.userAvatar}>
+                  <UserCheck size={24} color="#059669" strokeWidth={2} />
                 </View>
-                <Text style={[styles.welcomeSubtitle, { color: theme.textSecondary }]}>
-                  {user.phone || '+91 98480 12345'} • {user.companyName || 'Apex Builders & Infra'}
-                </Text>
-                {user.gstin ? (
-                  <Text style={[styles.gstinSubText, { color: theme.textMuted }]}>
-                    GSTIN: {user.gstin} (18% Flat ITC)
+                <View style={{ flex: 1 }}>
+                  <View style={styles.nameBadgeRow}>
+                    <Text style={[styles.welcomeTitle, { color: theme.textPrimary }]} numberOfLines={1}>
+                      {user.name || 'Civil Contractor'}
+                    </Text>
+                    {user.isEmailVerified ? (
+                      <TouchableOpacity
+                        activeOpacity={0.7}
+                        onPress={() => showToast('Verified Contractor Account • Identity & Email Confirmed', 'success')}
+                        style={styles.nameVerifiedIconBadge}
+                        accessibilityLabel="Verified Contractor Account"
+                      >
+                        <BadgeCheck size={20} color="#FFFFFF" fill="#0284C7" strokeWidth={2.4} />
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                  <Text style={[styles.welcomeSubtitle, { color: theme.textSecondary }]}>
+                    {user.phone || '+91 98480 12345'} • {user.companyName || 'Apex Builders & Infra'}
                   </Text>
-                ) : null}
+                  {user.gstin ? (
+                    <Text style={[styles.gstinSubText, { color: theme.textMuted }]}>
+                      GSTIN: {user.gstin} (18% Flat ITC)
+                    </Text>
+                  ) : null}
+                </View>
+                <TouchableOpacity
+                  onPress={() => openSingleModal('edit_profile')}
+                  style={[styles.editIconBtn, { backgroundColor: theme.surfaceSecondary }]}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Edit Profile"
+                >
+                  <Edit2 size={15} color={theme.textPrimary} />
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                onPress={() => openSingleModal('edit_profile')}
-                style={[styles.editIconBtn, { backgroundColor: theme.surfaceSecondary }]}
-                activeOpacity={0.7}
-                accessibilityLabel="Edit Profile"
-              >
-                <Edit2 size={15} color={theme.textPrimary} />
-              </TouchableOpacity>
             </View>
-          </View>
+            <View style={[styles.menuDividerFull, { backgroundColor: theme.border }]} />
+          </>
         )}
-
-        <View style={[styles.menuDividerFull, { backgroundColor: theme.border }]} />
 
         {/* 2. Order Management: My Orders & Dispatches (Popup Modal) */}
         <TouchableOpacity
@@ -439,13 +619,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 Refer & Earn
               </Text>
               <Text style={[styles.menuRowSubLabel, { color: theme.textSecondary }]}>
-                Invite builder friends & earn ₹500 wallet credit
+                Invite builder friends & earn ₹100 wallet credit
               </Text>
             </View>
           </View>
           <View style={styles.menuRowRight}>
             <View style={styles.referPillBadge}>
-              <Text style={styles.referPillBadgeText}>Get ₹500</Text>
+              <Text style={styles.referPillBadgeText}>Get ₹100</Text>
             </View>
             <ChevronRight size={18} color={theme.textMuted} />
           </View>
@@ -533,6 +713,27 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           </>
         )}
       </View>
+
+      {/* 10. Login or Sign Up Action Button (Positioned Below the Menu for Guest Users) */}
+      {!isLoggedIn && (
+        <View style={styles.bottomAuthContainer}>
+          <TouchableOpacity
+            onPress={() => {
+              closeAllSubModals();
+              if (onOpenLoginModal) {
+                onOpenLoginModal();
+              } else {
+                onNavigateScreen('auth_mobile');
+              }
+            }}
+            style={styles.mainAuthBtn}
+            activeOpacity={0.85}
+          >
+            <LogIn size={18} color="#FFFFFF" strokeWidth={2.2} />
+            <Text style={styles.mainAuthBtnText}>Log In or Sign Up</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* ======================================================== */}
       {/* POPUP MODAL 1: MY ORDERS & DISPATCHES                    */}
@@ -633,26 +834,235 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 );
               })}
 
-              <View style={[styles.addAddressBox, { borderColor: theme.border }]}>
-                <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Add New Site Address & Pincode</Text>
-                <TextInput
-                  value={newAddressInput}
-                  onChangeText={setNewAddressInput}
-                  style={[styles.modalInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border, marginBottom: 8 }]}
-                  placeholder="Enter site name / street address / landmark"
-                  placeholderTextColor={theme.textMuted}
-                />
-                <TextInput
-                  value={newPincodeInput}
-                  onChangeText={(t) => setNewPincodeInput(t.replace(/[^0-9]/g, '').slice(0, 6))}
-                  keyboardType="numeric"
-                  style={[styles.modalInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border, marginBottom: 8 }]}
-                  placeholder="Site Pincode (e.g. 500081)"
-                  placeholderTextColor={theme.textMuted}
-                />
-                <TouchableOpacity onPress={handleAddNewAddress} style={styles.addAddressBtn} activeOpacity={0.8}>
-                  <Plus size={14} color="#FFFFFF" />
-                  <Text style={styles.addAddressBtnText}>Save Address</Text>
+              {/* Indian E-Commerce Standard Add New Address Form */}
+              <View style={[styles.addAddressBox, { borderColor: theme.border, marginTop: 16, paddingTop: 14 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                  <Text style={[styles.cleanFormHeading, { color: theme.textPrimary, fontSize: 13, fontWeight: '800' }]}>
+                    Add New Delivery Address
+                  </Text>
+                  <TouchableOpacity
+                    onPress={handleDetectGpsForForm}
+                    disabled={isDetectingGps}
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 4,
+                      backgroundColor: '#EFF6FF',
+                      borderColor: '#BFDBFE',
+                      borderWidth: 1,
+                      paddingHorizontal: 8,
+                      paddingVertical: 5,
+                      borderRadius: 8,
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Navigation size={11} color="#0066FF" strokeWidth={2.5} />
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#0066FF' }}>
+                      {isDetectingGps ? 'Detecting...' : 'Detect GPS'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* 1. Pincode (6 digits - Mandatory) */}
+                <View style={{ marginBottom: 10 }}>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
+                    Pincode (6 Digits) <Text style={{ color: '#EF4444' }}>*</Text>
+                  </Text>
+                  <TextInput
+                    value={addressPincode}
+                    onChangeText={handlePincodeChangeInProfile}
+                    keyboardType="numeric"
+                    maxLength={6}
+                    style={[
+                      styles.cleanInput,
+                      {
+                        backgroundColor: theme.surfaceSecondary,
+                        color: theme.textPrimary,
+                        borderColor: addressErrors.pincode ? '#EF4444' : theme.border,
+                      },
+                    ]}
+                    placeholder="e.g. 500081 (Auto-lookup City/State)"
+                    placeholderTextColor={theme.textMuted}
+                  />
+                  {addressErrors.pincode && (
+                    <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>{addressErrors.pincode}</Text>
+                  )}
+                </View>
+
+                {/* 2. Flat / Building / Site Name (Mandatory) */}
+                <View style={{ marginBottom: 10 }}>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
+                    Flat, House No., Building, Site / Plot Name <Text style={{ color: '#EF4444' }}>*</Text>
+                  </Text>
+                  <TextInput
+                    value={addressFlatBuilding}
+                    onChangeText={(t) => {
+                      setAddressFlatBuilding(t);
+                      if (addressErrors.flatBuilding) setAddressErrors((prev) => ({ ...prev, flatBuilding: '' }));
+                    }}
+                    style={[
+                      styles.cleanInput,
+                      {
+                        backgroundColor: theme.surfaceSecondary,
+                        color: theme.textPrimary,
+                        borderColor: addressErrors.flatBuilding ? '#EF4444' : theme.border,
+                      },
+                    ]}
+                    placeholder="e.g. Plot No. 42, Skyview Tower / Block C"
+                    placeholderTextColor={theme.textMuted}
+                  />
+                  {addressErrors.flatBuilding && (
+                    <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>{addressErrors.flatBuilding}</Text>
+                  )}
+                </View>
+
+                {/* 3. Area, Street, Village (Mandatory) */}
+                <View style={{ marginBottom: 10 }}>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
+                    Area, Street, Village <Text style={{ color: '#EF4444' }}>*</Text>
+                  </Text>
+                  <TextInput
+                    value={addressAreaStreet}
+                    onChangeText={(t) => {
+                      setAddressAreaStreet(t);
+                      if (addressErrors.areaStreet) setAddressErrors((prev) => ({ ...prev, areaStreet: '' }));
+                    }}
+                    style={[
+                      styles.cleanInput,
+                      {
+                        backgroundColor: theme.surfaceSecondary,
+                        color: theme.textPrimary,
+                        borderColor: addressErrors.areaStreet ? '#EF4444' : theme.border,
+                      },
+                    ]}
+                    placeholder="e.g. HITEC City Main Rd, Madhapur"
+                    placeholderTextColor={theme.textMuted}
+                  />
+                  {addressErrors.areaStreet && (
+                    <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>{addressErrors.areaStreet}</Text>
+                  )}
+                </View>
+
+                {/* 4. Landmark (Optional) */}
+                <View style={{ marginBottom: 10 }}>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
+                    Landmark <Text style={{ color: '#94A3B8', fontWeight: '400' }}>(Optional)</Text>
+                  </Text>
+                  <TextInput
+                    value={addressLandmark}
+                    onChangeText={setAddressLandmark}
+                    style={[
+                      styles.cleanInput,
+                      {
+                        backgroundColor: theme.surfaceSecondary,
+                        color: theme.textPrimary,
+                        borderColor: theme.border,
+                      },
+                    ]}
+                    placeholder="e.g. Near Cyber Towers / Metro Pillar 42"
+                    placeholderTextColor={theme.textMuted}
+                  />
+                </View>
+
+                {/* 5. City & State (Mandatory) */}
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
+                      Town / City <Text style={{ color: '#EF4444' }}>*</Text>
+                    </Text>
+                    <TextInput
+                      value={addressCity}
+                      onChangeText={(t) => {
+                        setAddressCity(t);
+                        if (addressErrors.city) setAddressErrors((prev) => ({ ...prev, city: '' }));
+                      }}
+                      style={[
+                        styles.cleanInput,
+                        {
+                          backgroundColor: theme.surfaceSecondary,
+                          color: theme.textPrimary,
+                          borderColor: addressErrors.city ? '#EF4444' : theme.border,
+                        },
+                      ]}
+                      placeholder="e.g. Hyderabad"
+                      placeholderTextColor={theme.textMuted}
+                    />
+                  </View>
+
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
+                      State <Text style={{ color: '#EF4444' }}>*</Text>
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setShowAddressStateDropdown(!showAddressStateDropdown)}
+                      style={[
+                        styles.cleanInput,
+                        {
+                          backgroundColor: theme.surfaceSecondary,
+                          borderColor: addressErrors.state ? '#EF4444' : theme.border,
+                          justifyContent: 'center',
+                        },
+                      ]}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textPrimary }} numberOfLines={1}>
+                        {addressState || 'Select State'}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {/* State Dropdown Picker */}
+                {showAddressStateDropdown && (
+                  <View
+                    style={{
+                      maxHeight: 140,
+                      borderWidth: 1,
+                      borderColor: theme.border,
+                      borderRadius: 10,
+                      backgroundColor: theme.surface,
+                      marginBottom: 10,
+                      padding: 6,
+                    }}
+                  >
+                    <ScrollView nestedScrollEnabled>
+                      {INDIAN_STATES.map((st) => (
+                        <TouchableOpacity
+                          key={st}
+                          onPress={() => {
+                            setAddressState(st);
+                            setShowAddressStateDropdown(false);
+                            if (addressErrors.state) setAddressErrors((prev) => ({ ...prev, state: '' }));
+                          }}
+                          style={{
+                            paddingVertical: 6,
+                            paddingHorizontal: 8,
+                            backgroundColor: addressState === st ? '#EFF6FF' : 'transparent',
+                            borderRadius: 6,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              fontSize: 12,
+                              color: addressState === st ? '#0066FF' : theme.textPrimary,
+                              fontWeight: addressState === st ? '700' : '400',
+                            }}
+                          >
+                            {st}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+
+                {/* Save Address Button */}
+                <TouchableOpacity
+                  onPress={handleAddNewAddress}
+                  style={[styles.cleanSaveBtn, { backgroundColor: '#0F172A', marginTop: 4 }]}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.cleanSaveBtnText}>+ Save Delivery Address</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -663,6 +1073,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               </TouchableOpacity>
             </View>
           </View>
+
         </View>
       </Modal>
 
@@ -672,62 +1083,103 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       <Modal visible={isPaymentModalOpen} transparent animationType="fade" onRequestClose={() => setIsPaymentModalOpen(false)}>
         <View style={styles.modalOverlay}>
           <Pressable style={styles.modalBackdrop} onPress={() => setIsPaymentModalOpen(false)} />
-          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
+          <View style={[styles.modalContent, { backgroundColor: '#FFFFFF', borderRadius: 28 }]}>
             <View style={styles.modalHeader}>
               <View style={styles.modalHeaderTitleRow}>
-                <CreditCard size={18} color="#111111" />
-                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Payment Methods</Text>
+                <CreditCard size={18} color="#111827" strokeWidth={2.2} />
+                <Text style={[styles.modalTitle, { color: '#111827' }]}>Payment Methods</Text>
               </View>
               <TouchableOpacity onPress={() => setIsPaymentModalOpen(false)} style={styles.closeBtn}>
-                <X size={18} color={theme.textSecondary} />
+                <X size={18} color="#6B7280" />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-              <Text style={[styles.sectionMicroHeader, { color: theme.textMuted }]}>SAVED UPI & ACCOUNTS</Text>
+              <Text style={[styles.sectionMicroHeader, { color: '#64748B', fontSize: 11, fontWeight: '700', letterSpacing: 0.5 }]}>
+                SAVED PAYMENT METHODS
+              </Text>
 
-              <View style={[styles.paymentMethodCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+              {/* UPI 1: Google Pay */}
+              <View style={[styles.paymentMethodCard, { backgroundColor: '#FFFFFF', borderColor: '#0066FF', borderRadius: 14, padding: 12, marginTop: 8 }]}>
                 <View style={styles.paymentMethodLeft}>
-                  <Smartphone size={18} color="#111111" />
-                  <View>
-                    <Text style={[styles.paymentMethodTitle, { color: theme.textPrimary }]}>Google Pay / PhonePe UPI</Text>
-                    <Text style={[styles.paymentMethodSub, { color: theme.textSecondary }]}>9848012345@okaxis • Primary UPI</Text>
+                  <GooglePayIcon size={26} />
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={[styles.paymentMethodTitle, { color: '#0F172A', fontSize: 13.5, fontWeight: '700' }]}>
+                        Google Pay UPI
+                      </Text>
+                      <View style={{ backgroundColor: '#EFF6FF', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                        <Text style={{ color: '#0066FF', fontSize: 10, fontWeight: '700' }}>PRIMARY</Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.paymentMethodSub, { color: '#64748B', fontSize: 11.5, marginTop: 1 }]}>
+                      9876543210@okhdfcbank • Verified
+                    </Text>
                   </View>
                 </View>
-                <View style={styles.verifiedGreenDot} />
-              </View>
-
-              <View style={[styles.paymentMethodCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, marginTop: 8 }]}>
-                <View style={styles.paymentMethodLeft}>
-                  <CardIcon size={18} color="#111111" />
-                  <View>
-                    <Text style={[styles.paymentMethodTitle, { color: theme.textPrimary }]}>HDFC Corporate Business Card</Text>
-                    <Text style={[styles.paymentMethodSub, { color: theme.textSecondary }]}>•••• 4242 • Expires 08/28</Text>
-                  </View>
-                </View>
-              </View>
-
-              <View style={[styles.paymentMethodCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, marginTop: 8 }]}>
-                <View style={styles.paymentMethodLeft}>
-                  <Landmark size={18} color="#111111" />
-                  <View>
-                    <Text style={[styles.paymentMethodTitle, { color: theme.textPrimary }]}>Commercial RTGS / NEFT Ledger</Text>
-                    <Text style={[styles.paymentMethodSub, { color: theme.textSecondary }]}>Urbanico Escrow Direct Settlement</Text>
-                  </View>
+                <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: '#0066FF', justifyContent: 'center', alignItems: 'center' }}>
+                  <Check size={12} color="#FFFFFF" strokeWidth={3} />
                 </View>
               </View>
 
-              <View style={[styles.payInfoBanner, { backgroundColor: theme.surfaceSecondary }]}>
-                <ShieldCheck size={14} color="#059669" />
-                <Text style={[styles.payInfoBannerText, { color: theme.textSecondary }]}>
-                  All payment transactions are encrypted and 100% compliant with RBI digital payment directives.
+              {/* UPI 2: PhonePe */}
+              <View style={[styles.paymentMethodCard, { backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', borderRadius: 14, padding: 12, marginTop: 8 }]}>
+                <View style={styles.paymentMethodLeft}>
+                  <PhonePeIcon size={26} />
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={[styles.paymentMethodTitle, { color: '#0F172A', fontSize: 13.5, fontWeight: '700' }]}>
+                      PhonePe UPI
+                    </Text>
+                    <Text style={[styles.paymentMethodSub, { color: '#64748B', fontSize: 11.5, marginTop: 1 }]}>
+                      9876543210@ybl • Active
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Card: Visa Business */}
+              <View style={[styles.paymentMethodCard, { backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', borderRadius: 14, padding: 12, marginTop: 8 }]}>
+                <View style={styles.paymentMethodLeft}>
+                  <VisaIcon size={22} />
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={[styles.paymentMethodTitle, { color: '#0F172A', fontSize: 13.5, fontWeight: '700' }]}>
+                      Visa Commercial Debit
+                    </Text>
+                    <Text style={[styles.paymentMethodSub, { color: '#64748B', fontSize: 11.5, marginTop: 1 }]}>
+                      •••• 2411 • Expires 08/28 (Tokenized)
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Net Banking */}
+              <View style={[styles.paymentMethodCard, { backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', borderRadius: 14, padding: 12, marginTop: 8 }]}>
+                <View style={styles.paymentMethodLeft}>
+                  <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' }}>
+                    <Landmark size={18} color="#0066FF" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={[styles.paymentMethodTitle, { color: '#0F172A', fontSize: 13.5, fontWeight: '700' }]}>
+                      HDFC Bank Direct Escrow
+                    </Text>
+                    <Text style={[styles.paymentMethodSub, { color: '#64748B', fontSize: 11.5, marginTop: 1 }]}>
+                      A/C •••• 9821 • Instant RTGS/NEFT
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              <View style={[styles.payInfoBanner, { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0', borderWidth: 1, borderRadius: 12, marginTop: 14, padding: 10 }]}>
+                <ShieldCheck size={15} color="#059669" />
+                <Text style={[styles.payInfoBannerText, { color: '#64748B', fontSize: 11, lineHeight: 15 }]}>
+                  All payment tokens are encrypted and 100% compliant with RBI & NPCI directives.
                 </Text>
               </View>
             </ScrollView>
 
             <View style={styles.modalFooter}>
-              <TouchableOpacity onPress={() => setIsPaymentModalOpen(false)} style={styles.modalPrimaryBtn}>
-                <Text style={styles.modalPrimaryBtnText}>Close</Text>
+              <TouchableOpacity onPress={() => setIsPaymentModalOpen(false)} style={[styles.modalPrimaryBtn, { backgroundColor: '#0066FF', borderRadius: 14, height: 48 }]}>
+                <Text style={styles.modalPrimaryBtnText}>Done</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -756,9 +1208,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 <View style={styles.giftCircle}>
                   <Gift size={32} color="#111111" />
                 </View>
-                <Text style={[styles.referHeroTitle, { color: theme.textPrimary }]}>Earn ₹500 for every builder you invite</Text>
+                <Text style={[styles.referHeroTitle, { color: theme.textPrimary }]}>Earn ₹100 for every builder you invite</Text>
                 <Text style={[styles.referHeroSubtitle, { color: theme.textSecondary }]}>
-                  Share your referral link with contractor friends. When they place their first construction materials order, both of you receive ₹500 in Urbanico Wallet.
+                  Share your referral link with contractor friends. When they place their first construction materials order, both of you receive ₹100 in Urbanico Wallet.
                 </Text>
               </View>
 
@@ -909,26 +1361,148 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 placeholderTextColor={theme.textMuted}
               />
 
-              <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>GSTIN (18% Flat ITC)</Text>
+              {/* GSTIN Input with strict validation & optional support */}
+              <View style={styles.inputLabelRow}>
+                <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 0 }]}>
+                  GSTIN (18% Flat ITC) <Text style={{ fontSize: 10, color: theme.textMuted, fontWeight: '500' }}>(Optional)</Text>
+                </Text>
+                {editGstin.trim().length === 15 && isValidGSTIN(editGstin) ? (
+                  <View style={styles.gstValidBadge}>
+                    <CheckCircle2 size={12} color="#059669" strokeWidth={2.5} />
+                    <Text style={styles.gstValidBadgeText}>Valid GST</Text>
+                  </View>
+                ) : null}
+              </View>
               <TextInput
                 value={editGstin}
-                onChangeText={setEditGstin}
+                onChangeText={handleGstChange}
                 autoCapitalize="characters"
-                style={[styles.modalInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border }]}
-                placeholder="e.g. 36AAACU9812A1Z4"
+                maxLength={15}
+                style={[
+                  styles.modalInput,
+                  {
+                    backgroundColor: theme.surfaceSecondary,
+                    color: theme.textPrimary,
+                    borderColor: gstError ? '#EF4444' : editGstin.trim().length === 15 && isValidGSTIN(editGstin) ? '#10B981' : theme.border,
+                  },
+                ]}
+                placeholder="e.g. 36AAACU9812A1Z4 (Optional)"
                 placeholderTextColor={theme.textMuted}
               />
+              {gstError ? (
+                <Text style={styles.gstErrorText}>⚠️ {gstError}</Text>
+              ) : editGstin.trim().length === 15 && isValidGSTIN(editGstin) ? (
+                <Text style={styles.gstSuccessText}>✓ 18% Input Tax Credit enabled on all tax invoices</Text>
+              ) : (
+                <Text style={[styles.gstHintText, { color: theme.textMuted }]}>
+                  Enter 15-digit GSTIN for company invoices or leave blank for retail billing.
+                </Text>
+              )}
 
-              <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Email Address</Text>
-              <TextInput
-                value={editEmail}
-                onChangeText={setEditEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                style={[styles.modalInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border }]}
-                placeholder="billing@company.com"
-                placeholderTextColor={theme.textMuted}
-              />
+              {/* Email Address with Verify Button & OTP Verification */}
+              <View style={[styles.inputLabelRow, { marginTop: 14 }]}>
+                <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 0 }]}>Email Address</Text>
+                {isEmailVerified ? (
+                  <View style={styles.emailVerifiedBadge}>
+                    <BadgeCheck size={14} color="#FFFFFF" fill="#0284C7" strokeWidth={2.2} />
+                    <Text style={styles.emailVerifiedBadgeText}>Verified</Text>
+                  </View>
+                ) : editEmail.trim() ? (
+                  <View style={styles.emailUnverifiedBadge}>
+                    <Text style={styles.emailUnverifiedBadgeText}>Not Verified</Text>
+                  </View>
+                ) : null}
+              </View>
+
+              <View style={styles.emailInputWrapper}>
+                <TextInput
+                  value={editEmail}
+                  onChangeText={handleEmailChange}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  style={[
+                    styles.modalInput,
+                    styles.emailTextInput,
+                    {
+                      backgroundColor: theme.surfaceSecondary,
+                      color: theme.textPrimary,
+                      borderColor: isEmailVerified ? '#0284C7' : theme.border,
+                    },
+                  ]}
+                  placeholder="contractor@urbanico.in"
+                  placeholderTextColor={theme.textMuted}
+                />
+                {isEmailVerified ? (
+                  <View style={styles.emailInputRightAction}>
+                    <View style={styles.verifiedIconCircle}>
+                      <BadgeCheck size={18} color="#FFFFFF" fill="#0284C7" strokeWidth={2.2} />
+                    </View>
+                  </View>
+                ) : editEmail.trim() ? (
+                  <TouchableOpacity
+                    onPress={handleSendEmailOtp}
+                    style={[styles.verifyEmailInlineBtn, isSendingOtp && { opacity: 0.7 }]}
+                    activeOpacity={0.8}
+                    disabled={isSendingOtp}
+                  >
+                    <Sparkles size={12} color="#FFFFFF" strokeWidth={2} />
+                    <Text style={styles.verifyEmailInlineBtnText}>
+                      {isSendingOtp ? 'Sending...' : 'Verify'}
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+
+              {/* Inline OTP Verification Container */}
+              {showEmailOtpBox && (
+                <View style={[styles.emailOtpBox, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                  <View style={styles.otpHeaderRow}>
+                    <Mail size={15} color="#059669" />
+                    <Text style={[styles.otpHeaderTitle, { color: theme.textPrimary }]}>
+                      Enter 4-Digit Code
+                    </Text>
+                  </View>
+                  <Text style={[styles.otpSubText, { color: theme.textSecondary }]}>
+                    OTP sent to <Text style={{ fontWeight: '700', color: theme.textPrimary }}>{editEmail.trim()}</Text> (Test OTP: <Text style={{ fontWeight: '800', color: '#059669' }}>{testOtpCode}</Text>)
+                  </Text>
+
+                  <View style={styles.otpInputRow}>
+                    <TextInput
+                      value={emailOtp}
+                      onChangeText={(val) => setEmailOtp(val.replace(/[^0-9]/g, '').slice(0, 4))}
+                      keyboardType="number-pad"
+                      maxLength={4}
+                      placeholder="8821"
+                      placeholderTextColor={theme.textMuted}
+                      style={[styles.otpInput, { backgroundColor: theme.surface, color: theme.textPrimary, borderColor: theme.border }]}
+                      autoFocus
+                    />
+                    <TouchableOpacity
+                      onPress={handleVerifyEmailOtp}
+                      style={styles.otpConfirmBtn}
+                      activeOpacity={0.85}
+                    >
+                      <Check size={14} color="#FFFFFF" strokeWidth={2.5} />
+                      <Text style={styles.otpConfirmBtnText}>Verify OTP</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.otpFooterRow}>
+                    {otpTimer > 0 ? (
+                      <Text style={[styles.otpTimerText, { color: theme.textMuted }]}>
+                        Resend code in {otpTimer}s
+                      </Text>
+                    ) : (
+                      <TouchableOpacity onPress={handleSendEmailOtp} activeOpacity={0.7}>
+                        <Text style={styles.otpResendLink}>Resend OTP</Text>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity onPress={() => setShowEmailOtpBox(false)} activeOpacity={0.7}>
+                      <Text style={[styles.otpCancelLink, { color: theme.textSecondary }]}>Dismiss</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
             </ScrollView>
 
             <View style={styles.modalFooter}>
@@ -1002,9 +1576,15 @@ const styles = StyleSheet.create({
   nameBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    flexWrap: 'wrap',
+    gap: 6,
+    flexWrap: 'nowrap',
+    alignSelf: 'flex-start',
     marginBottom: 2,
+  },
+  nameVerifiedIconBadge: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 2,
   },
   verifiedTag: {
     backgroundColor: '#111111',
@@ -1033,18 +1613,27 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontWeight: '600',
   },
+  bottomAuthContainer: {
+    marginTop: 16,
+    paddingHorizontal: 4,
+  },
   mainAuthBtn: {
     backgroundColor: '#111111',
-    borderRadius: 999,
-    paddingVertical: 13,
+    borderRadius: 14,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 3,
   },
   mainAuthBtnText: {
     color: '#FFFFFF',
-    fontSize: 14.5,
+    fontSize: 15,
     fontWeight: '700',
     letterSpacing: -0.2,
   },
@@ -1163,7 +1752,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   modalBody: {
-    maxHeight: 380,
+    maxHeight: 480,
   },
   modalFooter: {
     flexDirection: 'row',
@@ -1200,12 +1789,191 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     marginTop: 10,
   },
+  inputLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+    marginTop: 10,
+  },
+  gstValidBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  gstValidBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  gstErrorText: {
+    fontSize: 11,
+    color: '#DC2626',
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  gstSuccessText: {
+    fontSize: 11,
+    color: '#059669',
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  gstHintText: {
+    fontSize: 10.5,
+    marginTop: 4,
+  },
+  emailVerifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F0F9FF',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  emailVerifiedBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#0284C7',
+  },
+  emailUnverifiedBadge: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  emailUnverifiedBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  emailInputWrapper: {
+    position: 'relative',
+    justifyContent: 'center',
+  },
+  emailTextInput: {
+    paddingRight: 80,
+  },
+  emailInputRightAction: {
+    position: 'absolute',
+    right: 10,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  verifiedIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#F0F9FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  verifyEmailInlineBtn: {
+    position: 'absolute',
+    right: 6,
+    top: 5,
+    bottom: 5,
+    backgroundColor: '#111111',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    borderRadius: 6,
+  },
+  verifyEmailInlineBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  emailOtpBox: {
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  otpHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  otpHeaderTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  otpSubText: {
+    fontSize: 11,
+    marginBottom: 8,
+    lineHeight: 15,
+  },
+  otpInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  otpInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 4,
+    textAlign: 'center',
+  },
+  otpConfirmBtn: {
+    backgroundColor: '#059669',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 8,
+  },
+  otpConfirmBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  otpFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    paddingTop: 6,
+  },
+  otpTimerText: {
+    fontSize: 11,
+  },
+  otpResendLink: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  otpCancelLink: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  inputMicroLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+    marginTop: 2,
+  },
   modalInput: {
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 12,
-    paddingVertical: 9,
-    fontSize: 13,
+    paddingVertical: 8,
+    fontSize: 12.5,
   },
   addressItem: {
     flexDirection: 'row',
@@ -1245,19 +2013,31 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     paddingTop: 12,
   },
-  addAddressBtn: {
-    backgroundColor: '#111111',
-    flexDirection: 'row',
+  cleanFormHeading: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#4B5563',
+  },
+  cleanInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 13,
+  },
+  cleanSaveBtn: {
+    backgroundColor: '#0F172A',
+    borderRadius: 12,
+    paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 9,
-    borderRadius: 8,
+    marginTop: 2,
   },
-  addAddressBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
+  cleanSaveBtnText: {
     color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
   sectionMicroHeader: {
     fontSize: 10,

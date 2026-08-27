@@ -670,16 +670,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
         ) : (
           /* Live Tracking & Orders View */
           <View style={styles.historySection}>
-            <View style={styles.historyHeaderRow}>
-              <TouchableOpacity
-                onPress={() => setActiveTab('cart')}
-                style={[styles.backToCartBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.backToCartBtnText, { color: theme.textPrimary }]}>← Back to Bag</Text>
-              </TouchableOpacity>
-            </View>
-
             {!isLoggedIn ? (
               <View style={[styles.nikeEmptyBagContainer, { backgroundColor: theme.surface }]}>
                 <View style={[styles.nikeEmptyBagIconCircle, { backgroundColor: theme.surfaceSecondary }]}>
@@ -766,7 +756,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                       </View>
                     </View>
 
-                    {/* Action Bar (Live Dispatcher Chat + OCR Weighbridge Scan + Call) */}
+                    {/* Action Bar (Live Dispatcher Chat + GST Invoice) */}
                     <View style={styles.activeActionBar}>
                       <TouchableOpacity
                         onPress={() => setShowDispatcherChat(true)}
@@ -775,15 +765,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                       >
                         <MessageSquare size={13} color="#FFFFFF" />
                         <Text style={styles.actionChipBtnText}>Live Dispatch Chat</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        onPress={() => setShowWeighbridgeScan(true)}
-                        style={[styles.actionChipBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, borderWidth: 1 }]}
-                        activeOpacity={0.8}
-                      >
-                        <Camera size={13} color={theme.textPrimary} />
-                        <Text style={[styles.actionChipBtnText, { color: theme.textPrimary }]}>Scan Weighment</Text>
                       </TouchableOpacity>
 
                       {onViewInvoice && (
@@ -932,6 +913,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
           onClose={() => setShowRazorpayModal(false)}
           amount={grandTotal}
           orderDescription={`Booking (${cartItems.length} items) - Urbanico Supply`}
+          selectedLocation={activeLocation}
           onPaymentSuccess={handlePaymentSuccess}
           onPaymentFailure={(err) => setPaymentError(err)}
         />

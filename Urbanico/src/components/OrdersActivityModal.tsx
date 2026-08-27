@@ -411,21 +411,25 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
 
       {/* Sub-modals */}
       <LiveDispatcherChatModal
-        isOpen={showChatModal}
+        visible={showChatModal}
         onClose={() => setShowChatModal(false)}
-        delivery={activeEnRoute}
+        orderNumber={activeEnRoute?.orderNumber}
+        driverName={activeEnRoute?.driverName}
       />
       <WeighbridgeScanModal
-        isOpen={showWeighbridgeModal}
+        visible={showWeighbridgeModal}
         onClose={() => setShowWeighbridgeModal(false)}
-        delivery={activeEnRoute}
+        orderNumber={activeEnRoute?.orderNumber}
+        expectedTons={10.0}
       />
       <SupervisorHandoffModal
-        isOpen={showSupervisorModal}
+        visible={showSupervisorModal}
         onClose={() => setShowSupervisorModal(false)}
-        supervisor={supervisorData}
-        onSave={(data) => {
-          setSupervisorData(data);
+        orderNumber={activeEnRoute?.orderNumber}
+        currentSupervisorName={supervisorData.name}
+        currentSupervisorPhone={supervisorData.phone}
+        onSaveSupervisor={(name, phone) => {
+          setSupervisorData({ name, phone });
           setShowSupervisorModal(false);
           showToast('Site supervisor handoff updated', 'success');
         }}

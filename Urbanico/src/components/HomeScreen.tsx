@@ -33,6 +33,7 @@ import { preloadImages } from '../utils/imageOptimization';
 import { BRAND_LOGO_URL } from '../constants';
 
 interface HomeScreenProps {
+  headerComponent?: React.ReactNode;
   onSelectCategory: (catId: CategoryId) => void;
   onNavigateAllMaterials: () => void;
   onNavigateAllServices?: () => void;
@@ -41,6 +42,7 @@ interface HomeScreenProps {
   onOpenServicesModal?: (service?: ServiceItem) => void;
   favoriteIds?: string[];
   onToggleFavorite?: (id: string) => void;
+  onAddBundleToCartAndNavigate?: (bundle: ProjectBundle) => void;
 }
 
 const HERO_CARD_IMAGE_URL = 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1787725157/herocard4_gouvid.jpg';
@@ -55,32 +57,11 @@ interface ChildPillItem {
 
 const MATERIAL_CHILD_PILLS: ChildPillItem[] = [
   {
-    id: 'sand',
-    label: 'Sand',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693430/child-sand_qmbdo6.jpg',
-    type: 'material',
-    categoryId: 'sand',
-  },
-  {
     id: 'cement',
     label: 'Cement',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693431/child-cement_pwrzsr.jpg',
     type: 'material',
     categoryId: 'cement',
-  },
-  {
-    id: 'iron_bars',
-    label: 'Steel',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693449/child-ironbars_ayo0id.jpg',
-    type: 'material',
-    categoryId: 'iron_bars',
-  },
-  {
-    id: 'stone',
-    label: 'Stone',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693430/child-stones_oqaced.jpg',
-    type: 'material',
-    categoryId: 'stone',
   },
   {
     id: 'bricks',
@@ -90,11 +71,25 @@ const MATERIAL_CHILD_PILLS: ChildPillItem[] = [
     categoryId: 'bricks',
   },
   {
-    id: 'tiles',
-    label: 'Tiles',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1787033354/Tiles_kw4xbl.jpg',
+    id: 'sand',
+    label: 'Sand',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693430/child-sand_qmbdo6.jpg',
     type: 'material',
-    categoryId: 'tiles',
+    categoryId: 'sand',
+  },
+  {
+    id: 'stone',
+    label: 'Stone',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693430/child-stones_oqaced.jpg',
+    type: 'material',
+    categoryId: 'stone',
+  },
+  {
+    id: 'iron_bars',
+    label: 'Steel',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693449/child-ironbars_ayo0id.jpg',
+    type: 'material',
+    categoryId: 'iron_bars',
   },
   {
     id: 'centring',
@@ -102,6 +97,13 @@ const MATERIAL_CHILD_PILLS: ChildPillItem[] = [
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693431/child-centering_nikj90.jpg',
     type: 'material',
     categoryId: 'centring',
+  },
+  {
+    id: 'tiles',
+    label: 'Tiles',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1787033354/Tiles_kw4xbl.jpg',
+    type: 'material',
+    categoryId: 'tiles',
   },
 ];
 
@@ -144,53 +146,185 @@ const SERVICE_CHILD_PILLS: ChildPillItem[] = [
   },
 ];
 
-interface ProjectBundle {
-  id: string;
-  title: string;
-  tag: string;
-  itemsSummary: string;
-  savings: string;
+export interface BundleItemDetail {
+  itemId: string;
+  itemName: string;
+  optionLabel: string;
+  unitPrice: number;
+  quantity: number;
   image: string;
-  targetCategory: CategoryId;
+  categoryName: string;
 }
 
-const PROJECT_BUNDLES: ProjectBundle[] = [
+export interface ProjectBundle {
+  id: string;
+  title: string;
+  subtitle: string;
+  tag: string;
+  description: string;
+  itemsSummary: string;
+  itemsIncluded: string[];
+  savings: string;
+  price: number;
+  originalPrice: number;
+  image: string;
+  targetCategory: CategoryId;
+  bundleItems: BundleItemDetail[];
+}
+
+export const PROJECT_BUNDLES: ProjectBundle[] = [
   {
-    id: 'bundle-foundation',
-    title: 'Foundation Pour Pack',
-    tag: 'MOST POPULAR',
-    itemsSummary: 'UltraTech Cement (50 Bags) + Robo Sand + 20mm Blue Metal Stone',
+    id: 'bundle-masonry-plaster',
+    title: 'Masonry & Plastering Starter Combo',
+    subtitle: 'Bricks + Sand + Cement (1:4 Mortar Ratio)',
+    tag: 'MOST ORDERED • 1:4 RATIO',
+    description: 'The exact civil construction ratio for 100 sq.ft of brickwork plus 2-sided plastering. Perfectly bundles 1,000 Kiln Red Bricks with 1 Auto of washed Plastering Sand and 10 Bags of UltraTech PPC Cement to prevent mortar dry cracks.',
+    itemsSummary: '1,000 Red Clay Bricks + 1 Auto Plastering Sand + 10 Bags UltraTech PPC',
+    itemsIncluded: [
+      '1,000 Red Clay Bricks (Kiln-Fired 1st Class)',
+      '1 Auto Plastering Sand (~1 Ton Washed)',
+      '10 Bags UltraTech Super PPC (500 KG)',
+    ],
     savings: 'Save ₹450 / combo',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614395/cement2_s1pf60.jpg',
-    targetCategory: 'cement',
-  },
-  {
-    id: 'bundle-masonry',
-    title: 'Brickwork & Plastering Kit',
-    tag: 'BEST VALUE',
-    itemsSummary: 'Red Clay Bricks (2000 Pcs) + River Sand + Dalmia OPC 43G',
-    savings: 'Save ₹320 / combo',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614403/brick2_gjzbjh.jpg',
+    price: 14080,
+    originalPrice: 14530,
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931567/Red_Bricks_paggbp.png',
     targetCategory: 'bricks',
+    bundleItems: [
+      {
+        itemId: 'red-bricks',
+        itemName: 'Red Clay Bricks',
+        optionLabel: 'Batch of 1000 Bricks',
+        unitPrice: 8800,
+        quantity: 1,
+        image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931567/Red_Bricks_paggbp.png',
+        categoryName: 'bricks',
+      },
+      {
+        itemId: 'plastering-sand',
+        itemName: 'Plastering Sand',
+        optionLabel: 'Auto (~1 Ton)',
+        unitPrice: 1700,
+        quantity: 1,
+        image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931576/Plastering_Sand_mvhxto.png',
+        categoryName: 'sand',
+      },
+      {
+        itemId: 'ultratech-ppc',
+        itemName: 'UltraTech Super',
+        optionLabel: '10 Bags (500 KG)',
+        unitPrice: 3580,
+        quantity: 1,
+        image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_3894293894293894_nqgrsm.jpg',
+        categoryName: 'cement',
+      },
+    ],
   },
   {
-    id: 'bundle-slab',
-    title: 'RCC Slab & Framing Kit',
-    tag: 'CONTRACTOR CHOICE',
-    itemsSummary: 'Tata Tiscon 550D Rebars + Steel Centring Props + M25 RMC',
-    savings: 'Direct Yard Delivery Included',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614394/ironbars2_t1ktel.jpg',
+    id: 'bundle-slab-casting',
+    title: 'RCC Slab & Beam Casting Kit',
+    subtitle: 'TMT Steel + 20mm Stone + 53G Cement',
+    tag: 'STRUCTURAL CASTING (M25)',
+    description: 'Engineered for dense, crack-resistant M25 grade RCC roof slabs and load beams. High tensile 12mm Fe550D TMT rebar paired with angular 20mm blue metal aggregate and 53 Grade cement for rapid early curing strength.',
+    itemsSummary: '1 Bundle 12mm TMT Steel + 1 Tractor 20mm Stone + 10 Bags UltraTech 53G',
+    itemsIncluded: [
+      '1 Bundle TMT Steel 12mm (5 Rods - 12m)',
+      '1 Tractor Stone 20mm (~3 Tons Full Level)',
+      '10 Bags UltraTech 53 Grade OPC (500 KG)',
+    ],
+    savings: 'Save ₹380 / combo',
+    price: 9250,
+    originalPrice: 9630,
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931575/Stone_20mm_qvbriu.png',
     targetCategory: 'iron_bars',
+    bundleItems: [
+      {
+        itemId: 'tmt-12mm',
+        itemName: 'Iron Bar 12mm',
+        optionLabel: '1 Bundle (5 Rods - 12m)',
+        unitPrice: 2800,
+        quantity: 1,
+        image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931568/Iron_bar_wz80t5.png',
+        categoryName: 'iron_bars',
+      },
+      {
+        itemId: 'stone-20mm',
+        itemName: 'Stone 20mm',
+        optionLabel: 'Tractor Full level (~3 Tons)',
+        unitPrice: 2700,
+        quantity: 1,
+        image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931575/Stone_20mm_qvbriu.png',
+        categoryName: 'stone',
+      },
+      {
+        itemId: 'ultratech-53',
+        itemName: 'UltraTech Cement',
+        optionLabel: '10 Bags (500 KG)',
+        unitPrice: 3750,
+        quantity: 1,
+        image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477602/Gemini_Generated_Image_krt598krt598krt5_uqgizg.jpg',
+        categoryName: 'cement',
+      },
+    ],
+  },
+  {
+    id: 'bundle-foundation-footing',
+    title: 'Foundation & Footing Substructure Pack',
+    subtitle: '40mm Stone + M-Sand + Ambuja Cement',
+    tag: 'SUB-BASE PCC & FOOTING',
+    description: 'Designed for solid sub-base PCC leveling and deep column footing. Combines heavy 40mm angular aggregate with silt-free manufactured sand and waterproof Ambuja Kawach cement to shield reinforcement from ground moisture.',
+    itemsSummary: '1 Tractor 40mm Stone + 1 Tractor M-Sand + 10 Bags Ambuja Kawach',
+    itemsIncluded: [
+      '1 Tractor Stone 40mm (~3 Tons Full Level)',
+      '1 Tractor Regular M-Sand (~3 Tons Full Level)',
+      '10 Bags Ambuja Kawach Waterproof (500 KG)',
+    ],
+    savings: 'Save ₹350 / combo',
+    price: 8880,
+    originalPrice: 9230,
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931569/Stone_40mm_gze9gj.png',
+    targetCategory: 'stone',
+    bundleItems: [
+      {
+        itemId: 'stone-40mm',
+        itemName: 'Stone 40mm',
+        optionLabel: 'Tractor Full level (~3 Tons)',
+        unitPrice: 2600,
+        quantity: 1,
+        image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931569/Stone_40mm_gze9gj.png',
+        categoryName: 'stone',
+      },
+      {
+        itemId: 'm-sand-concrete',
+        itemName: 'Regular Sand',
+        optionLabel: 'Tractor Full level (~3 Tons)',
+        unitPrice: 2400,
+        quantity: 1,
+        image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931585/Regular_Sand_ajv0wc.png',
+        categoryName: 'sand',
+      },
+      {
+        itemId: 'ambuja-kawach',
+        itemName: 'Ambuja Cement',
+        optionLabel: '10 Bags (500 KG)',
+        unitPrice: 3880,
+        quantity: 1,
+        image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_3894293894293894_nqgrsm.jpg',
+        categoryName: 'cement',
+      },
+    ],
   },
 ];
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
+  headerComponent,
   onSelectCategory,
   onNavigateAllMaterials,
   onNavigateAllServices,
   onSelectItem,
   favoriteIds = [],
   onToggleFavorite,
+  onAddBundleToCartAndNavigate,
 }) => {
   const { theme, typography } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
@@ -199,7 +333,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const { width: windowWidth } = useWindowDimensions();
   // Card width for horizontal scroll: gives comfortable width matching Shop section aesthetics
   const CARD_WIDTH = Math.max(168, Math.round((windowWidth - 44) / 2.2));
-  const BUNDLE_CARD_WIDTH = Math.max(260, Math.round(windowWidth * 0.76));
+  const BUNDLE_CARD_WIDTH = Math.max(290, Math.min(350, Math.round(windowWidth * 0.84)));
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -241,6 +375,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           />
         }
       >
+        {/* Header component embedded at top of scrollview so it scrolls naturally */}
+        {headerComponent}
         {/* ========================================================================= */}
         {/* 1. 4:3 RATIO HERO CARD (Replaced Carousel) */}
         {/* ========================================================================= */}
@@ -416,80 +552,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <AmbujaVideoAd onPressAd={() => onSelectCategory('cement')} />
 
         {/* ========================================================================= */}
-        {/* 6. GENUINELY USEFUL NEW SECTION: TRENDING PROJECT BUNDLES */}
-        {/* ========================================================================= */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionHeaderLeft}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={styles.sectionHeading}>Trending Project Bundles</Text>
-                <View style={styles.bundleSparkleBadge}>
-                  <Sparkles size={10} color="#D97706" />
-                  <Text style={styles.bundleSparkleText}>YARD COMBO</Text>
-                </View>
-              </View>
-              <Text style={styles.sectionSubtitle}>
-                Curated material packages with bulk contractor pricing
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={onNavigateAllMaterials}
-              style={styles.viewAllButton}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.viewAllText}>Explore</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.horizontalScrollContent}
-          >
-            {PROJECT_BUNDLES.map((bundle) => (
-              <TouchableOpacity
-                key={bundle.id}
-                activeOpacity={0.88}
-                onPress={() => onSelectCategory(bundle.targetCategory)}
-                style={[styles.bundleCard, { width: BUNDLE_CARD_WIDTH }]}
-              >
-                <View style={styles.bundleImageWrapper}>
-                  <ShimmerImage
-                    source={{ uri: bundle.image }}
-                    style={styles.bundleImage}
-                    resizeMode="cover"
-                    borderRadius={14}
-                    preset="card"
-                  />
-                  <View style={styles.bundleTagBadge}>
-                    <Text style={styles.bundleTagText}>{bundle.tag}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.bundleBody}>
-                  <Text style={styles.bundleTitle} numberOfLines={1}>
-                    {bundle.title}
-                  </Text>
-                  <Text style={styles.bundleSummary} numberOfLines={2}>
-                    {bundle.itemsSummary}
-                  </Text>
-                  <View style={styles.bundleFooter}>
-                    <View style={styles.bundleSavingsBadge}>
-                      <Tag size={11} color="#059669" />
-                      <Text style={styles.bundleSavingsText}>{bundle.savings}</Text>
-                    </View>
-                    <View style={styles.bundleArrowButton}>
-                      <ChevronRight size={14} color="#111111" strokeWidth={2.5} />
-                    </View>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* ========================================================================= */}
-        {/* 7. TRADE SERVICES SECTION (Unchanged Cards & Functionality) */}
+        {/* 6. TRADE SERVICES SECTION (Arranged Above Bundles with Coming Soon Badge) */}
         {/* ========================================================================= */}
         <View style={styles.sectionContainer}>
           {/* Section Header */}
@@ -497,9 +560,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <View style={styles.sectionHeaderLeft}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <Text style={styles.sectionHeading}>Trade Services</Text>
-                <View style={styles.verifiedBadge}>
-                  <ShieldCheck size={12} color="#059669" />
-                  <Text style={styles.verifiedBadgeText}>Verified</Text>
+                <View style={styles.comingSoonBadge}>
+                  <Clock size={11} color="#B45309" strokeWidth={2.2} />
+                  <Text style={styles.comingSoonBadgeText}>Coming soon</Text>
                 </View>
               </View>
               <Text style={styles.sectionSubtitle}>
@@ -552,6 +615,139 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               })}
             </ScrollView>
           </View>
+        </View>
+
+        {/* ========================================================================= */}
+        {/* 7. GENUINELY USEFUL SECTION: TRENDING PROJECT BUNDLES (Below Trade Services) */}
+        {/* ========================================================================= */}
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionHeaderLeft}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={styles.sectionHeading}>Trending Project Bundles</Text>
+                <View style={styles.bundleSparkleBadge}>
+                  <Sparkles size={10} color="#D97706" />
+                  <Text style={styles.bundleSparkleText}>YARD COMBO</Text>
+                </View>
+              </View>
+              <Text style={styles.sectionSubtitle}>
+                Pre-calibrated material packages with direct yard bulk savings
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                if (onAddBundleToCartAndNavigate) {
+                  onAddBundleToCartAndNavigate(PROJECT_BUNDLES[0]);
+                } else {
+                  onNavigateAllMaterials();
+                }
+              }}
+              style={styles.viewAllButton}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.viewAllText}>Explore</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.horizontalScrollContent}
+          >
+            {PROJECT_BUNDLES.map((bundle) => (
+              <TouchableOpacity
+                key={bundle.id}
+                activeOpacity={0.9}
+                onPress={() => {
+                  if (onAddBundleToCartAndNavigate) {
+                    onAddBundleToCartAndNavigate(bundle);
+                  } else {
+                    onSelectCategory(bundle.targetCategory);
+                  }
+                }}
+                style={[styles.bundleCard, { width: BUNDLE_CARD_WIDTH }]}
+              >
+                {/* Image & Badges */}
+                <View style={styles.bundleImageWrapper}>
+                  <ShimmerImage
+                    source={{ uri: bundle.image }}
+                    style={styles.bundleImage}
+                    resizeMode="cover"
+                    borderRadius={14}
+                    preset="card"
+                  />
+                  <View style={styles.bundleTagBadge}>
+                    <Text style={styles.bundleTagText}>{bundle.tag}</Text>
+                  </View>
+                  <View style={styles.bundleSavingsTopBadge}>
+                    <Tag size={10} color="#047857" />
+                    <Text style={styles.bundleSavingsTopText}>{bundle.savings}</Text>
+                  </View>
+                </View>
+
+                {/* Bundle Header */}
+                <View style={styles.bundleBody}>
+                  <Text style={styles.bundleTitle} numberOfLines={1}>
+                    {bundle.title}
+                  </Text>
+                  <Text style={styles.bundleSubtitle} numberOfLines={1}>
+                    {bundle.subtitle}
+                  </Text>
+
+                  {/* Why this combo is useful - Light description box */}
+                  <View style={styles.bundleWhyBox}>
+                    <View style={styles.bundleWhyHeader}>
+                      <Sparkles size={11} color="#B45309" />
+                      <Text style={styles.bundleWhyTitle}>WHY THIS COMBO IS USEFUL</Text>
+                    </View>
+                    <Text style={styles.bundleWhyDescription}>
+                      {bundle.description}
+                    </Text>
+                  </View>
+
+                  {/* Items Included List */}
+                  <View style={styles.bundleItemsList}>
+                    <Text style={styles.bundleItemsHeading}>INCLUDED IN PACKAGE (3 ITEMS):</Text>
+                    {bundle.itemsIncluded.map((itemStr, idx) => (
+                      <View key={idx} style={styles.bundleItemRow}>
+                        <CheckCircle2 size={12} color="#059669" strokeWidth={2.5} />
+                        <Text style={styles.bundleItemRowText} numberOfLines={1}>
+                          {itemStr}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+
+                  {/* Pricing and Direct Explore CTA */}
+                  <View style={styles.bundleActionSection}>
+                    <View style={styles.bundlePriceCol}>
+                      <Text style={styles.bundlePriceLabel}>COMBO PACKAGE RATE</Text>
+                      <View style={styles.bundlePriceRow}>
+                        <Text style={styles.bundlePrice}>₹{bundle.price.toLocaleString('en-IN')}</Text>
+                        <Text style={styles.bundleOriginalPrice}>₹{bundle.originalPrice.toLocaleString('en-IN')}</Text>
+                      </View>
+                    </View>
+
+                    <TouchableOpacity
+                      style={styles.bundleExploreBtn}
+                      activeOpacity={0.85}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        if (onAddBundleToCartAndNavigate) {
+                          onAddBundleToCartAndNavigate(bundle);
+                        } else {
+                          onSelectCategory(bundle.targetCategory);
+                        }
+                      }}
+                    >
+                      <Text style={styles.bundleExploreBtnText}>Explore & Add</Text>
+                      <ArrowRight size={13} color="#FFFFFF" strokeWidth={2.5} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
         </View>
 
         {/* ========================================================================= */}
@@ -701,6 +897,23 @@ const styles = StyleSheet.create({
     color: '#047857',
     letterSpacing: 0.1,
   },
+  comingSoonBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  comingSoonBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#B45309',
+    letterSpacing: 0.1,
+  },
   viewAllButton: {
     paddingVertical: 2,
     paddingLeft: 8,
@@ -740,20 +953,25 @@ const styles = StyleSheet.create({
   },
   bundleCard: {
     borderRadius: 16,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E5E7EB',
     overflow: 'hidden',
-    padding: 10,
+    padding: 12,
     gap: 10,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 2,
   },
   bundleImageWrapper: {
     width: '100%',
-    height: 110,
+    height: 120,
     borderRadius: 12,
     overflow: 'hidden',
     position: 'relative',
-    backgroundColor: '#E2E8F0',
+    backgroundColor: '#F1F5F9',
   },
   bundleImage: {
     width: '100%',
@@ -765,58 +983,154 @@ const styles = StyleSheet.create({
     left: 8,
     backgroundColor: '#111111',
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 3.5,
     borderRadius: 6,
   },
   bundleTagText: {
-    fontSize: 9,
+    fontSize: 8.5,
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: 0.3,
+    letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
-  bundleBody: {
+  bundleSavingsTopBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 4,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  bundleSavingsTopText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#047857',
+    letterSpacing: 0.2,
+  },
+  bundleBody: {
+    gap: 8,
   },
   bundleTitle: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '900',
     color: '#111111',
-    letterSpacing: -0.2,
+    letterSpacing: -0.3,
   },
-  bundleSummary: {
+  bundleSubtitle: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#0284C7',
+    letterSpacing: 0.1,
+    marginTop: -4,
+  },
+  bundleWhyBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 4,
+  },
+  bundleWhyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  bundleWhyTitle: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#B45309',
+    letterSpacing: 0.5,
+  },
+  bundleWhyDescription: {
     fontSize: 11,
-    fontWeight: '400',
-    color: '#4B5563',
-    lineHeight: 15,
+    color: '#334155',
+    lineHeight: 16,
+    fontWeight: '500',
   },
-  bundleFooter: {
+  bundleItemsList: {
+    backgroundColor: '#FAFAFA',
+    borderRadius: 10,
+    padding: 8,
+    gap: 4,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  bundleItemsHeading: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.4,
+    marginBottom: 2,
+  },
+  bundleItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  bundleItemRowText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#1E293B',
+    flexShrink: 1,
+  },
+  bundleActionSection: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 4,
-    paddingTop: 6,
+    paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#EEEEEE',
+    borderTopColor: '#F1F5F9',
+    gap: 8,
   },
-  bundleSavingsBadge: {
+  bundlePriceCol: {
+    flexShrink: 1,
+  },
+  bundlePriceLabel: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#64748B',
+    letterSpacing: 0.4,
+    lineHeight: 10,
+  },
+  bundlePriceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+    marginTop: 1,
+  },
+  bundlePrice: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#111111',
+    letterSpacing: -0.4,
+  },
+  bundleOriginalPrice: {
+    fontSize: 11,
+    color: '#94A3B8',
+    textDecorationLine: 'line-through',
+    fontWeight: '600',
+  },
+  bundleExploreBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
+    backgroundColor: '#111111',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
   },
-  bundleSavingsText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#059669',
-  },
-  bundleArrowButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+  bundleExploreBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
   },
 });

@@ -131,6 +131,23 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
           font-size: 11px;
           color: #64748B;
         }
+        @keyframes pinDrop {
+          0% { transform: translateY(-24px) scale(0.6); opacity: 0; }
+          60% { transform: translateY(3px) scale(1.1); opacity: 1; }
+          80% { transform: translateY(-2px) scale(0.95); }
+          100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        @keyframes pinPulse {
+          0% { box-shadow: 0 0 0 0 rgba(17, 17, 17, 0.4); }
+          70% { box-shadow: 0 0 0 10px rgba(17, 17, 17, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(17, 17, 17, 0); }
+        }
+        .custom-pin {
+          animation: pinDrop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        .custom-pin > div {
+          animation: pinPulse 2s infinite ease-out;
+        }
       </style>
     </head>
     <body>

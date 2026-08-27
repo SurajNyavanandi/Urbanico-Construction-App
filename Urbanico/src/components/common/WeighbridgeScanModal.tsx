@@ -5,20 +5,26 @@ import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 
 interface WeighbridgeScanModalProps {
-  visible: boolean;
+  visible?: boolean;
+  isOpen?: boolean;
   onClose: () => void;
   orderNumber?: string;
   expectedTons?: number;
+  delivery?: any;
   onVerified?: (netWeight: number, slipId: string) => void;
 }
 
 export const WeighbridgeScanModal: React.FC<WeighbridgeScanModalProps> = ({
   visible,
+  isOpen,
   onClose,
-  orderNumber = 'URB-HYD-9821',
+  orderNumber,
   expectedTons = 10.0,
+  delivery,
   onVerified,
 }) => {
+  const isVisible = visible !== undefined ? visible : !!isOpen;
+  const activeOrderNum = orderNumber || delivery?.orderNumber || 'URB-HYD-9821';
   const { theme } = useTheme();
   const { showToast } = useToast();
 
@@ -58,13 +64,13 @@ export const WeighbridgeScanModal: React.FC<WeighbridgeScanModalProps> = ({
   const handleConfirmAcceptance = () => {
     if (extractedData) {
       if (onVerified) onVerified(extractedData.netWeight, extractedData.slipNumber);
-      showToast(`Weighment verified: ${extractedData.netWeight} MT attached to Order #${orderNumber}`, 'success');
+      showToast(`Weighment verified: ${extractedData.netWeight} MT attached to Order #${activeOrderNum}`, 'success');
       onClose();
     }
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={isVisible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={onClose} />
         <View style={[styles.card, { backgroundColor: theme.surface }]}>

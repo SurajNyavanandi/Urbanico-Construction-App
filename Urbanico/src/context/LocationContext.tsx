@@ -14,6 +14,8 @@ export const DEFAULT_LOCATION_COORDS: Record<string, LocationCoords> = {
   'Kukatpally Housing Board': { lat: 17.4849, lng: 78.3888 },
 };
 
+export const DEFAULT_FALLBACK_LOCATION = 'Hyderabad (Telangana)';
+
 interface LocationContextType {
   selectedLocation: string;
   savedLocations: string[];
@@ -36,13 +38,13 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
         const authSaved = window.localStorage.getItem('urbanico_auth_session');
         const phone = authSaved ? JSON.parse(authSaved).phone : null;
         const key = phone ? `urbanico_saved_locations_${phone.replace(/\D/g, '')}` : 'urbanico_saved_locations_guest';
-        const stored = window.localStorage.getItem(key) || window.localStorage.getItem('urbanico_saved_locations');
+        const stored = window.localStorage.getItem(key);
         if (stored) return JSON.parse(stored);
       }
     } catch {
       // ignore
     }
-    return SAVED_LOCATIONS;
+    return [];
   });
 
   const [selectedLocation, setSelectedLocationState] = useState<string>(() => {
@@ -51,13 +53,13 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
         const authSaved = window.localStorage.getItem('urbanico_auth_session');
         const phone = authSaved ? JSON.parse(authSaved).phone : null;
         const key = phone ? `urbanico_selected_location_${phone.replace(/\D/g, '')}` : 'urbanico_selected_location_guest';
-        const stored = window.localStorage.getItem(key) || window.localStorage.getItem('urbanico_selected_location');
+        const stored = window.localStorage.getItem(key);
         if (stored) return stored;
       }
     } catch {
       // ignore
     }
-    return SAVED_LOCATIONS[0];
+    return DEFAULT_FALLBACK_LOCATION;
   });
 
   const [coordsMap, setCoordsMap] = useState<Record<string, LocationCoords>>(() => {
@@ -73,8 +75,8 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
   });
 
   const resetLocationsToDefault = () => {
-    setSavedLocations(SAVED_LOCATIONS);
-    setSelectedLocationState(SAVED_LOCATIONS[0]);
+    setSavedLocations([]);
+    setSelectedLocationState(DEFAULT_FALLBACK_LOCATION);
   };
 
   const loadUserLocations = (userPhone?: string) => {
@@ -91,12 +93,12 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
       if (stored) {
         setSavedLocations(JSON.parse(stored));
       } else {
-        setSavedLocations(SAVED_LOCATIONS);
+        setSavedLocations([]);
       }
       if (storedSel) {
         setSelectedLocationState(storedSel);
       } else {
-        setSelectedLocationState(SAVED_LOCATIONS[0]);
+        setSelectedLocationState(DEFAULT_FALLBACK_LOCATION);
       }
     } catch {
       // ignore
@@ -186,10 +188,10 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
     setSavedLocations((prev) => {
       const filtered = prev.filter((loc) => loc !== locationToDelete);
       if (selectedLocation === locationToDelete) {
-        const nextLoc = filtered.length > 0 ? filtered[0] : SAVED_LOCATIONS[0];
+        const nextLoc = filtered.length > 0 ? filtered[0] : DEFAULT_FALLBACK_LOCATION;
         setSelectedLocationState(nextLoc);
       }
-      return filtered.length > 0 ? filtered : [SAVED_LOCATIONS[0]];
+      return filtered;
     });
   };
 

@@ -35,28 +35,33 @@ export const AddToCartToast: React.FC<AddToCartToastProps> = ({
   duration = 4000,
 }) => {
   const { theme, typography } = useTheme();
-  const translateY = useRef(new Animated.Value(40)).current;
+  // Starts above the screen (-60) to glide in from the top
+  const translateY = useRef(new Animated.Value(-60)).current;
   const opacity = useRef(new Animated.Value(0)).current;
-  const scale = useRef(new Animated.Value(0.94)).current;
+  const scale = useRef(new Animated.Value(0.92)).current;
 
   useEffect(() => {
     if (visible && item) {
+      translateY.setValue(-60);
+      opacity.setValue(0);
+      scale.setValue(0.92);
+
       Animated.parallel([
+        Animated.spring(translateY, {
+          toValue: 0,
+          friction: 7,
+          tension: 80,
+          useNativeDriver: Platform.OS !== 'web',
+        }),
         Animated.spring(scale, {
           toValue: 1,
           friction: 8,
-          tension: 70,
-          useNativeDriver: Platform.OS !== 'web',
-        }),
-        Animated.spring(translateY, {
-          toValue: 0,
-          friction: 8,
-          tension: 70,
+          tension: 80,
           useNativeDriver: Platform.OS !== 'web',
         }),
         Animated.timing(opacity, {
           toValue: 1,
-          duration: 220,
+          duration: 200,
           useNativeDriver: Platform.OS !== 'web',
         }),
       ]).start();
@@ -73,13 +78,13 @@ export const AddToCartToast: React.FC<AddToCartToastProps> = ({
 
   const handleDismiss = () => {
     Animated.parallel([
-      Animated.timing(scale, {
-        toValue: 0.94,
+      Animated.timing(translateY, {
+        toValue: -50,
         duration: 180,
         useNativeDriver: Platform.OS !== 'web',
       }),
-      Animated.timing(translateY, {
-        toValue: 30,
+      Animated.timing(scale, {
+        toValue: 0.94,
         duration: 180,
         useNativeDriver: Platform.OS !== 'web',
       }),
@@ -98,7 +103,7 @@ export const AddToCartToast: React.FC<AddToCartToastProps> = ({
   const AnimatedView = Animated.View as any;
 
   return (
-    <View style={styles.bottomOverlay} pointerEvents="box-none">
+    <View style={styles.topOverlay} pointerEvents="box-none">
       <AnimatedView
         style={[
           styles.toastCard,
@@ -224,9 +229,9 @@ export const AddToCartToast: React.FC<AddToCartToastProps> = ({
 };
 
 const styles = StyleSheet.create({
-  bottomOverlay: {
+  topOverlay: {
     position: 'absolute',
-    bottom: 74, // Positioned right above the bottom navigation bar
+    top: Platform.OS === 'web' ? 18 : 28,
     left: 0,
     right: 0,
     zIndex: 999999,
@@ -243,10 +248,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 14,
   },
   imageCol: {
     position: 'relative',

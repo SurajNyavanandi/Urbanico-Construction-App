@@ -11,7 +11,6 @@ import {
   Pause,
   Volume2,
   VolumeX,
-  Sparkles,
   ArrowRight,
 } from 'lucide-react-native';
 
@@ -133,13 +132,8 @@ export const AmbujaVideoAd: React.FC<AmbujaVideoAdProps> = ({
           {/* High contrast overlay for readability & controls */}
           <View style={styles.subtleGradientOverlay} />
 
-          {/* Top Bar: Brand Eyebrow Badge & Sound Control */}
+          {/* Top Bar: Sound Control */}
           <View style={styles.topControlsRow}>
-            <View style={styles.adBadge}>
-              <Sparkles size={10} color="#D97706" />
-              <Text style={styles.adBadgeText}>FEATURED BRAND SPOTLIGHT</Text>
-            </View>
-
             <TouchableOpacity
               activeOpacity={0.8}
               onPress={handleToggleMute}
@@ -233,7 +227,7 @@ const styles = StyleSheet.create({
   topControlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     zIndex: 3,
   },
   adBadge: {

@@ -7,6 +7,8 @@ import {
   StyleSheet,
   Pressable,
   Modal,
+  Animated,
+  Platform,
 } from 'react-native';
 import {
   X,
@@ -70,6 +72,45 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
   const [pincodeInput, setPincodeInput] = useState<string>('500081');
   const [pincodeChecked, setPincodeChecked] = useState<boolean>(true);
   const [showImageLightbox, setShowImageLightbox] = useState<boolean>(false);
+
+  // Bottom Sheet Modal Animation Values (Animation 3)
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(280)).current;
+
+  useEffect(() => {
+    if (item) {
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+        Animated.spring(slideAnim, {
+          toValue: 0,
+          friction: 8,
+          tension: 90,
+          useNativeDriver: Platform.OS !== 'web',
+        }),
+      ]).start();
+    }
+  }, [item, fadeAnim, slideAnim]);
+
+  const handleAnimatedClose = () => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 160,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 300,
+        duration: 160,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+    ]).start(() => {
+      onClose();
+    });
+  };
 
   // Sync state whenever the selected item changes
   useEffect(() => {
@@ -195,7 +236,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
     setTimeout(() => {
       setIsAdding(false);
       onAddToCart(item, selectedOption, isTradeService ? 1 : quantity, totalPrice);
-      onClose();
+      handleAnimatedClose();
     }, 250);
   };
 
@@ -206,16 +247,18 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
     } else {
       onAddToCart(item, selectedOption, isTradeService ? 1 : quantity, totalPrice);
     }
-    onClose();
+    handleAnimatedClose();
   };
 
+  const AnimatedView = Animated.View as any;
+
   return (
-    <View style={styles.overlay}>
-      <Pressable style={styles.backdrop} onPress={onClose} />
+    <AnimatedView style={[styles.overlay, { opacity: fadeAnim }]}>
+      <Pressable style={styles.backdrop} onPress={handleAnimatedClose} />
 
       {/* Floating Close Button for Ease of Navigation */}
       <TouchableOpacity
-        onPress={onClose}
+        onPress={handleAnimatedClose}
         style={styles.floatingCloseBtn}
         activeOpacity={0.8}
         accessibilityLabel="Close item options"
@@ -223,7 +266,15 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
         <X size={20} color="#FFFFFF" />
       </TouchableOpacity>
 
-      <View style={[styles.sheetContainer, { backgroundColor: theme.surface }]}>
+      <AnimatedView
+        style={[
+          styles.sheetContainer,
+          {
+            backgroundColor: theme.surface,
+            transform: [{ translateY: slideAnim }],
+          },
+        ]}
+      >
         {/* Header Summary Row */}
         <View style={[styles.modalHeader, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
           <TouchableOpacity
@@ -638,7 +689,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
             </Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </AnimatedView>
 
       {/* FULLSCREEN IMAGE LIGHTBOX */}
       <Modal
@@ -662,7 +713,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
           </View>
         </View>
       </Modal>
-    </View>
+    </AnimatedView>
   );
 };
 

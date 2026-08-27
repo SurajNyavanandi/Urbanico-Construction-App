@@ -84,6 +84,7 @@ export interface UserProfile {
   avatarUrl: string;
   isVerified: boolean;
   verificationBadgeId?: string;
+  isEmailVerified?: boolean;
   creditLimit: number;
   usedCredit: number;
   rewardPoints: number;
@@ -116,4 +117,20 @@ export interface ActivityDelivery {
   };
   cancelReason?: string;
   cartItemsSnapshot?: CartItem[];
+}
+
+export interface IndianDeliveryAddress {
+  id?: string;
+  fullName?: string;
+  mobileNumber?: string;
+  pincode: string;
+  flatBuilding: string;
+  areaStreet: string;
+  landmark?: string;
+  city: string;
+  state: string;
+  alternatePhone?: string;
+  addressType?: 'Site' | 'Home' | 'Office' | 'Warehouse';
+  deliveryInstructions?: string;
+  isDefault?: boolean;
 }

@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Dimensions,
   Platform,
 } from 'react-native';
 import {
@@ -12,11 +11,6 @@ import {
   Pause,
   Volume2,
   VolumeX,
-  RotateCcw,
-  Sparkles,
-  ArrowRight,
-  ShieldCheck,
-  Zap,
 } from 'lucide-react-native';
 
 interface PromotionalVideoPlayerProps {
@@ -29,15 +23,12 @@ const POSTER_IMAGE =
   'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614394/ironbars2_t1ktel.jpg';
 const DEFAULT_PROMO_DURATION = 15;
 
-export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = ({
-  onExploreCatalog,
-}) => {
+export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = () => {
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(DEFAULT_PROMO_DURATION);
   const [hasStarted, setHasStarted] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
   // Sync time & duration on Web DOM video element
@@ -49,19 +40,9 @@ export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = ({
       if (video.duration && !isNaN(video.duration) && video.duration > 0) {
         setDuration(video.duration);
       }
-      setIsLoading(false);
-    };
-
-    const handleCanPlay = () => {
-      setIsLoading(false);
-    };
-
-    const handleWaiting = () => {
-      setIsLoading(true);
     };
 
     const handlePlaying = () => {
-      setIsLoading(false);
       setIsPlaying(true);
     };
 
@@ -81,25 +62,19 @@ export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = ({
     const handlePause = () => setIsPlaying(false);
 
     video.addEventListener('loadedmetadata', handleLoadedMetadata);
-    video.addEventListener('canplay', handleCanPlay);
-    video.addEventListener('waiting', handleWaiting);
     video.addEventListener('playing', handlePlaying);
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
 
-    // Initial check in case it was already cached/loaded
     if (video.readyState >= 2) {
       if (video.duration && !isNaN(video.duration)) {
         setDuration(video.duration);
       }
-      setIsLoading(false);
     }
 
     return () => {
       video.removeEventListener('loadedmetadata', handleLoadedMetadata);
-      video.removeEventListener('canplay', handleCanPlay);
-      video.removeEventListener('waiting', handleWaiting);
       video.removeEventListener('playing', handlePlaying);
       video.removeEventListener('timeupdate', handleTimeUpdate);
       video.removeEventListener('play', handlePlay);
@@ -128,7 +103,6 @@ export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = ({
       setIsMuted(nextMuted);
       if (!nextMuted && videoRef.current.paused) {
         videoRef.current.play().catch(() => {
-          // If unmuted playback is rejected by browser policy without user gesture
           if (videoRef.current) {
             videoRef.current.muted = true;
             setIsMuted(true);
@@ -140,39 +114,18 @@ export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = ({
     }
   };
 
-  const handleRestart = () => {
-    if (videoRef.current) {
-      videoRef.current.currentTime = 0;
-      videoRef.current.play().catch(() => {});
-      setCurrentTime(0);
-      setIsPlaying(true);
-    } else {
-      setCurrentTime(0);
-      setIsPlaying(true);
-    }
-  };
-
   const effectiveDuration = duration || DEFAULT_PROMO_DURATION;
   const progressPercent = Math.min(100, (currentTime / effectiveDuration) * 100);
-  const secondsLeft = Math.max(0, Math.ceil(effectiveDuration - currentTime));
 
   return (
     <View style={styles.container}>
-      {/* Section Header */}
+      {/* Minimalist Section Header */}
       <View style={styles.headerRow}>
-        <View style={styles.headerLeft}>
-          <View style={styles.spotlightBadge}>
-            <Sparkles size={11} color="#D97706" />
-            <Text style={styles.spotlightBadgeText}>PROMOTIONAL SPOTLIGHT</Text>
-          </View>
-          <Text style={styles.headingTitle}>Direct Yard in Motion</Text>
-          <Text style={styles.headingSubtitle}>
-            Watch our direct yard dispatch tour: automated batching, steel testing & instant site delivery.
-          </Text>
-        </View>
+        <Text style={styles.headingTitle}>Yard Operations</Text>
+        <Text style={styles.liveTag}>LIVE DISPATCH</Text>
       </View>
 
-      {/* Video Player Card */}
+      {/* Sleek Minimalist Player Card */}
       <View style={styles.playerCard}>
         <View style={styles.videoWrapper}>
           {/* HTML5 Video element on web */}
@@ -183,7 +136,6 @@ export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = ({
                   videoRef.current = ref;
                   if (!hasStarted) {
                     ref.play().catch(() => {
-                      // Autoplay policy fallback
                       setIsPlaying(false);
                     });
                     setHasStarted(true);
@@ -206,120 +158,64 @@ export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = ({
                 left: 0,
                 right: 0,
                 bottom: 0,
-                borderRadius: 16,
+                borderRadius: 14,
               }}
             />
           ) : (
             <View style={styles.fallbackVideo} />
           )}
 
-          {/* Gradient Overlay for high-contrast text and control readability */}
-          <View style={styles.gradientOverlay} />
-
-          {/* Top Info Bar inside Video */}
-          <View style={styles.videoTopOverlay}>
-            <View style={styles.liveIndicatorPill}>
-              <View style={styles.liveRedDot} />
-              <Text style={styles.liveIndicatorText}>DIRECT YARD HD</Text>
-            </View>
-            <View style={styles.timerBadge}>
-              <Text style={styles.timerBadgeText}>
-                00:{Math.floor(currentTime).toString().padStart(2, '0')} / 00:{Math.floor(effectiveDuration).toString().padStart(2, '0')}
-              </Text>
-            </View>
-          </View>
-
-          {/* Center Play/Pause button on touch */}
+          {/* Minimal Tap Area for Play/Pause */}
           <TouchableOpacity
             style={styles.centerPlayTouch}
             onPress={handleTogglePlay}
-            activeOpacity={0.8}
+            activeOpacity={0.9}
+            accessibilityLabel={isPlaying ? 'Pause video' : 'Play video'}
           >
             {!isPlaying && (
               <View style={styles.centerPlayCircle}>
-                <Play size={24} color="#FFFFFF" fill="#FFFFFF" />
+                <Play size={20} color="#FFFFFF" fill="#FFFFFF" />
               </View>
             )}
           </TouchableOpacity>
 
-          {/* Bottom Controls Bar inside Video */}
-          <View style={styles.videoBottomOverlay}>
-            {/* Progress scrub line */}
+          {/* Minimal Controls Bar */}
+          <View style={styles.bottomControlsBar}>
+            {/* Slim Accent Progress Line */}
             <View style={styles.progressBarTrack}>
               <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
             </View>
 
+            {/* Subtle Controls */}
             <View style={styles.controlsRow}>
-              <View style={styles.controlsLeft}>
-                <TouchableOpacity
-                  onPress={handleTogglePlay}
-                  style={styles.controlIconBtn}
-                  activeOpacity={0.7}
-                  accessibilityLabel={isPlaying ? 'Pause video' : 'Play video'}
-                >
-                  {isPlaying ? (
-                    <Pause size={17} color="#FFFFFF" />
-                  ) : (
-                    <Play size={17} color="#FFFFFF" fill="#FFFFFF" />
-                  )}
-                </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleTogglePlay}
+                style={styles.controlPill}
+                activeOpacity={0.7}
+                accessibilityLabel={isPlaying ? 'Pause' : 'Play'}
+              >
+                {isPlaying ? (
+                  <Pause size={13} color="#FFFFFF" />
+                ) : (
+                  <Play size={13} color="#FFFFFF" fill="#FFFFFF" />
+                )}
+                <Text style={styles.controlPillText}>{isPlaying ? 'Pause' : 'Play'}</Text>
+              </TouchableOpacity>
 
-                <TouchableOpacity
-                  onPress={handleToggleMute}
-                  style={styles.controlIconBtn}
-                  activeOpacity={0.7}
-                  accessibilityLabel={isMuted ? 'Unmute video' : 'Mute video'}
-                >
-                  {isMuted ? (
-                    <VolumeX size={17} color="#FFFFFF" />
-                  ) : (
-                    <Volume2 size={17} color="#FFFFFF" />
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handleRestart}
-                  style={styles.controlIconBtn}
-                  activeOpacity={0.7}
-                  accessibilityLabel="Restart promotional video"
-                >
-                  <RotateCcw size={15} color="#FFFFFF" />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.controlsRight}>
-                <Text style={styles.secondsRemainingText}>
-                  {secondsLeft}s remaining
-                </Text>
-              </View>
+              <TouchableOpacity
+                onPress={handleToggleMute}
+                style={styles.controlIconBtn}
+                activeOpacity={0.7}
+                accessibilityLabel={isMuted ? 'Unmute' : 'Mute'}
+              >
+                {isMuted ? (
+                  <VolumeX size={15} color="#FFFFFF" />
+                ) : (
+                  <Volume2 size={15} color="#FFFFFF" />
+                )}
+              </TouchableOpacity>
             </View>
           </View>
-        </View>
-
-        {/* Video Card Footer / Key Assurance Highlights */}
-        <View style={styles.cardFooter}>
-          <View style={styles.footerFeaturesRow}>
-            <View style={styles.footerFeatureItem}>
-              <Zap size={14} color="#111111" strokeWidth={2.2} />
-              <Text style={styles.footerFeatureText}>3-Hour Dispatch</Text>
-            </View>
-            <View style={styles.footerFeatureDivider} />
-            <View style={styles.footerFeatureItem}>
-              <ShieldCheck size={14} color="#059669" strokeWidth={2.2} />
-              <Text style={styles.footerFeatureText}>100% Lab Tested</Text>
-            </View>
-          </View>
-
-          {onExploreCatalog && (
-            <TouchableOpacity
-              onPress={onExploreCatalog}
-              style={styles.exploreCatalogBtn}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.exploreCatalogBtnText}>Explore Wholesale Materials</Text>
-              <ArrowRight size={15} color="#FFFFFF" strokeWidth={2.2} />
-            </TouchableOpacity>
-          )}
         </View>
       </View>
     </View>
@@ -329,234 +225,112 @@ export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = ({
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
-    gap: 12,
-    marginTop: 6,
-    marginBottom: 8,
+    gap: 8,
+    marginTop: 4,
+    marginBottom: 4,
   },
   headerRow: {
-    gap: 4,
-  },
-  headerLeft: {
-    gap: 4,
-  },
-  spotlightBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 5,
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 9,
-    paddingVertical: 3.5,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-  },
-  spotlightBadgeText: {
-    fontSize: 9.5,
-    fontWeight: '800',
-    color: '#92400E',
-    letterSpacing: 0.5,
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
   },
   headingTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#111111',
-    letterSpacing: -0.4,
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.2,
   },
-  headingSubtitle: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: '#707072',
-    lineHeight: 17,
+  liveTag: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.5,
   },
   playerCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
+    backgroundColor: '#0F172A',
+    borderRadius: 14,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
   },
   videoWrapper: {
     width: '100%',
-    height: 220,
+    height: 190,
     position: 'relative',
     backgroundColor: '#000000',
-    overflow: 'hidden',
   },
   fallbackVideo: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#111111',
-  },
-  gradientOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    pointerEvents: 'none',
-  },
-  videoTopOverlay: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    right: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    zIndex: 3,
-  },
-  liveIndicatorPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  liveRedDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#EF4444',
-  },
-  liveIndicatorText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
-  },
-  timerBadge: {
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  timerBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: 0.3,
+    backgroundColor: '#0F172A',
   },
   centerPlayTouch: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    bottom: 45,
+    bottom: 36,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 2,
   },
   centerPlayCircle: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    backgroundColor: 'rgba(17, 17, 17, 0.75)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.8)',
-    paddingLeft: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+    paddingLeft: 2,
   },
-  videoBottomOverlay: {
+  bottomControlsBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
     paddingHorizontal: 12,
-    paddingBottom: 10,
-    paddingTop: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-    gap: 8,
+    paddingBottom: 8,
+    paddingTop: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    gap: 6,
     zIndex: 3,
   },
   progressBarTrack: {
     width: '100%',
-    height: 3.5,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    borderRadius: 2,
+    height: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderRadius: 1,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#E11D48',
-    borderRadius: 2,
+    backgroundColor: '#FFFFFF',
   },
   controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  controlsLeft: {
+  controlPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 5,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
-  controlIconBtn: {
-    padding: 3,
-  },
-  controlsRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  secondsRemainingText: {
+  controlPillText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#E5E7EB',
-  },
-  cardFooter: {
-    padding: 14,
-    backgroundColor: '#FAFAFA',
-    gap: 12,
-  },
-  footerFeaturesRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#EEEEEE',
-  },
-  footerFeatureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  footerFeatureText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#111111',
-  },
-  footerFeatureDivider: {
-    width: 1,
-    height: 14,
-    backgroundColor: '#E5E7EB',
-  },
-  exploreCatalogBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#111111',
-    paddingVertical: 11,
-    paddingHorizontal: 18,
-    borderRadius: 999,
-  },
-  exploreCatalogBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: 0.1,
+  },
+  controlIconBtn: {
+    padding: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 6,
   },
 });

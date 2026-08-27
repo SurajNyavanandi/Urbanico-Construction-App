@@ -7,7 +7,7 @@ import {
   StyleSheet,
   Pressable,
 } from 'react-native';
-import { Globe, Check, Sparkles, Languages } from 'lucide-react-native';
+import { Globe, Check, Sparkles, Languages, X, ArrowLeft } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage, LanguageCode } from '../context/LanguageContext';
 import { LoadingButton } from './common/LoadingButton';
@@ -37,7 +37,7 @@ export const LanguagePromptModal: React.FC<LanguagePromptModalProps> = ({
       setIsSaving(false);
       if (onConfirm) onConfirm(selectedLang);
       onClose();
-    }, 400);
+    }, 300);
   };
 
   return (
@@ -48,12 +48,34 @@ export const LanguagePromptModal: React.FC<LanguagePromptModalProps> = ({
       onRequestClose={onClose}
     >
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]} onPress={(e) => e.stopPropagation()}>
-          {/* Header */}
+        <Pressable
+          style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
+          onPress={(e) => e.stopPropagation()}
+        >
+          {/* Header with Close and Back Buttons */}
           <View style={[styles.headerBox, { borderBottomColor: theme.borderLight }]}>
-            <View style={[styles.iconCircle, { backgroundColor: theme.primaryLight }]}>
-              <Languages size={24} color={theme.primary} />
+            <View style={styles.topActionRow}>
+              <TouchableOpacity
+                onPress={onClose}
+                style={[styles.headerBtn, { backgroundColor: theme.surfaceSecondary }]}
+                activeOpacity={0.7}
+                accessibilityLabel="Go back"
+              >
+                <ArrowLeft size={18} color={theme.textPrimary} />
+              </TouchableOpacity>
+              <View style={[styles.iconCircle, { backgroundColor: theme.primaryLight }]}>
+                <Languages size={20} color={theme.primary} />
+              </View>
+              <TouchableOpacity
+                onPress={onClose}
+                style={[styles.headerBtn, { backgroundColor: theme.surfaceSecondary }]}
+                activeOpacity={0.7}
+                accessibilityLabel="Close language modal"
+              >
+                <X size={18} color={theme.textPrimary} />
+              </TouchableOpacity>
             </View>
+
             <Text style={[styles.title, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
               {t.selectLanguagePromptTitle}
             </Text>
@@ -120,12 +142,23 @@ export const LanguagePromptModal: React.FC<LanguagePromptModalProps> = ({
 
           {/* Action Footer */}
           <View style={styles.footerBox}>
-            <LoadingButton
-              title={t.confirmLanguage}
-              onPress={handleSave}
-              isLoading={isSaving}
-              variant="primary"
-            />
+            <View style={styles.btnRow}>
+              <TouchableOpacity
+                onPress={onClose}
+                style={[styles.cancelBtn, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary }]}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.cancelBtnText, { color: theme.textPrimary }]}>Cancel</Text>
+              </TouchableOpacity>
+              <View style={{ flex: 1 }}>
+                <LoadingButton
+                  title={t.confirmLanguage}
+                  onPress={handleSave}
+                  isLoading={isSaving}
+                  variant="primary"
+                />
+              </View>
+            </View>
             <Text style={[styles.noteText, { color: theme.textMuted }]}>
               💡 {t.changeLanguageAnytime}
             </Text>
@@ -143,6 +176,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+    zIndex: 9999,
   },
   modalCard: {
     width: '100%',
@@ -163,13 +197,26 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     gap: 6,
   },
-  iconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  topActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 4,
+  },
+  headerBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 4,
+  },
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     fontSize: 18,
@@ -199,16 +246,16 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   flagText: {
-    fontSize: 22,
+    fontSize: 24,
   },
   nameRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   nativeName: {
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   defaultBadge: {
     paddingHorizontal: 6,
@@ -216,29 +263,45 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   defaultBadgeText: {
-    fontSize: 9,
-    fontWeight: '800',
-    textTransform: 'uppercase',
+    fontSize: 9.5,
+    fontWeight: '700',
   },
   regionText: {
     fontSize: 11,
     marginTop: 2,
   },
   radioCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
   },
   footerBox: {
     gap: 10,
-    marginTop: 4,
+    paddingTop: 4,
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  cancelBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   noteText: {
     fontSize: 11,
     textAlign: 'center',
-    fontWeight: '500',
   },
 });
+

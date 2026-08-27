@@ -12,15 +12,6 @@ export interface ServiceItem {
 
 export const CATEGORIES: MaterialCategory[] = [
   {
-    id: 'sand',
-    name: 'Sand',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614393/sand2_wj9sly.jpg',
-    count: '4 Varieties',
-    priceLabel: 'From ₹70 / Bag',
-    subcategoriesText: 'Plastering, River, Robo & Filling',
-    tag: 'SAND',
-  },
-  {
     id: 'cement',
     name: 'Cement',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614395/cement2_s1pf60.jpg',
@@ -28,24 +19,6 @@ export const CATEGORIES: MaterialCategory[] = [
     priceLabel: 'From ₹365 / Bag',
     subcategoriesText: 'UltraTech, ACC, Ambuja, Dalmia',
     tag: 'CEMENT',
-  },
-  {
-    id: 'iron_bars',
-    name: 'Iron Bars & Steel',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614394/ironbars2_t1ktel.jpg',
-    count: '5 Rebar Grades',
-    priceLabel: 'From ₹380 / Bundle',
-    subcategoriesText: 'Tata Tiscon, JSW, Kamdhenu',
-    tag: 'STEEL & TMT',
-  },
-  {
-    id: 'stone',
-    name: 'Stone & Aggregates',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614394/stones2_i0cjzq.jpg',
-    count: '5 Sizes',
-    priceLabel: 'From ₹70 / Bag',
-    subcategoriesText: '10mm, 20mm, 40mm & Stone Dust',
-    tag: 'AGGREGATES',
   },
   {
     id: 'bricks',
@@ -57,13 +30,31 @@ export const CATEGORIES: MaterialCategory[] = [
     tag: 'BRICKS',
   },
   {
-    id: 'tiles',
-    name: 'Tiles & Flooring',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1787033354/Tiles_kw4xbl.jpg',
-    count: '4 Subcategories',
-    priceLabel: 'From ₹42 / Sq.Ft',
-    subcategoriesText: 'Vitrified, Ceramic, Matte & Pavers',
-    tag: 'TILES',
+    id: 'sand',
+    name: 'Sand',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614393/sand2_wj9sly.jpg',
+    count: '4 Varieties',
+    priceLabel: 'From ₹70 / Bag',
+    subcategoriesText: 'Plastering, River, Robo & Filling',
+    tag: 'SAND',
+  },
+  {
+    id: 'stone',
+    name: 'Stone & Aggregates',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614394/stones2_i0cjzq.jpg',
+    count: '5 Sizes',
+    priceLabel: 'From ₹70 / Bag',
+    subcategoriesText: '10mm, 20mm, 40mm & Stone Dust',
+    tag: 'AGGREGATES',
+  },
+  {
+    id: 'iron_bars',
+    name: 'Iron Bars & Steel',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614394/ironbars2_t1ktel.jpg',
+    count: '5 Rebar Grades',
+    priceLabel: 'From ₹380 / Bundle',
+    subcategoriesText: 'Tata Tiscon, JSW, Kamdhenu',
+    tag: 'STEEL & TMT',
   },
   {
     id: 'centring',
@@ -73,6 +64,15 @@ export const CATEGORIES: MaterialCategory[] = [
     priceLabel: 'From ₹50 / Plank',
     subcategoriesText: 'Steel Sheets, Props & Wood Planks',
     tag: 'FORMWORK',
+  },
+  {
+    id: 'tiles',
+    name: 'Tiles & Flooring',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1787033354/Tiles_kw4xbl.jpg',
+    count: '4 Subcategories',
+    priceLabel: 'From ₹42 / Sq.Ft',
+    subcategoriesText: 'Vitrified, Ceramic, Matte & Pavers',
+    tag: 'TILES',
   },
 ];
 
@@ -732,16 +732,17 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
 ];
 
 export const INITIAL_USER: UserProfile = {
-  name: 'Suraj Nyavanandi',
-  phone: '+91 96666 35009',
-  email: 'kanusuraj15@gmail.com',
+  name: '',
+  phone: '',
+  email: '',
   role: 'General Contractor',
-  companyName: 'Urbanico Infrastructure Pvt Ltd',
-  gstin: '36AABCU12341ZV',
-  siteLocation: 'Miyapur Site, Hyderabad',
-  avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200&auto=format&fit=crop',
-  isVerified: true,
-  verificationBadgeId: 'VERIFIED-IND-88219',
+  companyName: '',
+  gstin: '',
+  siteLocation: '',
+  avatarUrl: '',
+  isVerified: false,
+  verificationBadgeId: '',
+  isEmailVerified: false,
   creditLimit: 0,
   usedCredit: 0,
   rewardPoints: 0,
@@ -750,9 +751,4 @@ export const INITIAL_USER: UserProfile = {
 
 export const INITIAL_DELIVERIES: ActivityDelivery[] = [];
 
-export const SAVED_LOCATIONS = [
-  'Miyapur Site, Hyderabad',
-  'Gachibowli Heights, Hyderabad',
-  'Kukatpally Villa, Hyderabad',
-  'Madhapur Commercial Site, Hyderabad',
-];
+export const SAVED_LOCATIONS: string[] = [];

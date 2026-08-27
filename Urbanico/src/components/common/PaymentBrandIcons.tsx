@@ -52,7 +52,6 @@ export const PhonePeIcon: React.FC<IconProps> = ({ size = 24, className }) => (
     style={{ display: 'inline-block', verticalAlign: 'middle' }}
   >
     <rect width="24" height="24" rx="6" fill="#5F259F" />
-    {/* Clean Devanagari Pe Glyph */}
     <path
       d="M8.5 6.5h7.2v2.2H12.8v1.6c1.6.2 3 1.5 3 3.4 0 2.2-1.7 3.8-4.2 3.8h-1.2v3.5H8.5V6.5zm3.8 5.7c-.8 0-1.7-.1-1.9-.2v2.1h1.1c1.2 0 1.9-.7 1.9-1.8 0-1.2-.7-1.8-1.9-1.8l.8 1.7z"
       fill="#FFFFFF"
@@ -78,7 +77,6 @@ export const UpiIcon: React.FC<IconProps> = ({ size = 24, className }) => (
     style={{ display: 'inline-block', verticalAlign: 'middle' }}
   >
     <rect width="24" height="24" rx="6" fill="#FFFFFF" stroke="#E5E5E7" strokeWidth="0.8" />
-    {/* Orange and Green Triangles */}
     <path d="M12.5 5L7 14h5.5l-2 5L17 9.5h-5.5l2-4.5z" fill="#0071E3" />
     <path d="M5.5 17h3v1.5h-3V17zm4 0h3v1.5h-3V17zm4 0h3v1.5h-3V17z" fill="#1D1D1F" />
   </svg>
@@ -119,7 +117,7 @@ export const PaytmIcon: React.FC<IconProps> = ({ size = 24, className }) => (
     style={{ display: 'inline-block', verticalAlign: 'middle' }}
   >
     <rect width="24" height="24" rx="6" fill="#002970" />
-    <text x="12" y="15" textAnchor="middle" fill="#00BAF2" fontSize="9" fontWeight="900" fontFamily="sans-serif">
+    <text x="12" y="15" textAnchor="middle" fill="#00BAF2" fontSize="8.5" fontWeight="900" fontFamily="sans-serif">
       Paytm
     </text>
   </svg>
@@ -138,11 +136,11 @@ export const AmazonPayIcon: React.FC<IconProps> = ({ size = 24, className }) => 
     className={className}
     style={{ display: 'inline-block', verticalAlign: 'middle' }}
   >
-    <rect width="24" height="24" rx="6" fill="#111111" />
-    <path d="M6 14.5c3.2 2 8.8 2 12-.5" stroke="#FF9900" strokeWidth="1.8" strokeLinecap="round" />
-    <path d="M16.5 12.8l1.7 1.2-1.2 1.5" stroke="#FF9900" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    <text x="12" y="11" textAnchor="middle" fill="#FFFFFF" fontSize="8" fontWeight="800" fontFamily="sans-serif">
-      pay
+    <rect width="24" height="24" rx="6" fill="#131921" />
+    <path d="M6 15c3.2 2 8.8 2 12-.5" stroke="#FF9900" strokeWidth="1.8" strokeLinecap="round" />
+    <path d="M16.5 13.5l1.7 1.2-1.2 1.5" stroke="#FF9900" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    <text x="12" y="11" textAnchor="middle" fill="#FFFFFF" fontSize="7.5" fontWeight="800" fontFamily="sans-serif">
+      amazon
     </text>
   </svg>
 );
