@@ -906,3 +906,5 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
   },
 });
+
+export default ActivityDashboardScreen;

@@ -1,4 +1,5 @@
 import React from 'react';
+import { DimensionValue } from 'react-native';
 import { OpenStreetMapPicker } from './OpenStreetMapPicker';
 
 export interface LatLng {
@@ -12,7 +13,7 @@ interface MapPickerProps {
   markerPosition?: LatLng;
   markerTitle?: string;
   onLocationSelect?: (pos: LatLng, address?: string) => void;
-  height?: number | string;
+  height?: DimensionValue;
   interactive?: boolean;
   routeOrigin?: LatLng;
   routeDestination?: LatLng;

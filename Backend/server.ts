@@ -1,29 +1,36 @@
 import dotenv from 'dotenv';
+import path from 'path';
+
+// Load environment variables from process.cwd() and backend directories
 dotenv.config();
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+dotenv.config({ path: path.resolve(process.cwd(), 'backend', '.env') });
 
 import express from 'express';
-import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { connectDB, getDBStatus } from './config/db';
 import { apiRouter } from './routers';
 
 const app = express();
-const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+const PORT = 3000;
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://urbanico.vercel.app';
 
 // 1. JSON & URL encoding parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 2. CORS Middleware - Allow frontend from localhost, Vercel, and Render
+// 2. CORS Middleware - Allow frontend from localhost, custom configured FRONTEND_URL, and production domains
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   const allowedOrigins = [
     'http://localhost:5173',
     'http://localhost:3000',
     'http://localhost:8081',
+    'http://localhost:19006',
+    FRONTEND_URL,
     'https://urbanico.vercel.app',
     'https://urbanico-construction-app.onrender.com',
-  ];
+  ].filter(Boolean);
 
   if (origin && (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app') || origin.endsWith('.onrender.com'))) {
     res.setHeader('Access-Control-Allow-Origin', origin);
@@ -52,14 +59,13 @@ app.get('/api/server-info', (req, res) => {
     backendPort: PORT,
     environment: process.env.NODE_ENV || 'development',
     database: getDBStatus(),
-    frontendUrl: 'https://urbanico.vercel.app',
-    backendRenderUrl: 'https://urbanico-construction-app.onrender.com',
+    frontendUrl: FRONTEND_URL,
     allowedOrigins: [
       'http://localhost:5173',
       'http://localhost:3000',
       'http://localhost:8081',
-      'https://urbanico.vercel.app',
-      'https://urbanico-construction-app.onrender.com',
+      'http://localhost:19006',
+      FRONTEND_URL,
     ],
     endpoints: [
       '/api/health',
@@ -84,12 +90,10 @@ app.get('/api/health', (req, res) => {
 });
 
 export async function startServer() {
-  // Connect to MongoDB Atlas
-  try {
-    await connectDB();
-  } catch (dbErr: any) {
+  // Connect to MongoDB Atlas in background
+  connectDB().catch((dbErr: any) => {
     console.error('Initial DB connection attempt returned:', dbErr?.message || dbErr);
-  }
+  });
 
   // Vite middleware for preview/frontend serving
   if (process.env.NODE_ENV !== 'production') {

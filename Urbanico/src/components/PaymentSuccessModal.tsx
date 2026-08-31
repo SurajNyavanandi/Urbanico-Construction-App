@@ -30,6 +30,7 @@ interface PaymentSuccessModalProps {
   selectedLocation: string;
   onClose: () => void;
   onTrackOrder: () => void;
+  onContinueShopping?: () => void;
   onViewInvoice?: () => void;
 }
 
@@ -39,6 +40,7 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
   selectedLocation,
   onClose,
   onTrackOrder,
+  onContinueShopping,
   onViewInvoice,
 }) => {
   const [copied, setCopied] = useState(false);
@@ -246,6 +248,21 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
                 <ArrowRight size={15} color="#FFFFFF" strokeWidth={2.2} />
               </TouchableOpacity>
 
+              {/* Continue Shopping Button */}
+              <TouchableOpacity
+                onPress={() => {
+                  onClose();
+                  if (onContinueShopping) {
+                    onContinueShopping();
+                  }
+                }}
+                style={styles.continueShoppingBtn}
+                activeOpacity={0.85}
+              >
+                <Sparkles size={16} color="#0F172A" strokeWidth={2} />
+                <Text style={styles.continueShoppingBtnText}>Continue Shopping</Text>
+              </TouchableOpacity>
+
               {/* Secondary Buttons Row */}
               <View style={styles.secondaryBtnRow}>
                 {onViewInvoice && (
@@ -271,11 +288,6 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
                   <Text style={styles.secondaryBtnText}>Share Receipt</Text>
                 </TouchableOpacity>
               </View>
-
-              {/* Return to home button */}
-              <TouchableOpacity onPress={onClose} style={styles.doneBtn} activeOpacity={0.7}>
-                <Text style={styles.doneBtnText}>Done</Text>
-              </TouchableOpacity>
             </View>
           </ScrollView>
         </View>
@@ -578,6 +590,22 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
+  },
+  continueShoppingBtn: {
+    backgroundColor: '#F1F5F9',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  continueShoppingBtnText: {
+    color: '#0F172A',
+    fontSize: 13.5,
+    fontWeight: '700',
   },
   secondaryBtnRow: {
     flexDirection: 'row',

@@ -21,7 +21,7 @@ import { soundService } from '../utils/soundHelper';
 interface CategoryDetailScreenProps {
   categoryId: CategoryId | 'all';
   onSelectItem: (item: MaterialItem) => void;
-  onSelectCategoryTab: (catId: CategoryId) => void;
+  onSelectCategoryTab: (catId: CategoryId | 'all') => void;
   searchQuery: string;
   onBack?: () => void;
   favoriteIds?: string[];
@@ -761,3 +761,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
 });
+
+export default CategoryDetailScreen;

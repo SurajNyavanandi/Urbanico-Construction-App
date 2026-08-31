@@ -293,7 +293,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
               source={{ uri: item.image }}
               style={styles.headerThumbnail}
               resizeMode="cover"
-              preset="avatar"
+              preset="thumbnail"
               borderRadius={8}
             />
             <View style={styles.thumbnailZoomBadge}>
@@ -714,7 +714,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
               source={{ uri: item.image }}
               style={styles.lightboxImage}
               resizeMode="contain"
-              preset="modal"
+              preset="detail"
             />
             <Text style={styles.lightboxTitle}>{item.name}</Text>
           </View>

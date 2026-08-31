@@ -190,13 +190,12 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
 
     const keyId =
       orderKeyId ||
-      (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_RAZORPAY_KEY_ID) ||
       (typeof process !== 'undefined' &&
         process.env &&
-        (process.env.VITE_RAZORPAY_KEY_ID ||
+        (process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID ||
           process.env.RAZORPAY_KEY_ID ||
-          process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID)) ||
-      '';
+          process.env.VITE_RAZORPAY_KEY_ID)) ||
+      'rzp_live_TTxqOGUSIpe4ZL';
 
     if (!keyId) {
       const msg = 'Razorpay Key ID is not configured. Please define RAZORPAY_KEY_ID or VITE_RAZORPAY_KEY_ID in the environment settings.';

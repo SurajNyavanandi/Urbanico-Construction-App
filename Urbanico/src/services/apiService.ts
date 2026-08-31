@@ -14,7 +14,11 @@ export interface ApiResponse<T = any> {
   [key: string]: any;
 }
 
-const API_BASE_URL = typeof window !== 'undefined' ? '' : 'http://localhost:3000';
+const API_BASE_URL =
+  (typeof process !== 'undefined' &&
+    process.env &&
+    (process.env.EXPO_PUBLIC_API_URL || process.env.VITE_API_URL)) ||
+  (typeof window !== 'undefined' ? '' : 'http://localhost:3000');
 
 class ApiService {
   /**

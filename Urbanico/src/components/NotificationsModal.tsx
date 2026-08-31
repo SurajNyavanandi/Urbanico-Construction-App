@@ -84,15 +84,13 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   const { showToast } = useToast();
   const [notifications, setNotifications] = useState<SiteNotification[]>(INITIAL_NOTIFICATIONS);
 
-  if (!visible) return null;
-
   const unreadCount = notifications.filter((n) => n.isUnread).length;
 
   useEffect(() => {
     if (visible && unreadCount > 0) {
       soundService.playNotification();
     }
-  }, [visible]);
+  }, [visible, unreadCount]);
 
   const handleMarkAllAsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, isUnread: false })));

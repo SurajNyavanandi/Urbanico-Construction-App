@@ -1,14 +1,15 @@
 // Web Audio API based sound synthesizer for crisp, instant mobile UI sound effects
-// Works without any external mp3 files or network dependencies
+// Works safely across Web and React Native with runtime fallback
+import { safeStorage } from './safeStorage';
 
 class SoundHelper {
   private ctx: AudioContext | null = null;
   private isEnabled: boolean = true;
 
   constructor() {
-    // Check local storage preference
+    // Check storage preference safely
     try {
-      const saved = localStorage.getItem('urbanico_sound_enabled');
+      const saved = safeStorage.getItem('urbanico_sound_enabled');
       if (saved !== null) {
         this.isEnabled = saved === 'true';
       }
@@ -20,14 +21,16 @@ class SoundHelper {
   private getAudioContext(): AudioContext | null {
     if (!this.isEnabled) return null;
     try {
-      if (!this.ctx) {
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-        if (AudioCtx) {
-          this.ctx = new AudioCtx();
+      if (typeof window !== 'undefined') {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+          if (AudioCtx) {
+            this.ctx = new AudioCtx();
+          }
         }
-      }
-      if (this.ctx && this.ctx.state === 'suspended') {
-        this.ctx.resume().catch(() => {});
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
       }
       return this.ctx;
     } catch {
@@ -38,7 +41,7 @@ class SoundHelper {
   public setSoundEnabled(enabled: boolean) {
     this.isEnabled = enabled;
     try {
-      localStorage.setItem('urbanico_sound_enabled', String(enabled));
+      safeStorage.setItem('urbanico_sound_enabled', String(enabled));
     } catch {}
   }
 
@@ -53,7 +56,7 @@ class SoundHelper {
 
     try {
       const now = ctx.currentTime;
-      const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+      const notes = [523.25, 659.25, 783.99, 1046.5]; // C5, E5, G5, C6
 
       notes.forEach((freq, index) => {
         const osc = ctx.createOscillator();

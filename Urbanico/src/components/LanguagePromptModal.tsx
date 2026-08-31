@@ -28,8 +28,6 @@ export const LanguagePromptModal: React.FC<LanguagePromptModalProps> = ({
   const [selectedLang, setSelectedLang] = useState<LanguageCode>(language);
   const [isSaving, setIsSaving] = useState(false);
 
-  if (!isOpen) return null;
-
   const handleSave = () => {
     setIsSaving(true);
     setTimeout(() => {

@@ -108,8 +108,6 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
     showToast(`Connecting secure line to Driver ${activeEnRoute?.driverName || 'Ramesh'}...`, 'info');
   };
 
-  if (!visible) return null;
-
   return (
     <Modal
       visible={visible}

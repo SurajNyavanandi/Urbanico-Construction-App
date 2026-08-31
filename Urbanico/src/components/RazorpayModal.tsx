@@ -229,8 +229,6 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
     }
   };
 
-  if (!visible) return null;
-
   const cardBrand = getCardBrand(cardNumber);
   const effectivePayableAmount =
     selectedMethod === 'site_pay' && advancePercent === 50 ? Math.round(amount / 2) : amount;
@@ -436,34 +434,12 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                 {showQr && (
                   <View style={styles.dynamicQrCard}>
                     <View style={styles.qrContainerBox}>
-                      <svg width="150" height="150" viewBox="0 0 100 100">
-                        <rect width="100" height="100" fill="#FFFFFF" rx="8" />
-                        {/* QR Corners */}
-                        <rect x="10" y="10" width="26" height="26" fill="#0F172A" rx="4" />
-                        <rect x="14" y="14" width="18" height="18" fill="#FFFFFF" rx="2" />
-                        <rect x="18" y="18" width="10" height="10" fill="#0F172A" rx="1" />
-
-                        <rect x="64" y="10" width="26" height="26" fill="#0F172A" rx="4" />
-                        <rect x="68" y="14" width="18" height="18" fill="#FFFFFF" rx="2" />
-                        <rect x="72" y="18" width="10" height="10" fill="#0F172A" rx="1" />
-
-                        <rect x="10" y="64" width="26" height="26" fill="#0F172A" rx="4" />
-                        <rect x="14" y="68" width="18" height="18" fill="#FFFFFF" rx="2" />
-                        <rect x="18" y="72" width="10" height="10" fill="#0F172A" rx="1" />
-
-                        {/* QR Pattern Dots */}
-                        <rect x="42" y="12" width="6" height="6" fill="#0F172A" />
-                        <rect x="52" y="16" width="6" height="6" fill="#0F172A" />
-                        <rect x="44" y="26" width="8" height="6" fill="#0F172A" />
-                        <rect x="40" y="40" width="20" height="20" fill="#0066FF" rx="3" />
-                        <rect x="15" y="44" width="8" height="6" fill="#0F172A" />
-                        <rect x="26" y="50" width="6" height="8" fill="#0F172A" />
-                        <rect x="70" y="45" width="8" height="8" fill="#0F172A" />
-                        <rect x="80" y="56" width="6" height="6" fill="#0F172A" />
-                        <rect x="45" y="68" width="6" height="12" fill="#0F172A" />
-                        <rect x="56" y="75" width="12" height="6" fill="#0F172A" />
-                        <rect x="75" y="72" width="12" height="12" fill="#0F172A" />
-                      </svg>
+                      <View style={styles.qrInnerWrapper}>
+                        <QrCode size={130} color="#0F172A" strokeWidth={2} />
+                        <View style={styles.qrCenterLogo}>
+                          <Text style={styles.qrCenterLogoText}>U</Text>
+                        </View>
+                      </View>
                     </View>
 
                     <Text style={styles.qrAmountText}>₹{effectivePayableAmount.toLocaleString('en-IN')}</Text>
@@ -964,6 +940,28 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+  },
+  qrInnerWrapper: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    padding: 4,
+  },
+  qrCenterLogo: {
+    position: 'absolute',
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: '#0066FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  qrCenterLogoText: {
+    color: '#FFFFFF',
+    fontWeight: '900',
+    fontSize: 14,
   },
   qrAmountText: {
     fontSize: 15,

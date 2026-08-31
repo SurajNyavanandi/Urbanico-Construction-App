@@ -2,7 +2,7 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
 
 export interface IDelivery extends Document {
   deliveryNumber: string;
-  orderId: mongoose.Types.ObjectId;
+  orderId: mongoose.Types.ObjectId | string;
   orderNumber: string;
   vehicleNumber: string;
   driverName: string;
@@ -42,7 +42,7 @@ const DeliverySchema = new Schema<IDelivery>(
       unique: true,
       default: () => `DEL-${Date.now().toString().slice(-5)}`,
     },
-    orderId: { type: Schema.Types.ObjectId, ref: 'Order', required: true },
+    orderId: { type: Schema.Types.Mixed, required: true },
     orderNumber: { type: String, required: true },
     vehicleNumber: { type: String, required: true },
     driverName: { type: String, required: true },

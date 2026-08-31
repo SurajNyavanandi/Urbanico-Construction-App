@@ -553,11 +553,13 @@ export const Header: React.FC<HeaderProps> = ({
       </Modal>
 
       {/* 3. Site Notifications Center Modal */}
-      <NotificationsModal
-        visible={isNotificationsOpen}
-        onClose={() => setIsNotificationsOpen(false)}
-        onNavigateScreen={onNavigateScreen}
-      />
+      {isNotificationsOpen && (
+        <NotificationsModal
+          visible={isNotificationsOpen}
+          onClose={() => setIsNotificationsOpen(false)}
+          onNavigateScreen={onNavigateScreen}
+        />
+      )}
     </View>
   );
 };

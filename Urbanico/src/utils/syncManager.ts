@@ -1,8 +1,9 @@
 /**
  * Real-Time Cross-Tab Synchronization & Offline Mutation Manager
  * Emulates high-frequency sync between devices/tabs, offline background queues,
- * and live stock reservation timeouts.
+ * and live stock reservation timeouts across Web, React Native, and Mobile.
  */
+import { safeStorage } from './safeStorage';
 
 type SyncEventType =
   | 'CART_UPDATED'
@@ -23,11 +24,11 @@ const TAB_ID = 'tab_' + Math.random().toString(36).substring(2, 9);
 let broadcastChannel: BroadcastChannel | null = null;
 
 try {
-  if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
-    broadcastChannel = new BroadcastChannel('urbanico_multidevice_sync');
+  if (typeof window !== 'undefined' && typeof (window as any).BroadcastChannel !== 'undefined') {
+    broadcastChannel = new (window as any).BroadcastChannel('urbanico_multidevice_sync');
   }
-} catch (e) {
-  console.warn('BroadcastChannel not supported in this environment');
+} catch {
+  // BroadcastChannel not supported in this environment
 }
 
 type SyncCallback = (event: SyncMessage) => void;
@@ -48,19 +49,23 @@ if (broadcastChannel) {
 }
 
 // Fallback to localStorage storage event for older browser engines
-if (typeof window !== 'undefined') {
-  window.addEventListener('storage', (e) => {
-    if (e.key === 'urbanico_sync_event' && e.newValue) {
-      try {
-        const parsed: SyncMessage = JSON.parse(e.newValue);
-        if (parsed.senderTabId !== TAB_ID) {
-          listeners.forEach((cb) => cb(parsed));
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  try {
+    window.addEventListener('storage', (e: any) => {
+      if (e && e.key === 'urbanico_sync_event' && e.newValue) {
+        try {
+          const parsed: SyncMessage = JSON.parse(e.newValue);
+          if (parsed && parsed.senderTabId !== TAB_ID) {
+            listeners.forEach((cb) => cb(parsed));
+          }
+        } catch {
+          // ignore parse error
         }
-      } catch (err) {
-        // ignore parse error
       }
-    }
-  });
+    });
+  } catch {
+    // ignore
+  }
 }
 
 export const syncManager = {
@@ -75,12 +80,14 @@ export const syncManager = {
     };
 
     if (broadcastChannel) {
-      broadcastChannel.postMessage(msg);
+      try {
+        broadcastChannel.postMessage(msg);
+      } catch {}
     }
 
     try {
-      localStorage.setItem('urbanico_sync_event', JSON.stringify(msg));
-    } catch (e) {
+      safeStorage.setItem('urbanico_sync_event', JSON.stringify(msg));
+    } catch {
       // quota or private mode fallback
     }
   },
@@ -95,7 +102,7 @@ export const syncManager = {
   // Offline Mutation Queue
   enqueueMutation: (action: string, data: any) => {
     try {
-      const existingStr = localStorage.getItem('urbanico_offline_queue');
+      const existingStr = safeStorage.getItem('urbanico_offline_queue');
       const queue = existingStr ? JSON.parse(existingStr) : [];
       queue.push({
         id: 'mut_' + Date.now(),
@@ -103,7 +110,7 @@ export const syncManager = {
         data,
         timestamp: Date.now(),
       });
-      localStorage.setItem('urbanico_offline_queue', JSON.stringify(queue));
+      safeStorage.setItem('urbanico_offline_queue', JSON.stringify(queue));
     } catch (e) {
       console.warn('Failed to enqueue offline mutation', e);
     }
@@ -111,17 +118,17 @@ export const syncManager = {
 
   getOfflineQueue: (): { id: string; action: string; data: any; timestamp: number }[] => {
     try {
-      const existingStr = localStorage.getItem('urbanico_offline_queue');
+      const existingStr = safeStorage.getItem('urbanico_offline_queue');
       return existingStr ? JSON.parse(existingStr) : [];
-    } catch (e) {
+    } catch {
       return [];
     }
   },
 
   clearOfflineQueue: () => {
     try {
-      localStorage.removeItem('urbanico_offline_queue');
-    } catch (e) {
+      safeStorage.removeItem('urbanico_offline_queue');
+    } catch {
       // ignore
     }
   },
@@ -166,7 +173,7 @@ export const syncManager = {
           } catch {}
         }, 500);
       }
-    } catch (e) {
+    } catch {
       // Audio context might be restricted before first user interaction
     }
   },

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
+import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
@@ -9,11 +9,8 @@ import { ToastProvider, useToast } from './context/ToastContext';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 import { HomeScreen, ProjectBundle } from './components/HomeScreen';
-import { CategoryDetailScreen } from './components/CategoryDetailScreen';
 import { ItemQuantityModal } from './components/ItemQuantityModal';
-import { UserProfileScreen } from './components/UserProfileScreen';
 import { SettingsScreen } from './components/SettingsScreen';
-import { ActivityDashboardScreen } from './components/ActivityDashboardScreen';
 import { AuthScreen } from './components/AuthScreen';
 import { BasketScreen } from './components/BasketScreen';
 import { FavoritesScreen } from './components/FavoritesScreen';
@@ -24,6 +21,20 @@ import { InvoiceModal } from './components/InvoiceModal';
 import { LanguagePromptModal } from './components/LanguagePromptModal';
 import { preloadImages } from './utils/imageOptimization';
 import { BRAND_LOGO_URL } from './constants';
+
+// Lazy load heavy screens to optimize bundle size and app startup time
+const CategoryDetailScreen = lazy(() => import('./components/CategoryDetailScreen'));
+const UserProfileScreen = lazy(() => import('./components/UserProfileScreen'));
+const ActivityDashboardScreen = lazy(() => import('./components/ActivityDashboardScreen'));
+
+function ScreenLoadingFallback() {
+  const { theme } = useTheme();
+  return (
+    <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+      <ActivityIndicator size="large" color={theme.primary} />
+    </View>
+  );
+}
 
 import {
   ScreenType,
@@ -715,222 +726,234 @@ function MainAppContent() {
     <SafeAreaView style={[styles.appContainer, { backgroundColor: '#FFFFFF' }]} edges={['top']}>
       <ExpoStatusBar style="dark" />
 
-      {/* Main View Router */}
+      {/* Main View Router with Suspense for Lazy Loaded Screens */}
       <View style={[styles.mainContent, { backgroundColor: '#FFFFFF' }]}>
-        {currentScreen === 'shop' && (
-          <ShopScreen
-            onSelectCategoryTab={handleSelectCategory}
-            onSelectItem={handleOpenItemModal}
-            favoriteIds={favoriteIds}
-            onToggleFavorite={handleToggleFavorite}
-          />
-        )}
+        <Suspense fallback={<ScreenLoadingFallback />}>
+          {currentScreen === 'shop' && (
+            <ShopScreen
+              onSelectCategoryTab={handleSelectCategory}
+              onSelectItem={handleOpenItemModal}
+              favoriteIds={favoriteIds}
+              onToggleFavorite={handleToggleFavorite}
+            />
+          )}
 
-        {currentScreen === 'home' && (
-          <HomeScreen
-            headerComponent={
-              <Header
-                currentScreen={currentScreen}
-                title={getScreenTitle()}
-                selectedLocation={selectedLocation}
-                onOpenLocationModal={handleOpenLocationModal}
-                onBack={undefined}
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                recentSearches={recentSearches}
-                onSelectSearchQuery={handleSelectSearchQuery}
-                onClearRecentSearches={handleClearRecentSearches}
-                onRemoveRecentSearch={handleRemoveRecentSearch}
-                onSelectItemModal={handleOpenItemModal}
-                onNavigateScreen={setCurrentScreen}
-              />
-            }
-            onSelectCategory={handleSelectCategory}
-            onNavigateAllMaterials={() => {
-              setSelectedCategoryId('all');
-              setCurrentScreen('category');
-            }}
-            onNavigateAllServices={() => {
-              setSelectedCategoryId('services-catalog');
-              setCurrentScreen('category');
-            }}
-            onSelectItem={handleOpenItemModal}
-            searchQuery={searchQuery}
-            favoriteIds={favoriteIds}
-            onToggleFavorite={handleToggleFavorite}
-            onAddBundleToCartAndNavigate={handleAddBundleToCartAndNavigate}
-          />
-        )}
-
-        {currentScreen === 'category' && (
-          <CategoryDetailScreen
-            categoryId={selectedCategoryId}
-            onSelectItem={handleOpenItemModal}
-            onSelectCategoryTab={(catId) => setSelectedCategoryId(catId)}
-            searchQuery={searchQuery}
-            onBack={() => setCurrentScreen('home')}
-            favoriteIds={favoriteIds}
-            onToggleFavorite={handleToggleFavorite}
-            viewMode={globalViewMode}
-            onViewModeChange={setGlobalViewMode}
-          />
-        )}
-
-        {currentScreen === 'basket' && (
-          <BasketScreen
-            cartItems={cartItems}
-            onUpdateQuantity={handleUpdateCartQty}
-            onRemoveItem={handleRemoveCartItem}
-            onClearCart={handleClearCart}
-            selectedLocation={selectedLocation}
-            onNavigateScreen={setCurrentScreen}
-            deliveries={deliveries}
-            onOrderCreated={handleOrderCreated}
-            onViewInvoice={handleOpenInvoiceModal}
-            onChangeAddressRedirect={() => {
-              setOpenProfileAddresses(true);
-              setCurrentScreen('profile');
-            }}
-            isLoggedIn={isLoggedIn}
-            onOpenLoginModal={handleOpenAuthModal}
-          />
-        )}
-
-        {currentScreen === 'favorites' && (
-          <FavoritesScreen
-            onSelectItemModal={handleOpenItemModal}
-            onNavigateHome={() => setCurrentScreen('home')}
-            favoriteIds={favoriteIds}
-            onToggleFavorite={handleToggleFavorite}
-            isLoggedIn={isLoggedIn}
-            onOpenLoginModal={handleOpenAuthModal}
-          />
-        )}
-
-        {currentScreen === 'profile' && (
-          <UserProfileScreen
-            user={user}
-            onUpdateUser={handleUpdateUser}
-            onNavigateScreen={(scr) => {
-              setOpenProfileAddresses(false);
-              setCurrentScreen(scr);
-            }}
-            isLoggedIn={isLoggedIn}
-            onLogout={handleLogout}
-            savedLocations={savedLocations}
-            onAddLocation={handleAddLocation}
-            onEditLocation={handleEditLocation}
-            onDeleteLocation={handleDeleteLocation}
-            onSelectLocation={handleSelectLocation}
-            deliveries={deliveries}
-            onViewInvoice={handleOpenInvoiceModal}
-            initialOpenAddressesModal={openProfileAddresses}
-            onOpenLoginModal={handleOpenAuthModal}
-            favoriteCount={favoriteIds.length}
-            viewMode={globalViewMode}
-            onViewModeChange={setGlobalViewMode}
-            onExploreCatalog={() => {
-              setSelectedCategoryId('all');
-              setCurrentScreen('category');
-            }}
-            onReorderMaterial={(matName) => {
-              const matchedItem = MATERIAL_ITEMS.find((m) =>
-                m.name.toLowerCase().includes(matName.toLowerCase()) || matName.toLowerCase().includes(m.name.toLowerCase())
-              );
-              if (matchedItem) {
-                handleOpenItemModal(matchedItem);
-              } else {
+          {currentScreen === 'home' && (
+            <HomeScreen
+              headerComponent={
+                <Header
+                  currentScreen={currentScreen}
+                  title={getScreenTitle()}
+                  selectedLocation={selectedLocation}
+                  onOpenLocationModal={handleOpenLocationModal}
+                  onBack={undefined}
+                  searchQuery={searchQuery}
+                  onSearchChange={setSearchQuery}
+                  recentSearches={recentSearches}
+                  onSelectSearchQuery={handleSelectSearchQuery}
+                  onClearRecentSearches={handleClearRecentSearches}
+                  onRemoveRecentSearch={handleRemoveRecentSearch}
+                  onSelectItemModal={handleOpenItemModal}
+                  onNavigateScreen={setCurrentScreen}
+                />
+              }
+              onSelectCategory={handleSelectCategory}
+              onNavigateAllMaterials={() => {
                 setSelectedCategoryId('all');
                 setCurrentScreen('category');
-              }
-            }}
-          />
-        )}
+              }}
+              onNavigateAllServices={() => {
+                setSelectedCategoryId('services-catalog');
+                setCurrentScreen('category');
+              }}
+              onSelectItem={handleOpenItemModal}
+              searchQuery={searchQuery}
+              favoriteIds={favoriteIds}
+              onToggleFavorite={handleToggleFavorite}
+              onAddBundleToCartAndNavigate={handleAddBundleToCartAndNavigate}
+            />
+          )}
 
-        {currentScreen === 'settings' && (
-          <SettingsScreen
-            onBack={() => setCurrentScreen('profile')}
-            onClearRecentSearches={handleClearRecentSearches}
-            viewMode={globalViewMode}
-            onViewModeChange={setGlobalViewMode}
-          />
-        )}
+          {currentScreen === 'category' && (
+            <CategoryDetailScreen
+              categoryId={selectedCategoryId}
+              onSelectItem={handleOpenItemModal}
+              onSelectCategoryTab={(catId) => setSelectedCategoryId(catId)}
+              searchQuery={searchQuery}
+              onBack={() => setCurrentScreen('home')}
+              favoriteIds={favoriteIds}
+              onToggleFavorite={handleToggleFavorite}
+              viewMode={globalViewMode}
+              onViewModeChange={setGlobalViewMode}
+            />
+          )}
 
-        {currentScreen === 'activity' && (
-          <ActivityDashboardScreen
-            deliveries={deliveries}
-            onBack={() => setCurrentScreen('profile')}
-            onExploreCatalog={() => {
-              setSelectedCategoryId('all');
-              setCurrentScreen('category');
-            }}
-            onViewInvoice={handleOpenInvoiceModal}
-            onReorderMaterial={(matName) => {
-              const matchedItem = MATERIAL_ITEMS.find((m) =>
-                m.name.toLowerCase().includes(matName.toLowerCase()) || matName.toLowerCase().includes(m.name.toLowerCase())
-              );
-              if (matchedItem) {
-                handleOpenItemModal(matchedItem);
-              } else {
+          {currentScreen === 'basket' && (
+            <BasketScreen
+              cartItems={cartItems}
+              onUpdateQuantity={handleUpdateCartQty}
+              onRemoveItem={handleRemoveCartItem}
+              onClearCart={handleClearCart}
+              selectedLocation={selectedLocation}
+              onNavigateScreen={setCurrentScreen}
+              deliveries={deliveries}
+              onOrderCreated={handleOrderCreated}
+              onViewInvoice={handleOpenInvoiceModal}
+              onChangeAddressRedirect={() => {
+                setOpenProfileAddresses(true);
+                setCurrentScreen('profile');
+              }}
+              isLoggedIn={isLoggedIn}
+              onOpenLoginModal={handleOpenAuthModal}
+            />
+          )}
+
+          {currentScreen === 'favorites' && (
+            <FavoritesScreen
+              onSelectItemModal={handleOpenItemModal}
+              onNavigateHome={() => setCurrentScreen('home')}
+              favoriteIds={favoriteIds}
+              onToggleFavorite={handleToggleFavorite}
+              isLoggedIn={isLoggedIn}
+              onOpenLoginModal={handleOpenAuthModal}
+            />
+          )}
+
+          {currentScreen === 'profile' && (
+            <UserProfileScreen
+              user={user}
+              onUpdateUser={handleUpdateUser}
+              onNavigateScreen={(scr) => {
+                setOpenProfileAddresses(false);
+                setCurrentScreen(scr);
+              }}
+              isLoggedIn={isLoggedIn}
+              onLogout={handleLogout}
+              savedLocations={savedLocations}
+              onAddLocation={handleAddLocation}
+              onEditLocation={handleEditLocation}
+              onDeleteLocation={handleDeleteLocation}
+              onSelectLocation={handleSelectLocation}
+              deliveries={deliveries}
+              onViewInvoice={handleOpenInvoiceModal}
+              initialOpenAddressesModal={openProfileAddresses}
+              onOpenLoginModal={handleOpenAuthModal}
+              favoriteCount={favoriteIds.length}
+              viewMode={globalViewMode}
+              onViewModeChange={setGlobalViewMode}
+              onExploreCatalog={() => {
                 setSelectedCategoryId('all');
                 setCurrentScreen('category');
-              }
-            }}
-          />
-        )}
+              }}
+              onReorderMaterial={(matName) => {
+                const matchedItem = MATERIAL_ITEMS.find((m) =>
+                  m.name.toLowerCase().includes(matName.toLowerCase()) || matName.toLowerCase().includes(m.name.toLowerCase())
+                );
+                if (matchedItem) {
+                  handleOpenItemModal(matchedItem);
+                } else {
+                  setSelectedCategoryId('all');
+                  setCurrentScreen('category');
+                }
+              }}
+            />
+          )}
 
-        {(currentScreen === 'auth_mobile' || currentScreen === 'auth_otp') && (
-          <AuthScreen
-            initialStep={currentScreen === 'auth_otp' ? 'otp' : 'mobile'}
-            onSuccessAuth={handleAuthSuccess}
-            onBack={() => {
-              setCurrentScreen('home');
-            }}
-          />
-        )}
+          {currentScreen === 'settings' && (
+            <SettingsScreen
+              onBack={() => setCurrentScreen('profile')}
+              onClearRecentSearches={handleClearRecentSearches}
+              viewMode={globalViewMode}
+              onViewModeChange={setGlobalViewMode}
+            />
+          )}
+
+          {currentScreen === 'activity' && (
+            <ActivityDashboardScreen
+              deliveries={deliveries}
+              onBack={() => setCurrentScreen('profile')}
+              onExploreCatalog={() => {
+                setSelectedCategoryId('all');
+                setCurrentScreen('category');
+              }}
+              onViewInvoice={handleOpenInvoiceModal}
+              onReorderMaterial={(matName) => {
+                const matchedItem = MATERIAL_ITEMS.find((m) =>
+                  m.name.toLowerCase().includes(matName.toLowerCase()) || matName.toLowerCase().includes(m.name.toLowerCase())
+                );
+                if (matchedItem) {
+                  handleOpenItemModal(matchedItem);
+                } else {
+                  setSelectedCategoryId('all');
+                  setCurrentScreen('category');
+                }
+              }}
+            />
+          )}
+
+          {(currentScreen === 'auth_mobile' || currentScreen === 'auth_otp') && (
+            <AuthScreen
+              initialStep={currentScreen === 'auth_otp' ? 'otp' : 'mobile'}
+              onSuccessAuth={handleAuthSuccess}
+              onBack={() => {
+                setCurrentScreen('home');
+              }}
+            />
+          )}
+        </Suspense>
       </View>
 
       {/* Nike Auth Modal (Login/Signup Bottom Sheet matching n1.jpeg, n2.jpeg) */}
-      <NikeAuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        onSuccessAuth={(phone) => {
-          handleAuthSuccess(phone);
-          setIsAuthModalOpen(false);
-        }}
-      />
+      {isAuthModalOpen && (
+        <NikeAuthModal
+          isOpen={isAuthModalOpen}
+          onClose={() => setIsAuthModalOpen(false)}
+          onSuccessAuth={(phone) => {
+            handleAuthSuccess(phone);
+            setIsAuthModalOpen(false);
+          }}
+        />
+      )}
 
       {/* Item Quantity Modal (Slide-up Bottom Sheet) */}
-      <ItemQuantityModal
-        item={selectedItemForModal}
-        onClose={() => setSelectedItemForModal(null)}
-        onAddToCart={handleAddToCartFromModal}
-        onBuyNow={handleBuyNowFromModal}
-        favoriteIds={favoriteIds}
-        onToggleFavorite={handleToggleFavorite}
-      />
+      {selectedItemForModal && (
+        <ItemQuantityModal
+          item={selectedItemForModal}
+          onClose={() => setSelectedItemForModal(null)}
+          onAddToCart={handleAddToCartFromModal}
+          onBuyNow={handleBuyNowFromModal}
+          favoriteIds={favoriteIds}
+          onToggleFavorite={handleToggleFavorite}
+        />
+      )}
 
       {/* Official GST Tax Invoice Modal */}
-      <InvoiceModal
-        isOpen={!!selectedInvoiceDelivery}
-        onClose={() => setSelectedInvoiceDelivery(null)}
-        delivery={selectedInvoiceDelivery}
-        user={user}
-        isLoggedIn={isLoggedIn}
-        onOpenLoginModal={() => setIsAuthModalOpen(true)}
-      />
+      {selectedInvoiceDelivery && (
+        <InvoiceModal
+          isOpen={!!selectedInvoiceDelivery}
+          onClose={() => setSelectedInvoiceDelivery(null)}
+          delivery={selectedInvoiceDelivery}
+          user={user}
+          isLoggedIn={isLoggedIn}
+          onOpenLoginModal={() => setIsAuthModalOpen(true)}
+        />
+      )}
 
       {/* Delivery Site Location Picker Sheet */}
-      <LocationModal
-        isOpen={isLocationModalOpen}
-        onClose={() => setIsLocationModalOpen(false)}
-      />
+      {isLocationModalOpen && (
+        <LocationModal
+          isOpen={isLocationModalOpen}
+          onClose={() => setIsLocationModalOpen(false)}
+        />
+      )}
 
       {/* Post-Login Preferred Language Selection Modal Prompt */}
-      <LanguagePromptModal
-        isOpen={isLanguageModalOpen}
-        onClose={() => setIsLanguageModalOpen(false)}
-      />
+      {isLanguageModalOpen && (
+        <LanguagePromptModal
+          isOpen={isLanguageModalOpen}
+          onClose={() => setIsLanguageModalOpen(false)}
+        />
+      )}
 
       {/* Fixed Bottom Navigation Bar (5 tabs: Home, Shop, Favorites, Bag, Profile) */}
       {currentScreen !== 'auth_mobile' && currentScreen !== 'auth_otp' && (
@@ -969,5 +992,11 @@ const styles = StyleSheet.create({
     flex: 1,
     minHeight: 720,
     width: '100%',
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 400,
   },
 });

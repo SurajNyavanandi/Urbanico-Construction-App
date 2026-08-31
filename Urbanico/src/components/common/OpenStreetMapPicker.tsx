@@ -7,6 +7,7 @@ import {
   Platform,
   TouchableOpacity,
   Linking,
+  DimensionValue,
 } from 'react-native';
 import { MapPin, Navigation, Compass, ExternalLink, Layers } from 'lucide-react-native';
 import { LatLng } from './GoogleMapPicker';
@@ -17,7 +18,7 @@ interface OpenStreetMapPickerProps {
   markerPosition?: LatLng;
   markerTitle?: string;
   onLocationSelect?: (pos: LatLng, address?: string) => void;
-  height?: number | string;
+  height?: DimensionValue;
   interactive?: boolean;
   routeOrigin?: LatLng;
   routeDestination?: LatLng;

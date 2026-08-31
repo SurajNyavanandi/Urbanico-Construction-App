@@ -98,20 +98,20 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     if (isMultiItem && delivery.cartItemsSnapshot) {
       itemsTableHtml = delivery.cartItemsSnapshot
         .map((item, idx) => {
-          const itemTotal = item.item.price * item.quantity;
+          const itemTotal = item.unitPrice * item.quantity;
           const itemTaxable = Math.round(itemTotal / 1.18);
           const itemCgst = Math.round((itemTotal - itemTaxable) / 2);
           const itemSgst = itemTotal - itemTaxable - itemCgst;
-          const hsn = getHSNCodeForMaterial(item.item.name);
+          const hsn = getHSNCodeForMaterial(item.itemName);
           return `
             <tr>
               <td style="text-align: center; color: #64748b;">${idx + 1}</td>
               <td>
-                <div style="font-weight: 700; color: #0f172a;">${item.item.name}</div>
+                <div style="font-weight: 700; color: #0f172a;">${item.itemName}</div>
                 <div style="font-size: 10px; color: #64748b;">${hsn.desc} • Quarry Certified</div>
               </td>
               <td style="text-align: center; font-family: monospace; font-size: 11px;">${hsn.code}</td>
-              <td style="text-align: center;">${item.quantity} ${item.item.unit || 'Ton'}</td>
+              <td style="text-align: center;">${item.quantity} ${item.selectedOptionLabel || 'Unit'}</td>
               <td style="text-align: right;">₹${Math.round(itemTaxable / (item.quantity || 1)).toLocaleString('en-IN')}</td>
               <td style="text-align: right; font-weight: 600;">₹${itemTaxable.toLocaleString('en-IN')}</td>
               <td style="text-align: right; font-size: 11px;">₹${itemCgst.toLocaleString('en-IN')} (9%)</td>
@@ -763,20 +763,20 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
                   {isMultiItem && delivery.cartItemsSnapshot ? (
                     delivery.cartItemsSnapshot.map((item, idx) => {
-                      const itemTotal = item.item.price * item.quantity;
+                      const itemTotal = item.unitPrice * item.quantity;
                       const itemTaxable = Math.round(itemTotal / 1.18);
-                      const hsn = getHSNCodeForMaterial(item.item.name);
+                      const hsn = getHSNCodeForMaterial(item.itemName);
                       return (
-                        <View key={item.item.id + idx} style={styles.materialsTableRow}>
+                        <View key={(item.id || item.itemId || String(idx)) + idx} style={styles.materialsTableRow}>
                           <View style={{ flex: 2.2 }}>
-                            <Text style={styles.mtdItemName}>{item.item.name}</Text>
+                            <Text style={styles.mtdItemName}>{item.itemName}</Text>
                             <Text style={styles.mtdItemSub}>{hsn.desc}</Text>
                           </View>
                           <Text style={[styles.mtdText, { flex: 0.9, textAlign: 'center', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }]}>
                             {hsn.code}
                           </Text>
                           <Text style={[styles.mtdText, { flex: 0.9, textAlign: 'center' }]}>
-                            {item.quantity} {item.item.unit || 'Ton'}
+                            {item.quantity} {item.selectedOptionLabel || 'Unit'}
                           </Text>
                           <Text style={[styles.mtdText, { flex: 1.1, textAlign: 'right' }]}>
                             ₹{Math.round(itemTaxable / (item.quantity || 1)).toLocaleString('en-IN')}

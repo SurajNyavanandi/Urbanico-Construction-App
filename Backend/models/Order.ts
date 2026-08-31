@@ -36,7 +36,7 @@ export interface IOrder extends Document {
   unloadingCharges: number;
   totalAmount: number;
   paymentStatus: 'pending' | 'authorized' | 'paid' | 'failed' | 'refunded' | 'credit';
-  paymentMethod: 'RAZORPAY_ONLINE' | 'RAZORPAY_UPI' | 'NEFT_RTGS' | 'CREDIT_30_DAYS' | 'CASH_ON_DISPATCH';
+  paymentMethod: string;
   paymentDetails?: {
     razorpay_order_id?: string;
     razorpay_payment_id?: string;
@@ -109,7 +109,6 @@ const OrderSchema = new Schema<IOrder>(
     },
     paymentMethod: {
       type: String,
-      enum: ['RAZORPAY_ONLINE', 'RAZORPAY_UPI', 'NEFT_RTGS', 'CREDIT_30_DAYS', 'CASH_ON_DISPATCH'],
       default: 'RAZORPAY_ONLINE',
     },
     paymentDetails: {

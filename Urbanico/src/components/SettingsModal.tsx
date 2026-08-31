@@ -51,8 +51,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [dispatchAlerts, setDispatchAlerts] = useState(true);
   const [whatsappReceipts, setWhatsappReceipts] = useState(true);
 
-  if (!visible) return null;
-
   const handleSelectLanguage = (code: LanguageCode) => {
     setLanguage(code);
     const opt = languageOptions.find((l) => l.code === code);

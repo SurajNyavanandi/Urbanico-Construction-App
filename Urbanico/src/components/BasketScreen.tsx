@@ -32,6 +32,7 @@ import {
   PhoneCall,
   MessageSquare,
   Camera,
+  ShoppingBag,
 } from 'lucide-react-native';
 import { CartItem, ScreenType, ActivityDelivery } from '../types';
 import { INITIAL_DELIVERIES } from '../data/materialsData';
@@ -43,6 +44,7 @@ import { EmptyState } from './common/EmptyState';
 import { ShimmerImage } from './common/ShimmerImage';
 import { useToast } from '../context/ToastContext';
 import { syncManager } from '../utils/syncManager';
+import { safeStorage } from '../utils/safeStorage';
 import { soundService } from '../utils/soundHelper';
 import { OrderHistorySkeleton } from './common/SkeletonLoader';
 import { apiService } from '../services/apiService';
@@ -97,7 +99,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   // Saved for Later state
   const [savedForLaterItems, setSavedForLaterItems] = useState<CartItem[]>(() => {
     try {
-      const saved = localStorage.getItem('urbanico_saved_for_later');
+      const saved = safeStorage.getItem('urbanico_saved_for_later');
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
@@ -179,7 +181,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     const updated = [...savedForLaterItems.filter((i) => i.id !== item.id), item];
     setSavedForLaterItems(updated);
     try {
-      localStorage.setItem('urbanico_saved_for_later', JSON.stringify(updated));
+      safeStorage.setItem('urbanico_saved_for_later', JSON.stringify(updated));
       syncManager.broadcast('SAVED_FOR_LATER_UPDATED', updated);
     } catch {}
     showToast(`Saved "${item.itemName}" for later`, 'info');
@@ -189,7 +191,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     const updatedSaved = savedForLaterItems.filter((i) => i.id !== item.id);
     setSavedForLaterItems(updatedSaved);
     try {
-      localStorage.setItem('urbanico_saved_for_later', JSON.stringify(updatedSaved));
+      safeStorage.setItem('urbanico_saved_for_later', JSON.stringify(updatedSaved));
       syncManager.broadcast('SAVED_FOR_LATER_UPDATED', updatedSaved);
     } catch {}
     // trigger adding back
@@ -201,7 +203,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     const updated = savedForLaterItems.filter((i) => i.id !== id);
     setSavedForLaterItems(updated);
     try {
-      localStorage.setItem('urbanico_saved_for_later', JSON.stringify(updated));
+      safeStorage.setItem('urbanico_saved_for_later', JSON.stringify(updated));
       syncManager.broadcast('SAVED_FOR_LATER_UPDATED', updated);
     } catch {}
     showToast('Removed item from saved list', 'info');
@@ -318,7 +320,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       },
       items: cartItems.map((item) => ({
         name: item.itemName,
-        category: item.itemCategory || 'General',
+        category: item.categoryName || 'General',
         quantity: item.quantity,
         unit: item.selectedOptionLabel || 'Unit',
         unitPrice: item.unitPrice,
@@ -831,6 +833,80 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                     ))}
                   </View>
                 </View>
+
+                {/* E-Commerce Post-Order Action Panel (Amazon/Flipkart/Nike style) */}
+                <View style={[styles.postOrderActionsCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                  <View style={styles.postOrderHeader}>
+                    <View style={styles.postOrderHeaderLeft}>
+                      <ShoppingBag size={18} color={theme.primary} strokeWidth={2.2} />
+                      <Text style={[styles.postOrderTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
+                        Continue Shopping
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => onNavigateScreen('home')}
+                      style={styles.postOrderHomeBtn}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={[styles.postOrderHomeBtnText, { color: theme.primary }]}>Explore Catalog</Text>
+                      <ChevronRight size={14} color={theme.primary} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text style={[styles.postOrderSub, { color: theme.textSecondary }]}>
+                    Need more site materials or structural supplies for your ongoing project?
+                  </Text>
+
+                  {/* Primary Continue Shopping CTA */}
+                  <TouchableOpacity
+                    onPress={() => onNavigateScreen('home')}
+                    style={[styles.continueShoppingPrimaryBtn, { backgroundColor: theme.primary }]}
+                    activeOpacity={0.88}
+                  >
+                    <ShoppingBag size={16} color="#FFFFFF" strokeWidth={2.2} />
+                    <Text style={styles.continueShoppingPrimaryText}>Continue Shopping Materials</Text>
+                    <ArrowRight size={16} color="#FFFFFF" strokeWidth={2.2} />
+                  </TouchableOpacity>
+
+                  {/* Popular Category Shortcuts */}
+                  <View style={styles.categoryPillsRow}>
+                    {[
+                      { label: 'Cement', screen: 'home' as ScreenType },
+                      { label: 'TMT Steel', screen: 'home' as ScreenType },
+                      { label: 'River Sand', screen: 'home' as ScreenType },
+                      { label: 'Aggregates', screen: 'home' as ScreenType },
+                      { label: 'Vitrified Tiles', screen: 'home' as ScreenType },
+                    ].map((cat) => (
+                      <TouchableOpacity
+                        key={cat.label}
+                        onPress={() => onNavigateScreen(cat.screen)}
+                        style={[styles.categoryPill, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
+                        activeOpacity={0.75}
+                      >
+                        <Text style={[styles.categoryPillText, { color: theme.textPrimary }]}>{cat.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  {/* Support & Assistance Row */}
+                  <View style={[styles.orderSupportBox, { backgroundColor: theme.surfaceSecondary, borderColor: theme.borderLight }]}>
+                    <View style={styles.supportBoxLeft}>
+                      <PhoneCall size={16} color="#059669" strokeWidth={2.2} />
+                      <View>
+                        <Text style={[styles.supportBoxTitle, { color: theme.textPrimary }]}>24x7 Site Logistics Helpline</Text>
+                        <Text style={[styles.supportBoxPhone, { color: theme.textSecondary }]}>Toll-Free: 1800-123-9876 • Direct Yard Support</Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setShowDispatcherChat(true)}
+                      style={[styles.supportChatBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                      activeOpacity={0.8}
+                    >
+                      <MessageSquare size={13} color={theme.textPrimary} />
+                      <Text style={[styles.supportChatText, { color: theme.textPrimary }]}>Live Chat</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
               </>
             )}
           </View>
@@ -922,64 +998,78 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
         </Modal>
 
         {/* Razorpay Modal */}
-        <RazorpayModal
-          visible={showRazorpayModal}
-          onClose={() => setShowRazorpayModal(false)}
-          amount={grandTotal}
-          orderDescription={`Booking (${cartItems.length} items) - Urbanico Supply`}
-          selectedLocation={activeLocation}
-          onPaymentSuccess={handlePaymentSuccess}
-          onPaymentFailure={(err) => setPaymentError(err)}
-        />
+        {showRazorpayModal && (
+          <RazorpayModal
+            visible={showRazorpayModal}
+            onClose={() => setShowRazorpayModal(false)}
+            amount={grandTotal}
+            orderDescription={`Booking (${cartItems.length} items) - Urbanico Supply`}
+            selectedLocation={activeLocation}
+            onPaymentSuccess={handlePaymentSuccess}
+            onPaymentFailure={(err) => setPaymentError(err)}
+          />
+        )}
 
         {/* Payment Success Confirmation Receipt Screen */}
-        <PaymentSuccessModal
-          visible={showSuccessModal}
-          paymentResult={latestPaymentResult}
-          selectedLocation={activeLocation}
-          onClose={() => {
-            setShowSuccessModal(false);
-            setActiveTab('history');
-          }}
-          onTrackOrder={() => {
-            setShowSuccessModal(false);
-            setActiveTab('history');
-          }}
-          onViewInvoice={() => {
-            setShowSuccessModal(false);
-            setActiveTab('history');
-            if (onViewInvoice && deliveries[0]) {
-              onViewInvoice(deliveries[0]);
-            }
-          }}
-        />
+        {showSuccessModal && (
+          <PaymentSuccessModal
+            visible={showSuccessModal}
+            paymentResult={latestPaymentResult}
+            selectedLocation={activeLocation}
+            onClose={() => {
+              setShowSuccessModal(false);
+              setActiveTab('history');
+            }}
+            onTrackOrder={() => {
+              setShowSuccessModal(false);
+              setActiveTab('history');
+            }}
+            onContinueShopping={() => {
+              setShowSuccessModal(false);
+              onNavigateScreen('home');
+            }}
+            onViewInvoice={() => {
+              setShowSuccessModal(false);
+              setActiveTab('history');
+              if (onViewInvoice && deliveries[0]) {
+                onViewInvoice(deliveries[0]);
+              }
+            }}
+          />
+        )}
 
         {/* Live Dispatcher Chat Modal */}
-        <LiveDispatcherChatModal
-          visible={showDispatcherChat}
-          onClose={() => setShowDispatcherChat(false)}
-          orderNumber={activeEnRoute?.orderNumber}
-          driverName={activeEnRoute?.driverName}
-          driverPhone={activeEnRoute?.driverPhone}
-        />
+        {showDispatcherChat && (
+          <LiveDispatcherChatModal
+            visible={showDispatcherChat}
+            onClose={() => setShowDispatcherChat(false)}
+            orderNumber={activeEnRoute?.orderNumber}
+            driverName={activeEnRoute?.driverName}
+            driverPhone={activeEnRoute?.driverPhone}
+          />
+        )}
 
         {/* Weighbridge Scan Modal */}
-        <WeighbridgeScanModal
-          visible={showWeighbridgeScan}
-          onClose={() => setShowWeighbridgeScan(false)}
-          orderNumber={activeEnRoute?.orderNumber}
-          expectedTons={totalWeightTons || 10.0}
-        />
+        {showWeighbridgeScan && (
+          <WeighbridgeScanModal
+            visible={showWeighbridgeScan}
+            onClose={() => setShowWeighbridgeScan(false)}
+            orderNumber={activeEnRoute?.orderNumber}
+            expectedTons={totalWeightTons || 10.0}
+          />
+        )}
 
         {/* Supervisor Handoff Modal */}
-        <SupervisorHandoffModal
-          visible={showSupervisorModal}
-          onClose={() => setShowSupervisorModal(false)}
-          orderNumber={activeEnRoute?.orderNumber}
-          currentSupervisorName={activeSupervisor.name}
-          currentSupervisorPhone={activeSupervisor.phone}
-          onSaveSupervisor={(name, phone) => setActiveSupervisor({ name, phone })}
-        />
+        {showSupervisorModal && (
+          <SupervisorHandoffModal
+            visible={showSupervisorModal}
+            onClose={() => setShowSupervisorModal(false)}
+            orderNumber={activeEnRoute?.orderNumber}
+            currentSupervisorName={activeSupervisor.name}
+            currentSupervisorPhone={activeSupervisor.phone}
+            onSaveSupervisor={(name, phone) => setActiveSupervisor({ name, phone })}
+          />
+        )}
       </ScrollView>
     </View>
   );
@@ -1698,6 +1788,104 @@ const styles = StyleSheet.create({
   offerApplyBtnText: {
     color: '#FFFFFF',
     fontSize: 11.5,
+    fontWeight: '700',
+  },
+  postOrderActionsCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    gap: 12,
+    marginTop: 4,
+  },
+  postOrderHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  postOrderHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  postOrderTitle: {
+    fontSize: 14.5,
+    fontWeight: '700',
+  },
+  postOrderHomeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  postOrderHomeBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  postOrderSub: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  continueShoppingPrimaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 13,
+    borderRadius: 12,
+  },
+  continueShoppingPrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '800',
+  },
+  categoryPillsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  categoryPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  categoryPillText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+  },
+  orderSupportBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 10,
+  },
+  supportBoxLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  supportBoxTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  supportBoxPhone: {
+    fontSize: 10.5,
+    marginTop: 1,
+  },
+  supportChatBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  supportChatText: {
+    fontSize: 11,
     fontWeight: '700',
   },
 });

@@ -1,4 +1,5 @@
 import { IndianDeliveryAddress } from '../types';
+import { INDIAN_STATES, ADDRESS_TYPE_OPTIONS } from '../constants';
 import {
   sanitizeAddressField,
   sanitizePincode,
@@ -10,40 +11,7 @@ import {
   validateState,
 } from './sanitizationHelper';
 
-export const INDIAN_STATES = [
-  'Telangana',
-  'Andhra Pradesh',
-  'Karnataka',
-  'Maharashtra',
-  'Tamil Nadu',
-  'Delhi NCR',
-  'Gujarat',
-  'Rajasthan',
-  'Uttar Pradesh',
-  'West Bengal',
-  'Kerala',
-  'Madhya Pradesh',
-  'Haryana',
-  'Punjab',
-  'Bihar',
-  'Odisha',
-  'Assam',
-  'Goa',
-  'Jharkhand',
-  'Chhattisgarh',
-  'Uttarakhand',
-  'Himachal Pradesh',
-  'Chandigarh',
-  'Puducherry',
-  'Jammu & Kashmir',
-] as const;
-
-export const ADDRESS_TYPE_OPTIONS = [
-  { id: 'Site', label: 'Site / Project', icon: 'Building2' },
-  { id: 'Home', label: 'Home', icon: 'Home' },
-  { id: 'Office', label: 'Office', icon: 'Briefcase' },
-  { id: 'Warehouse', label: 'Warehouse / Yard', icon: 'Warehouse' },
-] as const;
+export { INDIAN_STATES, ADDRESS_TYPE_OPTIONS };
 
 /**
  * Pincode prefix auto-lookup for Indian major regions

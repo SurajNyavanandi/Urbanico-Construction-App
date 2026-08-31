@@ -1,5 +1,5 @@
 import { IndianDeliveryAddress, UserProfile } from '../types';
-import { INDIAN_STATES } from './addressHelper';
+import { INDIAN_STATES } from '../constants';
 import { validateGSTIN } from './gstinValidator';
 
 /**
