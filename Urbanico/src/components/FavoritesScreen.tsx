@@ -12,6 +12,8 @@ import { MaterialItem } from '../types';
 import { MATERIAL_ITEMS } from '../data/materialsData';
 import { useToast } from '../context/ToastContext';
 import { ShimmerImage } from './common/ShimmerImage';
+import { soundService } from '../utils/soundHelper';
+import { ProductCardSkeleton } from './common/SkeletonLoader';
 
 interface FavoritesScreenProps {
   onSelectItemModal: (item: MaterialItem) => void;
@@ -89,7 +91,14 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
           )}
         </View>
 
-        {favorites.length > 0 ? (
+        {refreshing ? (
+          <View style={styles.gridContainer}>
+            <ProductCardSkeleton width="48%" />
+            <ProductCardSkeleton width="48%" />
+            <ProductCardSkeleton width="48%" />
+            <ProductCardSkeleton width="48%" />
+          </View>
+        ) : favorites.length > 0 ? (
           <View style={styles.gridContainer}>
             {favorites.map((item) => {
               const price = item.defaultPrice || item.options[0]?.price || 0;
@@ -105,7 +114,10 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
                     />
                     {onToggleFavorite && (
                       <TouchableOpacity
-                        onPress={() => onToggleFavorite(item.id)}
+                        onPress={() => {
+                          soundService.playFavorite();
+                          onToggleFavorite(item.id);
+                        }}
                         style={styles.heartButton}
                         activeOpacity={0.7}
                       >
@@ -130,7 +142,10 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
                         ₹{price.toLocaleString('en-IN')}
                       </Text>
                       <TouchableOpacity
-                        onPress={() => onSelectItemModal(item)}
+                        onPress={() => {
+                          soundService.playTap();
+                          onSelectItemModal(item);
+                        }}
                         style={styles.addBtn}
                         activeOpacity={0.8}
                       >

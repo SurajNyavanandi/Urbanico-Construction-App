@@ -199,7 +199,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
   };
 
   const handleSaveAndConfirm = () => {
-    const addressData: IndianDeliveryAddress = {
+    const addressData: Partial<IndianDeliveryAddress> = {
       pincode,
       flatBuilding,
       areaStreet,
@@ -211,13 +211,13 @@ export const LocationModal: React.FC<LocationModalProps> = ({
     const validation = validateIndianAddress(addressData);
     if (!validation.isValid) {
       setErrors(validation.errors);
-      setStatusMessage({ text: 'Please fill in all mandatory address fields', type: 'error' });
+      setStatusMessage({ text: 'Please fill in all mandatory address fields correctly', type: 'error' });
       setTimeout(() => setStatusMessage(null), 3000);
       return;
     }
 
     setErrors({});
-    const summary = formatIndianAddressSummary(addressData);
+    const summary = formatIndianAddressSummary(validation.sanitized);
     addLocation(summary, activeCoords);
     setSelectedLocation(summary, activeCoords);
 

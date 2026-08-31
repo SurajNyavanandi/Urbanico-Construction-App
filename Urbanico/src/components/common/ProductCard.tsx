@@ -14,6 +14,7 @@ import { ShimmerImage } from './ShimmerImage';
 import { useTheme } from '../../context/ThemeContext';
 import { parseSanitizedPrice, formatInr } from '../../utils/priceHelper';
 import { useToast } from '../../context/ToastContext';
+import { soundService } from '../../utils/soundHelper';
 
 export interface ProductCardProps {
   item?: MaterialItem;
@@ -78,6 +79,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   const handleFavoritePress = (e: any) => {
     e.stopPropagation?.();
+    soundService.playFavorite();
     Animated.sequence([
       Animated.spring(favScaleAnim, {
         toValue: 1.35,

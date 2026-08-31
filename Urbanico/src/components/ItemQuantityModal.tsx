@@ -33,6 +33,7 @@ import { useTheme } from '../context/ThemeContext';
 import { ShimmerImage } from './common/ShimmerImage';
 import { useToast } from '../context/ToastContext';
 import { isServiceablePincode } from '../utils/freightCalculator';
+import { soundService } from '../utils/soundHelper';
 
 interface ItemQuantityModalProps {
   item: MaterialItem | null;
@@ -198,6 +199,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
   };
 
   const handleStepQuantity = (delta: number) => {
+    soundService.playTap();
     setQuantity((prev) => {
       const next = Math.max(1, Math.min(9999, prev + delta));
       setQuantityInputStr(next.toString());
@@ -212,6 +214,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
       const isServ = isServiceablePincode(clean);
       setPincodeChecked(isServ);
       if (isServ) {
+        soundService.playNotification();
         showToast(`PIN ${clean} verified: Yard express dispatch available`, 'success');
       } else {
         showToast(`PIN ${clean} outside primary zone: standard 24hr transit applies`, 'info');
@@ -223,8 +226,10 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
     if (pincodeInput.length >= 6) {
       const isServ = isServiceablePincode(pincodeInput);
       setPincodeChecked(isServ);
+      if (isServ) soundService.playNotification();
       showToast(isServ ? `Pincode ${pincodeInput} is serviceable for express dispatch!` : `Standard transit to ${pincodeInput}`, isServ ? 'success' : 'info');
     } else {
+      soundService.playAlert();
       showToast('Please enter a valid 6-digit site pincode', 'error');
     }
   };
@@ -232,6 +237,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
   const handleAddToCartClick = () => {
     if (isAdding || !selectedOption) return;
     setIsAdding(true);
+    soundService.playAddToCart();
 
     setTimeout(() => {
       setIsAdding(false);
@@ -242,6 +248,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
 
   const handleBuyNowClick = () => {
     if (!selectedOption) return;
+    soundService.playAddToCart();
     if (onBuyNow) {
       onBuyNow(item, selectedOption, isTradeService ? 1 : quantity, totalPrice);
     } else {

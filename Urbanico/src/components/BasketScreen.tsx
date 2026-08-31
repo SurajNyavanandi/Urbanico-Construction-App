@@ -43,6 +43,8 @@ import { EmptyState } from './common/EmptyState';
 import { ShimmerImage } from './common/ShimmerImage';
 import { useToast } from '../context/ToastContext';
 import { syncManager } from '../utils/syncManager';
+import { soundService } from '../utils/soundHelper';
+import { OrderHistorySkeleton } from './common/SkeletonLoader';
 import { apiService } from '../services/apiService';
 import {
   estimateTotalWeightTons,
@@ -272,6 +274,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     setShowRazorpayModal(false);
     setLatestPaymentResult(result);
     setShowSuccessModal(true);
+    setActiveTab('history');
 
     const now = new Date();
     const formattedTime = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
@@ -500,7 +503,10 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                         <View style={styles.stepperActionRow}>
                           <View style={[styles.stepperContainer, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary }]}>
                             <TouchableOpacity
-                              onPress={() => onUpdateQuantity(item.id, item.quantity - 1)}
+                              onPress={() => {
+                                soundService.playTap();
+                                onUpdateQuantity(item.id, item.quantity - 1);
+                              }}
                               style={[styles.stepperBtn, { backgroundColor: theme.surface }]}
                               activeOpacity={0.7}
                             >
@@ -508,7 +514,10 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                             </TouchableOpacity>
                             <Text style={[styles.stepperQtyText, { color: theme.textPrimary }]}>{item.quantity}</Text>
                             <TouchableOpacity
-                              onPress={() => onUpdateQuantity(item.id, item.quantity + 1)}
+                              onPress={() => {
+                                soundService.playTap();
+                                onUpdateQuantity(item.id, item.quantity + 1);
+                              }}
                               style={[styles.stepperBtn, { backgroundColor: theme.surface }]}
                               activeOpacity={0.7}
                             >
@@ -516,7 +525,10 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                             </TouchableOpacity>
                           </View>
                           <TouchableOpacity
-                            onPress={() => onRemoveItem(item.id)}
+                            onPress={() => {
+                              soundService.playAlert();
+                              onRemoveItem(item.id);
+                            }}
                             style={styles.deleteBtn}
                             activeOpacity={0.7}
                           >
@@ -670,7 +682,9 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
         ) : (
           /* Live Tracking & Orders View */
           <View style={styles.historySection}>
-            {!isLoggedIn ? (
+            {refreshing ? (
+              <OrderHistorySkeleton />
+            ) : !isLoggedIn ? (
               <View style={[styles.nikeEmptyBagContainer, { backgroundColor: theme.surface }]}>
                 <View style={[styles.nikeEmptyBagIconCircle, { backgroundColor: theme.surfaceSecondary }]}>
                   <Truck size={34} color={theme.textPrimary} strokeWidth={1.5} />
@@ -923,10 +937,17 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
           visible={showSuccessModal}
           paymentResult={latestPaymentResult}
           selectedLocation={activeLocation}
-          onClose={() => setShowSuccessModal(false)}
-          onTrackOrder={() => setActiveTab('history')}
+          onClose={() => {
+            setShowSuccessModal(false);
+            setActiveTab('history');
+          }}
+          onTrackOrder={() => {
+            setShowSuccessModal(false);
+            setActiveTab('history');
+          }}
           onViewInvoice={() => {
             setShowSuccessModal(false);
+            setActiveTab('history');
             if (onViewInvoice && deliveries[0]) {
               onViewInvoice(deliveries[0]);
             }

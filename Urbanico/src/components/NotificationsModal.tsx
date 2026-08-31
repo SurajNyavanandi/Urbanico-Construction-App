@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useToast } from '../context/ToastContext';
+import { soundService } from '../utils/soundHelper';
 
 export interface SiteNotification {
   id: string;
@@ -86,6 +87,12 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   if (!visible) return null;
 
   const unreadCount = notifications.filter((n) => n.isUnread).length;
+
+  useEffect(() => {
+    if (visible && unreadCount > 0) {
+      soundService.playNotification();
+    }
+  }, [visible]);
 
   const handleMarkAllAsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, isUnread: false })));

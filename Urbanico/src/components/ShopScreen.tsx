@@ -25,6 +25,8 @@ import { MATERIAL_ITEMS, CATEGORIES, SERVICES } from '../data/materialsData';
 import { ShimmerImage } from './common/ShimmerImage';
 import { TopNavTab } from './common/TopNavTab';
 import { useToast } from '../context/ToastContext';
+import { soundService } from '../utils/soundHelper';
+import { ProductCardSkeleton } from './common/SkeletonLoader';
 
 interface ShopScreenProps {
   onSelectItem: (item: MaterialItem) => void;
@@ -113,7 +115,10 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({
               key={tab.id}
               label={tab.label}
               isActive={activeTab === tab.id}
-              onPress={() => setActiveTab(tab.id)}
+              onPress={() => {
+                soundService.playTap();
+                setActiveTab(tab.id);
+              }}
             />
           ))}
         </ScrollView>
@@ -143,6 +148,7 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({
               <TouchableOpacity
                 key={cat.id}
                 onPress={() => {
+                  soundService.playTap();
                   setActiveTab(cat.id);
                   onSelectCategoryTab(cat.id);
                 }}
@@ -178,75 +184,102 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({
             </Text>
           </View>
 
-          <View style={styles.gridContainer}>
-            {filteredItems.map((item) => {
-              const isFav = favoriteIds.includes(item.id);
-              const price = item.defaultPrice || item.options[0]?.price || 0;
-              return (
+          {refreshing ? (
+            <View style={styles.gridContainer}>
+              <ProductCardSkeleton width="48%" />
+              <ProductCardSkeleton width="48%" />
+              <ProductCardSkeleton width="48%" />
+              <ProductCardSkeleton width="48%" />
+            </View>
+          ) : filteredItems.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Search size={36} color="#9CA3AF" />
+              <Text style={styles.emptyTitle}>No matching materials found</Text>
+              <Text style={styles.emptySub}>
+                Try searching for "UltraTech", "Plastering Sand", "TMT Steel", or clear filters.
+              </Text>
+              {searchQuery ? (
                 <TouchableOpacity
-                  key={item.id}
-                  onPress={() => onSelectItem(item)}
-                  style={styles.productCard}
-                  activeOpacity={0.85}
+                  onPress={() => setSearchQuery('')}
+                  style={styles.clearSearchBtn}
+                  activeOpacity={0.8}
                 >
-                  <View style={styles.productImageWrapper}>
-                    <ShimmerImage
-                      source={{ uri: item.image }}
-                      style={styles.productImage}
-                      resizeMode="cover"
-                      preset="card"
-                      borderRadius={12}
-                    />
-                    {onToggleFavorite && (
-                      <TouchableOpacity
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          onToggleFavorite(item.id);
-                        }}
-                        style={styles.favButton}
-                        activeOpacity={0.7}
-                      >
-                        <Heart
-                          size={16}
-                          color={isFav ? '#E11D48' : '#111111'}
-                          fill={isFav ? '#E11D48' : 'transparent'}
-                        />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-
-                  <View style={styles.productInfo}>
-                    <Text style={styles.productTag}>
-                      {item.categoryId.toUpperCase()}
-                    </Text>
-                    <Text style={styles.productTitle} numberOfLines={2}>
-                      {item.name}
-                    </Text>
-                    <Text style={styles.productSubtitle} numberOfLines={1}>
-                      {item.subtitle || 'Direct Yard Supply'}
-                    </Text>
-
-                    <View style={styles.cardFooter}>
-                      <Text style={styles.productPrice}>
-                        ₹{price.toLocaleString('en-IN')}
-                      </Text>
-                      <TouchableOpacity
-                        onPress={(e) => {
-                          e.stopPropagation();
-                          onSelectItem(item);
-                        }}
-                        style={styles.addPill}
-                        activeOpacity={0.8}
-                      >
-                        <Plus size={14} color="#FFFFFF" />
-                        <Text style={styles.addPillText}>Add</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
+                  <Text style={styles.clearSearchBtnText}>Clear Search Filter</Text>
                 </TouchableOpacity>
-              );
-            })}
-          </View>
+              ) : null}
+            </View>
+          ) : (
+            <View style={styles.gridContainer}>
+              {filteredItems.map((item) => {
+                const isFav = favoriteIds.includes(item.id);
+                const price = item.defaultPrice || item.options[0]?.price || 0;
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    onPress={() => onSelectItem(item)}
+                    style={styles.productCard}
+                    activeOpacity={0.85}
+                  >
+                    <View style={styles.productImageWrapper}>
+                      <ShimmerImage
+                        source={{ uri: item.image }}
+                        style={styles.productImage}
+                        resizeMode="cover"
+                        preset="card"
+                        borderRadius={12}
+                      />
+                      {onToggleFavorite && (
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            soundService.playFavorite();
+                            onToggleFavorite(item.id);
+                          }}
+                          style={styles.favButton}
+                          activeOpacity={0.7}
+                        >
+                          <Heart
+                            size={16}
+                            color={isFav ? '#E11D48' : '#111111'}
+                            fill={isFav ? '#E11D48' : 'transparent'}
+                          />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    <View style={styles.productInfo}>
+                      <Text style={styles.productTag}>
+                        {item.categoryId.toUpperCase()}
+                      </Text>
+                      <Text style={styles.productTitle} numberOfLines={2}>
+                        {item.name}
+                      </Text>
+                      <Text style={styles.productSubtitle} numberOfLines={1}>
+                        {item.subtitle || 'Direct Yard Supply'}
+                      </Text>
+
+                      <View style={styles.cardFooter}>
+                        <Text style={styles.productPrice}>
+                          ₹{price.toLocaleString('en-IN')}
+                        </Text>
+                        <TouchableOpacity
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            onSelectItem(item);
+                          }}
+                          style={styles.addPill}
+                          activeOpacity={0.8}
+                        >
+                          <Plus size={14} color="#FFFFFF" />
+                          <Text style={styles.addPillText}>Add</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
         </View>
       </ScrollView>
     </View>
@@ -441,5 +474,38 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+    width: '100%',
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111111',
+    marginTop: 12,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  emptySub: {
+    fontSize: 13,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  clearSearchBtn: {
+    backgroundColor: '#111111',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
+  clearSearchBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

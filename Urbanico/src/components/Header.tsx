@@ -35,6 +35,7 @@ import { useLocation } from '../context/LocationContext';
 import { useLanguage } from '../context/LanguageContext';
 import { BrandLogo } from './common/BrandLogo';
 import { NotificationsModal } from './NotificationsModal';
+import { soundService } from '../utils/soundHelper';
 
 interface HeaderProps {
   currentScreen: ScreenType;
@@ -154,6 +155,7 @@ export const Header: React.FC<HeaderProps> = ({
     : [];
 
   const handleOpenSearch = () => {
+    soundService.playTap();
     setSearchInputText(searchQuery);
     setIsSearchOpen(true);
     setTimeout(() => {
@@ -162,12 +164,14 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const handleCloseSearch = () => {
+    soundService.playTap();
     setIsSearchOpen(false);
   };
 
   const handleExecuteSearch = (queryStr: string) => {
     const clean = queryStr.trim();
     if (!clean) return;
+    soundService.playTap();
     onSearchChange(clean);
     onSelectSearchQuery(clean);
     setIsSearchOpen(false);
@@ -177,6 +181,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const handleSelectProductItem = (item: MaterialItem) => {
+    soundService.playTap();
     onSearchChange(item.name);
     onSelectSearchQuery(item.name);
     setIsSearchOpen(false);

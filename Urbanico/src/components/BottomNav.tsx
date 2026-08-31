@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Search, Heart, ShoppingCart, User } from 'lucide-react-native';
 import { ScreenType } from '../types';
 import { useTheme } from '../context/ThemeContext';
+import { soundService } from '../utils/soundHelper';
 
 interface BottomNavProps {
   activeScreen: ScreenType;
@@ -84,6 +85,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 
   const AnimatedView = Animated.View as any;
 
+  const handleTabPress = (tab: ScreenType) => {
+    soundService.playTap();
+    onSelectTab(tab);
+  };
+
   return (
     <View
       style={[
@@ -98,7 +104,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       <View style={styles.navContent}>
         {/* 1. Home Tab */}
         <TouchableOpacity
-          onPress={() => onSelectTab('home')}
+          onPress={() => handleTabPress('home')}
           activeOpacity={0.65}
           style={styles.tabButton}
           accessibilityRole="button"
@@ -127,7 +133,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 
         {/* 2. Shop Tab */}
         <TouchableOpacity
-          onPress={() => onSelectTab('shop')}
+          onPress={() => handleTabPress('shop')}
           activeOpacity={0.65}
           style={styles.tabButton}
           accessibilityRole="button"
@@ -156,7 +162,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 
         {/* 3. Favourites Tab */}
         <TouchableOpacity
-          onPress={() => onSelectTab('favorites')}
+          onPress={() => handleTabPress('favorites')}
           activeOpacity={0.65}
           style={styles.tabButton}
           accessibilityRole="button"
@@ -186,7 +192,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 
         {/* 4. Cart Tab */}
         <TouchableOpacity
-          onPress={() => onSelectTab('basket')}
+          onPress={() => handleTabPress('basket')}
           activeOpacity={0.65}
           style={styles.tabButton}
           accessibilityRole="button"
@@ -232,7 +238,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 
         {/* 5. Profile Tab */}
         <TouchableOpacity
-          onPress={() => onSelectTab('profile')}
+          onPress={() => handleTabPress('profile')}
           activeOpacity={0.65}
           style={styles.tabButton}
           accessibilityRole="button"

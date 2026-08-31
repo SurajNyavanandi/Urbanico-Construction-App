@@ -16,6 +16,7 @@ import { TopNavTab } from './common/TopNavTab';
 import { EmptyState } from './common/EmptyState';
 import { CatalogSkeleton } from './common/SkeletonLoader';
 import { useToast } from '../context/ToastContext';
+import { soundService } from '../utils/soundHelper';
 
 interface CategoryDetailScreenProps {
   categoryId: CategoryId | 'all';
@@ -129,6 +130,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
   );
 
   const handleSmartBack = () => {
+    soundService.playTap();
     if (isServicesMode && categoryId !== 'services-catalog' && categoryId !== 'services') {
       onSelectCategoryTab('services-catalog' as any);
       return;
@@ -159,10 +161,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
           />
         }
       >
-      {/* Context-Aware Navigation Bar:
-          - Includes fixed Back Arrow on left
-          - If browsing Services, displays ONLY 'All Services' + Service Trades.
-          - If browsing Materials, displays ONLY 'All Materials' + Material Subcategories. */}
+      {/* Context-Aware Navigation Bar */}
       <View style={[styles.navBarWrapper, { backgroundColor: theme.surface, borderBottomColor: theme.borderLight }]}>
         <TouchableOpacity
           onPress={handleSmartBack}
@@ -184,14 +183,20 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                 <TopNavTab
                   label="All Services"
                   isActive={categoryId === 'services-catalog' || categoryId === 'services'}
-                  onPress={() => onSelectCategoryTab('services-catalog')}
+                  onPress={() => {
+                    soundService.playTap();
+                    onSelectCategoryTab('services-catalog');
+                  }}
                 />
                 {SERVICES.map((srv) => (
                   <TopNavTab
                     key={srv.id}
                     label={srv.name}
                     isActive={categoryId === srv.id}
-                    onPress={() => onSelectCategoryTab(srv.id as any)}
+                    onPress={() => {
+                      soundService.playTap();
+                      onSelectCategoryTab(srv.id as any);
+                    }}
                   />
                 ))}
               </>
@@ -201,14 +206,20 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                 <TopNavTab
                   label="All Materials"
                   isActive={categoryId === 'all'}
-                  onPress={() => onSelectCategoryTab('all')}
+                  onPress={() => {
+                    soundService.playTap();
+                    onSelectCategoryTab('all');
+                  }}
                 />
                 {CATEGORIES.map((cat) => (
                   <TopNavTab
                     key={cat.id}
                     label={cat.name}
                     isActive={categoryId === cat.id}
-                    onPress={() => onSelectCategoryTab(cat.id)}
+                    onPress={() => {
+                      soundService.playTap();
+                      onSelectCategoryTab(cat.id);
+                    }}
                   />
                 ))}
               </>
@@ -219,8 +230,12 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
         </View>
       </View>
 
-      {/* 1. Materials Catalog (categoryId === 'all') */}
-      {categoryId === 'all' && (
+      {refreshing ? (
+        <CatalogSkeleton />
+      ) : (
+        <>
+          {/* 1. Materials Catalog (categoryId === 'all') */}
+          {categoryId === 'all' && (
         <View style={styles.itemsSectionContainer}>
           {/* Display Header Bar */}
           <View style={styles.viewToggleHeaderBar}>
@@ -493,6 +508,8 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
             </View>
           )}
         </View>
+      )}
+        </>
       )}
     </ScrollView>
     </View>

@@ -1,4 +1,14 @@
 import { IndianDeliveryAddress } from '../types';
+import {
+  sanitizeAddressField,
+  sanitizePincode,
+  sanitizeName,
+  validatePincode,
+  validateFlatBuilding,
+  validateAreaStreet,
+  validateCity,
+  validateState,
+} from './sanitizationHelper';
 
 export const INDIAN_STATES = [
   'Telangana',
@@ -39,8 +49,8 @@ export const ADDRESS_TYPE_OPTIONS = [
  * Pincode prefix auto-lookup for Indian major regions
  */
 export function lookupCityStateFromPincode(pincode: string): { city?: string; state?: string } {
-  const pin = pincode.trim().slice(0, 3);
-  if (!pin || pin.length < 3) return {};
+  const clean = sanitizePincode(pincode).slice(0, 3);
+  if (!clean || clean.length < 3) return {};
 
   const prefixMap: Record<string, { city: string; state: string }> = {
     // Telangana
@@ -94,59 +104,75 @@ export function lookupCityStateFromPincode(pincode: string): { city?: string; st
     '700': { city: 'Kolkata', state: 'West Bengal' },
   };
 
-  return prefixMap[pin] || {};
+  return prefixMap[clean] || {};
 }
 
 /**
- * Validate minimal mandatory address fields
+ * Validate minimal mandatory address fields with complete sanitization
  */
 export function validateIndianAddress(addr: Partial<IndianDeliveryAddress>): {
   isValid: boolean;
   errors: Record<string, string>;
+  sanitized: IndianDeliveryAddress;
 } {
   const errors: Record<string, string> = {};
 
-  const cleanPin = (addr.pincode || '').replace(/\D/g, '');
-  if (!cleanPin) {
-    errors.pincode = '6-digit pincode is required';
-  } else if (cleanPin.length !== 6) {
-    errors.pincode = 'Pincode must be exactly 6 digits';
-  }
+  const pinRes = validatePincode(addr.pincode);
+  if (!pinRes.isValid) errors.pincode = pinRes.error!;
 
-  if (!addr.flatBuilding?.trim()) {
-    errors.flatBuilding = 'Flat / House / Building / Plot name is required';
-  }
+  const flatRes = validateFlatBuilding(addr.flatBuilding);
+  if (!flatRes.isValid) errors.flatBuilding = flatRes.error!;
 
-  if (!addr.areaStreet?.trim()) {
-    errors.areaStreet = 'Area, Street or Village is required';
-  }
+  const areaRes = validateAreaStreet(addr.areaStreet);
+  if (!areaRes.isValid) errors.areaStreet = areaRes.error!;
 
-  if (!addr.city?.trim()) {
-    errors.city = 'Town / City is required';
-  }
+  const cityRes = validateCity(addr.city);
+  if (!cityRes.isValid) errors.city = cityRes.error!;
 
-  if (!addr.state?.trim()) {
-    errors.state = 'State is required';
-  }
+  const stateRes = validateState(addr.state);
+  if (!stateRes.isValid) errors.state = stateRes.error!;
+
+  const landmark = sanitizeAddressField(addr.landmark, 100);
+  const fullName = sanitizeName(addr.fullName, 60);
+  const mobileNumber = sanitizePincode(addr.mobileNumber).slice(0, 10);
+  const alternatePhone = sanitizePincode(addr.alternatePhone).slice(0, 10);
+  const deliveryInstructions = sanitizeAddressField(addr.deliveryInstructions, 200);
+
+  const sanitized: IndianDeliveryAddress = {
+    id: addr.id,
+    pincode: pinRes.sanitized,
+    flatBuilding: flatRes.sanitized,
+    areaStreet: areaRes.sanitized,
+    landmark,
+    city: cityRes.sanitized,
+    state: stateRes.sanitized,
+    fullName: fullName || undefined,
+    mobileNumber: mobileNumber || undefined,
+    alternatePhone: alternatePhone || undefined,
+    addressType: addr.addressType || 'Site',
+    deliveryInstructions: deliveryInstructions || undefined,
+    isDefault: Boolean(addr.isDefault),
+  };
 
   return {
     isValid: Object.keys(errors).length === 0,
     errors,
+    sanitized,
   };
 }
 
 /**
  * Formats a rich Indian address object into a single concise string for storage
  */
-export function formatIndianAddressSummary(addr: IndianDeliveryAddress): string {
+export function formatIndianAddressSummary(addr: Partial<IndianDeliveryAddress>): string {
   const parts: string[] = [];
 
-  const building = addr.flatBuilding?.trim();
-  const area = addr.areaStreet?.trim();
-  const landmark = addr.landmark?.trim();
-  const city = addr.city?.trim();
-  const state = addr.state?.trim();
-  const pin = addr.pincode?.trim();
+  const building = sanitizeAddressField(addr.flatBuilding, 120);
+  const area = sanitizeAddressField(addr.areaStreet, 150);
+  const landmark = sanitizeAddressField(addr.landmark, 100);
+  const city = sanitizeName(addr.city, 50);
+  const state = sanitizeAddressField(addr.state, 50);
+  const pin = sanitizePincode(addr.pincode);
 
   if (building) parts.push(building);
   if (area) parts.push(area);
@@ -157,3 +183,4 @@ export function formatIndianAddressSummary(addr: IndianDeliveryAddress): string 
 
   return parts.join(', ');
 }
+

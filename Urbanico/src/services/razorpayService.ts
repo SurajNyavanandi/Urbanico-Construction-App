@@ -171,6 +171,8 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
     let orderId = options.precreatedOrderId;
     let orderAmountPaise = Math.round(options.amount * 100);
 
+    let orderKeyId = '';
+
     if (!orderId) {
       const orderRes = await createRazorpayOrder({
         amount: options.amount,
@@ -181,15 +183,29 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
       if (orderRes.amount) {
         orderAmountPaise = orderRes.amount;
       }
+      if (orderRes.key_id) {
+        orderKeyId = orderRes.key_id;
+      }
     }
 
     const keyId =
+      orderKeyId ||
+      (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_RAZORPAY_KEY_ID) ||
       (typeof process !== 'undefined' &&
         process.env &&
         (process.env.VITE_RAZORPAY_KEY_ID ||
           process.env.RAZORPAY_KEY_ID ||
           process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID)) ||
-      'rzp_test_TTVQamdDG0CpiN';
+      '';
+
+    if (!keyId) {
+      const msg = 'Razorpay Key ID is not configured. Please define RAZORPAY_KEY_ID or VITE_RAZORPAY_KEY_ID in the environment settings.';
+      console.error(msg);
+      if (options.onFailure) {
+        options.onFailure(msg);
+      }
+      return;
+    }
 
     const rzpOptions: any = {
       key: keyId,

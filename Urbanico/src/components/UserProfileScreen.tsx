@@ -62,6 +62,15 @@ import {
   validateIndianAddress,
   formatIndianAddressSummary,
 } from '../utils/addressHelper';
+import {
+  validateAndSanitizeAddressForm,
+  validateAndSanitizeProfileForm,
+  sanitizePhone,
+  sanitizeGstin,
+  sanitizeEmail,
+  sanitizeName,
+  sanitizeAddressField,
+} from '../utils/sanitizationHelper';
 import { IndianDeliveryAddress } from '../types';
 
 interface UserProfileScreenProps {
@@ -239,6 +248,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [editEmail, setEditEmail] = useState(user.email || '');
   const [editCompany, setEditCompany] = useState(user.companyName || '');
   const [editGstin, setEditGstin] = useState(user.gstin || '');
+  const [profileErrors, setProfileErrors] = useState<Record<string, string>>({});
   const [isEmailVerified, setIsEmailVerified] = useState<boolean>(!!user.isEmailVerified && !!user.email);
   const [showEmailOtpBox, setShowEmailOtpBox] = useState<boolean>(false);
   const [emailOtp, setEmailOtp] = useState<string>('');
@@ -270,6 +280,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     setEditEmail(user.email || '');
     setEditCompany(user.companyName || '');
     setEditGstin(user.gstin || '');
+    setProfileErrors({});
     setIsEmailVerified(!!user.isEmailVerified && !!user.email);
     setShowEmailOtpBox(false);
     setEmailOtp('');
@@ -288,6 +299,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
   const handleEmailChange = (text: string) => {
     setEditEmail(text);
+    if (profileErrors.email) {
+      setProfileErrors((prev) => ({ ...prev, email: '' }));
+    }
     const trimmed = text.trim();
     if (user.isEmailVerified && user.email && trimmed.toLowerCase() === user.email.toLowerCase()) {
       setIsEmailVerified(true);
@@ -302,6 +316,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     const trimmed = editEmail.trim();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!trimmed || !emailRegex.test(trimmed)) {
+      setProfileErrors((prev) => ({ ...prev, email: 'Please enter a valid email address first (e.g. name@domain.com)' }));
       showToast('Please enter a valid email address first (e.g. name@domain.com)', 'error');
       return;
     }
@@ -334,6 +349,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const handleGstChange = (text: string) => {
     const clean = text.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 15);
     setEditGstin(clean);
+    if (profileErrors.gstin) {
+      setProfileErrors((prev) => ({ ...prev, gstin: '' }));
+    }
     if (clean.length > 0 && clean.length < 15) {
       setGstError('GSTIN must be 15 characters (e.g. 36AAACU9812A1Z4)');
     } else if (clean.length === 15 && !isValidGSTIN(clean)) {
@@ -372,50 +390,61 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   };
 
   const handleSaveProfile = () => {
-    if (!editName.trim()) {
-      showToast('Please enter your full name', 'error');
-      return;
-    }
-    if (editGstin.trim() && !isValidGSTIN(editGstin)) {
-      setGstError('Please enter a valid 15-character GSTIN or leave it blank');
-      showToast('Invalid GSTIN format. Must be 15 characters (e.g. 36AAACU9812A1Z4) or blank.', 'error');
-      return;
-    }
-    onUpdateUser({
-      name: editName.trim(),
-      phone: editPhone.trim(),
-      email: editEmail.trim(),
-      companyName: editCompany.trim(),
-      gstin: editGstin.trim().toUpperCase(),
+    const validation = validateAndSanitizeProfileForm({
+      name: editName,
+      phone: editPhone,
+      email: editEmail,
+      companyName: editCompany,
+      gstin: editGstin,
       isEmailVerified: isEmailVerified && Boolean(editEmail.trim()),
     });
+
+    if (!validation.isValid) {
+      setProfileErrors(validation.errors);
+      if (validation.errors.gstin) {
+        setGstError(validation.errors.gstin);
+      }
+      const firstError = Object.values(validation.errors)[0] || 'Please fix the highlighted fields';
+      showToast(firstError, 'error');
+      return;
+    }
+
+    setProfileErrors({});
+    setGstError('');
+    onUpdateUser(validation.sanitized);
     setIsEditProfileModalOpen(false);
     showToast('Profile updated successfully', 'success');
   };
 
   const handleAddNewAddress = () => {
-    const addressData: IndianDeliveryAddress = {
+    const validation = validateAndSanitizeAddressForm({
+      fullName: addressFullName,
+      mobileNumber: addressMobile,
+      alternatePhone: addressAltPhone,
       pincode: addressPincode,
       flatBuilding: addressFlatBuilding,
       areaStreet: addressAreaStreet,
       landmark: addressLandmark,
       city: addressCity,
       state: addressState,
-    };
+      addressType: addressType,
+      deliveryInstructions: addressInstructions,
+    });
 
-    const validation = validateIndianAddress(addressData);
     if (!validation.isValid) {
       setAddressErrors(validation.errors);
-      showToast('Please fill all mandatory address fields marked with *', 'error');
+      const firstError = Object.values(validation.errors)[0] || 'Please fill all mandatory address fields correctly';
+      showToast(firstError, 'error');
       return;
     }
 
     setAddressErrors({});
-    const fullAddress = formatIndianAddressSummary(addressData);
+    const fullAddress = formatIndianAddressSummary(validation.sanitized);
     addLocation(fullAddress);
     setAddressFlatBuilding('');
     setAddressAreaStreet('');
     setAddressLandmark('');
+    setAddressAltPhone('');
     showToast('New delivery address saved successfully', 'success');
   };
 
@@ -863,7 +892,129 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   </TouchableOpacity>
                 </View>
 
-                {/* 1. Pincode (6 digits - Mandatory) */}
+                {/* 1. Recipient / Site Supervisor Name */}
+                <View style={{ marginBottom: 10 }}>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
+                    Contact / Supervisor Name <Text style={{ color: '#EF4444' }}>*</Text>
+                  </Text>
+                  <TextInput
+                    value={addressFullName}
+                    onChangeText={(t) => {
+                      setAddressFullName(t);
+                      if (addressErrors.fullName) setAddressErrors((prev) => ({ ...prev, fullName: '' }));
+                    }}
+                    style={[
+                      styles.cleanInput,
+                      {
+                        backgroundColor: theme.surfaceSecondary,
+                        color: theme.textPrimary,
+                        borderColor: addressErrors.fullName ? '#EF4444' : theme.border,
+                      },
+                    ]}
+                    placeholder="e.g. Suraj Kumar / Kishore V."
+                    placeholderTextColor={theme.textMuted}
+                  />
+                  {addressErrors.fullName ? (
+                    <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>⚠️ {addressErrors.fullName}</Text>
+                  ) : null}
+                </View>
+
+                {/* 2. Contact Phone Numbers (Mobile & Alt) */}
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
+                      Primary Mobile <Text style={{ color: '#EF4444' }}>*</Text>
+                    </Text>
+                    <TextInput
+                      value={addressMobile}
+                      onChangeText={(t) => {
+                        setAddressMobile(t);
+                        if (addressErrors.mobileNumber) setAddressErrors((prev) => ({ ...prev, mobileNumber: '' }));
+                      }}
+                      keyboardType="phone-pad"
+                      maxLength={14}
+                      style={[
+                        styles.cleanInput,
+                        {
+                          backgroundColor: theme.surfaceSecondary,
+                          color: theme.textPrimary,
+                          borderColor: addressErrors.mobileNumber ? '#EF4444' : theme.border,
+                        },
+                      ]}
+                      placeholder="10-digit mobile"
+                      placeholderTextColor={theme.textMuted}
+                    />
+                    {addressErrors.mobileNumber ? (
+                      <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>⚠️ {addressErrors.mobileNumber}</Text>
+                    ) : null}
+                  </View>
+
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
+                      Alt. Phone <Text style={{ color: theme.textMuted, fontWeight: '400' }}>(Optional)</Text>
+                    </Text>
+                    <TextInput
+                      value={addressAltPhone}
+                      onChangeText={(t) => {
+                        setAddressAltPhone(t);
+                        if (addressErrors.alternatePhone) setAddressErrors((prev) => ({ ...prev, alternatePhone: '' }));
+                      }}
+                      keyboardType="phone-pad"
+                      maxLength={14}
+                      style={[
+                        styles.cleanInput,
+                        {
+                          backgroundColor: theme.surfaceSecondary,
+                          color: theme.textPrimary,
+                          borderColor: addressErrors.alternatePhone ? '#EF4444' : theme.border,
+                        },
+                      ]}
+                      placeholder="Secondary number"
+                      placeholderTextColor={theme.textMuted}
+                    />
+                    {addressErrors.alternatePhone ? (
+                      <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>⚠️ {addressErrors.alternatePhone}</Text>
+                    ) : null}
+                  </View>
+                </View>
+
+                {/* 3. Address Type Selector */}
+                <View style={{ marginBottom: 10 }}>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
+                    Address Type / Tag
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 6 }}>
+                    {(['Site', 'Home', 'Office', 'Warehouse'] as const).map((type) => (
+                      <TouchableOpacity
+                        key={type}
+                        onPress={() => setAddressType(type)}
+                        style={{
+                          flex: 1,
+                          paddingVertical: 7,
+                          borderRadius: 8,
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderWidth: 1,
+                          borderColor: addressType === type ? '#0066FF' : theme.border,
+                          backgroundColor: addressType === type ? '#EFF6FF' : theme.surfaceSecondary,
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 11,
+                            fontWeight: addressType === type ? '700' : '500',
+                            color: addressType === type ? '#0066FF' : theme.textPrimary,
+                          }}
+                        >
+                          {type}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                {/* 4. Pincode (6 digits - Mandatory) */}
                 <View style={{ marginBottom: 10 }}>
                   <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
                     Pincode (6 Digits) <Text style={{ color: '#EF4444' }}>*</Text>
@@ -884,12 +1035,12 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     placeholder="e.g. 500081 (Auto-lookup City/State)"
                     placeholderTextColor={theme.textMuted}
                   />
-                  {addressErrors.pincode && (
-                    <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>{addressErrors.pincode}</Text>
-                  )}
+                  {addressErrors.pincode ? (
+                    <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>⚠️ {addressErrors.pincode}</Text>
+                  ) : null}
                 </View>
 
-                {/* 2. Flat / Building / Site Name (Mandatory) */}
+                {/* 5. Flat / Building / Site Name (Mandatory) */}
                 <View style={{ marginBottom: 10 }}>
                   <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
                     Flat, House No., Building, Site / Plot Name <Text style={{ color: '#EF4444' }}>*</Text>
@@ -911,12 +1062,12 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     placeholder="e.g. Plot No. 42, Skyview Tower / Block C"
                     placeholderTextColor={theme.textMuted}
                   />
-                  {addressErrors.flatBuilding && (
-                    <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>{addressErrors.flatBuilding}</Text>
-                  )}
+                  {addressErrors.flatBuilding ? (
+                    <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>⚠️ {addressErrors.flatBuilding}</Text>
+                  ) : null}
                 </View>
 
-                {/* 3. Area, Street, Village (Mandatory) */}
+                {/* 6. Area, Street, Village (Mandatory) */}
                 <View style={{ marginBottom: 10 }}>
                   <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
                     Area, Street, Village <Text style={{ color: '#EF4444' }}>*</Text>
@@ -938,33 +1089,39 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     placeholder="e.g. HITEC City Main Rd, Madhapur"
                     placeholderTextColor={theme.textMuted}
                   />
-                  {addressErrors.areaStreet && (
-                    <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>{addressErrors.areaStreet}</Text>
-                  )}
+                  {addressErrors.areaStreet ? (
+                    <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>⚠️ {addressErrors.areaStreet}</Text>
+                  ) : null}
                 </View>
 
-                {/* 4. Landmark (Optional) */}
+                {/* 7. Landmark (Optional) */}
                 <View style={{ marginBottom: 10 }}>
                   <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
                     Landmark <Text style={{ color: '#94A3B8', fontWeight: '400' }}>(Optional)</Text>
                   </Text>
                   <TextInput
                     value={addressLandmark}
-                    onChangeText={setAddressLandmark}
+                    onChangeText={(t) => {
+                      setAddressLandmark(t);
+                      if (addressErrors.landmark) setAddressErrors((prev) => ({ ...prev, landmark: '' }));
+                    }}
                     style={[
                       styles.cleanInput,
                       {
                         backgroundColor: theme.surfaceSecondary,
                         color: theme.textPrimary,
-                        borderColor: theme.border,
+                        borderColor: addressErrors.landmark ? '#EF4444' : theme.border,
                       },
                     ]}
                     placeholder="e.g. Near Cyber Towers / Metro Pillar 42"
                     placeholderTextColor={theme.textMuted}
                   />
+                  {addressErrors.landmark ? (
+                    <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>⚠️ {addressErrors.landmark}</Text>
+                  ) : null}
                 </View>
 
-                {/* 5. City & State (Mandatory) */}
+                {/* 8. City & State (Mandatory) */}
                 <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
@@ -987,6 +1144,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                       placeholder="e.g. Hyderabad"
                       placeholderTextColor={theme.textMuted}
                     />
+                    {addressErrors.city ? (
+                      <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>⚠️ {addressErrors.city}</Text>
+                    ) : null}
                   </View>
 
                   <View style={{ flex: 1 }}>
@@ -1009,6 +1169,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                         {addressState || 'Select State'}
                       </Text>
                     </TouchableOpacity>
+                    {addressErrors.state ? (
+                      <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>⚠️ {addressErrors.state}</Text>
+                    ) : null}
                   </View>
                 </View>
 
@@ -1055,6 +1218,33 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     </ScrollView>
                   </View>
                 )}
+
+                {/* 9. Site Delivery & Truck Access Instructions (Optional) */}
+                <View style={{ marginBottom: 10 }}>
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
+                    Site Access / Delivery Notes <Text style={{ color: theme.textMuted, fontWeight: '400' }}>(Optional)</Text>
+                  </Text>
+                  <TextInput
+                    value={addressInstructions}
+                    onChangeText={(t) => {
+                      setAddressInstructions(t);
+                      if (addressErrors.deliveryInstructions) setAddressErrors((prev) => ({ ...prev, deliveryInstructions: '' }));
+                    }}
+                    style={[
+                      styles.cleanInput,
+                      {
+                        backgroundColor: theme.surfaceSecondary,
+                        color: theme.textPrimary,
+                        borderColor: addressErrors.deliveryInstructions ? '#EF4444' : theme.border,
+                      },
+                    ]}
+                    placeholder="e.g. Wide Gate, 10-Wheel Dumpers OK, Call on arrival"
+                    placeholderTextColor={theme.textMuted}
+                  />
+                  {addressErrors.deliveryInstructions ? (
+                    <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>⚠️ {addressErrors.deliveryInstructions}</Text>
+                  ) : null}
+                </View>
 
                 {/* Save Address Button */}
                 <TouchableOpacity
@@ -1333,36 +1523,87 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             </View>
 
             <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-              <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Full Name</Text>
+              <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>
+                Full Name <Text style={{ color: '#EF4444' }}>*</Text>
+              </Text>
               <TextInput
                 value={editName}
-                onChangeText={setEditName}
-                style={[styles.modalInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border }]}
+                onChangeText={(t) => {
+                  setEditName(t);
+                  if (profileErrors.name) setProfileErrors((prev) => ({ ...prev, name: '' }));
+                }}
+                style={[
+                  styles.modalInput,
+                  {
+                    backgroundColor: theme.surfaceSecondary,
+                    color: theme.textPrimary,
+                    borderColor: profileErrors.name ? '#EF4444' : theme.border,
+                  },
+                ]}
                 placeholder="Contractor full name"
                 placeholderTextColor={theme.textMuted}
               />
+              {profileErrors.name ? (
+                <Text style={{ color: '#EF4444', fontSize: 11, marginTop: 3, marginBottom: 8, fontWeight: '500' }}>
+                  ⚠️ {profileErrors.name}
+                </Text>
+              ) : null}
 
-              <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Phone Number</Text>
+              <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: profileErrors.name ? 0 : 8 }]}>
+                Phone Number <Text style={{ color: '#EF4444' }}>*</Text>
+              </Text>
               <TextInput
                 value={editPhone}
-                onChangeText={setEditPhone}
+                onChangeText={(t) => {
+                  setEditPhone(t);
+                  if (profileErrors.phone) setProfileErrors((prev) => ({ ...prev, phone: '' }));
+                }}
                 keyboardType="phone-pad"
-                style={[styles.modalInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border }]}
-                placeholder="Mobile number"
+                style={[
+                  styles.modalInput,
+                  {
+                    backgroundColor: theme.surfaceSecondary,
+                    color: theme.textPrimary,
+                    borderColor: profileErrors.phone ? '#EF4444' : theme.border,
+                  },
+                ]}
+                placeholder="10-digit mobile number"
                 placeholderTextColor={theme.textMuted}
               />
+              {profileErrors.phone ? (
+                <Text style={{ color: '#EF4444', fontSize: 11, marginTop: 3, marginBottom: 8, fontWeight: '500' }}>
+                  ⚠️ {profileErrors.phone}
+                </Text>
+              ) : null}
 
-              <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>Company / Firm Name</Text>
+              <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: profileErrors.phone ? 0 : 8 }]}>
+                Company / Firm Name
+              </Text>
               <TextInput
                 value={editCompany}
-                onChangeText={setEditCompany}
-                style={[styles.modalInput, { backgroundColor: theme.surfaceSecondary, color: theme.textPrimary, borderColor: theme.border }]}
+                onChangeText={(t) => {
+                  setEditCompany(t);
+                  if (profileErrors.companyName) setProfileErrors((prev) => ({ ...prev, companyName: '' }));
+                }}
+                style={[
+                  styles.modalInput,
+                  {
+                    backgroundColor: theme.surfaceSecondary,
+                    color: theme.textPrimary,
+                    borderColor: profileErrors.companyName ? '#EF4444' : theme.border,
+                  },
+                ]}
                 placeholder="e.g. Apex Builders & Infra"
                 placeholderTextColor={theme.textMuted}
               />
+              {profileErrors.companyName ? (
+                <Text style={{ color: '#EF4444', fontSize: 11, marginTop: 3, marginBottom: 8, fontWeight: '500' }}>
+                  ⚠️ {profileErrors.companyName}
+                </Text>
+              ) : null}
 
               {/* GSTIN Input with strict validation & optional support */}
-              <View style={styles.inputLabelRow}>
+              <View style={[styles.inputLabelRow, { marginTop: profileErrors.companyName ? 0 : 8 }]}>
                 <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 0 }]}>
                   GSTIN (18% Flat ITC) <Text style={{ fontSize: 10, color: theme.textMuted, fontWeight: '500' }}>(Optional)</Text>
                 </Text>
@@ -1383,14 +1624,14 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   {
                     backgroundColor: theme.surfaceSecondary,
                     color: theme.textPrimary,
-                    borderColor: gstError ? '#EF4444' : editGstin.trim().length === 15 && isValidGSTIN(editGstin) ? '#10B981' : theme.border,
+                    borderColor: (gstError || profileErrors.gstin) ? '#EF4444' : editGstin.trim().length === 15 && isValidGSTIN(editGstin) ? '#10B981' : theme.border,
                   },
                 ]}
                 placeholder="e.g. 36AAACU9812A1Z4 (Optional)"
                 placeholderTextColor={theme.textMuted}
               />
-              {gstError ? (
-                <Text style={styles.gstErrorText}>⚠️ {gstError}</Text>
+              {(gstError || profileErrors.gstin) ? (
+                <Text style={styles.gstErrorText}>⚠️ {gstError || profileErrors.gstin}</Text>
               ) : editGstin.trim().length === 15 && isValidGSTIN(editGstin) ? (
                 <Text style={styles.gstSuccessText}>✓ 18% Input Tax Credit enabled on all tax invoices</Text>
               ) : (
@@ -1426,7 +1667,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     {
                       backgroundColor: theme.surfaceSecondary,
                       color: theme.textPrimary,
-                      borderColor: isEmailVerified ? '#0284C7' : theme.border,
+                      borderColor: profileErrors.email ? '#EF4444' : isEmailVerified ? '#0284C7' : theme.border,
                     },
                   ]}
                   placeholder="contractor@urbanico.in"
@@ -1452,6 +1693,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   </TouchableOpacity>
                 ) : null}
               </View>
+              {profileErrors.email ? (
+                <Text style={{ color: '#EF4444', fontSize: 11, marginTop: 3, marginBottom: 8, fontWeight: '500' }}>
+                  ⚠️ {profileErrors.email}
+                </Text>
+              ) : null}
 
               {/* Inline OTP Verification Container */}
               {showEmailOtpBox && (

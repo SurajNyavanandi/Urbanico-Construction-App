@@ -6,18 +6,24 @@ export class RazorpayBackendService {
     return (
       process.env.RAZORPAY_KEY_ID ||
       process.env.VITE_RAZORPAY_KEY_ID ||
-      'rzp_test_TTVQamdDG0CpiN'
+      ''
     );
   }
 
   private static getKeySecret(): string {
-    return process.env.RAZORPAY_KEY_SECRET || 'ARw9MNW4uyOBGv9Xfs6w5rJu';
+    return process.env.RAZORPAY_KEY_SECRET || '';
   }
 
   public static getClient(): Razorpay {
     const key_id = this.getKeyId();
     const key_secret = this.getKeySecret();
-    return new Razorpay({ key_id, key_secret });
+    if (!key_id || !key_secret) {
+      console.warn('Razorpay credentials (RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET) not set in environment variables.');
+    }
+    return new Razorpay({
+      key_id: key_id || 'unconfigured_key',
+      key_secret: key_secret || 'unconfigured_secret',
+    });
   }
 
   public static async createOrder(options: {

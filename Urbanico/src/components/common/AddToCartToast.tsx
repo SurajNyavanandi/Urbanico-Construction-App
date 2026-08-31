@@ -10,6 +10,7 @@ import {
 import { Check, ShoppingCart, ArrowRight, X } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { ShimmerImage } from './ShimmerImage';
+import { soundService } from '../../utils/soundHelper';
 
 export interface CartToastPayload {
   name: string;
@@ -42,6 +43,7 @@ export const AddToCartToast: React.FC<AddToCartToastProps> = ({
 
   useEffect(() => {
     if (visible && item) {
+      soundService.playAddToCart();
       translateY.setValue(-60);
       opacity.setValue(0);
       scale.setValue(0.92);

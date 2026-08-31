@@ -31,6 +31,8 @@ import { PromotionalVideoPlayer } from './common/PromotionalVideoPlayer';
 import { AmbujaVideoAd } from './common/AmbujaVideoAd';
 import { preloadImages } from '../utils/imageOptimization';
 import { BRAND_LOGO_URL } from '../constants';
+import { soundService } from '../utils/soundHelper';
+import { HomeSkeleton } from './common/SkeletonLoader';
 
 interface HomeScreenProps {
   headerComponent?: React.ReactNode;
@@ -377,31 +379,37 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       >
         {/* Header component embedded at top of scrollview so it scrolls naturally */}
         {headerComponent}
-        {/* ========================================================================= */}
-        {/* 1. 4:3 RATIO HERO CARD (Replaced Carousel) */}
-        {/* ========================================================================= */}
-        <View style={styles.heroSectionWrapper}>
-          <TouchableOpacity
-            activeOpacity={0.92}
-            onPress={() => {
-              if (onNavigateAllServices) {
-                onNavigateAllServices();
-              } else {
-                onSelectCategory('services-catalog');
-              }
-            }}
-            style={styles.heroCardContainer}
-          >
-            <ShimmerImage
-              source={{ uri: HERO_CARD_IMAGE_URL }}
-              style={styles.heroCardImage}
-              resizeMode="cover"
-              preset="hero"
-              priority="high"
-              borderRadius={20}
-            />
-          </TouchableOpacity>
-        </View>
+
+        {refreshing ? (
+          <HomeSkeleton />
+        ) : (
+          <>
+            {/* ========================================================================= */}
+            {/* 1. 4:3 RATIO HERO CARD (Replaced Carousel) */}
+            {/* ========================================================================= */}
+            <View style={styles.heroSectionWrapper}>
+              <TouchableOpacity
+                activeOpacity={0.92}
+                onPress={() => {
+                  soundService.playTap();
+                  if (onNavigateAllServices) {
+                    onNavigateAllServices();
+                  } else {
+                    onSelectCategory('services-catalog');
+                  }
+                }}
+                style={styles.heroCardContainer}
+              >
+                <ShimmerImage
+                  source={{ uri: HERO_CARD_IMAGE_URL }}
+                  style={styles.heroCardImage}
+                  resizeMode="cover"
+                  preset="hero"
+                  priority="high"
+                  borderRadius={20}
+                />
+              </TouchableOpacity>
+            </View>
 
         {/* ========================================================================= */}
         {/* 2. MATERIAL & TRADE SERVICES CHILD NAVIGATION PILLS */}
@@ -754,6 +762,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         {/* 8. 15-SECOND DIRECT YARD PROMOTIONAL SPOTLIGHT VIDEO */}
         {/* ========================================================================= */}
         <PromotionalVideoPlayer onExploreCatalog={onNavigateAllMaterials} />
+          </>
+        )}
       </ScrollView>
     </View>
   );

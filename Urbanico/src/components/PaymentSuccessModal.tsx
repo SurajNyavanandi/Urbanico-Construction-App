@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -22,6 +22,7 @@ import {
   Clock,
 } from 'lucide-react-native';
 import { RazorpayPaymentResult } from './RazorpayModal';
+import { soundService } from '../utils/soundHelper';
 
 interface PaymentSuccessModalProps {
   visible: boolean;
@@ -42,6 +43,12 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
   const [shareToast, setShareToast] = useState(false);
+
+  useEffect(() => {
+    if (visible && paymentResult) {
+      soundService.playPaymentSuccess();
+    }
+  }, [visible, paymentResult]);
 
   if (!visible || !paymentResult) return null;
 
