@@ -20,6 +20,7 @@ import { LocationModal } from './components/LocationModal';
 import { InvoiceModal } from './components/InvoiceModal';
 import { LanguagePromptModal } from './components/LanguagePromptModal';
 import { preloadImages } from './utils/imageOptimization';
+import { safeStorage } from './utils/safeStorage';
 import { BRAND_LOGO_URL } from './constants';
 
 // Lazy load heavy screens to optimize bundle size and app startup time
@@ -127,27 +128,25 @@ function MainAppContent() {
   // User & Auth with session persistence
   const [user, setUser] = useState<UserProfile>(() => {
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const saved = window.localStorage.getItem('urbanico_auth_session');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          const phone = parsed.phone || '';
-          if (phone) {
-            const savedProfile = window.localStorage.getItem(`urbanico_user_profile_${phone}`);
-            if (savedProfile) {
-              return {
-                ...INITIAL_USER,
-                ...JSON.parse(savedProfile),
-                phone,
-                isVerified: true,
-              };
-            }
+      const saved = safeStorage.getItem('urbanico_auth_session');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const phone = parsed.phone || '';
+        if (phone) {
+          const savedProfile = safeStorage.getItem(`urbanico_user_profile_${phone}`);
+          if (savedProfile) {
             return {
               ...INITIAL_USER,
+              ...JSON.parse(savedProfile),
               phone,
               isVerified: true,
             };
           }
+          return {
+            ...INITIAL_USER,
+            phone,
+            isVerified: true,
+          };
         }
       }
     } catch {
@@ -161,12 +160,10 @@ function MainAppContent() {
 
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const saved = window.localStorage.getItem('urbanico_auth_session');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          return !!parsed.isLoggedIn;
-        }
+      const saved = safeStorage.getItem('urbanico_auth_session');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return !!parsed.isLoggedIn;
       }
     } catch {
       // ignore
@@ -199,13 +196,11 @@ function MainAppContent() {
   // Cart State (Persisted and partition-scoped per user / guest)
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const authSaved = window.localStorage.getItem('urbanico_auth_session');
-        const phone = authSaved ? JSON.parse(authSaved).phone : null;
-        const key = phone ? `urbanico_cart_${phone}` : 'urbanico_cart_guest';
-        const savedCart = window.localStorage.getItem(key);
-        if (savedCart) return JSON.parse(savedCart);
-      }
+      const authSaved = safeStorage.getItem('urbanico_auth_session');
+      const phone = authSaved ? JSON.parse(authSaved).phone : null;
+      const key = phone ? `urbanico_cart_${phone}` : 'urbanico_cart_guest';
+      const savedCart = safeStorage.getItem(key);
+      if (savedCart) return JSON.parse(savedCart);
     } catch {
       // ignore
     }
@@ -215,10 +210,8 @@ function MainAppContent() {
   // Sync cart to storage whenever changed
   useEffect(() => {
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const key = isLoggedIn && user.phone ? `urbanico_cart_${user.phone}` : 'urbanico_cart_guest';
-        window.localStorage.setItem(key, JSON.stringify(cartItems));
-      }
+      const key = isLoggedIn && user.phone ? `urbanico_cart_${user.phone}` : 'urbanico_cart_guest';
+      safeStorage.setItem(key, JSON.stringify(cartItems));
     } catch {
       // ignore
     }
@@ -227,14 +220,12 @@ function MainAppContent() {
   // Deliveries data (persisted for live production app)
   const [deliveries, setDeliveries] = useState<ActivityDelivery[]>(() => {
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const authSaved = window.localStorage.getItem('urbanico_auth_session');
-        const isAuth = authSaved ? JSON.parse(authSaved).isLoggedIn : false;
-        if (isAuth) {
-          const saved = window.localStorage.getItem('urbanico_orders');
-          if (saved) {
-            return JSON.parse(saved);
-          }
+      const authSaved = safeStorage.getItem('urbanico_auth_session');
+      const isAuth = authSaved ? JSON.parse(authSaved).isLoggedIn : false;
+      if (isAuth) {
+        const saved = safeStorage.getItem('urbanico_orders');
+        if (saved) {
+          return JSON.parse(saved);
         }
       }
     } catch {
@@ -247,9 +238,7 @@ function MainAppContent() {
     setDeliveries((prev) => {
       const updated = [newOrder, ...prev];
       try {
-        if (typeof window !== 'undefined' && window.localStorage) {
-          window.localStorage.setItem('urbanico_orders', JSON.stringify(updated));
-        }
+        safeStorage.setItem('urbanico_orders', JSON.stringify(updated));
       } catch {
         // ignore
       }
@@ -260,28 +249,24 @@ function MainAppContent() {
   // Favorites State (persisted per user or guest session)
   const [favoriteIds, setFavoriteIds] = useState<string[]>(() => {
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const authSaved = window.localStorage.getItem('urbanico_auth_session');
-        const isAuth = authSaved ? JSON.parse(authSaved).isLoggedIn : false;
-        const phone = authSaved ? JSON.parse(authSaved).phone : null;
-        const key = isAuth && phone ? `urbanico_favorite_ids_${phone}` : 'urbanico_favorite_ids_guest';
-        const favSaved = window.localStorage.getItem(key) || window.localStorage.getItem('urbanico_favorite_ids');
-        if (favSaved) return JSON.parse(favSaved);
-        if (isAuth) return ['plastering-sand', 'stone-20mm'];
-      }
+      const authSaved = safeStorage.getItem('urbanico_auth_session');
+      const isAuth = authSaved ? JSON.parse(authSaved).isLoggedIn : false;
+      const phone = authSaved ? JSON.parse(authSaved).phone : null;
+      const key = isAuth && phone ? `urbanico_favorite_ids_${phone}` : 'urbanico_favorite_ids_guest';
+      const favSaved = safeStorage.getItem(key) || safeStorage.getItem('urbanico_favorite_ids');
+      if (favSaved) return JSON.parse(favSaved);
+      if (isAuth) return ['plastering-sand', 'stone-20mm'];
     } catch {
       // ignore
     }
     return [];
   });
 
-  // Sync favorites with localStorage whenever changed
+  // Sync favorites with storage whenever changed
   useEffect(() => {
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const key = isLoggedIn && user.phone ? `urbanico_favorite_ids_${user.phone}` : 'urbanico_favorite_ids_guest';
-        window.localStorage.setItem(key, JSON.stringify(favoriteIds));
-      }
+      const key = isLoggedIn && user.phone ? `urbanico_favorite_ids_${user.phone}` : 'urbanico_favorite_ids_guest';
+      safeStorage.setItem(key, JSON.stringify(favoriteIds));
     } catch {
       // ignore
     }
@@ -401,8 +386,8 @@ function MainAppContent() {
     setUser((prev) => {
       const updated = { ...prev, ...updatedData };
       try {
-        if (typeof window !== 'undefined' && window.localStorage && updated.phone) {
-          window.localStorage.setItem(`urbanico_user_profile_${updated.phone}`, JSON.stringify(updated));
+        if (updated.phone) {
+          safeStorage.setItem(`urbanico_user_profile_${updated.phone}`, JSON.stringify(updated));
         }
       } catch {
         // ignore
@@ -605,11 +590,9 @@ function MainAppContent() {
     // 1. Restore or initialize user profile
     let loadedProfile = { ...INITIAL_USER, phone: validPhone, isVerified: true };
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const savedProf = window.localStorage.getItem(`urbanico_user_profile_${validPhone}`);
-        if (savedProf) {
-          loadedProfile = { ...loadedProfile, ...JSON.parse(savedProf) };
-        }
+      const savedProf = safeStorage.getItem(`urbanico_user_profile_${validPhone}`);
+      if (savedProf) {
+        loadedProfile = { ...loadedProfile, ...JSON.parse(savedProf) };
       }
     } catch {
       // ignore
@@ -621,43 +604,41 @@ function MainAppContent() {
 
     // 3. Merge guest cart with existing user cart
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem(
-          'urbanico_auth_session',
-          JSON.stringify({ isLoggedIn: true, phone: validPhone })
+      safeStorage.setItem(
+        'urbanico_auth_session',
+        JSON.stringify({ isLoggedIn: true, phone: validPhone })
+      );
+
+      // Merge cart items
+      const userSavedCartRaw = safeStorage.getItem(`urbanico_cart_${validPhone}`);
+      const userSavedCart: CartItem[] = userSavedCartRaw ? JSON.parse(userSavedCartRaw) : [];
+
+      let mergedCart = [...userSavedCart];
+      cartItems.forEach((guestItem) => {
+        const matchIdx = mergedCart.findIndex(
+          (ci) => ci.itemId === guestItem.itemId && ci.selectedOptionLabel === guestItem.selectedOptionLabel
         );
+        if (matchIdx >= 0) {
+          mergedCart[matchIdx] = {
+            ...mergedCart[matchIdx],
+            quantity: mergedCart[matchIdx].quantity + guestItem.quantity,
+          };
+        } else {
+          mergedCart.push(guestItem);
+        }
+      });
 
-        // Merge cart items
-        const userSavedCartRaw = window.localStorage.getItem(`urbanico_cart_${validPhone}`);
-        const userSavedCart: CartItem[] = userSavedCartRaw ? JSON.parse(userSavedCartRaw) : [];
+      setCartItems(mergedCart);
+      safeStorage.setItem(`urbanico_cart_${validPhone}`, JSON.stringify(mergedCart));
 
-        let mergedCart = [...userSavedCart];
-        cartItems.forEach((guestItem) => {
-          const matchIdx = mergedCart.findIndex(
-            (ci) => ci.itemId === guestItem.itemId && ci.selectedOptionLabel === guestItem.selectedOptionLabel
-          );
-          if (matchIdx >= 0) {
-            mergedCart[matchIdx] = {
-              ...mergedCart[matchIdx],
-              quantity: mergedCart[matchIdx].quantity + guestItem.quantity,
-            };
-          } else {
-            mergedCart.push(guestItem);
-          }
-        });
-
-        setCartItems(mergedCart);
-        window.localStorage.setItem(`urbanico_cart_${validPhone}`, JSON.stringify(mergedCart));
-
-        // Merge favorites
-        const userSavedFavsRaw = window.localStorage.getItem(`urbanico_favorite_ids_${validPhone}`);
-        const userSavedFavs: string[] = userSavedFavsRaw
-          ? JSON.parse(userSavedFavsRaw)
-          : ['plastering-sand', 'stone-20mm'];
-        const mergedFavs = Array.from(new Set([...userSavedFavs, ...favoriteIds]));
-        setFavoriteIds(mergedFavs);
-        window.localStorage.setItem(`urbanico_favorite_ids_${validPhone}`, JSON.stringify(mergedFavs));
-      }
+      // Merge favorites
+      const userSavedFavsRaw = safeStorage.getItem(`urbanico_favorite_ids_${validPhone}`);
+      const userSavedFavs: string[] = userSavedFavsRaw
+        ? JSON.parse(userSavedFavsRaw)
+        : ['plastering-sand', 'stone-20mm'];
+      const mergedFavs = Array.from(new Set([...userSavedFavs, ...favoriteIds]));
+      setFavoriteIds(mergedFavs);
+      safeStorage.setItem(`urbanico_favorite_ids_${validPhone}`, JSON.stringify(mergedFavs));
     } catch {
       // ignore
     }
@@ -687,12 +668,10 @@ function MainAppContent() {
     setFavoriteIds([]);
     resetLocationsToDefault();
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.removeItem('urbanico_auth_session');
-        window.localStorage.removeItem('urbanico_orders');
-        window.localStorage.removeItem('urbanico_cart_guest');
-        window.localStorage.removeItem('urbanico_favorite_ids_guest');
-      }
+      safeStorage.removeItem('urbanico_auth_session');
+      safeStorage.removeItem('urbanico_orders');
+      safeStorage.removeItem('urbanico_cart_guest');
+      safeStorage.removeItem('urbanico_favorite_ids_guest');
     } catch {
       // ignore
     }

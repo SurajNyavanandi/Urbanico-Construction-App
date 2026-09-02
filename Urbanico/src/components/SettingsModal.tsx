@@ -172,27 +172,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             /* Main Settings Body */
             <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
               {/* 1. Language Option */}
-              <TouchableOpacity
-                onPress={() => setActiveSubView('language')}
-                style={[styles.settingRowCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
-                activeOpacity={0.75}
-              >
-                <View style={styles.settingRowLeft}>
-                  <View style={styles.iconCircle}>
-                    <Languages size={18} color="#111111" strokeWidth={2} />
+              <Text style={[styles.sectionHeaderLabel, { color: theme.textMuted }]}>LANGUAGE & REGION</Text>
+
+              <View style={[styles.settingsGroupCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                <TouchableOpacity
+                  onPress={() => setActiveSubView('language')}
+                  style={styles.switchRow}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.switchRowLeft}>
+                    <Languages size={16} color={theme.textPrimary} strokeWidth={2} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.settingTitle, { color: theme.textPrimary }]} numberOfLines={1}>
+                        {t.language}
+                      </Text>
+                      <Text style={[styles.settingSub, { color: theme.textSecondary }]} numberOfLines={1}>
+                        {t.languageSub}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>{t.language}</Text>
-                    <Text style={[styles.settingSub, { color: theme.textSecondary }]}>{t.languageSub}</Text>
+                  <View style={styles.settingRowRight}>
+                    <Text style={[styles.settingValueText, { color: theme.textPrimary }]} numberOfLines={1}>
+                      {currentLanguageOption.flag} {currentLanguageOption.nativeName}
+                    </Text>
+                    <ChevronRight size={15} color={theme.textMuted} />
                   </View>
-                </View>
-                <View style={styles.settingRowRight}>
-                  <Text style={[styles.settingValueText, { color: theme.textPrimary }]}>
-                    {currentLanguageOption.flag} {currentLanguageOption.nativeName}
-                  </Text>
-                  <ChevronRight size={16} color={theme.textMuted} />
-                </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
+              </View>
 
               {/* 2. Theme & Display */}
               <Text style={[styles.sectionHeaderLabel, { color: theme.textMuted }]}>DISPLAY & THEME</Text>
@@ -397,29 +403,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 16,
   },
-  settingRowCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    marginBottom: 16,
-  },
-  settingRowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  iconCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: '#F4F4F5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   settingTitle: {
     fontSize: 13,
     fontWeight: '700',
@@ -434,6 +417,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginLeft: 8,
+    flexShrink: 0,
   },
   settingValueText: {
     fontSize: 12.5,

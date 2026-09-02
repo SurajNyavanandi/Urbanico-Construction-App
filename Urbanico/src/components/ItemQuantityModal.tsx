@@ -9,6 +9,7 @@ import {
   Modal,
   Animated,
   Platform,
+  TextInput,
 } from 'react-native';
 import {
   X,
@@ -319,20 +320,31 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
             </Text>
           </View>
 
-          {onToggleFavorite && (
+          <View style={styles.headerActionRow}>
+            {onToggleFavorite && (
+              <TouchableOpacity
+                onPress={() => onToggleFavorite(item.id)}
+                style={[styles.favBtn, { backgroundColor: theme.surfaceSecondary }]}
+                activeOpacity={0.7}
+                accessibilityLabel="Toggle Favorite"
+              >
+                <Heart
+                  size={18}
+                  color={isFav ? '#E11D48' : theme.textPrimary}
+                  fill={isFav ? '#E11D48' : 'transparent'}
+                />
+              </TouchableOpacity>
+            )}
+
             <TouchableOpacity
-              onPress={() => onToggleFavorite(item.id)}
-              style={[styles.favBtn, { backgroundColor: theme.surfaceSecondary }]}
+              onPress={handleAnimatedClose}
+              style={[styles.headerCloseBtn, { backgroundColor: theme.surfaceSecondary }]}
               activeOpacity={0.7}
-              accessibilityLabel="Toggle Favorite"
+              accessibilityLabel="Close item modal"
             >
-              <Heart
-                size={18}
-                color={isFav ? '#E11D48' : theme.textPrimary}
-                fill={isFav ? '#E11D48' : 'transparent'}
-              />
+              <X size={18} color={theme.textPrimary} strokeWidth={2.4} />
             </TouchableOpacity>
-          )}
+          </View>
         </View>
 
         {/* Scrollable Body Content */}
@@ -474,23 +486,21 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
                     <Text style={[styles.pincodeLabel, { color: theme.textPrimary }]}>Delivery & Yard Hub ETA</Text>
                   </View>
                   <View style={styles.pincodeInputGroup}>
-                    <input
-                      type="text"
+                    <TextInput
+                      keyboardType="number-pad"
                       maxLength={6}
                       value={pincodeInput}
-                      onChange={(e) => handlePincodeKeystroke(e.target.value)}
+                      onChangeText={handlePincodeKeystroke}
                       placeholder="Pincode"
-                      style={{
-                        width: 70,
-                        padding: '4px 6px',
-                        fontSize: 12,
-                        fontWeight: '700',
-                        border: `1px solid ${theme.border}`,
-                        borderRadius: 6,
-                        backgroundColor: theme.surfaceSecondary,
-                        color: theme.textPrimary,
-                        outline: 'none',
-                      }}
+                      placeholderTextColor={theme.textSecondary}
+                      style={[
+                        styles.nativePincodeInput,
+                        {
+                          borderColor: theme.border,
+                          backgroundColor: theme.surfaceSecondary,
+                          color: theme.textPrimary,
+                        },
+                      ]}
                     />
                     <TouchableOpacity onPress={handleCheckPincode} style={styles.pincodeCheckBtn} activeOpacity={0.7}>
                       <Text style={styles.pincodeCheckBtnText}>Check</Text>
@@ -605,23 +615,17 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
                   >
                     <Minus size={14} color={theme.textPrimary} strokeWidth={2.5} />
                   </TouchableOpacity>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
+                  <TextInput
+                    keyboardType="number-pad"
                     value={quantityInputStr}
-                    onChange={(e) => handleQuantityInputChange(e.target.value)}
+                    onChangeText={handleQuantityInputChange}
                     onBlur={handleQuantityBlur}
-                    style={{
-                      width: 44,
-                      textAlign: 'center',
-                      fontSize: 13,
-                      fontWeight: '700',
-                      border: 'none',
-                      background: 'transparent',
-                      color: theme.textPrimary,
-                      outline: 'none',
-                    }}
+                    style={[
+                      styles.nativeQuantityInput,
+                      {
+                        color: theme.textPrimary,
+                      },
+                    ]}
                   />
                   <TouchableOpacity
                     onPress={() => handleStepQuantity(1)}
@@ -824,7 +828,19 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontWeight: '500',
   },
+  headerActionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   favBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerCloseBtn: {
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -864,6 +880,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+  },
+  nativePincodeInput: {
+    width: 70,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    fontSize: 12,
+    fontWeight: '700',
+    borderWidth: 1,
+    borderRadius: 6,
   },
   pincodeCheckBtn: {
     backgroundColor: '#111111',
@@ -1144,6 +1169,14 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     padding: 2,
+  },
+  nativeQuantityInput: {
+    width: 44,
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '700',
+    paddingVertical: 2,
+    paddingHorizontal: 0,
   },
   stepBtn: {
     width: 28,

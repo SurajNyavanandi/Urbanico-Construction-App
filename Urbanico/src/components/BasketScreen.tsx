@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Modal,
   Pressable,
+  TextInput,
 } from 'react-native';
 import {
   ShoppingCart,
@@ -273,6 +274,16 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   };
 
   const handlePaymentSuccess = (result: RazorpayPaymentResult) => {
+    console.log(`\n================== [BASKET SCREEN] PAYMENT SUCCESSFUL ==================`);
+    console.log(`[Basket Screen] Payment Details:`, {
+      paymentId: result.razorpay_payment_id,
+      orderId: result.razorpay_order_id,
+      method: result.method,
+      amount: `₹${result.amount}`,
+      isLiveMode: result.isLiveMode,
+      status: result.status,
+    });
+
     setShowRazorpayModal(false);
     setLatestPaymentResult(result);
     setShowSuccessModal(true);
@@ -927,21 +938,20 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
               <View style={styles.couponModalBody}>
                 {/* Promo input */}
                 <View style={styles.promoInputRow}>
-                  <input
-                    type="text"
+                  <TextInput
                     value={promoInput}
-                    onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                    onChangeText={(val) => setPromoInput(val.toUpperCase())}
                     placeholder="Enter coupon code (e.g. BUILD10)"
-                    style={{
-                      flex: 1,
-                      padding: '10px 12px',
-                      fontSize: 13,
-                      border: `1px solid ${theme.border}`,
-                      borderRadius: 8,
-                      backgroundColor: theme.surfaceSecondary,
-                      color: theme.textPrimary,
-                      outline: 'none',
-                    }}
+                    placeholderTextColor={theme.textSecondary}
+                    autoCapitalize="characters"
+                    style={[
+                      styles.promoTextInput,
+                      {
+                        borderColor: theme.border,
+                        backgroundColor: theme.surfaceSecondary,
+                        color: theme.textPrimary,
+                      },
+                    ]}
                   />
                   <TouchableOpacity
                     onPress={() => handleApplyCoupon(promoInput)}
@@ -1730,6 +1740,14 @@ const styles = StyleSheet.create({
   promoInputRow: {
     flexDirection: 'row',
     gap: 8,
+  },
+  promoTextInput: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 13,
+    borderWidth: 1,
+    borderRadius: 8,
   },
   promoApplyBtn: {
     backgroundColor: '#111111',

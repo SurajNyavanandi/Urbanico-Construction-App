@@ -7,7 +7,7 @@ import {
   StyleSheet,
   Pressable,
 } from 'react-native';
-import { Globe, Check, Sparkles, Languages, X, ArrowLeft } from 'lucide-react-native';
+import { Globe, Check, Sparkles, Languages, X } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage, LanguageCode } from '../context/LanguageContext';
 import { LoadingButton } from './common/LoadingButton';
@@ -50,17 +50,9 @@ export const LanguagePromptModal: React.FC<LanguagePromptModalProps> = ({
           style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
           onPress={(e) => e.stopPropagation()}
         >
-          {/* Header with Close and Back Buttons */}
+          {/* Header with Single Clear Close Button */}
           <View style={[styles.headerBox, { borderBottomColor: theme.borderLight }]}>
             <View style={styles.topActionRow}>
-              <TouchableOpacity
-                onPress={onClose}
-                style={[styles.headerBtn, { backgroundColor: theme.surfaceSecondary }]}
-                activeOpacity={0.7}
-                accessibilityLabel="Go back"
-              >
-                <ArrowLeft size={18} color={theme.textPrimary} />
-              </TouchableOpacity>
               <View style={[styles.iconCircle, { backgroundColor: theme.primaryLight }]}>
                 <Languages size={20} color={theme.primary} />
               </View>
@@ -140,23 +132,12 @@ export const LanguagePromptModal: React.FC<LanguagePromptModalProps> = ({
 
           {/* Action Footer */}
           <View style={styles.footerBox}>
-            <View style={styles.btnRow}>
-              <TouchableOpacity
-                onPress={onClose}
-                style={[styles.cancelBtn, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary }]}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.cancelBtnText, { color: theme.textPrimary }]}>Cancel</Text>
-              </TouchableOpacity>
-              <View style={{ flex: 1 }}>
-                <LoadingButton
-                  title={t.confirmLanguage}
-                  onPress={handleSave}
-                  isLoading={isSaving}
-                  variant="primary"
-                />
-              </View>
-            </View>
+            <LoadingButton
+              title={t.confirmLanguage}
+              onPress={handleSave}
+              isLoading={isSaving}
+              variant="primary"
+            />
             <Text style={[styles.noteText, { color: theme.textMuted }]}>
               💡 {t.changeLanguageAnytime}
             </Text>

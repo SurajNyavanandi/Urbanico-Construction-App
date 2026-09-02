@@ -9,6 +9,7 @@ import {
   Linking,
   DimensionValue,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { MapPin, Navigation, Compass, ExternalLink, Layers } from 'lucide-react-native';
 import { LatLng } from './GoogleMapPicker';
 
@@ -226,10 +227,22 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
                 .then(function(data) {
                   var address = data.display_name || (lat.toFixed(4) + ', ' + lng.toFixed(4));
                   marker.bindPopup('<div class="popup-title">' + title + '</div><div class="popup-sub">' + address + '</div>').openPopup();
-                  window.parent.postMessage({ type: 'LOCATION_SELECTED', lat: lat, lng: lng, address: address }, '*');
+                  var payload = { type: 'LOCATION_SELECTED', lat: lat, lng: lng, address: address };
+                  if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+                    window.ReactNativeWebView.postMessage(JSON.stringify(payload));
+                  }
+                  if (window.parent && window.parent.postMessage) {
+                    window.parent.postMessage(payload, '*');
+                  }
                 })
                 .catch(function() {
-                  window.parent.postMessage({ type: 'LOCATION_SELECTED', lat: lat, lng: lng }, '*');
+                  var payload = { type: 'LOCATION_SELECTED', lat: lat, lng: lng };
+                  if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+                    window.ReactNativeWebView.postMessage(JSON.stringify(payload));
+                  }
+                  if (window.parent && window.parent.postMessage) {
+                    window.parent.postMessage(payload, '*');
+                  }
                 });
             });
           }
@@ -238,6 +251,24 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
     </body>
     </html>
   `;
+
+  // Handle message from React Native WebView
+  const handleWebViewMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data && data.type === 'LOCATION_SELECTED') {
+        const { lat, lng, address } = data;
+        if (onLocationSelect) {
+          onLocationSelect({ lat, lng }, address);
+        }
+        if (address) {
+          setNativeAddress(address);
+        }
+      }
+    } catch {
+      // Non-JSON or standard message
+    }
+  };
 
   // On Web: use createElement to avoid React Native JSX NativeRegistry registration
   if (Platform.OS === 'web') {
@@ -264,65 +295,37 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
     );
   }
 
-  // On Native Android & iOS: Render pure React Native Interactive Location & Map Card
+  // On Native Android & iOS (Expo / React Native): Render Native WebView Map
   return (
     <View style={[styles.container, { height }]}>
-      {/* Visual Blueprint / Satellite Background Canvas */}
-      <View style={styles.nativeMapCanvas}>
-        {/* Grid lines */}
-        <View style={styles.mapGridRow}>
-          <View style={styles.mapGridCell} />
-          <View style={styles.mapGridCell} />
-          <View style={styles.mapGridCell} />
+      <WebView
+        originWhitelist={['*']}
+        source={{ html: leafletHtml }}
+        style={styles.webView}
+        onMessage={handleWebViewMessage}
+        onLoadEnd={() => setLoading(false)}
+        javaScriptEnabled
+        domStorageEnabled
+        scalesPageToFit={false}
+        scrollEnabled={interactive}
+      />
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="small" color="#111111" />
+          <Text style={styles.loadingText}>Loading Map (OpenStreetMap)...</Text>
         </View>
-        <View style={styles.mapGridRow}>
-          <View style={styles.mapGridCell} />
-          <View style={styles.mapGridCell} />
-          <View style={styles.mapGridCell} />
-        </View>
-
-        {/* Depot Node (if route active) */}
-        {routeOrigin && (
-          <View style={styles.depotNode}>
-            <View style={styles.depotDot} />
-            <Text style={styles.depotLabel}>Depot Warehouse</Text>
-          </View>
-        )}
-
-        {/* Trajectory Route Line (if route active) */}
-        {routeOrigin && <View style={styles.routeLine} />}
-
-        {/* Destination / Selected Site Pin */}
-        <View style={styles.siteMarkerContainer}>
-          <View style={styles.pulseRing} />
-          <View style={styles.markerBadge}>
-            <MapPin size={18} color="#FFFFFF" />
-          </View>
-          <View style={styles.markerCallout}>
-            <Text style={styles.markerCalloutTitle} numberOfLines={1}>
-              {markerTitle}
-            </Text>
-            <Text style={styles.markerCalloutCoords}>
-              {selectedPos.lat.toFixed(4)}, {selectedPos.lng.toFixed(4)}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Bottom Floating Control Bar */}
+      )}
+      {/* Bottom Floating Navigate Button */}
       <View style={styles.nativeBottomBar}>
         <View style={styles.addressContainer}>
           <View style={styles.addressHeaderRow}>
             <Compass size={12} color="#111111" />
-            <Text style={styles.addressHeaderLabel}>Site GPS Coordinates</Text>
+            <Text style={styles.addressHeaderLabel}>Site Location</Text>
           </View>
           <Text style={styles.addressText} numberOfLines={1}>
-            {isResolvingAddress
-              ? 'Locating address via GPS...'
-              : nativeAddress || `${selectedPos.lat.toFixed(5)}, ${selectedPos.lng.toFixed(5)}`}
+            {nativeAddress || `${selectedPos.lat.toFixed(4)}° N, ${selectedPos.lng.toFixed(4)}° E`}
           </Text>
         </View>
-
         <TouchableOpacity
           onPress={handleOpenExternalMaps}
           style={styles.openMapsButton}
@@ -346,6 +349,12 @@ const styles = StyleSheet.create({
     borderColor: '#EEEEEE',
     backgroundColor: '#18181B',
     position: 'relative',
+  },
+  webView: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#18181B',
   },
   loadingOverlay: {
     position: 'absolute',

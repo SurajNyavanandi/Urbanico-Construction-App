@@ -540,20 +540,27 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         <Pressable style={styles.backdrop} onPress={onClose} />
 
         <View style={[styles.sheetContainer, { backgroundColor: '#FFFFFF' }]}>
+          {/* Top Drag Handle Bar (closes on tap) */}
+          <TouchableOpacity
+            onPress={onClose}
+            style={styles.sheetHandleArea}
+            activeOpacity={0.7}
+            accessibilityLabel="Close invoice sheet"
+          >
+            <View style={styles.sheetHandleBar} />
+          </TouchableOpacity>
+
           {/* Executive Top Navigation Bar */}
           <View style={styles.modalHeader}>
             <View style={styles.headerLeftGroup}>
-              <View style={styles.brandIconMark}>
-                <Building2 size={18} color="#FFFFFF" strokeWidth={2.2} />
-              </View>
-              <View>
+              <View style={styles.headerTitleBox}>
                 <View style={styles.titleWithBadgeRow}>
-                  <Text style={styles.modalTitle}>Tax Invoice</Text>
+                  <Text style={styles.modalTitle} numberOfLines={1}>Tax Invoice</Text>
                   <View style={styles.invoiceNumPill}>
-                    <Text style={styles.invoiceNumPillText}>{invoiceNum}</Text>
+                    <Text style={styles.invoiceNumPillText} numberOfLines={1}>{invoiceNum}</Text>
                   </View>
                 </View>
-                <Text style={styles.modalSubtitle}>
+                <Text style={styles.modalSubtitle} numberOfLines={1} ellipsizeMode="tail">
                   GST Compliance • ITC Eligible • E-Way Bill Generated
                 </Text>
               </View>
@@ -567,15 +574,17 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                 accessibilityLabel="Print or download PDF invoice"
               >
                 <Printer size={15} color="#FFFFFF" strokeWidth={2.2} />
-                <Text style={styles.printActionText}>Print / PDF</Text>
+                <Text style={styles.printActionText}>PDF</Text>
               </TouchableOpacity>
 
+              {/* Dedicated Top Right Close Button */}
               <TouchableOpacity
                 onPress={onClose}
                 style={styles.closeBtn}
+                activeOpacity={0.7}
                 accessibilityLabel="Close invoice modal"
               >
-                <X size={18} color="#64748B" strokeWidth={2.5} />
+                <X size={18} color="#0F172A" strokeWidth={2.5} />
               </TouchableOpacity>
             </View>
           </View>
@@ -1024,16 +1033,27 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             )}
           </ScrollView>
 
-          {/* Modal Bottom CTA Bar */}
+          {/* Modal Bottom CTA Bar with Both Close & Download */}
           <View style={styles.modalFooter}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.closeFooterBtn}
+              activeOpacity={0.8}
+              accessibilityLabel="Close invoice"
+            >
+              <X size={16} color="#0F172A" strokeWidth={2.4} />
+              <Text style={styles.closeFooterBtnText}>Close</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity
               onPress={handlePrintPdf}
               style={styles.downloadPdfBtn}
               activeOpacity={0.85}
+              accessibilityLabel="Download or print invoice"
             >
               <Download size={16} color="#FFFFFF" strokeWidth={2.2} />
               <Text style={styles.downloadPdfBtnText}>
-                Download GST Invoice (PDF)
+                Download PDF
               </Text>
             </TouchableOpacity>
           </View>
@@ -1055,31 +1075,70 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
   backdrop: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
   sheetContainer: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '94%',
+    height: '92%',
+    maxHeight: '92%',
     width: '100%',
+    maxWidth: 680,
+    alignSelf: 'center',
     overflow: 'hidden',
     borderTopWidth: 1,
     borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  sheetHandleArea: {
+    width: '100%',
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  sheetHandleBar: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
   },
   modalHeader: {
-    paddingHorizontal: 18,
-    paddingVertical: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
+    gap: 8,
   },
   headerLeftGroup: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 8,
+    minWidth: 0,
+  },
+  headerBackBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  headerTitleBox: {
+    flex: 1,
+    minWidth: 0,
   },
   brandIconMark: {
     width: 34,
@@ -1092,54 +1151,61 @@ const styles = StyleSheet.create({
   titleWithBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
     color: '#0F172A',
     letterSpacing: -0.2,
+    flexShrink: 0,
   },
   invoiceNumPill: {
     backgroundColor: '#F1F5F9',
-    paddingHorizontal: 7,
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: 5,
+    flexShrink: 1,
   },
   invoiceNumPillText: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: '700',
     color: '#334155',
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
   modalSubtitle: {
-    fontSize: 11,
+    fontSize: 10.5,
     color: '#64748B',
     marginTop: 1,
   },
   headerRightActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    flexShrink: 0,
   },
   printActionBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 8,
     backgroundColor: '#0F172A',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
   printActionText: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '700',
   },
   closeBtn: {
-    padding: 6,
-    borderRadius: 8,
-    backgroundColor: '#F8FAFC',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   segmentNav: {
     flexDirection: 'row',
@@ -1645,12 +1711,34 @@ const styles = StyleSheet.create({
     color: '#0F172A',
   },
   modalFooter: {
-    padding: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
     backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  closeFooterBtn: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 12,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  closeFooterBtnText: {
+    color: '#0F172A',
+    fontSize: 13,
+    fontWeight: '700',
   },
   downloadPdfBtn: {
+    flex: 1.5,
     backgroundColor: '#0F172A',
     paddingVertical: 12,
     borderRadius: 10,

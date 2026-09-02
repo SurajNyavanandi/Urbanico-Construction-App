@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { SAVED_LOCATIONS } from '../data/materialsData';
+import { safeStorage } from '../utils/safeStorage';
 
 export interface LocationCoords {
   lat: number;
@@ -34,13 +35,11 @@ const LocationContext = createContext<LocationContextType | undefined>(undefined
 export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [savedLocations, setSavedLocations] = useState<string[]>(() => {
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const authSaved = window.localStorage.getItem('urbanico_auth_session');
-        const phone = authSaved ? JSON.parse(authSaved).phone : null;
-        const key = phone ? `urbanico_saved_locations_${phone.replace(/\D/g, '')}` : 'urbanico_saved_locations_guest';
-        const stored = window.localStorage.getItem(key);
-        if (stored) return JSON.parse(stored);
-      }
+      const authSaved = safeStorage.getItem('urbanico_auth_session');
+      const phone = authSaved ? JSON.parse(authSaved).phone : null;
+      const key = phone ? `urbanico_saved_locations_${phone.replace(/\D/g, '')}` : 'urbanico_saved_locations_guest';
+      const stored = safeStorage.getItem(key);
+      if (stored) return JSON.parse(stored);
     } catch {
       // ignore
     }
@@ -49,13 +48,11 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const [selectedLocation, setSelectedLocationState] = useState<string>(() => {
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const authSaved = window.localStorage.getItem('urbanico_auth_session');
-        const phone = authSaved ? JSON.parse(authSaved).phone : null;
-        const key = phone ? `urbanico_selected_location_${phone.replace(/\D/g, '')}` : 'urbanico_selected_location_guest';
-        const stored = window.localStorage.getItem(key);
-        if (stored) return stored;
-      }
+      const authSaved = safeStorage.getItem('urbanico_auth_session');
+      const phone = authSaved ? JSON.parse(authSaved).phone : null;
+      const key = phone ? `urbanico_selected_location_${phone.replace(/\D/g, '')}` : 'urbanico_selected_location_guest';
+      const stored = safeStorage.getItem(key);
+      if (stored) return stored;
     } catch {
       // ignore
     }
@@ -64,10 +61,8 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   const [coordsMap, setCoordsMap] = useState<Record<string, LocationCoords>>(() => {
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const stored = window.localStorage.getItem('urbanico_coords_map');
-        if (stored) return JSON.parse(stored);
-      }
+      const stored = safeStorage.getItem('urbanico_coords_map');
+      if (stored) return JSON.parse(stored);
     } catch {
       // ignore
     }
@@ -88,8 +83,8 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
       const cleanPhone = userPhone.replace(/\D/g, '');
       const key = `urbanico_saved_locations_${cleanPhone}`;
       const selKey = `urbanico_selected_location_${cleanPhone}`;
-      const stored = window.localStorage.getItem(key);
-      const storedSel = window.localStorage.getItem(selKey);
+      const stored = safeStorage.getItem(key);
+      const storedSel = safeStorage.getItem(selKey);
       if (stored) {
         setSavedLocations(JSON.parse(stored));
       } else {
@@ -105,15 +100,13 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   };
 
-  // Persist changes to localStorage with user partition
+  // Persist changes with user partition
   useEffect(() => {
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const authSaved = window.localStorage.getItem('urbanico_auth_session');
-        const phone = authSaved ? JSON.parse(authSaved).phone : null;
-        const key = phone ? `urbanico_saved_locations_${phone.replace(/\D/g, '')}` : 'urbanico_saved_locations_guest';
-        window.localStorage.setItem(key, JSON.stringify(savedLocations));
-      }
+      const authSaved = safeStorage.getItem('urbanico_auth_session');
+      const phone = authSaved ? JSON.parse(authSaved).phone : null;
+      const key = phone ? `urbanico_saved_locations_${phone.replace(/\D/g, '')}` : 'urbanico_saved_locations_guest';
+      safeStorage.setItem(key, JSON.stringify(savedLocations));
     } catch {
       // ignore
     }
@@ -121,12 +114,10 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   useEffect(() => {
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const authSaved = window.localStorage.getItem('urbanico_auth_session');
-        const phone = authSaved ? JSON.parse(authSaved).phone : null;
-        const key = phone ? `urbanico_selected_location_${phone.replace(/\D/g, '')}` : 'urbanico_selected_location_guest';
-        window.localStorage.setItem(key, selectedLocation);
-      }
+      const authSaved = safeStorage.getItem('urbanico_auth_session');
+      const phone = authSaved ? JSON.parse(authSaved).phone : null;
+      const key = phone ? `urbanico_selected_location_${phone.replace(/\D/g, '')}` : 'urbanico_selected_location_guest';
+      safeStorage.setItem(key, selectedLocation);
     } catch {
       // ignore
     }
@@ -134,9 +125,7 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   useEffect(() => {
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem('urbanico_coords_map', JSON.stringify(coordsMap));
-      }
+      safeStorage.setItem('urbanico_coords_map', JSON.stringify(coordsMap));
     } catch {
       // ignore
     }

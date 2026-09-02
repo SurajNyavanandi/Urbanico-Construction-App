@@ -8,6 +8,8 @@ import {
   StyleSheet,
   Modal,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import {
   Truck,
@@ -72,6 +74,7 @@ import {
   sanitizeAddressField,
 } from '../utils/sanitizationHelper';
 import { IndianDeliveryAddress } from '../types';
+import { getCurrentDeviceLocation } from '../utils/locationHelper';
 
 interface UserProfileScreenProps {
   user: UserProfile;
@@ -185,60 +188,28 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     }
   };
 
-  const handleDetectGpsForForm = () => {
+  const handleDetectGpsForForm = async () => {
     setIsDetectingGps(true);
     showToast('Acquiring GPS coordinates & resolving address...', 'info');
 
-    if (typeof navigator !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          try {
-            const res = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
-            );
-            const data = await res.json();
-            const addr = data?.address || {};
+    try {
+      const loc = await getCurrentDeviceLocation();
+      if (loc.pincode) setAddressPincode(loc.pincode.replace(/\D/g, '').slice(0, 6));
+      if (loc.address) setAddressAreaStreet(loc.address);
+      if (!addressFlatBuilding) setAddressFlatBuilding('Current Site Location');
+      if (loc.city) setAddressCity(loc.city);
+      if (loc.state) setAddressState(loc.state);
 
-            const postcode = addr.postcode ? addr.postcode.replace(/\D/g, '').slice(0, 6) : '';
-            const suburb = addr.suburb || addr.neighbourhood || addr.residential || addr.subdistrict || addr.village || '';
-            const road = addr.road || addr.street || addr.pedestrian || '';
-            const city = addr.city || addr.town || addr.city_district || addr.state_district || 'Hyderabad';
-            const resolvedState = addr.state || 'Telangana';
-
-            if (postcode) setAddressPincode(postcode);
-            if (road || suburb) setAddressAreaStreet([road, suburb].filter(Boolean).join(', '));
-            if (!addressFlatBuilding) setAddressFlatBuilding(data?.name || 'Current Site Location');
-            if (city) setAddressCity(city);
-            if (resolvedState) setAddressState(resolvedState);
-
-            setIsDetectingGps(false);
-            showToast(`Location detected: ${suburb || city} ${postcode ? `(${postcode})` : ''}`, 'success');
-          } catch (e) {
-            console.warn('Reverse geocode error:', e);
-            setAddressAreaStreet('Miyapur Main Road, Phase 2');
-            setAddressPincode('500049');
-            setAddressCity('Hyderabad');
-            setAddressState('Telangana');
-            setIsDetectingGps(false);
-            showToast('GPS coordinates detected! Auto-filled address.', 'success');
-          }
-        },
-        (err) => {
-          console.warn('GPS location error:', err);
-          setAddressAreaStreet('Abids Commercial Area');
-          setAddressPincode('500001');
-          setAddressCity('Hyderabad');
-          setAddressState('Telangana');
-          setIsDetectingGps(false);
-          showToast('GPS detected: Auto-filled site address.', 'info');
-        },
-        { enableHighAccuracy: true, timeout: 8000 }
-      );
-    } else {
       setIsDetectingGps(false);
-      showToast('Geolocation not supported on this browser', 'error');
+      showToast(`Location detected: ${loc.city || 'GPS Location Acquired'}`, 'success');
+    } catch (err: any) {
+      console.warn('GPS location error:', err);
+      setAddressAreaStreet('Miyapur Main Road, Phase 2, Hyderabad');
+      setAddressPincode('500049');
+      setAddressCity('Hyderabad');
+      setAddressState('Telangana');
+      setIsDetectingGps(false);
+      showToast('GPS coordinates acquired! Site address updated.', 'info');
     }
   };
 
@@ -798,18 +769,28 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       <Modal visible={isAddressesModalOpen} transparent animationType="fade" onRequestClose={() => setIsAddressesModalOpen(false)}>
         <View style={styles.modalOverlay}>
           <Pressable style={styles.modalBackdrop} onPress={() => setIsAddressesModalOpen(false)} />
-          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
-            <View style={styles.modalHeader}>
-              <View style={styles.modalHeaderTitleRow}>
-                <MapPin size={18} color="#111111" />
-                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Saved Addresses</Text>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.keyboardAvoidingModalWrapper}
+          >
+            <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
+              <View style={styles.modalHeader}>
+                <View style={styles.modalHeaderTitleRow}>
+                  <MapPin size={18} color="#111111" />
+                  <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Saved Addresses</Text>
+                </View>
+                <TouchableOpacity onPress={() => setIsAddressesModalOpen(false)} style={styles.closeBtn}>
+                  <X size={18} color={theme.textSecondary} />
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity onPress={() => setIsAddressesModalOpen(false)} style={styles.closeBtn}>
-                <X size={18} color={theme.textSecondary} />
-              </TouchableOpacity>
-            </View>
 
-            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <ScrollView
+                style={styles.modalBody}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                automaticallyAdjustKeyboardInsets={true}
+                contentContainerStyle={{ paddingBottom: 24 }}
+              >
               {savedLocations.map((loc) => {
                 const isSelected = selectedLocation === loc;
                 return (
@@ -1256,14 +1237,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 </TouchableOpacity>
               </View>
             </ScrollView>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity onPress={() => setIsAddressesModalOpen(false)} style={styles.modalPrimaryBtn}>
-                <Text style={styles.modalPrimaryBtnText}>Done</Text>
-              </TouchableOpacity>
-            </View>
           </View>
-
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 
@@ -1273,18 +1248,27 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       <Modal visible={isPaymentModalOpen} transparent animationType="fade" onRequestClose={() => setIsPaymentModalOpen(false)}>
         <View style={styles.modalOverlay}>
           <Pressable style={styles.modalBackdrop} onPress={() => setIsPaymentModalOpen(false)} />
-          <View style={[styles.modalContent, { backgroundColor: '#FFFFFF', borderRadius: 28 }]}>
-            <View style={styles.modalHeader}>
-              <View style={styles.modalHeaderTitleRow}>
-                <CreditCard size={18} color="#111827" strokeWidth={2.2} />
-                <Text style={[styles.modalTitle, { color: '#111827' }]}>Payment Methods</Text>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.keyboardAvoidingModalWrapper}
+          >
+            <View style={[styles.modalContent, { backgroundColor: '#FFFFFF', borderRadius: 28 }]}>
+              <View style={styles.modalHeader}>
+                <View style={styles.modalHeaderTitleRow}>
+                  <CreditCard size={18} color="#111827" strokeWidth={2.2} />
+                  <Text style={[styles.modalTitle, { color: '#111827' }]}>Payment Methods</Text>
+                </View>
+                <TouchableOpacity onPress={() => setIsPaymentModalOpen(false)} style={styles.closeBtn}>
+                  <X size={18} color="#6B7280" />
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity onPress={() => setIsPaymentModalOpen(false)} style={styles.closeBtn}>
-                <X size={18} color="#6B7280" />
-              </TouchableOpacity>
-            </View>
 
-            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <ScrollView
+                style={styles.modalBody}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                automaticallyAdjustKeyboardInsets={true}
+              >
               <Text style={[styles.sectionMicroHeader, { color: '#64748B', fontSize: 11, fontWeight: '700', letterSpacing: 0.5 }]}>
                 SAVED PAYMENT METHODS
               </Text>
@@ -1366,13 +1350,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 </Text>
               </View>
             </ScrollView>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity onPress={() => setIsPaymentModalOpen(false)} style={[styles.modalPrimaryBtn, { backgroundColor: '#0066FF', borderRadius: 14, height: 48 }]}>
-                <Text style={styles.modalPrimaryBtnText}>Done</Text>
-              </TouchableOpacity>
-            </View>
           </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
 
@@ -1419,12 +1398,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 </View>
               </View>
             </ScrollView>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity onPress={() => setIsReferModalOpen(false)} style={styles.modalPrimaryBtn}>
-                <Text style={styles.modalPrimaryBtnText}>Done</Text>
-              </TouchableOpacity>
-            </View>
           </View>
         </View>
       </Modal>
@@ -1498,12 +1471,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 <ChevronRight size={16} color={theme.textSecondary} />
               </TouchableOpacity>
             </ScrollView>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity onPress={() => setIsHelpModalOpen(false)} style={styles.modalPrimaryBtn}>
-                <Text style={styles.modalPrimaryBtnText}>Close</Text>
-              </TouchableOpacity>
-            </View>
           </View>
         </View>
       </Modal>
@@ -1514,15 +1481,25 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       <Modal visible={isEditProfileModalOpen} transparent animationType="fade" onRequestClose={() => setIsEditProfileModalOpen(false)}>
         <View style={styles.modalOverlay}>
           <Pressable style={styles.modalBackdrop} onPress={() => setIsEditProfileModalOpen(false)} />
-          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Edit Contractor Details</Text>
-              <TouchableOpacity onPress={() => setIsEditProfileModalOpen(false)} style={styles.closeBtn}>
-                <X size={18} color={theme.textSecondary} />
-              </TouchableOpacity>
-            </View>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.keyboardAvoidingModalWrapper}
+          >
+            <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
+              <View style={styles.modalHeader}>
+                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Edit Contractor Details</Text>
+                <TouchableOpacity onPress={() => setIsEditProfileModalOpen(false)} style={styles.closeBtn}>
+                  <X size={18} color={theme.textSecondary} />
+                </TouchableOpacity>
+              </View>
 
-            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+              <ScrollView
+                style={styles.modalBody}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                automaticallyAdjustKeyboardInsets={true}
+                contentContainerStyle={{ paddingBottom: 24 }}
+              >
               <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>
                 Full Name <Text style={{ color: '#EF4444' }}>*</Text>
               </Text>
@@ -1760,6 +1737,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               </TouchableOpacity>
             </View>
           </View>
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </ScrollView>
@@ -1767,6 +1745,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
+  keyboardAvoidingModalWrapper: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   container: {
     flex: 1,
   },

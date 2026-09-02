@@ -47,7 +47,7 @@ interface HomeScreenProps {
   onAddBundleToCartAndNavigate?: (bundle: ProjectBundle) => void;
 }
 
-const HERO_CARD_IMAGE_URL = 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1787725157/herocard4_gouvid.jpg';
+const HERO_CARD_IMAGE_URL = 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1788333084/herocard_hwvlhi.jpg';
 
 interface ChildPillItem {
   id: string;

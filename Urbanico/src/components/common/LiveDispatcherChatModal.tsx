@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Modal, Pressable, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Modal, Pressable, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { Send, PhoneCall, Bot, User, CheckCheck, X, Truck, ShieldAlert, Sparkles, MapPin } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
@@ -101,43 +101,49 @@ export const LiveDispatcherChatModal: React.FC<LiveDispatcherChatModalProps> = (
     <Modal visible={isVisible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={[styles.modalCard, { backgroundColor: theme.surface }]}>
-          {/* Header */}
-          <View style={[styles.header, { backgroundColor: '#111111' }]}>
-            <View style={styles.headerLeft}>
-              <View style={styles.dispatcherAvatar}>
-                <Truck size={16} color="#FFFFFF" />
-              </View>
-              <View>
-                <View style={styles.titleWithLiveRow}>
-                  <Text style={styles.headerTitle}>Yard Dispatch Control</Text>
-                  <View style={styles.onlineBadge}>
-                    <View style={styles.onlineDot} />
-                    <Text style={styles.onlineText}>LIVE</Text>
-                  </View>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.keyboardAvoidingModalWrapper}
+        >
+          <View style={[styles.modalCard, { backgroundColor: theme.surface }]}>
+            {/* Header */}
+            <View style={[styles.header, { backgroundColor: '#111111' }]}>
+              <View style={styles.headerLeft}>
+                <View style={styles.dispatcherAvatar}>
+                  <Truck size={16} color="#FFFFFF" />
                 </View>
-                <Text style={styles.headerSub}>Order #{orderNumber} • Driver: {driverName}</Text>
+                <View>
+                  <View style={styles.titleWithLiveRow}>
+                    <Text style={styles.headerTitle}>Yard Dispatch Control</Text>
+                    <View style={styles.onlineBadge}>
+                      <View style={styles.onlineDot} />
+                      <Text style={styles.onlineText}>LIVE</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.headerSub}>Order #{orderNumber} • Driver: {driverName}</Text>
+                </View>
+              </View>
+
+              <View style={styles.headerActions}>
+                <TouchableOpacity onPress={handleMaskedCall} style={styles.callBtn} activeOpacity={0.8}>
+                  <PhoneCall size={14} color="#FFFFFF" />
+                  <Text style={styles.callBtnText}>Call</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+                  <X size={18} color="#FFFFFF" />
+                </TouchableOpacity>
               </View>
             </View>
 
-            <View style={styles.headerActions}>
-              <TouchableOpacity onPress={handleMaskedCall} style={styles.callBtn} activeOpacity={0.8}>
-                <PhoneCall size={14} color="#FFFFFF" />
-                <Text style={styles.callBtnText}>Call</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                <X size={18} color="#FFFFFF" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Messages Area */}
-          <ScrollView
-            ref={scrollRef}
-            style={styles.messagesScroll}
-            contentContainerStyle={styles.messagesContent}
-            onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
-          >
+            {/* Messages Area */}
+            <ScrollView
+              ref={scrollRef}
+              style={styles.messagesScroll}
+              contentContainerStyle={styles.messagesContent}
+              keyboardShouldPersistTaps="handled"
+              automaticallyAdjustKeyboardInsets={true}
+              onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+            >
             {messages.map((m) => {
               if (m.sender === 'system') {
                 return (
@@ -218,22 +224,21 @@ export const LiveDispatcherChatModal: React.FC<LiveDispatcherChatModalProps> = (
 
           {/* Input Bar */}
           <View style={[styles.inputBar, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
-            <input
-              type="text"
+            <TextInput
               value={inputVal}
-              onChange={(e) => setInputVal(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+              onChangeText={setInputVal}
+              onSubmitEditing={handleSend}
+              returnKeyType="send"
               placeholder="Ask dispatch or request delivery update..."
-              style={{
-                flex: 1,
-                padding: '8px 12px',
-                fontSize: 13,
-                border: `1px solid ${theme.border}`,
-                borderRadius: 8,
-                backgroundColor: theme.surfaceSecondary,
-                color: theme.textPrimary,
-                outline: 'none',
-              }}
+              placeholderTextColor={theme.textSecondary}
+              style={[
+                styles.nativeChatInput,
+                {
+                  borderColor: theme.border,
+                  backgroundColor: theme.surfaceSecondary,
+                  color: theme.textPrimary,
+                },
+              ]}
             />
             <TouchableOpacity
               onPress={handleSend}
@@ -248,6 +253,7 @@ export const LiveDispatcherChatModal: React.FC<LiveDispatcherChatModalProps> = (
             </TouchableOpacity>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
@@ -257,6 +263,10 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  keyboardAvoidingModalWrapper: {
+    width: '100%',
     justifyContent: 'flex-end',
   },
   backdrop: {
@@ -434,6 +444,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  nativeChatInput: {
+    flex: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13,
+    borderWidth: 1,
+    borderRadius: 8,
   },
   sendBtn: {
     width: 36,

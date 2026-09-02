@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
+import { safeStorage } from '../utils/safeStorage';
 
 export type LanguageCode = 'en' | 'te' | 'hi' | 'kn' | 'ta';
 
@@ -89,8 +90,8 @@ const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
     profile: 'My Profile',
     settings: 'Preferences & Settings',
     activity: 'Activity Dashboard',
-    language: 'Language Preferences',
-    languageSub: 'Choose your preferred app display language',
+    language: 'Language',
+    languageSub: 'App display language',
     selectLanguagePromptTitle: 'Select Preferred Language',
     selectLanguagePromptSub: 'Welcome! Please choose your preferred language for the Urbanico app.',
     confirmLanguage: 'Confirm Language',
@@ -119,8 +120,8 @@ const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
     profile: 'నా ప్రొఫైల్',
     settings: 'ప్రాధాన్యతలు & సెట్టింగ్‌లు',
     activity: 'యాక్టివిటీ డాష్‌బోర్డ్',
-    language: 'భాషా ప్రాధాన్యతలు',
-    languageSub: 'యాప్ ప్రదర్శన భాషను ఎంచుకోండి',
+    language: 'భాష',
+    languageSub: 'యాప్ ప్రదర్శన భాష',
     selectLanguagePromptTitle: 'మీ ప్రాధాన్య భాషను ఎంచుకోండి',
     selectLanguagePromptSub: 'స్వాగతం! అర్బానికో యాప్ కోసం మీ ప్రాధాన్యత భాషను ఎంచుకోండి.',
     confirmLanguage: 'భాషను స్థిరీకరించు',
@@ -149,8 +150,8 @@ const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
     profile: 'मेरी प्रोफ़ाइल',
     settings: 'प्राथमिकताएं और सेटिंग्स',
     activity: 'गतिविधि डैशबोर्ड',
-    language: 'भाषा प्राथमिकताएं',
-    languageSub: 'अपनी पसंदीदा ऐप भाषा चुनें',
+    language: 'भाषा',
+    languageSub: 'ऐप प्रदर्शन भाषा',
     selectLanguagePromptTitle: 'पसंदीदा भाषा चुनें',
     selectLanguagePromptSub: 'स्वागत है! अर्बनिको ऐप के लिए अपनी पसंदीदा भाषा चुनें।',
     confirmLanguage: 'भाषा की पुष्टि करें',
@@ -179,8 +180,8 @@ const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
     profile: 'ನನ್ನ ಪ್ರೊಫೈಲ್',
     settings: 'ಆದ್ಯತೆಗಳು ಮತ್ತು ಸೇಟಿಂಗ್ಸ್',
     activity: 'ಚಟುವಟಿಕೆ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್',
-    language: 'ಭಾಷಾ ಆದ್ಯತೆಗಳು',
-    languageSub: 'ನಿಮ್ಮ ಆಪ್ ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ',
+    language: 'ಭಾಷೆ',
+    languageSub: 'ಆಪ್ ಪ್ರದರ್ಶನ ಭಾಷೆ',
     selectLanguagePromptTitle: 'ಆದ್ಯತೆಯ ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ',
     selectLanguagePromptSub: 'ಸ್ವಾಗತ! ಅರ್ಬಾನಿಕೋ ಆಪ್‌ಗಾಗಿ ನಿಮ್ಮ ಆದ್ಯತೆಯ ಭಾಷೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ.',
     confirmLanguage: 'ಭಾಷೆಯನ್ನು ಖಚಿತಪಡಿಸಿ',
@@ -209,8 +210,8 @@ const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
     profile: 'என் சுயவிவரம்',
     settings: 'விருப்பங்கள் & அமைப்புகள்',
     activity: 'செயல்பாட்டு டாஷ்போர்டு',
-    language: 'மொழி விருப்பங்கள்',
-    languageSub: 'உங்கள் பயன்பாட்டு மொழியைத் தேர்ந்தெடுக்கவும்',
+    language: 'மொழி',
+    languageSub: 'செயலி காட்சி மொழி',
     selectLanguagePromptTitle: 'விருப்ப மொழியைத் தேர்ந்தெடுக்கவும்',
     selectLanguagePromptSub: 'வரவேற்கிறோம்! அர்பானிகோ பயன்பாட்டிற்காக உங்கள் விருப்ப மொழியைத் தேர்ந்தெடுக்கவும்.',
     confirmLanguage: 'மொழியை உறுதிப்படுத்தவும்',
@@ -245,11 +246,9 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [language, setLanguageState] = useState<LanguageCode>(() => {
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const stored = window.localStorage.getItem('urbanico_preferred_language') as LanguageCode;
-        if (stored && ['en', 'te', 'hi', 'kn', 'ta'].includes(stored)) {
-          return stored;
-        }
+      const stored = safeStorage.getItem('urbanico_preferred_language') as LanguageCode;
+      if (stored && ['en', 'te', 'hi', 'kn', 'ta'].includes(stored)) {
+        return stored;
       }
     } catch {
       // ignore
@@ -260,9 +259,7 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const setLanguage = (code: LanguageCode) => {
     setLanguageState(code);
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem('urbanico_preferred_language', code);
-      }
+      safeStorage.setItem('urbanico_preferred_language', code);
     } catch {
       // ignore
     }

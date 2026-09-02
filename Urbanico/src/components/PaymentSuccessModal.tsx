@@ -3,6 +3,7 @@ import {
   View,
   Text,
   TouchableOpacity,
+  Pressable,
   StyleSheet,
   Modal,
   ScrollView,
@@ -20,6 +21,7 @@ import {
   Sparkles,
   ChevronRight,
   Clock,
+  X,
 } from 'lucide-react-native';
 import { RazorpayPaymentResult } from './RazorpayModal';
 import { soundService } from '../utils/soundHelper';
@@ -94,7 +96,16 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
+        <Pressable style={styles.backdrop} onPress={onClose} />
         <View style={styles.modalSheet}>
+          <TouchableOpacity
+            onPress={onClose}
+            style={styles.topCloseBtn}
+            activeOpacity={0.7}
+            accessibilityLabel="Close receipt"
+          >
+            <X size={18} color="#64748B" strokeWidth={2.4} />
+          </TouchableOpacity>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             {/* 1. Google Pay / PhonePe Inspired Minimalist Success Badge */}
             <View style={styles.successHeader}>
@@ -304,6 +315,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
   },
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+  },
   modalSheet: {
     width: '100%',
     maxWidth: 440,
@@ -311,11 +329,24 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     maxHeight: '92%',
     overflow: 'hidden',
+    position: 'relative',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.14,
     shadowRadius: 28,
     elevation: 16,
+  },
+  topCloseBtn: {
+    position: 'absolute',
+    top: 14,
+    right: 14,
+    zIndex: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   scrollContent: {
     padding: 20,

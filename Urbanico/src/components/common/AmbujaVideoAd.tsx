@@ -6,9 +6,9 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import {
   Play,
-  Pause,
   Volume2,
   VolumeX,
   ArrowRight,
@@ -28,6 +28,7 @@ export const AmbujaVideoAd: React.FC<AmbujaVideoAdProps> = ({
   const [isMuted, setIsMuted] = useState(true);
   const [hasStarted, setHasStarted] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const webViewRef = useRef<any>(null);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -49,17 +50,30 @@ export const AmbujaVideoAd: React.FC<AmbujaVideoAdProps> = ({
     if (e && e.stopPropagation) {
       e.stopPropagation();
     }
-    const video = videoRef.current;
-    if (video) {
-      if (video.paused) {
-        video.play().catch(() => {});
-        setIsPlaying(true);
+    if (Platform.OS === 'web') {
+      const video = videoRef.current;
+      if (video) {
+        if (video.paused) {
+          video.play().catch(() => {});
+          setIsPlaying(true);
+        } else {
+          video.pause();
+          setIsPlaying(false);
+        }
       } else {
-        video.pause();
-        setIsPlaying(false);
+        setIsPlaying(!isPlaying);
       }
     } else {
-      setIsPlaying(!isPlaying);
+      // Native WebView
+      const nextPlaying = !isPlaying;
+      setIsPlaying(nextPlaying);
+      if (webViewRef.current) {
+        webViewRef.current.injectJavaScript(
+          nextPlaying
+            ? `document.getElementById('ambujaVid')?.play(); true;`
+            : `document.getElementById('ambujaVid')?.pause(); true;`
+        );
+      }
     }
   };
 
@@ -67,23 +81,80 @@ export const AmbujaVideoAd: React.FC<AmbujaVideoAdProps> = ({
     if (e && e.stopPropagation) {
       e.stopPropagation();
     }
-    const video = videoRef.current;
-    if (video) {
-      const nextMuted = !isMuted;
-      video.muted = nextMuted;
-      setIsMuted(nextMuted);
-      if (!nextMuted && video.paused) {
-        video.play().catch(() => {
-          if (videoRef.current) {
-            videoRef.current.muted = true;
-            setIsMuted(true);
-          }
-        });
+    const nextMuted = !isMuted;
+    setIsMuted(nextMuted);
+
+    if (Platform.OS === 'web') {
+      const video = videoRef.current;
+      if (video) {
+        video.muted = nextMuted;
+        if (!nextMuted && video.paused) {
+          video.play().catch(() => {
+            if (videoRef.current) {
+              videoRef.current.muted = true;
+              setIsMuted(true);
+            }
+          });
+        }
       }
     } else {
-      setIsMuted(!isMuted);
+      // Native WebView
+      if (webViewRef.current) {
+        webViewRef.current.injectJavaScript(
+          `if (document.getElementById('ambujaVid')) { document.getElementById('ambujaVid').muted = ${nextMuted}; } true;`
+        );
+      }
     }
   };
+
+  const ambujaHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+          background-color: #000000;
+        }
+        video {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+      </style>
+    </head>
+    <body>
+      <video
+        id="ambujaVid"
+        src="${AMBUJA_AD_VIDEO_URL}"
+        autoplay
+        loop
+        muted
+        playsinline
+        webkit-playsinline
+      ></video>
+      <script>
+        var v = document.getElementById('ambujaVid');
+        function initVid() {
+          if (!v) return;
+          v.play().catch(function() {
+            v.muted = true;
+            v.play().catch(function(){});
+          });
+        }
+        document.addEventListener('DOMContentLoaded', initVid);
+        window.onload = initVid;
+        initVid();
+      </script>
+    </body>
+    </html>
+  `;
 
   return (
     <View style={styles.container}>
@@ -126,11 +197,28 @@ export const AmbujaVideoAd: React.FC<AmbujaVideoAdProps> = ({
               }}
             />
           ) : (
-            <View style={styles.nativeFallback} />
+            <View style={styles.nativeWebViewContainer} pointerEvents="none">
+              <WebView
+                ref={webViewRef}
+                source={{ html: ambujaHtml }}
+                style={styles.nativeWebView}
+                allowsInlineMediaPlayback={true}
+                mediaPlaybackRequiresUserAction={false}
+                javaScriptEnabled={true}
+                domStorageEnabled={true}
+                scrollEnabled={false}
+                bounces={false}
+                showsHorizontalScrollIndicator={false}
+                showsVerticalScrollIndicator={false}
+                androidLayerType="hardware"
+                originWhitelist={['*']}
+                mixedContentMode="always"
+              />
+            </View>
           )}
 
           {/* High contrast overlay for readability & controls */}
-          <View style={styles.subtleGradientOverlay} />
+          <View style={styles.subtleGradientOverlay} pointerEvents="none" />
 
           {/* Top Bar: Sound Control */}
           <View style={styles.topControlsRow}>
@@ -208,13 +296,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 12,
   },
-  nativeFallback: {
+  nativeWebViewContainer: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: '#1E293B',
+    backgroundColor: '#000000',
+  },
+  nativeWebView: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#000000',
   },
   subtleGradientOverlay: {
     position: 'absolute',
@@ -229,23 +322,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-end',
     zIndex: 3,
-  },
-  adBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.25)',
-  },
-  adBadgeText: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 0.5,
   },
   soundButton: {
     flexDirection: 'row',

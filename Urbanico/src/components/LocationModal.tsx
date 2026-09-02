@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Animated,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import {
   X,
@@ -29,6 +30,7 @@ import {
   formatIndianAddressSummary,
 } from '../utils/addressHelper';
 import { IndianDeliveryAddress } from '../types';
+import { getCurrentDeviceLocation } from '../utils/locationHelper';
 
 interface LocationModalProps {
   isOpen: boolean;
@@ -107,72 +109,41 @@ export const LocationModal: React.FC<LocationModalProps> = ({
 
   if (!isOpen) return null;
 
-  // 1-Tap Geolocation Auto-Detection
-  const handleUseCurrentLocation = () => {
+  // 1-Tap Geolocation Auto-Detection (Cross-Platform Expo & Web)
+  const handleUseCurrentLocation = async () => {
     setIsLocating(true);
     setStatusMessage({ text: 'Detecting GPS location...', type: 'info' });
 
-    if (typeof navigator !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          const coords = {
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
-          };
-          setActiveCoords(coords);
+    try {
+      const loc = await getCurrentDeviceLocation();
+      const coords = loc.coords;
+      setActiveCoords(coords);
 
-          try {
-            const res = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.lat}&lon=${coords.lng}`
-            );
-            const data = await res.json();
-            const addr = data?.address || {};
+      if (loc.pincode) setPincode(loc.pincode.replace(/\D/g, '').slice(0, 6));
+      if (loc.address) setAreaStreet(loc.address);
+      if (!flatBuilding) setFlatBuilding('Site Location');
+      if (loc.city) setCity(loc.city);
+      if (loc.state) setState(loc.state);
 
-            const postcode = addr.postcode ? addr.postcode.replace(/\D/g, '').slice(0, 6) : '';
-            const suburb = addr.suburb || addr.neighbourhood || addr.residential || addr.subdistrict || addr.village || '';
-            const road = addr.road || addr.street || addr.pedestrian || '';
-            const resolvedCity = addr.city || addr.town || addr.city_district || 'Hyderabad';
-            const resolvedState = addr.state || 'Telangana';
-
-            if (postcode) setPincode(postcode);
-            if (road || suburb) setAreaStreet([road, suburb].filter(Boolean).join(', '));
-            if (!flatBuilding) setFlatBuilding(data?.name || 'Site Location');
-            if (resolvedCity) setCity(resolvedCity);
-            if (resolvedState) setState(resolvedState);
-
-            setIsLocating(false);
-            setStatusMessage({
-              text: `Location detected: ${suburb || resolvedCity}`,
-              type: 'success',
-            });
-          } catch {
-            setPincode('500081');
-            setAreaStreet('HITEC City Main Road');
-            setCity('Hyderabad');
-            setState('Telangana');
-            setIsLocating(false);
-            setStatusMessage({ text: 'GPS coordinates detected and auto-filled.', type: 'success' });
-          }
-
-          setTimeout(() => setStatusMessage(null), 3000);
-        },
-        (err) => {
-          console.warn('Geolocation error:', err);
-          setPincode('500081');
-          setAreaStreet('HITEC City, Hyderabad');
-          setCity('Hyderabad');
-          setState('Telangana');
-          setIsLocating(false);
-          setStatusMessage({ text: 'Default location coordinates applied.', type: 'info' });
-          setTimeout(() => setStatusMessage(null), 3000);
-        },
-        { enableHighAccuracy: true, timeout: 8000 }
-      );
-    } else {
       setIsLocating(false);
-      setStatusMessage({ text: 'GPS not supported by browser.', type: 'error' });
-      setTimeout(() => setStatusMessage(null), 3000);
+      setStatusMessage({
+        text: `Location detected: ${loc.city || 'GPS Position Acquired'}`,
+        type: 'success',
+      });
+    } catch (err: any) {
+      console.warn('Geolocation error:', err);
+      setPincode('500081');
+      setAreaStreet('HITEC City Main Road, Hyderabad');
+      setCity('Hyderabad');
+      setState('Telangana');
+      setIsLocating(false);
+      setStatusMessage({
+        text: err.message || 'Unable to access GPS. Default location applied.',
+        type: 'info',
+      });
     }
+
+    setTimeout(() => setStatusMessage(null), 3500);
   };
 
   const handlePincodeChange = (text: string) => {
@@ -232,33 +203,45 @@ export const LocationModal: React.FC<LocationModalProps> = ({
   return (
     <AnimatedView style={[styles.overlay, { opacity: fadeAnim }]}>
       <Pressable style={styles.backdrop} onPress={handleAnimatedClose} />
-      <AnimatedView
-        style={[
-          styles.sheetContainer,
-          {
-            backgroundColor: theme.surface,
-            transform: [{ translateY: slideAnim }],
-          },
-        ]}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={styles.keyboardAvoidingWrapper}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 20 : 0}
       >
-        {/* Header */}
-        <View style={[styles.headerRow, { borderBottomColor: theme.border }]}>
-          <View style={styles.titleGroup}>
-            <MapPin size={20} color={theme.primary} strokeWidth={2.2} />
-            <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>
-              Delivery Location
-            </Text>
+        <AnimatedView
+          style={[
+            styles.sheetContainer,
+            {
+              backgroundColor: theme.surface,
+              transform: [{ translateY: slideAnim }],
+            },
+          ]}
+        >
+          {/* Header */}
+          <View style={[styles.headerRow, { borderBottomColor: theme.border }]}>
+            <View style={styles.titleGroup}>
+              <MapPin size={20} color={theme.primary} strokeWidth={2.2} />
+              <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>
+                Delivery Location
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={handleAnimatedClose}
+              style={styles.closeBtn}
+              accessibilityLabel="Close location modal"
+            >
+              <X size={18} color={theme.textMuted} strokeWidth={2.5} />
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            onPress={handleAnimatedClose}
-            style={styles.closeBtn}
-            accessibilityLabel="Close location modal"
-          >
-            <X size={18} color={theme.textMuted} strokeWidth={2.5} />
-          </TouchableOpacity>
-        </View>
 
-        <ScrollView style={styles.scrollBody} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+          <ScrollView
+            style={styles.scrollBody}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            automaticallyAdjustKeyboardInsets={true}
+            contentContainerStyle={styles.scrollContent}
+          >
           {/* Status Message Banner */}
           {statusMessage && (
             <View
@@ -597,6 +580,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
           </TouchableOpacity>
         </View>
       </AnimatedView>
+      </KeyboardAvoidingView>
     </AnimatedView>
   );
 };
@@ -615,11 +599,16 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
   },
+  keyboardAvoidingWrapper: {
+    width: '100%',
+    justifyContent: 'flex-end',
+    maxHeight: '92%',
+  },
   sheetContainer: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '90%',
     width: '100%',
+    maxHeight: '100%',
     overflow: 'hidden',
     borderTopWidth: 1,
     borderColor: '#E2E8F0',
@@ -647,10 +636,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   scrollBody: {
+    flexShrink: 1,
     maxHeight: 520,
   },
   scrollContent: {
     padding: 16,
+    paddingBottom: 28,
     gap: 14,
   },
   statusBanner: {

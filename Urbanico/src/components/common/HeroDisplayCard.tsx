@@ -17,7 +17,7 @@ interface HeroDisplayCardProps {
   onPressCta?: () => void;
 }
 
-export const HERO_IMAGE_URL = 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786620810/herocard3_ytzfhm.jpg';
+export const HERO_IMAGE_URL = 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1788333084/herocard_hwvlhi.jpg';
 
 export const HeroDisplayCard: React.FC<HeroDisplayCardProps> = ({
   onCtaPress,

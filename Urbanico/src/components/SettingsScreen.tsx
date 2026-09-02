@@ -76,25 +76,25 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           }}
         />
 
-        {/* SECTION 0: Language Preferences (Nike Clean Inset Menu) */}
+        {/* SECTION 0: Language Preferences */}
         <View style={styles.sectionCard}>
+          <View style={styles.sectionHeaderRow}>
+            <Languages size={18} color="#111111" strokeWidth={2} />
+            <Text style={styles.sectionHeaderTitle}>Language & Region</Text>
+          </View>
+
           <TouchableOpacity
             onPress={() => setIsLangModalOpen(true)}
-            style={styles.menuRowOnly}
+            style={styles.toggleRowLast}
             activeOpacity={0.7}
           >
-            <View style={styles.menuRowLeft}>
-              <View style={styles.menuIconBox}>
-                <Languages size={19} color="#111111" strokeWidth={1.8} />
-              </View>
-              <View style={{ gap: 2 }}>
-                <Text style={styles.menuTitleText}>{t.language}</Text>
-                <Text style={styles.menuSubText}>{t.languageSub}</Text>
-              </View>
+            <View style={styles.toggleRowLeft}>
+              <Text style={styles.menuTitleText} numberOfLines={1}>{t.language}</Text>
+              <Text style={styles.menuSubText} numberOfLines={1}>{t.languageSub}</Text>
             </View>
 
             <View style={styles.menuRowRight}>
-              <Text style={styles.subDetailText}>
+              <Text style={styles.subDetailText} numberOfLines={1}>
                 {currentLanguageOption.flag} {currentLanguageOption.nativeName}
               </Text>
               <ChevronRight size={18} color="#9CA3AF" />
@@ -300,6 +300,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flexShrink: 0,
   },
   subDetailText: {
     fontSize: 13,

@@ -6,6 +6,7 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import {
   Play,
   Pause,
@@ -30,6 +31,7 @@ export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = () 
   const [duration, setDuration] = useState(DEFAULT_PROMO_DURATION);
   const [hasStarted, setHasStarted] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const webViewRef = useRef<any>(null);
 
   // Sync time & duration on Web DOM video element
   useEffect(() => {
@@ -48,7 +50,10 @@ export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = () 
 
     const handleTimeUpdate = () => {
       const time = video.currentTime;
-      const targetDuration = video.duration && !isNaN(video.duration) && video.duration > 0 ? video.duration : duration;
+      const targetDuration =
+        video.duration && !isNaN(video.duration) && video.duration > 0
+          ? video.duration
+          : duration;
       if (time >= targetDuration) {
         video.currentTime = 0;
         setCurrentTime(0);
@@ -83,39 +88,136 @@ export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = () 
   }, [duration]);
 
   const handleTogglePlay = () => {
-    if (videoRef.current) {
-      if (videoRef.current.paused) {
-        videoRef.current.play().catch(() => {});
-        setIsPlaying(true);
+    if (Platform.OS === 'web') {
+      if (videoRef.current) {
+        if (videoRef.current.paused) {
+          videoRef.current.play().catch(() => {});
+          setIsPlaying(true);
+        } else {
+          videoRef.current.pause();
+          setIsPlaying(false);
+        }
       } else {
-        videoRef.current.pause();
-        setIsPlaying(false);
+        setIsPlaying(!isPlaying);
       }
     } else {
-      setIsPlaying(!isPlaying);
+      // Native WebView
+      const nextPlaying = !isPlaying;
+      setIsPlaying(nextPlaying);
+      if (webViewRef.current) {
+        webViewRef.current.injectJavaScript(
+          nextPlaying
+            ? `document.getElementById('promoVid')?.play(); true;`
+            : `document.getElementById('promoVid')?.pause(); true;`
+        );
+      }
     }
   };
 
   const handleToggleMute = () => {
-    if (videoRef.current) {
-      const nextMuted = !isMuted;
-      videoRef.current.muted = nextMuted;
-      setIsMuted(nextMuted);
-      if (!nextMuted && videoRef.current.paused) {
-        videoRef.current.play().catch(() => {
-          if (videoRef.current) {
-            videoRef.current.muted = true;
-            setIsMuted(true);
-          }
-        });
+    const nextMuted = !isMuted;
+    setIsMuted(nextMuted);
+
+    if (Platform.OS === 'web') {
+      if (videoRef.current) {
+        videoRef.current.muted = nextMuted;
+        if (!nextMuted && videoRef.current.paused) {
+          videoRef.current.play().catch(() => {
+            if (videoRef.current) {
+              videoRef.current.muted = true;
+              setIsMuted(true);
+            }
+          });
+        }
       }
     } else {
-      setIsMuted(!isMuted);
+      // Native WebView
+      if (webViewRef.current) {
+        webViewRef.current.injectJavaScript(
+          `if (document.getElementById('promoVid')) { document.getElementById('promoVid').muted = ${nextMuted}; } true;`
+        );
+      }
+    }
+  };
+
+  const handleNativeMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === 'timeupdate') {
+        if (data.duration && !isNaN(data.duration) && data.duration > 0) {
+          setDuration(data.duration);
+        }
+        if (typeof data.currentTime === 'number') {
+          setCurrentTime(data.currentTime);
+        }
+      }
+    } catch {
+      // ignore
     }
   };
 
   const effectiveDuration = duration || DEFAULT_PROMO_DURATION;
   const progressPercent = Math.min(100, (currentTime / effectiveDuration) * 100);
+
+  const promoHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+          width: 100%;
+          height: 100%;
+          overflow: hidden;
+          background-color: #000000;
+        }
+        video {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+      </style>
+    </head>
+    <body>
+      <video
+        id="promoVid"
+        src="${PROMO_VIDEO_URL}"
+        poster="${POSTER_IMAGE}"
+        autoplay
+        loop
+        muted
+        playsinline
+        webkit-playsinline
+      ></video>
+      <script>
+        var v = document.getElementById('promoVid');
+        function initVid() {
+          if (!v) return;
+          v.play().catch(function() {
+            v.muted = true;
+            v.play().catch(function(){});
+          });
+        }
+        document.addEventListener('DOMContentLoaded', initVid);
+        window.onload = initVid;
+        initVid();
+
+        v.addEventListener('timeupdate', function() {
+          if (window.ReactNativeWebView) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({
+              type: 'timeupdate',
+              currentTime: v.currentTime,
+              duration: v.duration
+            }));
+          }
+        });
+      </script>
+    </body>
+    </html>
+  `;
 
   return (
     <View style={styles.container}>
@@ -162,7 +264,25 @@ export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = () 
               }}
             />
           ) : (
-            <View style={styles.fallbackVideo} />
+            <View style={styles.nativeWebViewContainer} pointerEvents="none">
+              <WebView
+                ref={webViewRef}
+                source={{ html: promoHtml }}
+                style={styles.nativeWebView}
+                onMessage={handleNativeMessage}
+                allowsInlineMediaPlayback={true}
+                mediaPlaybackRequiresUserAction={false}
+                javaScriptEnabled={true}
+                domStorageEnabled={true}
+                scrollEnabled={false}
+                bounces={false}
+                showsHorizontalScrollIndicator={false}
+                showsVerticalScrollIndicator={false}
+                androidLayerType="hardware"
+                originWhitelist={['*']}
+                mixedContentMode="always"
+              />
+            </View>
           )}
 
           {/* Minimal Tap Area for Play/Pause */}
@@ -183,7 +303,12 @@ export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = () 
           <View style={styles.bottomControlsBar}>
             {/* Slim Accent Progress Line */}
             <View style={styles.progressBarTrack}>
-              <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
+              <View
+                style={[
+                  styles.progressBarFill,
+                  { width: `${progressPercent}%` },
+                ]}
+              />
             </View>
 
             {/* Subtle Controls */}
@@ -199,7 +324,9 @@ export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = () 
                 ) : (
                   <Play size={13} color="#FFFFFF" fill="#FFFFFF" />
                 )}
-                <Text style={styles.controlPillText}>{isPlaying ? 'Pause' : 'Play'}</Text>
+                <Text style={styles.controlPillText}>
+                  {isPlaying ? 'Pause' : 'Play'}
+                </Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -260,10 +387,18 @@ const styles = StyleSheet.create({
     position: 'relative',
     backgroundColor: '#000000',
   },
-  fallbackVideo: {
+  nativeWebViewContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#000000',
+  },
+  nativeWebView: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#000000',
   },
   centerPlayTouch: {
     position: 'absolute',
