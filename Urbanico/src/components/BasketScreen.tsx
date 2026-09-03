@@ -274,15 +274,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   };
 
   const handlePaymentSuccess = (result: RazorpayPaymentResult) => {
-    console.log(`\n================== [BASKET SCREEN] PAYMENT SUCCESSFUL ==================`);
-    console.log(`[Basket Screen] Payment Details:`, {
-      paymentId: result.razorpay_payment_id,
-      orderId: result.razorpay_order_id,
-      method: result.method,
-      amount: `₹${result.amount}`,
-      isLiveMode: result.isLiveMode,
-      status: result.status,
-    });
+    console.log(`[Order] Paid: ₹${result.amount} | PayID: ${result.razorpay_payment_id}`);
 
     setShowRazorpayModal(false);
     setLatestPaymentResult(result);
@@ -318,9 +310,9 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     // Send real order data to the backend API
     apiService.createOrder({
       orderNumber: generatedOrderNum,
-      customerName: 'Suraj Nyavanandi',
-      customerPhone: '+91 96666 35009',
-      customerEmail: 'kanusuraj15@gmail.com',
+      customerName: 'Urbanico Customer',
+      customerPhone: '+91 98765 43210',
+      customerEmail: 'orders@urbanico.in',
       gstin: '36AABCU12341ZV',
       siteAddress: {
         siteName: 'Site Delivery Location',

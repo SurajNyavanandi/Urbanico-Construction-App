@@ -1,7 +1,15 @@
+// ==============================================================================
+// URBANICO BACKEND API SERVER
+// Endpoints: /api/razorpay/create-order, /api/razorpay/verify-payment, /api/orders, /api/materials
+// Local VSC: Port 3000 (http://localhost:3000/api)
+// Render:    Auto-configured port or 3000 (https://urbanico-construction-app.onrender.com/api)
+// Vercel:    Frontend (https://urbanico.vercel.app) connects to backend via EXPO_PUBLIC_API_URL
+// ==============================================================================
+
 import dotenv from 'dotenv';
 import path from 'path';
 
-// Load environment variables from process.cwd() and backend directories
+// .env loader: Reads root .env and backend/.env for local VSC testing and Render runtime
 dotenv.config();
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 dotenv.config({ path: path.resolve(process.cwd(), 'backend', '.env') });
@@ -12,6 +20,7 @@ import { connectDB, getDBStatus } from './config/db';
 import { apiRouter } from './routers';
 
 const app = express();
+// Port: 3000 for local development & container proxy; Render provides PORT or defaults to 3000
 const PORT = 3000;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://urbanico.vercel.app';
 
@@ -39,7 +48,7 @@ app.use((req, res, next) => {
   }
 
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Cache-Control, Pragma');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
 
   if (req.method === 'OPTIONS') {
@@ -48,25 +57,23 @@ app.use((req, res, next) => {
   next();
 });
 
-// 3. Mount all modular API routes on /api
+// 3. Mount all modular API routes on /api and root fallbacks
 app.use('/api', apiRouter);
+
+// Flat direct endpoints on root to avoid 404 if client requests without /api
+import { paymentRouter } from './routers/paymentRouter';
+import { PaymentController } from './controllers/paymentController';
+app.use('/razorpay', paymentRouter);
+app.post('/create-order', PaymentController.createOrder);
+app.post('/verify-payment', PaymentController.verifyPayment);
 
 // 4. Server & Integration info endpoint
 app.get('/api/server-info', (req, res) => {
   res.json({
     status: 'online',
     service: 'Urbanico Backend API',
-    backendPort: PORT,
-    environment: process.env.NODE_ENV || 'development',
-    database: getDBStatus(),
-    frontendUrl: FRONTEND_URL,
-    allowedOrigins: [
-      'http://localhost:5173',
-      'http://localhost:3000',
-      'http://localhost:8081',
-      'http://localhost:19006',
-      FRONTEND_URL,
-    ],
+    port: PORT,
+    database: getDBStatus().isConnected ? 'connected' : 'disconnected',
     endpoints: [
       '/api/health',
       '/api/server-info',
@@ -142,13 +149,7 @@ export async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n======================================================`);
-    console.log(`🚀 Urbanico Backend API running on port ${PORT}`);
-    console.log(`🌐 API Base URL:      http://localhost:${PORT}/api`);
-    console.log(`💻 Frontend URL:      https://urbanico.vercel.app`);
-    console.log(`☁️  Render Backend:   https://urbanico-construction-app.onrender.com`);
-    console.log(`🗄️  MongoDB Database:   ${process.env.MONGODB_URI ? 'Configured' : 'Not configured'}`);
-    console.log(`======================================================\n`);
+    console.log(`[Backend] Port: ${PORT} | API: http://localhost:${PORT}/api`);
   });
 
   return app;

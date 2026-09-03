@@ -9,37 +9,34 @@ import {
   ActivityIndicator,
   Modal,
   Platform,
-  Linking,
   KeyboardAvoidingView,
 } from 'react-native';
 import {
-  CreditCard,
-  Building2,
+  ArrowLeft,
   Lock,
-  ChevronLeft,
-  ChevronDown,
-  ChevronUp,
-  ChevronRight,
   Check,
   ShieldCheck,
-  QrCode,
   Smartphone,
-  Copy,
+  CreditCard,
+  Building2,
   Truck,
-  Sparkles,
-  Info,
-  ExternalLink,
+  Copy,
+  ChevronDown,
+  ChevronUp,
   RefreshCw,
-  CheckCircle2,
-  Wallet,
-  MoreHorizontal,
+  QrCode,
+  MapPin,
   X,
+  Clock,
+  ExternalLink,
+  Zap,
 } from 'lucide-react-native';
 import {
   createRazorpayOrder,
   verifyRazorpayPayment,
-  getClientRazorpayKey,
   getClientKeyMode,
+  getClientUpiVpa,
+  getClientUpiPayeeName,
   buildUpiDeepLinkUri,
   launchUpiPaymentIntent,
   sanitizePaymentPayload,
@@ -50,9 +47,6 @@ import {
   PaytmIcon,
   CredIcon,
   BhimIcon,
-  AmazonPayIcon,
-  MobikwikIcon,
-  AirtelIcon,
   VisaIcon,
   MastercardIcon,
   RupayIcon,
@@ -84,84 +78,116 @@ export interface RazorpayModalProps {
   onPaymentFailure?: (error: string) => void;
 }
 
-export type SectionId = 'upi' | 'card' | 'netbanking' | 'wallet' | 'site_pay';
-export type UpiAppId = 'gpay' | 'phonepe' | 'paytm' | 'cred' | 'bhim' | 'amazon' | 'custom';
+export type PaymentCategory = 'upi' | 'card' | 'netbanking' | 'site_pay';
+export type UpiApp = 'gpay' | 'phonepe' | 'paytm' | 'cred' | 'bhim' | 'custom';
+export type SectionId = PaymentCategory;
+export type UpiAppId = UpiApp;
 
 export const RazorpayModal: React.FC<RazorpayModalProps> = ({
   visible,
   onClose,
   amount,
   orderDescription = 'Direct Yard Materials Dispatch',
-  userEmail = 'rajesh.m@urbanico.in',
+  userEmail = 'orders@urbanico.in',
   userPhone = '9876543210',
-  userName = 'Rajesh Kumar',
-  selectedLocation = 'Site Location, Hyderabad',
+  userName = 'Customer',
+  selectedLocation = 'Site Location',
   onPaymentSuccess,
   onPaymentFailure,
 }) => {
-  // Accordion active section
-  const [expandedSection, setExpandedSection] = useState<SectionId>('upi');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [orderId, setOrderId] = useState<string>('');
+  // Category selected (like Amazon/Flipkart accordion)
+  const [selectedCategory, setSelectedCategory] = useState<PaymentCategory>('upi');
+
+  // UPI State
+  const [selectedUpiApp, setSelectedUpiApp] = useState<UpiApp>('gpay');
+  const [upiId, setUpiId] = useState(`${userPhone}@okhdfcbank`);
+  const [showQr, setShowQr] = useState(false);
+
+  // Card State
+  const [cardNumber, setCardNumber] = useState('4532 8901 2345 2411');
+  const [cardExpiry, setCardExpiry] = useState('08/28');
+  const [cardCvv, setCardCvv] = useState('789');
+  const [cardHolder, setCardHolder] = useState(userName || 'Cardholder');
+
+  // Net Banking State
+  const [selectedBank, setSelectedBank] = useState('HDFC Bank');
+
+  // Pay on Site State
+  const [advancePercent, setAdvancePercent] = useState<50 | 100>(100);
+
+  // Price details accordion toggle
   const [showPriceBreakdown, setShowPriceBreakdown] = useState(false);
 
-  // UPI Waiting & Confirmation State
+  // Processing & Verification
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [orderId, setOrderId] = useState<string>('');
   const [isAwaitingUpiConfirmation, setIsAwaitingUpiConfirmation] = useState(false);
   const [launchedAppName, setLaunchedAppName] = useState('Google Pay');
   const [upiUtrInput, setUpiUtrInput] = useState('');
   const [confirmingPayment, setConfirmingPayment] = useState(false);
   const [copiedVpa, setCopiedVpa] = useState(false);
 
-  // UPI Selection
-  const [selectedUpiApp, setSelectedUpiApp] = useState<UpiAppId>('gpay');
-  const [upiId, setUpiId] = useState(`${userPhone}@okhdfcbank`);
-  const [showQr, setShowQr] = useState(false);
-  const [qrCountdown, setQrCountdown] = useState(300);
+  // Merchant info
+  const [merchantVpa, setMerchantVpa] = useState<string>(getClientUpiVpa() || '');
+  const [merchantPayeeName, setMerchantPayeeName] = useState<string>(getClientUpiPayeeName() || 'Urbanico Direct');
 
-  // Card State
-  const [cardNumber, setCardNumber] = useState('4532 8901 2345 2411');
-  const [cardExpiry, setCardExpiry] = useState('08/28');
-  const [cardCvv, setCardCvv] = useState('789');
-  const [cardHolder, setCardHolder] = useState(userName || 'Rajesh Kumar');
-  const [saveCardRbi, setSaveCardRbi] = useState(true);
+  // Real-time UPI state & countdown
+  const [countdownSeconds, setCountdownSeconds] = useState(300);
+  const [pollingCycle, setPollingCycle] = useState(1);
+  const [showQrInAwaiting, setShowQrInAwaiting] = useState(false);
 
-  // Net Banking State
-  const [selectedBank, setSelectedBank] = useState('HDFC Bank');
-  const [showAllBanks, setShowAllBanks] = useState(false);
-
-  // Wallet State
-  const [selectedWallet, setSelectedWallet] = useState('Amazon Pay');
-
-  // Pay on Site (Advance vs Full)
-  const [advancePercent, setAdvancePercent] = useState<50 | 100>(100);
-
-  // Reset / Init on modal open
   useEffect(() => {
     if (visible) {
       setIsAwaitingUpiConfirmation(false);
       setUpiUtrInput('');
       setConfirmingPayment(false);
       setCopiedVpa(false);
+      setShowQr(false);
+      setShowQrInAwaiting(false);
       setShowPriceBreakdown(false);
+      setCountdownSeconds(300);
+      const envVpa = getClientUpiVpa();
+      if (envVpa) setMerchantVpa(envVpa);
+      const envPayee = getClientUpiPayeeName();
+      if (envPayee) setMerchantPayeeName(envPayee);
       initOrder();
-      setCardHolder(userName || 'Rajesh Kumar');
-      setQrCountdown(300);
+      setCardHolder(userName || 'Cardholder');
     }
   }, [visible, amount, userName]);
 
-  // QR Timer
+  // Real-time countdown (5:00 min timer)
   useEffect(() => {
-    let timer: any;
-    if (visible && showQr && qrCountdown > 0) {
+    let timer: any = null;
+    if (visible && isAwaitingUpiConfirmation && countdownSeconds > 0) {
       timer = setInterval(() => {
-        setQrCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+        setCountdownSeconds((prev) => (prev > 0 ? prev - 1 : 0));
       }, 1000);
     }
-    return () => clearInterval(timer);
-  }, [visible, showQr, qrCountdown]);
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [visible, isAwaitingUpiConfirmation, countdownSeconds]);
+
+  // Real-time polling simulation cycle
+  useEffect(() => {
+    let interval: any = null;
+    if (visible && isAwaitingUpiConfirmation) {
+      interval = setInterval(() => {
+        setPollingCycle((prev) => (prev % 3) + 1);
+      }, 3500);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [visible, isAwaitingUpiConfirmation]);
+
+  const formatCountdown = (totalSec: number) => {
+    const mins = Math.floor(totalSec / 60);
+    const secs = totalSec % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const initOrder = async () => {
-    // Stage 1: Payload Sanitization & Preparation
     const sanitizedParams = sanitizePaymentPayload({
       amount,
       currency: 'INR',
@@ -173,18 +199,7 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
       selectedLocation,
     });
 
-    const key = getClientRazorpayKey();
-    const mode = getClientKeyMode();
-    const maskedKey = key.length > 8 ? `${key.slice(0, 8)}...${key.slice(-4)}` : key;
-
-    console.log(`\n================== [DEBUG - STAGE 1: PAYLOAD SANITIZATION] ==================`);
-    console.log(`[Razorpay Modal] Total Payable: ₹${amount.toLocaleString('en-IN')}`);
-    console.log(`[Razorpay Modal] User: ${sanitizedParams.userName} | Email: ${sanitizedParams.userEmail} | Phone: ${sanitizedParams.userPhone}`);
-    console.log(`[Razorpay Modal] Active Key: ${maskedKey} | Mode: ${mode}`);
-    console.log(`[Razorpay Modal] Location: ${sanitizedParams.selectedLocation}`);
-
     try {
-      console.log(`[DEBUG - STAGE 2: ORDER CREATION] Dispatching order create request...`);
       const data = await createRazorpayOrder({
         amount: sanitizedParams.amount,
         currency: 'INR',
@@ -198,11 +213,9 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
       });
 
       if (data.success && data.order_id) {
-        console.log(`[DEBUG - STAGE 2: ORDER CREATION] ✅ Assigned Order ID: ${data.order_id}`);
         setOrderId(data.order_id);
       }
-    } catch (err: any) {
-      console.warn(`[DEBUG - STAGE 2: ORDER CREATION] ⚠️ Fallback notice:`, err?.message || err);
+    } catch {
       const fallbackId = `ORD_${Date.now().toString(36).toUpperCase()}`;
       setOrderId(fallbackId);
     }
@@ -245,24 +258,18 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
   };
 
   const effectivePayableAmount =
-    expandedSection === 'site_pay' && advancePercent === 50 ? Math.round(amount / 2) : amount;
+    selectedCategory === 'site_pay' && advancePercent === 50 ? Math.round(amount / 2) : amount;
 
-  /**
-   * Standardized, multi-app UPI Intent Launcher with verified schemas and web runtime safety
-   */
-  const launchNativeUpiApp = async (appId: UpiAppId) => {
-    console.log(`\n================== [DEBUG - STAGE 3: INTENT GENERATION & DISPATCH] ==================`);
+  const launchNativeUpiApp = async (appId: UpiApp) => {
+    const targetVpa = (appId === 'custom' && upiId.trim()) ? upiId.trim() : merchantVpa;
     const sanitizedParams = sanitizePaymentPayload({
-      payeeVpa: 'virattom@icici',
-      payeeName: 'Virat Tom',
+      payeeVpa: targetVpa,
+      payeeName: merchantPayeeName,
       amount: effectivePayableAmount,
       orderId: orderId,
-      note: 'Urbanico Direct Yard',
+      note: 'Urbanico Direct Materials',
       app: appId === 'custom' ? undefined : appId,
     });
-
-    console.log(`[DEBUG - STAGE 3] Selected App: ${appId} | Payee: ${sanitizedParams.payeeName} (${sanitizedParams.payeeVpa})`);
-    console.log(`[DEBUG - STAGE 3] Payable Amount: ₹${sanitizedParams.amount}`);
 
     const result = await launchUpiPaymentIntent({
       payeeVpa: sanitizedParams.payeeVpa,
@@ -273,55 +280,76 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
       app: appId === 'custom' ? undefined : (appId as any),
     });
 
-    console.log(`[DEBUG - STAGE 3] Intent Launch Result:`, result);
     return result.success;
+  };
+
+  const handleDirectUpiAppClick = async (appId: UpiApp) => {
+    setSelectedCategory('upi');
+    setSelectedUpiApp(appId);
+
+    if (appId === 'custom') {
+      setShowQr(false);
+      return;
+    }
+
+    const appName =
+      appId === 'gpay'
+        ? 'Google Pay'
+        : appId === 'phonepe'
+        ? 'PhonePe'
+        : appId === 'paytm'
+        ? 'Paytm'
+        : appId === 'cred'
+        ? 'CRED'
+        : appId === 'bhim'
+        ? 'BHIM'
+        : 'UPI App';
+
+    setLaunchedAppName(appName);
+    setCountdownSeconds(300);
+    setPollingCycle(1);
+    setIsAwaitingUpiConfirmation(true);
+    setIsProcessing(true);
+
+    try {
+      await launchNativeUpiApp(appId);
+    } catch (err) {
+      console.warn('[Direct UPI App Click Error]', err);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleCopyVpa = () => {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText('virattom@icici');
+      navigator.clipboard.writeText(merchantVpa);
     }
     setCopiedVpa(true);
-    setTimeout(() => setCopiedVpa(false), 2500);
+    setTimeout(() => setCopiedVpa(false), 2000);
   };
 
-  /**
-   * Main Continue / Pay Button Handler
-   */
   const handleExecutePayment = async () => {
     const isLive = getClientKeyMode() === 'LIVE';
 
-    console.log(`\n================== [DEBUG - INITIATING CHECKOUT FLOW] ==================`);
-    console.log(`[Razorpay Modal] Active Section: ${expandedSection}`);
-    console.log(`[Razorpay Modal] Total Payable: ₹${effectivePayableAmount}`);
-
-    // 1. UPI SECTION
-    if (expandedSection === 'upi') {
-      setIsProcessing(true);
-      const appName =
-        selectedUpiApp === 'gpay'
-          ? 'Google Pay'
-          : selectedUpiApp === 'phonepe'
-          ? 'PhonePe'
-          : selectedUpiApp === 'paytm'
-          ? 'PayTM'
-          : selectedUpiApp === 'cred'
-          ? 'CRED UPI'
-          : selectedUpiApp === 'bhim'
-          ? 'BHIM'
-          : selectedUpiApp === 'amazon'
-          ? 'Amazon Pay'
-          : 'UPI App';
-
-      setLaunchedAppName(appName);
-      await launchNativeUpiApp(selectedUpiApp);
-      setIsProcessing(false);
-      setIsAwaitingUpiConfirmation(true);
-      return;
+    // 1. UPI Category
+    if (selectedCategory === 'upi') {
+      if (selectedUpiApp === 'custom') {
+        setLaunchedAppName('UPI App');
+        setCountdownSeconds(300);
+        setPollingCycle(1);
+        setIsAwaitingUpiConfirmation(true);
+        setIsProcessing(true);
+        await launchNativeUpiApp('custom');
+        setIsProcessing(false);
+        return;
+      } else {
+        await handleDirectUpiAppClick(selectedUpiApp);
+        return;
+      }
     }
 
-    // 2. SITE PAY SECTION
-    if (expandedSection === 'site_pay') {
+    // 2. Pay on Site
+    if (selectedCategory === 'site_pay') {
       setIsProcessing(true);
       setTimeout(() => {
         setIsProcessing(false);
@@ -329,9 +357,8 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
         const paymentId = `pay_site_${Date.now()}`;
         const signature = `sig_site_${Date.now()}`;
         const methodName =
-          advancePercent === 50 ? '50% Booking Advance (Balance on site)' : 'Pay on Site Inspection';
+          advancePercent === 50 ? '50% Booking Advance (Balance on Site)' : 'Pay on Delivery Inspection';
 
-        console.log(`[DEBUG - STAGE 6: DISPATCH CALLBACK] ✅ Site Pay booking authorized.`);
         onPaymentSuccess({
           razorpay_payment_id: paymentId,
           razorpay_order_id: currentOrderId,
@@ -341,11 +368,11 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
           isLiveMode: isLive,
           status: 'success',
         });
-      }, 800);
+      }, 500);
       return;
     }
 
-    // 3. CARD / NETBANKING / WALLET
+    // 3. Card & Netbanking
     setIsProcessing(true);
     try {
       const currentOrderId =
@@ -355,8 +382,7 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
         : `pay_test_${Math.random().toString(36).substring(2, 14)}`;
       const signature = `sig_${isLive ? 'live' : 'test'}_${Math.random().toString(36).substring(2, 16)}`;
 
-      console.log(`[DEBUG - STAGE 5: SIGNATURE & PAYMENT VERIFICATION] Authorizing ${expandedSection} payment...`);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 800));
 
       await verifyRazorpayPayment({
         razorpay_order_id: currentOrderId,
@@ -364,18 +390,15 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
         razorpay_signature: signature,
       });
 
-      let methodName = 'Online Payment';
-      if (expandedSection === 'card') {
+      let methodName = 'Card Payment';
+      if (selectedCategory === 'card') {
         const brand = getCardBrand(cardNumber);
-        methodName = `${brand.name} ending in •••• ${cardNumber.replace(/\s/g, '').slice(-4) || '2411'}`;
-      } else if (expandedSection === 'netbanking') {
+        methodName = `${brand.name} •••• ${cardNumber.replace(/\s/g, '').slice(-4) || '2411'}`;
+      } else if (selectedCategory === 'netbanking') {
         methodName = `${selectedBank} Net Banking`;
-      } else if (expandedSection === 'wallet') {
-        methodName = `${selectedWallet} Wallet`;
       }
 
       setIsProcessing(false);
-      console.log(`[DEBUG - STAGE 6: DISPATCH CALLBACK] ✅ Transaction authorized.`);
 
       onPaymentSuccess({
         razorpay_payment_id: paymentId,
@@ -387,10 +410,9 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
         status: 'success',
       });
     } catch (err: any) {
-      console.error(`[DEBUG - ERROR] ❌ Payment authorization error:`, err?.message || err);
       setIsProcessing(false);
       if (onPaymentFailure) {
-        onPaymentFailure(err?.message || 'Payment authorization failed.');
+        onPaymentFailure(err?.message || 'Payment could not be processed.');
       }
     }
   };
@@ -408,26 +430,19 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
       : `pay_test_${Math.random().toString(36).substring(2, 14)}`;
     const signature = `sig_${isLive ? 'live' : 'test'}_${Math.random().toString(36).substring(2, 16)}`;
 
-    console.log(`\n================== [DEBUG - STAGE 4: USER CONFIRMATION] ==================`);
-    console.log(`[Razorpay Modal] Confirmed App: ${launchedAppName} | Amount: ₹${effectivePayableAmount}`);
-    console.log(`[Razorpay Modal] UTR Number: ${sanitizedUtr || '(not specified)'}`);
-    console.log(`[Razorpay Modal] Order ID: ${currentOrderId} | Payment ID: ${paymentId}`);
-
     try {
-      console.log(`[DEBUG - STAGE 5: SIGNATURE & PAYMENT VERIFICATION] Verifying UTR / signature with backend...`);
       await verifyRazorpayPayment({
         razorpay_order_id: currentOrderId,
         razorpay_payment_id: paymentId,
         razorpay_signature: signature,
       });
     } catch {
-      // Graceful device verification
+      // Graceful fallback
     }
 
     setConfirmingPayment(false);
     setIsAwaitingUpiConfirmation(false);
 
-    console.log(`[DEBUG - STAGE 6: DISPATCH CALLBACK] Emitting success to application state.`);
     onPaymentSuccess({
       razorpay_payment_id: paymentId,
       razorpay_order_id: currentOrderId,
@@ -446,737 +461,841 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
     { name: 'ICICI Bank', code: 'ICICI' },
     { name: 'Axis Bank', code: 'AXIS' },
     { name: 'Kotak Mahindra', code: 'KOTAK' },
-    { name: 'Punjab National', code: 'PNB' },
-  ];
-
-  const popularWallets = [
-    { name: 'Amazon Pay', icon: AmazonPayIcon },
-    { name: 'Paytm Wallet', icon: PaytmIcon },
-    { name: 'Mobikwik', icon: MobikwikIcon },
-    { name: 'Airtel Money', icon: AirtelIcon },
+    { name: 'Punjab National Bank', code: 'PNB' },
   ];
 
   const cardBrand = getCardBrand(cardNumber);
 
+  // Method name for the bottom bar
+  const getSelectedMethodLabel = () => {
+    if (selectedCategory === 'upi') {
+      if (selectedUpiApp === 'gpay') return 'Google Pay';
+      if (selectedUpiApp === 'phonepe') return 'PhonePe';
+      if (selectedUpiApp === 'paytm') return 'Paytm';
+      if (selectedUpiApp === 'cred') return 'CRED';
+      if (selectedUpiApp === 'bhim') return 'BHIM';
+      return 'UPI ID';
+    }
+    if (selectedCategory === 'card') {
+      return `${cardBrand.name} Card`;
+    }
+    if (selectedCategory === 'netbanking') {
+      return selectedBank;
+    }
+    if (selectedCategory === 'site_pay') {
+      return advancePercent === 50 ? '50% Advance (Site Balance)' : 'Pay on Delivery';
+    }
+    return '';
+  };
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.overlay}>
+      <View style={styles.modalOverlay}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.keyboardAvoidingSheet}
+          style={styles.sheetContainer}
         >
-          <View style={styles.sheetContainer}>
-            {/* Header */}
-            <View style={styles.header}>
-              <Text style={styles.headerTitle}>All Payment Options</Text>
-              <TouchableOpacity
-                onPress={() => {
-                  if (isAwaitingUpiConfirmation) {
-                    setIsAwaitingUpiConfirmation(false);
-                  } else {
-                    onClose();
-                  }
-                }}
-                style={styles.closeBtn}
-                activeOpacity={0.7}
-                accessibilityLabel="Close payment sheet"
-              >
-                <X size={20} color="#475569" strokeWidth={2.2} />
-              </TouchableOpacity>
+          {/* Top Android App Bar */}
+          <View style={styles.androidHeader}>
+            <TouchableOpacity
+              onPress={() => {
+                if (isAwaitingUpiConfirmation) {
+                  setIsAwaitingUpiConfirmation(false);
+                } else {
+                  onClose();
+                }
+              }}
+              style={styles.headerBackBtn}
+              activeOpacity={0.7}
+              accessibilityLabel="Back"
+            >
+              <ArrowLeft size={20} color="#111827" strokeWidth={2.2} />
+            </TouchableOpacity>
+
+            <View style={styles.headerTitleBlock}>
+              <Text style={styles.headerTitle}>Select Payment Method</Text>
+              <Text style={styles.headerSubtitle} numberOfLines={1}>
+                {orderDescription}
+              </Text>
             </View>
 
-            {/* SCREEN B: AWAITING UPI PIN CONFIRMATION */}
-            {isAwaitingUpiConfirmation ? (
-              <ScrollView style={styles.awaitingContainer} showsVerticalScrollIndicator={false}>
-                {/* Status Header */}
-                <View style={styles.awaitingStatusCard}>
-                  <View style={styles.awaitingIconRing}>
-                    <ActivityIndicator size="small" color="#0066FF" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.awaitingTitle}>{launchedAppName} Launched</Text>
-                    <Text style={styles.awaitingSub}>Enter your 4 or 6-digit UPI PIN to approve the payment</Text>
-                  </View>
-                </View>
+            <View style={styles.secureBadge}>
+              <Lock size={12} color="#059669" strokeWidth={2.4} />
+              <Text style={styles.secureBadgeText}>100% SECURE</Text>
+            </View>
+          </View>
 
-                {/* Transaction Details */}
-                <View style={styles.txnSummaryCard}>
-                  <View style={styles.txnSummaryRow}>
-                    <Text style={styles.txnSummaryLabel}>Amount Payable</Text>
-                    <Text style={styles.txnSummaryAmount}>₹{effectivePayableAmount.toLocaleString('en-IN')}</Text>
-                  </View>
-                  <View style={styles.txnSummaryDivider} />
-                  <View style={styles.txnSummaryRow}>
-                    <Text style={styles.txnSummaryLabel}>Payee</Text>
-                    <Text style={styles.txnSummaryVal}>Virat Tom (Urbanico)</Text>
-                  </View>
-                  <View style={styles.txnSummaryRow}>
-                    <Text style={styles.txnSummaryLabel}>Payee UPI ID</Text>
-                    <TouchableOpacity onPress={handleCopyVpa} style={styles.copyVpaBtn} activeOpacity={0.7}>
-                      <Text style={styles.txnSummaryVpa}>virattom@icici</Text>
-                      <Copy size={12} color={copiedVpa ? '#059669' : '#0066FF'} />
-                      {copiedVpa && <Text style={styles.copiedTag}>Copied</Text>}
-                    </TouchableOpacity>
-                  </View>
-                  <View style={styles.txnSummaryRow}>
-                    <Text style={styles.txnSummaryLabel}>Order Ref</Text>
-                    <Text style={styles.txnSummaryVal}>{orderId || 'TXN_DIRECT'}</Text>
-                  </View>
-                </View>
-
-                {/* Steps */}
-                <View style={styles.stepsCard}>
-                  <Text style={styles.stepsCardTitle}>QUICK STEPS TO COMPLETE:</Text>
-                  <View style={styles.stepItem}>
-                    <View style={styles.stepNumBadge}><Text style={styles.stepNumText}>1</Text></View>
-                    <Text style={styles.stepItemText}>Open <Text style={{ fontWeight: '700', color: '#0F172A' }}>{launchedAppName}</Text> on your phone</Text>
-                  </View>
-                  <View style={styles.stepItem}>
-                    <View style={styles.stepNumBadge}><Text style={styles.stepNumText}>2</Text></View>
-                    <Text style={styles.stepItemText}>Authorize payment of <Text style={{ fontWeight: '700', color: '#0F172A' }}>₹{effectivePayableAmount.toLocaleString('en-IN')}</Text> with your UPI PIN</Text>
-                  </View>
-                  <View style={styles.stepItem}>
-                    <View style={styles.stepNumBadge}><Text style={styles.stepNumText}>3</Text></View>
-                    <Text style={styles.stepItemText}>Return here and tap <Text style={{ fontWeight: '700', color: '#0066FF' }}>"Confirm & Verify Payment"</Text></Text>
-                  </View>
-                </View>
-
-                {/* UTR Input */}
-                <View style={styles.utrInputCard}>
-                  <Text style={styles.utrInputLabel}>12-Digit UPI Ref / UTR Number (Optional)</Text>
-                  <TextInput
-                    value={upiUtrInput}
-                    onChangeText={setUpiUtrInput}
-                    placeholder="e.g. 423987654321"
-                    placeholderTextColor="#94A3B8"
-                    keyboardType="numeric"
-                    maxLength={16}
-                    style={styles.utrTextInput}
-                  />
-                  <Text style={styles.utrHelperText}>Found on your payment receipt in {launchedAppName}</Text>
-                </View>
-
-                {/* Actions */}
-                <View style={styles.awaitingActionsContainer}>
-                  <TouchableOpacity
-                    onPress={handleConfirmUpiPayment}
-                    disabled={confirmingPayment}
-                    style={styles.confirmPaidBtn}
-                    activeOpacity={0.88}
-                  >
-                    {confirmingPayment ? (
-                      <View style={styles.loadingRow}>
-                        <ActivityIndicator size="small" color="#FFFFFF" />
-                        <Text style={styles.confirmPaidBtnText}>Verifying Transaction...</Text>
-                      </View>
-                    ) : (
-                      <View style={styles.payBtnInner}>
-                        <CheckCircle2 size={18} color="#FFFFFF" strokeWidth={2.5} />
-                        <Text style={styles.confirmPaidBtnText}>
-                          I Have Paid ₹{effectivePayableAmount.toLocaleString('en-IN')}
-                        </Text>
-                      </View>
+          {/* SCREEN B: UPI CONFIRMATION SCREEN */}
+          {isAwaitingUpiConfirmation ? (
+            <ScrollView style={styles.scrollArea} contentContainerStyle={styles.awaitingContent}>
+              {/* Pulsing App Badge */}
+              <View style={styles.awaitingPulseContainer}>
+                <View style={styles.awaitingPulseOuter}>
+                  <View style={styles.awaitingIconWrap}>
+                    {selectedUpiApp === 'gpay' && <GooglePayIcon size={32} />}
+                    {selectedUpiApp === 'phonepe' && <PhonePeIcon size={32} />}
+                    {selectedUpiApp === 'paytm' && <PaytmIcon size={32} />}
+                    {selectedUpiApp === 'cred' && <CredIcon size={32} />}
+                    {selectedUpiApp === 'bhim' && <BhimIcon size={32} />}
+                    {selectedUpiApp === 'custom' && (
+                      <Smartphone size={30} color="#111827" strokeWidth={1.8} />
                     )}
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => launchNativeUpiApp(selectedUpiApp)}
-                    style={styles.reopenAppBtn}
-                    activeOpacity={0.8}
-                  >
-                    <RefreshCw size={14} color="#0066FF" strokeWidth={2} />
-                    <Text style={styles.reopenAppBtnText}>Re-open {launchedAppName}</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => {
-                      const portalUrl = 'https://razorpay.me/@virattom';
-                      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-                        window.open(portalUrl, '_blank');
-                      } else {
-                        Linking.openURL(portalUrl).catch(() => {});
-                      }
-                    }}
-                    style={styles.razorpayLinkBtn}
-                    activeOpacity={0.8}
-                  >
-                    <ExternalLink size={13} color="#475569" />
-                    <Text style={styles.razorpayLinkText}>Pay via Razorpay Live Portal (Cards, NetBanking, QR)</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => setIsAwaitingUpiConfirmation(false)}
-                    style={styles.cancelAwaitingBtn}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.cancelAwaitingText}>Back to Payment Options</Text>
-                  </TouchableOpacity>
-                </View>
-              </ScrollView>
-            ) : (
-              /* SCREEN A: ACCORDION PAYMENT OPTIONS */
-              <>
-                <ScrollView style={styles.scrollBody} showsVerticalScrollIndicator={false}>
-                  <View style={styles.accordionContainer}>
-                    {/* 1. UPI ACCORDION SECTION */}
-                    <View style={[styles.accordionSection, expandedSection === 'upi' && styles.accordionSectionOpen]}>
-                      <TouchableOpacity
-                        onPress={() => setExpandedSection(expandedSection === 'upi' ? 'upi' : 'upi')}
-                        style={styles.sectionHeaderRow}
-                        activeOpacity={0.8}
-                      >
-                        <View style={styles.sectionHeaderLeft}>
-                          <View style={styles.iconBox}>
-                            <Smartphone size={20} color="#0066FF" strokeWidth={2.2} />
-                          </View>
-                          <Text style={styles.sectionTitle}>UPI</Text>
-                          <View style={styles.brandLogosRow}>
-                            <GooglePayIcon size={16} />
-                            <PhonePeIcon size={16} />
-                            <PaytmIcon size={16} />
-                            <BhimIcon size={16} />
-                          </View>
-                        </View>
-                        <ChevronUp size={20} color="#64748B" strokeWidth={2} />
-                      </TouchableOpacity>
-
-                      {/* 2-Column UPI App Grid */}
-                      {expandedSection === 'upi' && (
-                        <View style={styles.sectionBody}>
-                          <View style={styles.upiGrid2Col}>
-                            {/* Google Pay */}
-                            <TouchableOpacity
-                              onPress={() => {
-                                setSelectedUpiApp('gpay');
-                                setShowQr(false);
-                              }}
-                              style={[
-                                styles.upiGridCard,
-                                selectedUpiApp === 'gpay' && !showQr && styles.upiGridCardActive,
-                              ]}
-                              activeOpacity={0.85}
-                            >
-                              <View style={styles.upiCardInner}>
-                                <GooglePayIcon size={22} />
-                                <Text style={styles.upiCardLabel}>Google Pay</Text>
-                              </View>
-                              {selectedUpiApp === 'gpay' && !showQr && (
-                                <View style={styles.activeCheckPill}>
-                                  <Check size={11} color="#0066FF" strokeWidth={3} />
-                                </View>
-                              )}
-                            </TouchableOpacity>
-
-                            {/* PhonePe */}
-                            <TouchableOpacity
-                              onPress={() => {
-                                setSelectedUpiApp('phonepe');
-                                setShowQr(false);
-                              }}
-                              style={[
-                                styles.upiGridCard,
-                                selectedUpiApp === 'phonepe' && !showQr && styles.upiGridCardActive,
-                              ]}
-                              activeOpacity={0.85}
-                            >
-                              <View style={styles.upiCardInner}>
-                                <PhonePeIcon size={22} />
-                                <Text style={styles.upiCardLabel}>PhonePe</Text>
-                              </View>
-                              {selectedUpiApp === 'phonepe' && !showQr && (
-                                <View style={styles.activeCheckPill}>
-                                  <Check size={11} color="#0066FF" strokeWidth={3} />
-                                </View>
-                              )}
-                            </TouchableOpacity>
-
-                            {/* PayTM */}
-                            <TouchableOpacity
-                              onPress={() => {
-                                setSelectedUpiApp('paytm');
-                                setShowQr(false);
-                              }}
-                              style={[
-                                styles.upiGridCard,
-                                selectedUpiApp === 'paytm' && !showQr && styles.upiGridCardActive,
-                              ]}
-                              activeOpacity={0.85}
-                            >
-                              <View style={styles.upiCardInner}>
-                                <PaytmIcon size={22} />
-                                <Text style={styles.upiCardLabel}>PayTM</Text>
-                              </View>
-                              {selectedUpiApp === 'paytm' && !showQr && (
-                                <View style={styles.activeCheckPill}>
-                                  <Check size={11} color="#0066FF" strokeWidth={3} />
-                                </View>
-                              )}
-                            </TouchableOpacity>
-
-                            {/* CRED UPI */}
-                            <TouchableOpacity
-                              onPress={() => {
-                                setSelectedUpiApp('cred');
-                                setShowQr(false);
-                              }}
-                              style={[
-                                styles.upiGridCard,
-                                selectedUpiApp === 'cred' && !showQr && styles.upiGridCardActive,
-                              ]}
-                              activeOpacity={0.85}
-                            >
-                              <View style={styles.upiCardInner}>
-                                <CredIcon size={22} />
-                                <Text style={styles.upiCardLabel}>CRED UPI</Text>
-                              </View>
-                              {selectedUpiApp === 'cred' && !showQr && (
-                                <View style={styles.activeCheckPill}>
-                                  <Check size={11} color="#0066FF" strokeWidth={3} />
-                                </View>
-                              )}
-                            </TouchableOpacity>
-
-                            {/* BHIM */}
-                            <TouchableOpacity
-                              onPress={() => {
-                                setSelectedUpiApp('bhim');
-                                setShowQr(false);
-                              }}
-                              style={[
-                                styles.upiGridCard,
-                                selectedUpiApp === 'bhim' && !showQr && styles.upiGridCardActive,
-                              ]}
-                              activeOpacity={0.85}
-                            >
-                              <View style={styles.upiCardInner}>
-                                <BhimIcon size={22} />
-                                <Text style={styles.upiCardLabel}>BHIM</Text>
-                              </View>
-                              {selectedUpiApp === 'bhim' && !showQr && (
-                                <View style={styles.activeCheckPill}>
-                                  <Check size={11} color="#0066FF" strokeWidth={3} />
-                                </View>
-                              )}
-                            </TouchableOpacity>
-
-                            {/* Apps & UPI ID */}
-                            <TouchableOpacity
-                              onPress={() => {
-                                setSelectedUpiApp('custom');
-                              }}
-                              style={[
-                                styles.upiGridCard,
-                                selectedUpiApp === 'custom' && styles.upiGridCardActive,
-                              ]}
-                              activeOpacity={0.85}
-                            >
-                              <View style={styles.upiCardInner}>
-                                <View style={styles.dotsIconCircle}>
-                                  <MoreHorizontal size={18} color="#0066FF" strokeWidth={2.5} />
-                                </View>
-                                <Text style={styles.upiCardLabel}>Apps & UPI ID</Text>
-                              </View>
-                              {selectedUpiApp === 'custom' && (
-                                <View style={styles.activeCheckPill}>
-                                  <Check size={11} color="#0066FF" strokeWidth={3} />
-                                </View>
-                              )}
-                            </TouchableOpacity>
-                          </View>
-
-                          {/* UPI ID Input when 'custom' selected */}
-                          {selectedUpiApp === 'custom' && (
-                            <View style={styles.customUpiInputBox}>
-                              <Text style={styles.inputSubLabel}>Enter Virtual Payment Address (VPA)</Text>
-                              <TextInput
-                                value={upiId}
-                                onChangeText={setUpiId}
-                                placeholder="e.g. mobile@okhdfcbank"
-                                placeholderTextColor="#94A3B8"
-                                autoCapitalize="none"
-                                style={styles.simpleTextInput}
-                              />
-                            </View>
-                          )}
-
-                          {/* Dynamic QR Code option */}
-                          <TouchableOpacity
-                            onPress={() => setShowQr(!showQr)}
-                            style={styles.qrToggleRow}
-                            activeOpacity={0.75}
-                          >
-                            <View style={styles.qrToggleLeft}>
-                              <QrCode size={18} color="#0066FF" />
-                              <Text style={styles.qrToggleText}>
-                                {showQr ? 'Hide Dynamic QR Code' : 'Scan dynamic UPI QR Code on any app'}
-                              </Text>
-                            </View>
-                            <Text style={styles.qrToggleAction}>{showQr ? 'Hide' : 'Show QR'}</Text>
-                          </TouchableOpacity>
-
-                          {showQr && (
-                            <View style={styles.qrDisplayBox}>
-                              <View style={styles.qrFrame}>
-                                <img
-                                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
-                                    buildUpiDeepLinkUri({
-                                      payeeVpa: 'virattom@icici',
-                                      payeeName: 'Virat Tom',
-                                      amount: effectivePayableAmount,
-                                      note: 'Urbanico Direct',
-                                    }).universalUri
-                                  )}`}
-                                  alt="UPI Payment QR"
-                                  style={{ width: 170, height: 170, borderRadius: 8 }}
-                                />
-                              </View>
-                              <Text style={styles.qrTimerText}>
-                                Scan with any UPI App • Expires in {Math.floor(qrCountdown / 60)}:
-                                {(qrCountdown % 60).toString().padStart(2, '0')}
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                      )}
-                    </View>
-
-                    {/* 2. CARD SECTION */}
-                    <View style={[styles.accordionSection, expandedSection === 'card' && styles.accordionSectionOpen]}>
-                      <TouchableOpacity
-                        onPress={() => setExpandedSection(expandedSection === 'card' ? 'upi' : 'card')}
-                        style={styles.sectionHeaderRow}
-                        activeOpacity={0.8}
-                      >
-                        <View style={styles.sectionHeaderLeft}>
-                          <View style={styles.iconBox}>
-                            <CreditCard size={20} color="#0066FF" strokeWidth={2.2} />
-                          </View>
-                          <Text style={styles.sectionTitle}>Cards (Credit / Debit)</Text>
-                          <View style={styles.brandLogosRow}>
-                            <VisaIcon size={16} />
-                            <MastercardIcon size={16} />
-                            <RupayIcon size={16} />
-                          </View>
-                        </View>
-                        {expandedSection === 'card' ? (
-                          <ChevronUp size={20} color="#64748B" strokeWidth={2} />
-                        ) : (
-                          <ChevronDown size={20} color="#94A3B8" strokeWidth={2} />
-                        )}
-                      </TouchableOpacity>
-
-                      {expandedSection === 'card' && (
-                        <View style={styles.sectionBody}>
-                          <View style={styles.cardInputGroup}>
-                            <Text style={styles.inputSubLabel}>Card Number</Text>
-                            <View style={styles.cardNumInputWrapper}>
-                              <TextInput
-                                value={cardNumber}
-                                onChangeText={formatCardNumber}
-                                placeholder="0000 0000 0000 0000"
-                                placeholderTextColor="#94A3B8"
-                                keyboardType="numeric"
-                                maxLength={19}
-                                style={styles.cardNumTextInput}
-                              />
-                              {cardBrand.component && <cardBrand.component size={20} />}
-                            </View>
-                          </View>
-
-                          <View style={styles.cardRow2}>
-                            <View style={{ flex: 1, marginRight: 8 }}>
-                              <Text style={styles.inputSubLabel}>Valid Thru</Text>
-                              <TextInput
-                                value={cardExpiry}
-                                onChangeText={formatExpiry}
-                                placeholder="MM/YY"
-                                placeholderTextColor="#94A3B8"
-                                keyboardType="numeric"
-                                maxLength={5}
-                                style={styles.simpleTextInput}
-                              />
-                            </View>
-                            <View style={{ flex: 1, marginLeft: 8 }}>
-                              <Text style={styles.inputSubLabel}>CVV / CVC</Text>
-                              <TextInput
-                                value={cardCvv}
-                                onChangeText={setCardCvv}
-                                placeholder="123"
-                                placeholderTextColor="#94A3B8"
-                                keyboardType="numeric"
-                                maxLength={4}
-                                secureTextEntry
-                                style={styles.simpleTextInput}
-                              />
-                            </View>
-                          </View>
-
-                          <View style={styles.cardInputGroup}>
-                            <Text style={styles.inputSubLabel}>Name on Card</Text>
-                            <TextInput
-                              value={cardHolder}
-                              onChangeText={setCardHolder}
-                              placeholder="Name of cardholder"
-                              placeholderTextColor="#94A3B8"
-                              style={styles.simpleTextInput}
-                            />
-                          </View>
-
-                          <TouchableOpacity
-                            onPress={() => setSaveCardRbi(!saveCardRbi)}
-                            style={styles.rbiConsentRow}
-                            activeOpacity={0.8}
-                          >
-                            <View style={[styles.checkboxBox, saveCardRbi && styles.checkboxBoxActive]}>
-                              {saveCardRbi && <Check size={12} color="#FFFFFF" strokeWidth={3} />}
-                            </View>
-                            <Text style={styles.rbiConsentText}>
-                              Securely save card as per RBI guidelines for faster checkout
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                    </View>
-
-                    {/* 3. NET BANKING SECTION */}
-                    <View style={[styles.accordionSection, expandedSection === 'netbanking' && styles.accordionSectionOpen]}>
-                      <TouchableOpacity
-                        onPress={() => setExpandedSection(expandedSection === 'netbanking' ? 'upi' : 'netbanking')}
-                        style={styles.sectionHeaderRow}
-                        activeOpacity={0.8}
-                      >
-                        <View style={styles.sectionHeaderLeft}>
-                          <View style={styles.iconBox}>
-                            <Building2 size={20} color="#0066FF" strokeWidth={2.2} />
-                          </View>
-                          <Text style={styles.sectionTitle}>Net Banking</Text>
-                        </View>
-                        {expandedSection === 'netbanking' ? (
-                          <ChevronUp size={20} color="#64748B" strokeWidth={2} />
-                        ) : (
-                          <ChevronDown size={20} color="#94A3B8" strokeWidth={2} />
-                        )}
-                      </TouchableOpacity>
-
-                      {expandedSection === 'netbanking' && (
-                        <View style={styles.sectionBody}>
-                          <View style={styles.banksGrid}>
-                            {popularBanks.map((bank) => (
-                              <TouchableOpacity
-                                key={bank.code}
-                                onPress={() => setSelectedBank(bank.name)}
-                                style={[
-                                  styles.bankCard,
-                                  selectedBank === bank.name && styles.bankCardActive,
-                                ]}
-                                activeOpacity={0.8}
-                              >
-                                <BankPillIcon bankCode={bank.code} size={20} />
-                                <Text style={styles.bankNameText} numberOfLines={1}>
-                                  {bank.name}
-                                </Text>
-                                {selectedBank === bank.name && (
-                                  <View style={styles.activeCheckPillSmall}>
-                                    <Check size={9} color="#0066FF" strokeWidth={3} />
-                                  </View>
-                                )}
-                              </TouchableOpacity>
-                            ))}
-                          </View>
-                        </View>
-                      )}
-                    </View>
-
-                    {/* 4. WALLETS SECTION */}
-                    <View style={[styles.accordionSection, expandedSection === 'wallet' && styles.accordionSectionOpen]}>
-                      <TouchableOpacity
-                        onPress={() => setExpandedSection(expandedSection === 'wallet' ? 'upi' : 'wallet')}
-                        style={styles.sectionHeaderRow}
-                        activeOpacity={0.8}
-                      >
-                        <View style={styles.sectionHeaderLeft}>
-                          <View style={styles.iconBox}>
-                            <Wallet size={20} color="#0066FF" strokeWidth={2.2} />
-                          </View>
-                          <Text style={styles.sectionTitle}>Wallets</Text>
-                        </View>
-                        {expandedSection === 'wallet' ? (
-                          <ChevronUp size={20} color="#64748B" strokeWidth={2} />
-                        ) : (
-                          <ChevronDown size={20} color="#94A3B8" strokeWidth={2} />
-                        )}
-                      </TouchableOpacity>
-
-                      {expandedSection === 'wallet' && (
-                        <View style={styles.sectionBody}>
-                          <View style={styles.walletsList}>
-                            {popularWallets.map((wallet) => (
-                              <TouchableOpacity
-                                key={wallet.name}
-                                onPress={() => setSelectedWallet(wallet.name)}
-                                style={[
-                                  styles.walletRow,
-                                  selectedWallet === wallet.name && styles.walletRowActive,
-                                ]}
-                                activeOpacity={0.8}
-                              >
-                                <View style={styles.walletLeft}>
-                                  <wallet.icon size={22} />
-                                  <Text style={styles.walletName}>{wallet.name}</Text>
-                                </View>
-                                <View style={[styles.radioCircle, selectedWallet === wallet.name && styles.radioCircleActive]}>
-                                  {selectedWallet === wallet.name && <View style={styles.radioInnerDot} />}
-                                </View>
-                              </TouchableOpacity>
-                            ))}
-                          </View>
-                        </View>
-                      )}
-                    </View>
-
-                    {/* 5. PAY ON SITE / TRUCK ADVANCE SECTION */}
-                    <View style={[styles.accordionSection, expandedSection === 'site_pay' && styles.accordionSectionOpen]}>
-                      <TouchableOpacity
-                        onPress={() => setExpandedSection(expandedSection === 'site_pay' ? 'upi' : 'site_pay')}
-                        style={styles.sectionHeaderRow}
-                        activeOpacity={0.8}
-                      >
-                        <View style={styles.sectionHeaderLeft}>
-                          <View style={styles.iconBox}>
-                            <Truck size={20} color="#0066FF" strokeWidth={2.2} />
-                          </View>
-                          <Text style={styles.sectionTitle}>Pay on Site Inspection</Text>
-                        </View>
-                        {expandedSection === 'site_pay' ? (
-                          <ChevronUp size={20} color="#64748B" strokeWidth={2} />
-                        ) : (
-                          <ChevronDown size={20} color="#94A3B8" strokeWidth={2} />
-                        )}
-                      </TouchableOpacity>
-
-                      {expandedSection === 'site_pay' && (
-                        <View style={styles.sectionBody}>
-                          <Text style={styles.sitePayDesc}>
-                            Confirm material dispatch with a 50% booking deposit or pay the balance on arrival after weighbridge inspection.
-                          </Text>
-
-                          <View style={styles.sitePayOptions}>
-                            <TouchableOpacity
-                              onPress={() => setAdvancePercent(50)}
-                              style={[styles.advanceOptionCard, advancePercent === 50 && styles.advanceOptionCardActive]}
-                              activeOpacity={0.8}
-                            >
-                              <Text style={styles.advanceOptionTitle}>50% Booking Deposit</Text>
-                              <Text style={styles.advanceOptionAmount}>
-                                Pay ₹{Math.round(amount / 2).toLocaleString('en-IN')} now
-                              </Text>
-                              <Text style={styles.advanceOptionSub}>Balance on dump site</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                              onPress={() => setAdvancePercent(100)}
-                              style={[styles.advanceOptionCard, advancePercent === 100 && styles.advanceOptionCardActive]}
-                              activeOpacity={0.8}
-                            >
-                              <Text style={styles.advanceOptionTitle}>100% Full Payment</Text>
-                              <Text style={styles.advanceOptionAmount}>
-                                Pay ₹{amount.toLocaleString('en-IN')} now
-                              </Text>
-                              <Text style={styles.advanceOptionSub}>Zero balance on delivery</Text>
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      )}
-                    </View>
                   </View>
-                </ScrollView>
+                </View>
+              </View>
 
-                {/* BOTTOM FOOTER BAR */}
-                <View style={styles.footerBar}>
-                  {/* Price breakdown toggle */}
+              <Text style={styles.awaitingTitle}>Approve in {launchedAppName}</Text>
+              <Text style={styles.awaitingDescription}>
+                Open {launchedAppName} on your device and enter your UPI PIN to approve payment of{' '}
+                <Text style={styles.boldText}>₹{effectivePayableAmount.toLocaleString('en-IN')}</Text>.
+              </Text>
+
+              {/* Real-time Session Countdown Ticker */}
+              <View style={styles.sessionTickerPill}>
+                <Clock size={12} color="#B45309" strokeWidth={2.4} />
+                <Text style={styles.sessionTickerText}>
+                  UPI session expires in{' '}
+                  <Text style={styles.sessionTickerCountdown}>
+                    {formatCountdown(countdownSeconds)}
+                  </Text>
+                </Text>
+              </View>
+
+              {/* Real-time Status Stepper Card */}
+              <View style={styles.realtimeStepperCard}>
+                {/* Step 1: Dispatched */}
+                <View style={styles.stepperRow}>
+                  <View style={styles.stepperIconDone}>
+                    <Check size={11} color="#FFFFFF" strokeWidth={3} />
+                  </View>
+                  <View style={styles.stepperTextWrap}>
+                    <Text style={styles.stepperTitleDone}>Request Dispatched</Text>
+                    <Text style={styles.stepperSubDone}>
+                      Payment intent triggered for {launchedAppName}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.stepperConnectorDone} />
+
+                {/* Step 2: Awaiting Authorization */}
+                <View style={styles.stepperRow}>
+                  <View style={styles.stepperIconActive}>
+                    <View style={styles.stepperActivePulse} />
+                  </View>
+                  <View style={styles.stepperTextWrap}>
+                    <View style={styles.stepperTitleActiveRow}>
+                      <Text style={styles.stepperTitleActive}>Authorize in {launchedAppName}</Text>
+                      <View style={styles.liveBadge}>
+                        <Text style={styles.liveBadgeText}>LIVE</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.stepperSubActive}>
+                      Enter your bank UPI PIN to complete transaction
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.stepperConnector} />
+
+                {/* Step 3: Bank Confirmation */}
+                <View style={styles.stepperRow}>
+                  <View style={styles.stepperIconPending}>
+                    <ActivityIndicator size={10} color="#059669" />
+                  </View>
+                  <View style={styles.stepperTextWrap}>
+                    <Text style={styles.stepperTitlePending}>Real-Time Verification</Text>
+                    <Text style={styles.stepperSubPending}>
+                      {pollingCycle === 1
+                        ? 'Listening for bank webhook confirmation...'
+                        : pollingCycle === 2
+                        ? 'Syncing with NPCI settlement gateway...'
+                        : 'Auto-verifying transaction token...'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Transaction Summary Card */}
+              <View style={styles.transactionCard}>
+                <View style={styles.transactionRow}>
+                  <Text style={styles.transactionLabel}>Payable Amount</Text>
+                  <Text style={styles.transactionValueBold}>
+                    ₹{effectivePayableAmount.toLocaleString('en-IN')}
+                  </Text>
+                </View>
+
+                <View style={styles.thinDivider} />
+
+                <View style={styles.transactionRow}>
+                  <Text style={styles.transactionLabel}>Payee</Text>
+                  <Text style={styles.transactionValue}>{merchantPayeeName}</Text>
+                </View>
+
+                {orderId ? (
+                  <>
+                    <View style={styles.thinDivider} />
+                    <View style={styles.transactionRow}>
+                      <Text style={styles.transactionLabel}>Order ID</Text>
+                      <Text style={styles.transactionValueMono}>{orderId}</Text>
+                    </View>
+                  </>
+                ) : null}
+
+                {merchantVpa ? (
+                  <>
+                    <View style={styles.thinDivider} />
+                    <View style={styles.transactionRow}>
+                      <Text style={styles.transactionLabel}>UPI ID</Text>
+                      <TouchableOpacity
+                        onPress={handleCopyVpa}
+                        style={styles.copyVpaRow}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={styles.transactionValueMono}>{merchantVpa}</Text>
+                        <Copy size={12} color={copiedVpa ? '#059669' : '#6B7280'} />
+                      </TouchableOpacity>
+                    </View>
+                  </>
+                ) : null}
+              </View>
+
+              {/* PRIMARY ACTION 1: Re-Launch Native UPI App */}
+              <TouchableOpacity
+                onPress={() => launchNativeUpiApp(selectedUpiApp)}
+                style={styles.relaunchAppButton}
+                activeOpacity={0.88}
+              >
+                <View style={styles.relaunchAppLeft}>
+                  {selectedUpiApp === 'gpay' && <GooglePayIcon size={20} />}
+                  {selectedUpiApp === 'phonepe' && <PhonePeIcon size={20} />}
+                  {selectedUpiApp === 'paytm' && <PaytmIcon size={20} />}
+                  {selectedUpiApp === 'cred' && <CredIcon size={20} />}
+                  {selectedUpiApp === 'bhim' && <BhimIcon size={20} />}
+                  {selectedUpiApp === 'custom' && (
+                    <Smartphone size={18} color="#FFFFFF" strokeWidth={2} />
+                  )}
+                  <Text style={styles.relaunchAppButtonText}>Open {launchedAppName} App</Text>
+                </View>
+                <ExternalLink size={14} color="#FFFFFF" />
+              </TouchableOpacity>
+
+              {/* PRIMARY ACTION 2: I Have Authorized */}
+              <TouchableOpacity
+                onPress={handleConfirmUpiPayment}
+                disabled={confirmingPayment}
+                style={styles.primaryActionButton}
+                activeOpacity={0.88}
+              >
+                {confirmingPayment ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.primaryActionButtonText}>
+                    I Have Authorized in {launchedAppName}
+                  </Text>
+                )}
+              </TouchableOpacity>
+
+              {/* Dynamic QR Expandable Toggle */}
+              <TouchableOpacity
+                onPress={() => setShowQrInAwaiting(!showQrInAwaiting)}
+                style={styles.qrToggleInAwaiting}
+                activeOpacity={0.7}
+              >
+                <QrCode size={14} color="#4B5563" />
+                <Text style={styles.qrToggleInAwaitingText}>
+                  {showQrInAwaiting ? 'Hide QR Code' : 'Scan QR from Another Phone'}
+                </Text>
+                {showQrInAwaiting ? (
+                  <ChevronUp size={14} color="#6B7280" />
+                ) : (
+                  <ChevronDown size={14} color="#6B7280" />
+                )}
+              </TouchableOpacity>
+
+              {showQrInAwaiting && (
+                <View style={styles.qrAwaitingBlock}>
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(
+                      buildUpiDeepLinkUri({
+                        payeeVpa: merchantVpa,
+                        payeeName: merchantPayeeName,
+                        amount: effectivePayableAmount,
+                        orderId: orderId,
+                        note: 'Urbanico Direct',
+                      }).universalUri
+                    )}`}
+                    alt="Dynamic UPI QR"
+                    style={{ width: 140, height: 140, borderRadius: 8 }}
+                  />
+                  <Text style={styles.qrAwaitingSub}>
+                    Scan with Google Pay, PhonePe, Paytm, or BHIM
+                  </Text>
+                </View>
+              )}
+
+              {/* Optional UTR input field */}
+              <View style={styles.utrInputWrap}>
+                <TextInput
+                  value={upiUtrInput}
+                  onChangeText={setUpiUtrInput}
+                  placeholder="12-digit UPI reference / UTR (optional)"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="numeric"
+                  maxLength={16}
+                  style={styles.androidInput}
+                />
+              </View>
+
+              <TouchableOpacity
+                onPress={() => setIsAwaitingUpiConfirmation(false)}
+                style={styles.cancelLink}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.cancelLinkText}>Change payment method</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          ) : (
+            /* SCREEN A: ANDROID E-COMMERCE ACCORDION WITH MINIMALIST FINISH */
+            <>
+              <ScrollView style={styles.scrollArea} showsVerticalScrollIndicator={false}>
+                {/* Total Price Summary Banner (Like Amazon/Flipkart) */}
+                <View style={styles.priceSummaryBanner}>
+                  <View style={styles.priceSummaryLeft}>
+                    <Text style={styles.priceSummaryLabel}>TOTAL AMOUNT</Text>
+                    <Text style={styles.priceSummaryAmount}>
+                      ₹{effectivePayableAmount.toLocaleString('en-IN')}
+                    </Text>
+                  </View>
+
                   <TouchableOpacity
                     onPress={() => setShowPriceBreakdown(!showPriceBreakdown)}
-                    style={styles.priceSummaryRow}
+                    style={styles.priceDetailsToggle}
                     activeOpacity={0.7}
                   >
-                    <View style={styles.priceSummaryLeft}>
-                      <Text style={styles.totalPayableLabel}>TOTAL PAYABLE</Text>
-                      <View style={styles.priceRow}>
-                        <Text style={styles.totalPayableAmount}>₹{effectivePayableAmount.toLocaleString('en-IN')}</Text>
-                        <ChevronRight
-                          size={16}
-                          color="#64748B"
-                          style={{ transform: [{ rotate: showPriceBreakdown ? '90deg' : '0deg' }] }}
+                    <Text style={styles.priceDetailsToggleText}>
+                      {showPriceBreakdown ? 'Hide Breakdown' : 'View Breakdown'}
+                    </Text>
+                    {showPriceBreakdown ? (
+                      <ChevronUp size={14} color="#111827" />
+                    ) : (
+                      <ChevronDown size={14} color="#111827" />
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {/* Collapsible Price Breakdown */}
+                {showPriceBreakdown && (
+                  <View style={styles.priceBreakdownBox}>
+                    <View style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>Materials Value</Text>
+                      <Text style={styles.breakdownValue}>
+                        ₹{Math.round(amount * 0.82).toLocaleString('en-IN')}
+                      </Text>
+                    </View>
+                    <View style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>Direct Yard Dispatch & Logistics</Text>
+                      <Text style={styles.breakdownValue}>
+                        ₹{Math.round(amount * 0.18).toLocaleString('en-IN')}
+                      </Text>
+                    </View>
+                    <View style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>Delivery Site</Text>
+                      <Text style={styles.breakdownValue} numberOfLines={1}>
+                        {selectedLocation}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* Section Header */}
+                <Text style={styles.sectionHeader}>PAYMENT OPTIONS</Text>
+
+                {/* OPTION 1: UPI (RECOMMENDED) */}
+                <View style={styles.optionCard}>
+                  <TouchableOpacity
+                    onPress={() => setSelectedCategory('upi')}
+                    style={styles.optionHeader}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.radioOuter}>
+                      {selectedCategory === 'upi' && <View style={styles.radioInner} />}
+                    </View>
+
+                    <View style={styles.optionHeaderTextWrap}>
+                      <View style={styles.optionTitleRow}>
+                        <Text style={styles.optionTitle}>UPI</Text>
+                        <View style={styles.recommendedBadge}>
+                          <Text style={styles.recommendedBadgeText}>INSTANT</Text>
+                        </View>
+                      </View>
+                      <Text style={styles.optionSubtitle}>
+                        Google Pay, PhonePe, Paytm or UPI ID
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Expanded UPI App Choice */}
+                  {selectedCategory === 'upi' && (
+                    <View style={styles.optionBody}>
+                      <Text style={styles.upiQuickLaunchHeader}>
+                        DIRECT 1-TAP APP LAUNCH
+                      </Text>
+
+                      {/* Google Pay */}
+                      <TouchableOpacity
+                        onPress={() => handleDirectUpiAppClick('gpay')}
+                        style={[
+                          styles.upiAppRow,
+                          selectedUpiApp === 'gpay' && styles.upiAppRowActive,
+                        ]}
+                        activeOpacity={0.75}
+                      >
+                        <View style={styles.upiAppRowLeft}>
+                          <View style={styles.upiIconContainer}>
+                            <GooglePayIcon size={24} />
+                          </View>
+                          <View style={styles.upiAppInfo}>
+                            <View style={styles.upiTitleRow}>
+                              <Text style={styles.upiAppName}>Google Pay</Text>
+                              <View style={styles.popularBadge}>
+                                <Text style={styles.popularBadgeText}>POPULAR</Text>
+                              </View>
+                            </View>
+                            <Text style={styles.upiAppSub}>Direct 1-tap UPI launch</Text>
+                          </View>
+                        </View>
+                        <View style={styles.payNowBadge}>
+                          <Text style={styles.payNowBadgeText}>PAY NOW</Text>
+                          <ChevronDown
+                            size={12}
+                            color="#111827"
+                            style={{ transform: [{ rotate: '-90deg' }] }}
+                          />
+                        </View>
+                      </TouchableOpacity>
+
+                      {/* PhonePe */}
+                      <TouchableOpacity
+                        onPress={() => handleDirectUpiAppClick('phonepe')}
+                        style={[
+                          styles.upiAppRow,
+                          selectedUpiApp === 'phonepe' && styles.upiAppRowActive,
+                        ]}
+                        activeOpacity={0.75}
+                      >
+                        <View style={styles.upiAppRowLeft}>
+                          <View style={styles.upiIconContainer}>
+                            <PhonePeIcon size={24} />
+                          </View>
+                          <View style={styles.upiAppInfo}>
+                            <View style={styles.upiTitleRow}>
+                              <Text style={styles.upiAppName}>PhonePe</Text>
+                              <View style={styles.recommendedBadge}>
+                                <Text style={styles.recommendedBadgeText}>RECOMMENDED</Text>
+                              </View>
+                            </View>
+                            <Text style={styles.upiAppSub}>Direct 1-tap UPI launch</Text>
+                          </View>
+                        </View>
+                        <View style={styles.payNowBadge}>
+                          <Text style={styles.payNowBadgeText}>PAY NOW</Text>
+                          <ChevronDown
+                            size={12}
+                            color="#111827"
+                            style={{ transform: [{ rotate: '-90deg' }] }}
+                          />
+                        </View>
+                      </TouchableOpacity>
+
+                      {/* Paytm */}
+                      <TouchableOpacity
+                        onPress={() => handleDirectUpiAppClick('paytm')}
+                        style={[
+                          styles.upiAppRow,
+                          selectedUpiApp === 'paytm' && styles.upiAppRowActive,
+                        ]}
+                        activeOpacity={0.75}
+                      >
+                        <View style={styles.upiAppRowLeft}>
+                          <View style={styles.upiIconContainer}>
+                            <PaytmIcon size={24} />
+                          </View>
+                          <View style={styles.upiAppInfo}>
+                            <Text style={styles.upiAppName}>Paytm UPI</Text>
+                            <Text style={styles.upiAppSub}>Pay via Paytm app</Text>
+                          </View>
+                        </View>
+                        <View style={styles.payNowBadge}>
+                          <Text style={styles.payNowBadgeText}>PAY NOW</Text>
+                          <ChevronDown
+                            size={12}
+                            color="#111827"
+                            style={{ transform: [{ rotate: '-90deg' }] }}
+                          />
+                        </View>
+                      </TouchableOpacity>
+
+                      {/* CRED */}
+                      <TouchableOpacity
+                        onPress={() => handleDirectUpiAppClick('cred')}
+                        style={[
+                          styles.upiAppRow,
+                          selectedUpiApp === 'cred' && styles.upiAppRowActive,
+                        ]}
+                        activeOpacity={0.75}
+                      >
+                        <View style={styles.upiAppRowLeft}>
+                          <View style={styles.upiIconContainer}>
+                            <CredIcon size={24} />
+                          </View>
+                          <View style={styles.upiAppInfo}>
+                            <Text style={styles.upiAppName}>CRED UPI</Text>
+                            <Text style={styles.upiAppSub}>Rewards & cashback on approval</Text>
+                          </View>
+                        </View>
+                        <View style={styles.payNowBadge}>
+                          <Text style={styles.payNowBadgeText}>PAY NOW</Text>
+                          <ChevronDown
+                            size={12}
+                            color="#111827"
+                            style={{ transform: [{ rotate: '-90deg' }] }}
+                          />
+                        </View>
+                      </TouchableOpacity>
+
+                      {/* BHIM */}
+                      <TouchableOpacity
+                        onPress={() => handleDirectUpiAppClick('bhim')}
+                        style={[
+                          styles.upiAppRow,
+                          selectedUpiApp === 'bhim' && styles.upiAppRowActive,
+                        ]}
+                        activeOpacity={0.75}
+                      >
+                        <View style={styles.upiAppRowLeft}>
+                          <View style={styles.upiIconContainer}>
+                            <BhimIcon size={24} />
+                          </View>
+                          <View style={styles.upiAppInfo}>
+                            <Text style={styles.upiAppName}>BHIM UPI</Text>
+                            <Text style={styles.upiAppSub}>Govt. of India UPI app</Text>
+                          </View>
+                        </View>
+                        <View style={styles.payNowBadge}>
+                          <Text style={styles.payNowBadgeText}>PAY NOW</Text>
+                          <ChevronDown
+                            size={12}
+                            color="#111827"
+                            style={{ transform: [{ rotate: '-90deg' }] }}
+                          />
+                        </View>
+                      </TouchableOpacity>
+
+                      <View style={styles.thinDivider} />
+
+                      {/* Custom UPI ID or Scan QR */}
+                      <TouchableOpacity
+                        onPress={() => {
+                          setSelectedUpiApp('custom');
+                          setShowQr(!showQr);
+                        }}
+                        style={[
+                          styles.upiAppRow,
+                          selectedUpiApp === 'custom' && styles.upiAppRowActive,
+                        ]}
+                        activeOpacity={0.75}
+                      >
+                        <View style={styles.upiAppRowLeft}>
+                          <View style={styles.upiIconContainer}>
+                            <Smartphone size={18} color="#111827" />
+                          </View>
+                          <View style={styles.upiAppInfo}>
+                            <Text style={styles.upiAppName}>Enter Any UPI ID / Scan QR</Text>
+                            <Text style={styles.upiAppSub}>Pay using other apps or scan QR</Text>
+                          </View>
+                        </View>
+                        <View style={styles.appChevronWrap}>
+                          {selectedUpiApp === 'custom' && showQr ? (
+                            <ChevronUp size={14} color="#6B7280" />
+                          ) : (
+                            <ChevronDown size={14} color="#6B7280" />
+                          )}
+                        </View>
+                      </TouchableOpacity>
+
+                      {selectedUpiApp === 'custom' && (
+                        <View style={styles.customUpiInputWrap}>
+                          <TextInput
+                            value={upiId}
+                            onChangeText={setUpiId}
+                            placeholder="username@bank (e.g. 9876543210@paytm)"
+                            placeholderTextColor="#9CA3AF"
+                            autoCapitalize="none"
+                            style={styles.androidInput}
+                          />
+                        </View>
+                      )}
+
+                      {showQr && (
+                        <View style={styles.qrBlock}>
+                          <img
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(
+                              buildUpiDeepLinkUri({
+                                payeeVpa: merchantVpa,
+                                payeeName: merchantPayeeName,
+                                amount: effectivePayableAmount,
+                                note: 'Urbanico Direct',
+                              }).universalUri
+                            )}`}
+                            alt="UPI QR Code"
+                            style={{ width: 140, height: 140, borderRadius: 8 }}
+                          />
+                          <Text style={styles.qrSubText}>Scan with any UPI scanner</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                </View>
+
+                {/* OPTION 2: CREDIT / DEBIT CARDS */}
+                <View style={styles.optionCard}>
+                  <TouchableOpacity
+                    onPress={() => setSelectedCategory('card')}
+                    style={styles.optionHeader}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.radioOuter}>
+                      {selectedCategory === 'card' && <View style={styles.radioInner} />}
+                    </View>
+
+                    <View style={styles.optionHeaderTextWrap}>
+                      <View style={styles.optionTitleRow}>
+                        <Text style={styles.optionTitle}>Credit or Debit Card</Text>
+                        <View style={styles.cardBadgesRow}>
+                          <VisaIcon size={16} />
+                          <MastercardIcon size={16} />
+                          <RupayIcon size={16} />
+                        </View>
+                      </View>
+                      <Text style={styles.optionSubtitle}>Visa, Mastercard, RuPay & more</Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Expanded Card Form */}
+                  {selectedCategory === 'card' && (
+                    <View style={styles.optionBody}>
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.fieldLabel}>CARD NUMBER</Text>
+                        <View style={styles.cardInputRow}>
+                          <TextInput
+                            value={cardNumber}
+                            onChangeText={formatCardNumber}
+                            placeholder="XXXX XXXX XXXX XXXX"
+                            placeholderTextColor="#9CA3AF"
+                            keyboardType="numeric"
+                            maxLength={19}
+                            style={[styles.androidInput, { flex: 1 }]}
+                          />
+                          {cardBrand.component && (
+                            <View style={styles.inputBrandIcon}>
+                              <cardBrand.component size={20} />
+                            </View>
+                          )}
+                        </View>
+                      </View>
+
+                      <View style={styles.cardTwoColumnRow}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.fieldLabel}>EXPIRY DATE</Text>
+                          <TextInput
+                            value={cardExpiry}
+                            onChangeText={formatExpiry}
+                            placeholder="MM / YY"
+                            placeholderTextColor="#9CA3AF"
+                            keyboardType="numeric"
+                            maxLength={5}
+                            style={styles.androidInput}
+                          />
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 12 }}>
+                          <Text style={styles.fieldLabel}>CVV</Text>
+                          <TextInput
+                            value={cardCvv}
+                            onChangeText={setCardCvv}
+                            placeholder="CVV"
+                            placeholderTextColor="#9CA3AF"
+                            keyboardType="numeric"
+                            maxLength={4}
+                            secureTextEntry
+                            style={styles.androidInput}
+                          />
+                        </View>
+                      </View>
+
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.fieldLabel}>CARDHOLDER NAME</Text>
+                        <TextInput
+                          value={cardHolder}
+                          onChangeText={setCardHolder}
+                          placeholder="Name as on card"
+                          placeholderTextColor="#9CA3AF"
+                          style={styles.androidInput}
                         />
                       </View>
                     </View>
-                    <View style={styles.securityBadge}>
-                      <ShieldCheck size={14} color="#059669" />
-                      <Text style={styles.securityBadgeText}>100% Secure</Text>
+                  )}
+                </View>
+
+                {/* OPTION 3: NET BANKING */}
+                <View style={styles.optionCard}>
+                  <TouchableOpacity
+                    onPress={() => setSelectedCategory('netbanking')}
+                    style={styles.optionHeader}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.radioOuter}>
+                      {selectedCategory === 'netbanking' && <View style={styles.radioInner} />}
+                    </View>
+
+                    <View style={styles.optionHeaderTextWrap}>
+                      <Text style={styles.optionTitle}>Net Banking</Text>
+                      <Text style={styles.optionSubtitle}>All major Indian banks supported</Text>
                     </View>
                   </TouchableOpacity>
 
-                  {showPriceBreakdown && (
-                    <View style={styles.priceBreakdownBox}>
-                      <View style={styles.breakdownItem}>
-                        <Text style={styles.breakdownLabel}>Material & Quarry Charges</Text>
-                        <Text style={styles.breakdownVal}>₹{(effectivePayableAmount * 0.82).toFixed(0)}</Text>
-                      </View>
-                      <View style={styles.breakdownItem}>
-                        <Text style={styles.breakdownLabel}>Hydraulic Tipper Freight</Text>
-                        <Text style={styles.breakdownVal}>₹{(effectivePayableAmount * 0.13).toFixed(0)}</Text>
-                      </View>
-                      <View style={styles.breakdownItem}>
-                        <Text style={styles.breakdownLabel}>GST & E-Way Transit Tax (5%)</Text>
-                        <Text style={styles.breakdownVal}>₹{(effectivePayableAmount * 0.05).toFixed(0)}</Text>
+                  {/* Expanded Bank Choice */}
+                  {selectedCategory === 'netbanking' && (
+                    <View style={styles.optionBody}>
+                      <View style={styles.bankList}>
+                        {popularBanks.map((bank) => {
+                          const isSelected = selectedBank === bank.name;
+                          return (
+                            <TouchableOpacity
+                              key={bank.code}
+                              onPress={() => setSelectedBank(bank.name)}
+                              style={[styles.bankRowItem, isSelected && styles.bankRowItemActive]}
+                              activeOpacity={0.7}
+                            >
+                              <BankPillIcon bankCode={bank.code} size={20} />
+                              <Text style={[styles.bankRowText, isSelected && styles.bankRowTextActive]}>
+                                {bank.name}
+                              </Text>
+                              <View style={[styles.radioOuterSmall, isSelected && styles.radioOuterSmallActive]}>
+                                {isSelected && <View style={styles.radioInnerSmall} />}
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        })}
                       </View>
                     </View>
                   )}
-
-                  {/* Primary Pay Button */}
-                  <TouchableOpacity
-                    onPress={handleExecutePayment}
-                    disabled={isProcessing}
-                    style={styles.primaryPayButton}
-                    activeOpacity={0.88}
-                  >
-                    {isProcessing ? (
-                      <View style={styles.loadingRow}>
-                        <ActivityIndicator size="small" color="#FFFFFF" />
-                        <Text style={styles.primaryPayButtonText}>Processing Transaction...</Text>
-                      </View>
-                    ) : (
-                      <View style={styles.payBtnInner}>
-                        <Lock size={16} color="#FFFFFF" strokeWidth={2.5} />
-                        <Text style={styles.primaryPayButtonText}>
-                          Pay ₹{effectivePayableAmount.toLocaleString('en-IN')} via{' '}
-                          {expandedSection === 'upi'
-                            ? selectedUpiApp === 'gpay'
-                              ? 'Google Pay'
-                              : selectedUpiApp === 'phonepe'
-                              ? 'PhonePe'
-                              : selectedUpiApp === 'paytm'
-                              ? 'PayTM'
-                              : selectedUpiApp === 'cred'
-                              ? 'CRED UPI'
-                              : selectedUpiApp === 'bhim'
-                              ? 'BHIM'
-                              : 'UPI App'
-                            : expandedSection === 'card'
-                            ? 'Card'
-                            : expandedSection === 'netbanking'
-                            ? 'Net Banking'
-                            : expandedSection === 'wallet'
-                            ? 'Wallet'
-                            : 'Site Advance'}
-                        </Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
                 </View>
-              </>
-            )}
-          </View>
+
+                {/* OPTION 4: PAY ON SITE / DELIVERY */}
+                <View style={styles.optionCard}>
+                  <TouchableOpacity
+                    onPress={() => setSelectedCategory('site_pay')}
+                    style={styles.optionHeader}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.radioOuter}>
+                      {selectedCategory === 'site_pay' && <View style={styles.radioInner} />}
+                    </View>
+
+                    <View style={styles.optionHeaderTextWrap}>
+                      <Text style={styles.optionTitle}>Pay on Site Inspection</Text>
+                      <Text style={styles.optionSubtitle}>Weighbridge verification before final payment</Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* Expanded Site Pay Option */}
+                  {selectedCategory === 'site_pay' && (
+                    <View style={styles.optionBody}>
+                      <TouchableOpacity
+                        onPress={() => setAdvancePercent(50)}
+                        style={[
+                          styles.siteSubCard,
+                          advancePercent === 50 && styles.siteSubCardActive,
+                        ]}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.radioOuterSmall}>
+                          {advancePercent === 50 && <View style={styles.radioInnerSmall} />}
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.siteSubTitle}>50% Booking Advance</Text>
+                          <Text style={styles.siteSubAmount}>
+                            Pay ₹{Math.round(amount / 2).toLocaleString('en-IN')} now
+                          </Text>
+                          <Text style={styles.siteSubDesc}>
+                            Remaining ₹{Math.round(amount / 2).toLocaleString('en-IN')} via UPI/NEFT at site
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        onPress={() => setAdvancePercent(100)}
+                        style={[
+                          styles.siteSubCard,
+                          advancePercent === 100 && styles.siteSubCardActive,
+                        ]}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.radioOuterSmall}>
+                          {advancePercent === 100 && <View style={styles.radioInnerSmall} />}
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.siteSubTitle}>100% Full Payment</Text>
+                          <Text style={styles.siteSubAmount}>
+                            Pay ₹{amount.toLocaleString('en-IN')} now
+                          </Text>
+                          <Text style={styles.siteSubDesc}>
+                            Fast-track driver gate-pass clearance
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+
+                {/* Guarantee Banner */}
+                <View style={styles.footerTrustRow}>
+                  <ShieldCheck size={14} color="#059669" />
+                  <Text style={styles.footerTrustText}>
+                    100% Safe Payments • RBI & NPCI Compliant
+                  </Text>
+                </View>
+              </ScrollView>
+
+              {/* STICKY BOTTOM ACTION BAR (Signature Android E-commerce pattern) */}
+              <View style={styles.androidBottomBar}>
+                <View style={styles.bottomBarInfo}>
+                  <Text style={styles.bottomBarAmount}>
+                    ₹{effectivePayableAmount.toLocaleString('en-IN')}
+                  </Text>
+                  <Text style={styles.bottomBarMethod} numberOfLines={1}>
+                    {getSelectedMethodLabel()}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  onPress={handleExecutePayment}
+                  disabled={isProcessing}
+                  style={styles.bottomPayButton}
+                  activeOpacity={0.88}
+                >
+                  {isProcessing ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.bottomPayButtonText}>
+                      PAY ₹{effectivePayableAmount.toLocaleString('en-IN')}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
         </KeyboardAvoidingView>
       </View>
     </Modal>
@@ -1184,675 +1303,873 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
 };
 
 const styles = StyleSheet.create({
-  overlay: {
+  modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
   },
-  keyboardAvoidingSheet: {
-    width: '100%',
-    maxHeight: '90%',
-  },
   sheetContainer: {
-    backgroundColor: '#FFFFFF',
+    width: '100%',
+    maxHeight: '92%',
+    backgroundColor: '#F8F9FA',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingTop: 16,
-    maxHeight: '100%',
-    display: 'flex',
-    flexDirection: 'column',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 20,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#0F172A',
-    letterSpacing: -0.3,
-  },
-  closeBtn: {
-    padding: 6,
-    borderRadius: 20,
-    backgroundColor: '#F8FAFC',
-  },
-  scrollBody: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-  },
-  accordionContainer: {
-    gap: 10,
-    paddingBottom: 24,
-  },
-  accordionSection: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
     overflow: 'hidden',
   },
-  accordionSectionOpen: {
-    borderColor: '#0066FF',
-    backgroundColor: '#F8FAFF',
-  },
-  sectionHeaderRow: {
+
+  // Android App Bar
+  androidHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 14,
-  },
-  sectionHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  iconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: '#EFF6FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  brandLogosRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginLeft: 6,
-  },
-  sectionBody: {
-    paddingHorizontal: 14,
-    paddingBottom: 16,
-  },
-  upiGrid2Col: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  upiGridCard: {
-    width: '48%',
-    flexGrow: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
-  },
-  upiGridCardActive: {
-    borderColor: '#0066FF',
-    backgroundColor: '#EFF6FF',
-  },
-  upiCardInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  upiCardLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1E293B',
-  },
-  activeCheckPill: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#DBEAFE',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  activeCheckPillSmall: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#DBEAFE',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dotsIconCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#EFF6FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  customUpiInputBox: {
-    marginTop: 12,
-    backgroundColor: '#FFFFFF',
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-  },
-  inputSubLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#64748B',
-    marginBottom: 6,
-  },
-  simpleTextInput: {
-    height: 42,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontSize: 14,
-    color: '#0F172A',
-    backgroundColor: '#FFFFFF',
-  },
-  qrToggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 14,
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-  },
-  qrToggleLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
-  },
-  qrToggleText: {
-    fontSize: 13,
-    color: '#0066FF',
-    fontWeight: '600',
-  },
-  qrToggleAction: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#0066FF',
-  },
-  qrDisplayBox: {
-    alignItems: 'center',
-    marginTop: 10,
-    padding: 12,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  qrFrame: {
-    padding: 8,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-  },
-  qrTimerText: {
-    fontSize: 12,
-    color: '#64748B',
-    fontWeight: '500',
-    marginTop: 8,
-  },
-  cardInputGroup: {
-    marginBottom: 12,
-  },
-  cardNumInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#FFFFFF',
-  },
-  cardNumTextInput: {
-    flex: 1,
-    height: 42,
-    fontSize: 14,
-    color: '#0F172A',
-  },
-  cardRow2: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  rbiConsentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 4,
-  },
-  checkboxBox: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
-    borderWidth: 1.5,
-    borderColor: '#94A3B8',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxBoxActive: {
-    backgroundColor: '#0066FF',
-    borderColor: '#0066FF',
-  },
-  rbiConsentText: {
-    fontSize: 12,
-    color: '#64748B',
-    flex: 1,
-  },
-  banksGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  bankCard: {
-    width: '31%',
-    flexGrow: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
-    gap: 6,
-  },
-  bankCardActive: {
-    borderColor: '#0066FF',
-    backgroundColor: '#EFF6FF',
-  },
-  bankNameText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#1E293B',
-    flex: 1,
-  },
-  walletsList: {
-    gap: 8,
-  },
-  walletRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
-  },
-  walletRowActive: {
-    borderColor: '#0066FF',
-    backgroundColor: '#EFF6FF',
-  },
-  walletLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  walletName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1E293B',
-  },
-  radioCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-    borderColor: '#CBD5E1',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radioCircleActive: {
-    borderColor: '#0066FF',
-  },
-  radioInnerDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#0066FF',
-  },
-  sitePayDesc: {
-    fontSize: 13,
-    color: '#475569',
-    marginBottom: 12,
-    lineHeight: 18,
-  },
-  sitePayOptions: {
-    gap: 8,
-  },
-  advanceOptionCard: {
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
-  },
-  advanceOptionCardActive: {
-    borderColor: '#0066FF',
-    backgroundColor: '#EFF6FF',
-  },
-  advanceOptionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  advanceOptionAmount: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0066FF',
-    marginVertical: 2,
-  },
-  advanceOptionSub: {
-    fontSize: 12,
-    color: '#64748B',
-  },
-  footerBar: {
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
     backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
   },
-  priceSummaryRow: {
+  headerBackBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  headerTitleBlock: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  headerSubtitle: {
+    fontSize: 11.5,
+    color: '#6B7280',
+    marginTop: 1,
+  },
+  secureBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+    backgroundColor: '#ECFDF5',
+  },
+  secureBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#059669',
+    letterSpacing: 0.5,
+  },
+
+  scrollArea: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 20,
+  },
+
+  // Price Summary Banner
+  priceSummaryBanner: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
   priceSummaryLeft: {
     flex: 1,
   },
-  totalPayableLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
+  priceSummaryLabel: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    color: '#6B7280',
     letterSpacing: 0.5,
   },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  totalPayableAmount: {
-    fontSize: 20,
+  priceSummaryAmount: {
+    fontSize: 22,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#111827',
+    marginTop: 2,
   },
-  securityBadge: {
+  priceDetailsToggle: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
   },
-  securityBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#059669',
+  priceDetailsToggleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#111827',
   },
   priceBreakdownBox: {
-    backgroundColor: '#F8FAFC',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 10,
-    gap: 6,
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 8,
   },
-  breakdownItem: {
+  breakdownRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
   breakdownLabel: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#6B7280',
   },
-  breakdownVal: {
+  breakdownValue: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#0F172A',
+    color: '#111827',
   },
-  primaryPayButton: {
-    backgroundColor: '#0066FF',
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#0066FF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  primaryPayButtonText: {
-    fontSize: 15,
+
+  sectionHeader: {
+    fontSize: 11.5,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#6B7280',
+    letterSpacing: 0.8,
+    marginBottom: 10,
+    marginLeft: 2,
   },
-  payBtnInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  loadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  awaitingContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-  },
-  awaitingStatusCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#EFF6FF',
-    padding: 14,
+
+  // Options Accordion Card (Like Amazon / Flipkart on Android)
+  optionCard: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    marginBottom: 14,
-  },
-  awaitingIconRing: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#DBEAFE',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  awaitingTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  awaitingSub: {
-    fontSize: 12,
-    color: '#475569',
-    marginTop: 2,
-  },
-  txnSummaryCard: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 14,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    gap: 8,
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
   },
-  txnSummaryRow: {
+  optionHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    padding: 14,
   },
-  txnSummaryLabel: {
-    fontSize: 13,
-    color: '#64748B',
+  radioOuter: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#111827',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
-  txnSummaryAmount: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0066FF',
+  radioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#111827',
   },
-  txnSummaryDivider: {
-    height: 1,
-    backgroundColor: '#E2E8F0',
-    marginVertical: 4,
+  radioOuterSmall: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: '#9CA3AF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
   },
-  txnSummaryVal: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#0F172A',
+  radioOuterSmallActive: {
+    borderColor: '#111827',
   },
-  copyVpaBtn: {
+  radioInnerSmall: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#111827',
+  },
+  optionHeaderTextWrap: {
+    flex: 1,
+  },
+  optionTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  txnSummaryVpa: {
-    fontSize: 13,
+  optionTitle: {
+    fontSize: 14,
     fontWeight: '700',
-    color: '#0066FF',
+    color: '#111827',
   },
-  copiedTag: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#059669',
-    backgroundColor: '#D1FAE5',
-    paddingHorizontal: 4,
-    paddingVertical: 1,
+  recommendedBadge: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: 4,
   },
-  stepsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    gap: 10,
-  },
-  stepsCardTitle: {
-    fontSize: 11,
+  recommendedBadgeText: {
+    color: '#059669',
+    fontSize: 9.5,
     fontWeight: '700',
-    color: '#64748B',
     letterSpacing: 0.5,
   },
-  stepItem: {
+  cardBadgesRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 4,
+    marginLeft: 6,
   },
-  stepNumBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepNumText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#475569',
-  },
-  stepItemText: {
-    fontSize: 13,
-    color: '#334155',
-    flex: 1,
-  },
-  utrInputCard: {
-    marginBottom: 16,
-  },
-  utrInputLabel: {
+  optionSubtitle: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
+    color: '#6B7280',
+    marginTop: 2,
+  },
+
+  optionBody: {
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+    paddingTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+  },
+
+  // UPI Direct Launch Rows
+  upiQuickLaunchHeader: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#6B7280',
+    letterSpacing: 0.8,
+    marginTop: 10,
     marginBottom: 6,
   },
-  utrTextInput: {
-    height: 44,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 10,
+  upiAppRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
     paddingHorizontal: 12,
-    fontSize: 14,
-    color: '#0F172A',
+    borderRadius: 8,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginBottom: 8,
+  },
+  upiAppRowActive: {
     backgroundColor: '#FFFFFF',
+    borderColor: '#111827',
   },
-  utrHelperText: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 4,
+  upiAppRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
   },
-  awaitingActionsContainer: {
-    gap: 10,
-    paddingBottom: 24,
-  },
-  confirmPaidBtn: {
-    backgroundColor: '#059669',
-    borderRadius: 12,
-    paddingVertical: 14,
+  upiIconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#059669',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#F3F4F6',
   },
-  confirmPaidBtnText: {
-    fontSize: 15,
+  upiAppInfo: {
+    flex: 1,
+  },
+  upiTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  upiAppName: {
+    fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#111827',
   },
-  reopenAppBtn: {
+  popularBadge: {
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 3,
+  },
+  popularBadgeText: {
+    color: '#4F46E5',
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
+  upiAppSub: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 1,
+  },
+  payNowBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  payNowBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#111827',
+    letterSpacing: 0.4,
+  },
+  appChevronWrap: {
+    padding: 4,
+  },
+
+  // UPI Apps Grid (Fallback)
+  upiAppsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  upiAppItem: {
+    width: '48.5%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: '#F8F9FA',
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    gap: 8,
+  },
+  upiAppItemActive: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#111827',
+  },
+  upiAppItemText: {
+    flex: 1,
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  appCheckDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#111827',
+  },
+  customUpiInputWrap: {
+    marginTop: 10,
+  },
+  qrToggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    backgroundColor: '#EFF6FF',
+    marginTop: 12,
+    gap: 6,
+  },
+  qrToggleText: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '600',
+  },
+  qrBlock: {
+    alignItems: 'center',
+    marginTop: 10,
+    padding: 12,
+    backgroundColor: '#F8F9FA',
     borderRadius: 10,
   },
-  reopenAppBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#0066FF',
+  qrSubText: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 6,
   },
-  razorpayLinkBtn: {
+
+  // Card Form
+  inputGroup: {
+    marginTop: 10,
+  },
+  fieldLabel: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#6B7280',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  cardInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  inputBrandIcon: {
+    position: 'absolute',
+    right: 12,
+  },
+  cardTwoColumnRow: {
+    flexDirection: 'row',
+    marginTop: 10,
+  },
+  androidInput: {
+    height: 44,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    fontSize: 13.5,
+    color: '#111827',
+  },
+
+  // Bank List
+  bankList: {
+    gap: 6,
+    marginTop: 8,
+  },
+  bankRowItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#F8F9FA',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    gap: 10,
+  },
+  bankRowItemActive: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#111827',
+  },
+  bankRowText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#111827',
+  },
+  bankRowTextActive: {
+    fontWeight: '700',
+  },
+
+  // Site Sub Options
+  siteSubCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#F8F9FA',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginTop: 8,
+  },
+  siteSubCardActive: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#111827',
+  },
+  siteSubTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  siteSubAmount: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#111827',
+    marginTop: 1,
+  },
+  siteSubDesc: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+
+  footerTrustRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginVertical: 16,
+  },
+  footerTrustText: {
+    fontSize: 11.5,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+
+  // Sticky Bottom Action Bar (Android E-commerce Standard)
+  androidBottomBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+  },
+  bottomBarInfo: {
+    flex: 1,
+  },
+  bottomBarAmount: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  bottomBarMethod: {
+    fontSize: 11,
+    color: '#6B7280',
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  bottomPayButton: {
+    height: 44,
+    paddingHorizontal: 24,
+    backgroundColor: '#111827',
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bottomPayButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+
+  // Awaiting Screen
+  awaitingContent: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    paddingHorizontal: 4,
+  },
+  awaitingPulseContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  awaitingPulseOuter: {
+    padding: 6,
+    borderRadius: 38,
+    backgroundColor: '#F3F4F6',
+  },
+  awaitingIconWrap: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  awaitingTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  awaitingDescription: {
+    fontSize: 12.5,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginTop: 6,
+    paddingHorizontal: 16,
+    lineHeight: 18,
+  },
+  boldText: {
+    fontWeight: '700',
+    color: '#111827',
+  },
+
+  // Real-Time Countdown Ticker Pill
+  sessionTickerPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 20,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  sessionTickerText: {
+    fontSize: 11.5,
+    color: '#92400E',
+    fontWeight: '600',
+  },
+  sessionTickerCountdown: {
+    fontWeight: '800',
+    color: '#B45309',
+    fontVariant: ['tabular-nums'],
+  },
+
+  // Real-Time Status Stepper
+  realtimeStepperCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 14,
+    marginTop: 14,
+  },
+  stepperRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  stepperIconDone: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  stepperConnectorDone: {
+    width: 2,
+    height: 16,
+    backgroundColor: '#10B981',
+    marginLeft: 9,
+    marginVertical: 2,
+  },
+  stepperIconActive: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#EEF2FF',
+    borderWidth: 2,
+    borderColor: '#4F46E5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  stepperActivePulse: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#4F46E5',
+  },
+  stepperConnector: {
+    width: 2,
+    height: 16,
+    backgroundColor: '#E5E7EB',
+    marginLeft: 9,
+    marginVertical: 2,
+  },
+  stepperIconPending: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  stepperTextWrap: {
+    flex: 1,
+  },
+  stepperTitleDone: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  stepperSubDone: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 1,
+  },
+  stepperTitleActiveRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  stepperTitleActive: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  liveBadge: {
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 3,
+  },
+  liveBadgeText: {
+    color: '#059669',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  stepperSubActive: {
+    fontSize: 11,
+    color: '#4F46E5',
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  stepperTitlePending: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  stepperSubPending: {
+    fontSize: 11,
+    color: '#059669',
+    fontWeight: '500',
+    marginTop: 1,
+  },
+
+  // Re-launch app button
+  relaunchAppButton: {
+    width: '100%',
+    height: 44,
+    backgroundColor: '#111827',
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    marginTop: 14,
+  },
+  relaunchAppLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  relaunchAppButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '700',
+  },
+
+  // QR in Awaiting
+  qrToggleInAwaiting: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
     paddingVertical: 10,
+    marginTop: 6,
   },
-  razorpayLinkText: {
+  qrToggleInAwaitingText: {
     fontSize: 12,
-    color: '#64748B',
-    textDecorationLine: 'underline',
+    fontWeight: '600',
+    color: '#4B5563',
   },
-  cancelAwaitingBtn: {
+  qrAwaitingBlock: {
     alignItems: 'center',
-    paddingVertical: 8,
+    padding: 12,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginTop: 4,
   },
-  cancelAwaitingText: {
+  qrAwaitingSub: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 8,
+  },
+
+  transactionCard: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 14,
+    marginTop: 14,
+  },
+  transactionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  transactionLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  transactionValue: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#111827',
+  },
+  transactionValueBold: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#111827',
+  },
+  transactionValueMono: {
+    fontSize: 12,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    color: '#111827',
+  },
+  copyVpaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  thinDivider: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
+    marginVertical: 4,
+  },
+  utrInputWrap: {
+    width: '100%',
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  primaryActionButton: {
+    width: '100%',
+    height: 44,
+    backgroundColor: '#059669',
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  primaryActionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '700',
+  },
+  secondaryOutlineButton: {
+    width: '100%',
+    height: 44,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 10,
+  },
+  secondaryOutlineButtonText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#64748B',
+    color: '#111827',
+  },
+  cancelLink: {
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  cancelLinkText: {
+    fontSize: 12.5,
+    color: '#6B7280',
+    fontWeight: '600',
   },
 });

@@ -12,16 +12,13 @@ import {
 import {
   Check,
   Truck,
-  ArrowRight,
   Copy,
   MapPin,
   Share2,
   FileText,
-  ShieldCheck,
-  Sparkles,
-  ChevronRight,
-  Clock,
   X,
+  Clock,
+  ShieldCheck,
 } from 'lucide-react-native';
 import { RazorpayPaymentResult } from './RazorpayModal';
 import { soundService } from '../utils/soundHelper';
@@ -69,7 +66,7 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({
-          title: 'Urbanico Order Receipt',
+          title: 'Urbanico Direct Order Receipt',
           text: summaryText,
         });
         return;
@@ -80,7 +77,7 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(summaryText).catch(() => {});
       setShareToast(true);
-      setTimeout(() => setShareToast(false), 2200);
+      setTimeout(() => setShareToast(false), 2000);
     }
   };
 
@@ -94,209 +91,176 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
   });
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
         <Pressable style={styles.backdrop} onPress={onClose} />
-        <View style={styles.modalSheet}>
-          <TouchableOpacity
-            onPress={onClose}
-            style={styles.topCloseBtn}
-            activeOpacity={0.7}
-            accessibilityLabel="Close receipt"
-          >
-            <X size={18} color="#64748B" strokeWidth={2.4} />
-          </TouchableOpacity>
+        <View style={styles.sheetContainer}>
+          {/* Top Android Close / Back */}
+          <View style={styles.topBar}>
+            <TouchableOpacity
+              onPress={onClose}
+              style={styles.closeButton}
+              activeOpacity={0.7}
+              accessibilityLabel="Close confirmation"
+            >
+              <X size={20} color="#111827" strokeWidth={2.2} />
+            </TouchableOpacity>
+            <Text style={styles.topBarTitle}>Order Confirmation</Text>
+            <View style={{ width: 36 }} />
+          </View>
+
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-            {/* 1. Google Pay / PhonePe Inspired Minimalist Success Badge */}
-            <View style={styles.successHeader}>
-              <View style={styles.outerPulseRing}>
-                <View style={styles.innerSuccessBadge}>
-                  <Check size={32} color="#FFFFFF" strokeWidth={3.5} />
-                </View>
+            {/* Minimalist Android Success Hero */}
+            <View style={styles.heroSection}>
+              <View style={styles.checkCircle}>
+                <Check size={28} color="#FFFFFF" strokeWidth={3} />
               </View>
 
-              <Text style={styles.successTitle}>Payment Successful</Text>
-              <Text style={styles.successMerchant}>Paid to Urbanico Direct Materials Yard</Text>
-
-              <View style={styles.amountHeroRow}>
-                <Text style={styles.currencySymbol}>₹</Text>
-                <Text style={styles.heroAmountText}>
-                  {paymentResult.amount.toLocaleString('en-IN')}
-                </Text>
-              </View>
-
-              <View style={styles.verifiedBadge}>
-                <ShieldCheck size={13} color="#059669" strokeWidth={2.2} />
-                <Text style={styles.verifiedBadgeText}>Official GST Tax Invoice Generated</Text>
-              </View>
+              <Text style={styles.orderPlacedHeading}>Order Placed Successfully!</Text>
+              <Text style={styles.amountDisplay}>
+                ₹{paymentResult.amount.toLocaleString('en-IN')}
+              </Text>
+              <Text style={styles.paymentMethodNotice}>
+                Paid via {paymentResult.method}
+              </Text>
             </View>
 
-            {/* 2. Order & Payment Breakdown Card */}
-            <View style={styles.receiptBox}>
+            {/* Receipt Summary Card (Amazon / Flipkart Android Style) */}
+            <View style={styles.receiptCard}>
               <View style={styles.receiptRow}>
-                <Text style={styles.receiptLabel}>Transaction UTR / ID</Text>
-                <TouchableOpacity onPress={handleCopyPaymentId} style={styles.copyPill} activeOpacity={0.7}>
+                <Text style={styles.receiptLabel}>Order ID</Text>
+                <Text style={styles.receiptValueBold}>{paymentResult.razorpay_order_id}</Text>
+              </View>
+
+              <View style={styles.divider} />
+
+              <View style={styles.receiptRow}>
+                <Text style={styles.receiptLabel}>Payment Reference</Text>
+                <TouchableOpacity onPress={handleCopyPaymentId} style={styles.copyRow} activeOpacity={0.7}>
                   <Text style={styles.receiptValueMono}>{paymentResult.razorpay_payment_id}</Text>
                   {copied ? (
                     <Check size={12} color="#059669" strokeWidth={2.5} />
                   ) : (
-                    <Copy size={12} color="#94A3B8" strokeWidth={2} />
+                    <Copy size={12} color="#6B7280" strokeWidth={2} />
                   )}
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.receiptDivider} />
+              <View style={styles.divider} />
 
               <View style={styles.receiptRow}>
-                <Text style={styles.receiptLabel}>Order Reference</Text>
-                <Text style={styles.receiptValueBold}>{paymentResult.razorpay_order_id}</Text>
+                <Text style={styles.receiptLabel}>Delivery Destination</Text>
+                <View style={styles.destinationBox}>
+                  <MapPin size={13} color="#111827" />
+                  <Text style={styles.destinationText} numberOfLines={1}>
+                    {selectedLocation}
+                  </Text>
+                </View>
               </View>
 
-              <View style={styles.receiptDivider} />
-
-              <View style={styles.receiptRow}>
-                <Text style={styles.receiptLabel}>Payment Method</Text>
-                <Text style={styles.receiptValue}>{paymentResult.method}</Text>
-              </View>
-
-              <View style={styles.receiptDivider} />
+              <View style={styles.divider} />
 
               <View style={styles.receiptRow}>
                 <Text style={styles.receiptLabel}>Date & Time</Text>
                 <Text style={styles.receiptValue}>{formattedDate}</Text>
               </View>
-
-              <View style={styles.receiptDivider} />
-
-              <View style={styles.receiptRow}>
-                <Text style={styles.receiptLabel}>Delivery Site</Text>
-                <View style={styles.siteLocationWrapper}>
-                  <MapPin size={12} color="#0066FF" strokeWidth={2} />
-                  <Text style={styles.siteLocationText} numberOfLines={1}>
-                    {selectedLocation}
-                  </Text>
-                </View>
-              </View>
             </View>
 
-            {/* 3. Live 3-Hour Site Dispatch Progress Timeline */}
-            <View style={styles.dispatchTimelineCard}>
-              <View style={styles.timelineHeader}>
-                <View style={styles.timelineHeaderLeft}>
-                  <Clock size={14} color="#0066FF" strokeWidth={2.2} />
-                  <Text style={styles.timelineHeaderTitle}>Dispatch Status</Text>
-                </View>
-                <Text style={styles.timelineHeaderEta}>Est. 3 Hours</Text>
+            {/* Dispatch Tracker Card */}
+            <View style={styles.dispatchCard}>
+              <View style={styles.dispatchHeader}>
+                <Clock size={14} color="#059669" />
+                <Text style={styles.dispatchHeaderTitle}>DIRECT YARD DISPATCH • 3 HOURS</Text>
               </View>
 
-              <View style={styles.stepsList}>
-                {/* Step 1: Confirmed */}
-                <View style={styles.stepRow}>
-                  <View style={styles.stepIndicatorCol}>
-                    <View style={styles.stepDotCompleted}>
-                      <Check size={10} color="#FFFFFF" strokeWidth={3} />
-                    </View>
-                    <View style={styles.stepLineActive} />
+              <View style={styles.progressTracker}>
+                <View style={styles.trackerStep}>
+                  <View style={[styles.trackerDot, styles.trackerDotDone]}>
+                    <Check size={9} color="#FFFFFF" strokeWidth={3} />
                   </View>
-                  <View style={styles.stepTextCol}>
-                    <Text style={styles.stepTitleCompleted}>Order & Advance Confirmed</Text>
-                    <Text style={styles.stepSub}>Payment verified by bank gateway</Text>
-                  </View>
+                  <Text style={styles.trackerLabelDone}>Confirmed</Text>
                 </View>
 
-                {/* Step 2: Yard Picking */}
-                <View style={styles.stepRow}>
-                  <View style={styles.stepIndicatorCol}>
-                    <View style={styles.stepDotCurrent}>
-                      <View style={styles.stepDotCurrentInner} />
-                    </View>
-                    <View style={styles.stepLineInactive} />
+                <View style={[styles.trackerLine, styles.trackerLineDone]} />
+
+                <View style={styles.trackerStep}>
+                  <View style={[styles.trackerDot, styles.trackerDotDone]}>
+                    <Check size={9} color="#FFFFFF" strokeWidth={3} />
                   </View>
-                  <View style={styles.stepTextCol}>
-                    <Text style={styles.stepTitleCurrent}>Yard Picking & Weighbridge Test</Text>
-                    <Text style={styles.stepSub}>Hydraulic crane loader assigned</Text>
-                  </View>
+                  <Text style={styles.trackerLabelDone}>Truck Loading</Text>
                 </View>
 
-                {/* Step 3: Truck Dispatch */}
-                <View style={styles.stepRow}>
-                  <View style={styles.stepIndicatorCol}>
-                    <View style={styles.stepDotPending} />
-                  </View>
-                  <View style={styles.stepTextCol}>
-                    <Text style={styles.stepTitlePending}>Truck Dispatch & Site Arrival</Text>
-                    <Text style={styles.stepSub}>Driver OTP will be shared upon gate exit</Text>
-                  </View>
+                <View style={styles.trackerLine} />
+
+                <View style={styles.trackerStep}>
+                  <View style={styles.trackerDot} />
+                  <Text style={styles.trackerLabel}>Site Delivery</Text>
                 </View>
               </View>
             </View>
 
             {copied && (
-              <View style={styles.toastBanner}>
-                <Text style={styles.toastBannerText}>Transaction ID copied to clipboard</Text>
+              <View style={styles.toastNotice}>
+                <Text style={styles.toastNoticeText}>Payment Reference copied to clipboard</Text>
               </View>
             )}
 
             {shareToast && (
-              <View style={styles.toastBanner}>
-                <Text style={styles.toastBannerText}>Order receipt copied to clipboard</Text>
+              <View style={styles.toastNotice}>
+                <Text style={styles.toastNoticeText}>Receipt details copied to clipboard</Text>
               </View>
             )}
 
-            {/* 4. Action Buttons */}
-            <View style={styles.actionsSection}>
-              {/* Primary: Track Order */}
+            {/* Bottom Primary Actions */}
+            <View style={styles.actionsContainer}>
               <TouchableOpacity
                 onPress={() => {
                   onClose();
                   onTrackOrder();
                 }}
-                style={styles.primaryBtn}
+                style={styles.primaryActionButton}
                 activeOpacity={0.88}
               >
-                <Truck size={17} color="#FFFFFF" strokeWidth={2.2} />
-                <Text style={styles.primaryBtnText}>Track Live Dispatch</Text>
-                <ArrowRight size={15} color="#FFFFFF" strokeWidth={2.2} />
+                <Truck size={16} color="#FFFFFF" strokeWidth={2.2} />
+                <Text style={styles.primaryActionButtonText}>TRACK ORDER STATUS</Text>
               </TouchableOpacity>
 
-              {/* Continue Shopping Button */}
-              <TouchableOpacity
-                onPress={() => {
-                  onClose();
-                  if (onContinueShopping) {
+              {onContinueShopping && (
+                <TouchableOpacity
+                  onPress={() => {
+                    onClose();
                     onContinueShopping();
-                  }
-                }}
-                style={styles.continueShoppingBtn}
-                activeOpacity={0.85}
-              >
-                <Sparkles size={16} color="#0F172A" strokeWidth={2} />
-                <Text style={styles.continueShoppingBtnText}>Continue Shopping</Text>
-              </TouchableOpacity>
+                  }}
+                  style={styles.secondaryActionButton}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.secondaryActionButtonText}>CONTINUE SHOPPING</Text>
+                </TouchableOpacity>
+              )}
 
-              {/* Secondary Buttons Row */}
-              <View style={styles.secondaryBtnRow}>
+              {/* Utility Links */}
+              <View style={styles.utilityLinksRow}>
                 {onViewInvoice && (
                   <TouchableOpacity
                     onPress={() => {
                       onClose();
                       onViewInvoice();
                     }}
-                    style={styles.secondaryBtn}
-                    activeOpacity={0.8}
+                    style={styles.utilityLink}
+                    activeOpacity={0.7}
                   >
-                    <FileText size={15} color="#334155" strokeWidth={2} />
-                    <Text style={styles.secondaryBtnText}>Tax Invoice</Text>
+                    <FileText size={13} color="#6B7280" />
+                    <Text style={styles.utilityLinkText}>Tax Invoice</Text>
                   </TouchableOpacity>
                 )}
 
                 <TouchableOpacity
                   onPress={handleShareReceipt}
-                  style={styles.secondaryBtn}
-                  activeOpacity={0.8}
+                  style={styles.utilityLink}
+                  activeOpacity={0.7}
                 >
-                  <Share2 size={15} color="#334155" strokeWidth={2} />
-                  <Text style={styles.secondaryBtnText}>Share Receipt</Text>
+                  <Share2 size={13} color="#6B7280" />
+                  <Text style={styles.utilityLinkText}>Share Receipt</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -310,10 +274,8 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.65)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
   },
   backdrop: {
     position: 'absolute',
@@ -322,350 +284,260 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
   },
-  modalSheet: {
+  sheetContainer: {
     width: '100%',
-    maxWidth: 440,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 24,
     maxHeight: '92%',
+    backgroundColor: '#F8F9FA',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     overflow: 'hidden',
-    position: 'relative',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.14,
-    shadowRadius: 28,
-    elevation: 16,
   },
-  topCloseBtn: {
-    position: 'absolute',
-    top: 14,
-    right: 14,
-    zIndex: 20,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F1F5F9',
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
+  },
+  closeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  topBarTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111827',
+  },
   scrollContent: {
-    padding: 20,
-    gap: 16,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 24,
   },
-  successHeader: {
+
+  // Hero
+  heroSection: {
     alignItems: 'center',
-    paddingTop: 8,
+    paddingVertical: 12,
   },
-  outerPulseRing: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    backgroundColor: '#DCFCE7',
+  checkCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#059669',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
   },
-  innerSuccessBadge: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#16A34A',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#16A34A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  successTitle: {
-    fontSize: 18,
+  orderPlacedHeading: {
+    fontSize: 19,
     fontWeight: '800',
-    color: '#0F172A',
-    letterSpacing: -0.3,
+    color: '#111827',
   },
-  successMerchant: {
-    fontSize: 12,
-    color: '#64748B',
-    marginTop: 2,
+  amountDisplay: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#111827',
+    marginTop: 4,
   },
-  amountHeroRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 2,
-    marginTop: 10,
+  paymentMethodNotice: {
+    fontSize: 12.5,
+    color: '#6B7280',
+    marginTop: 4,
   },
-  currencySymbol: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  heroAmountText: {
-    fontSize: 32,
-    fontWeight: '900',
-    color: '#0F172A',
-    letterSpacing: -0.8,
-  },
-  verifiedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#F0FDF4',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+
+  // Receipt Card
+  receiptCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#BBF7D0',
-    marginTop: 8,
-  },
-  verifiedBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#166534',
-  },
-  receiptBox: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    gap: 8,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    marginTop: 14,
   },
   receiptRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 2,
-  },
-  receiptDivider: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    paddingVertical: 10,
   },
   receiptLabel: {
     fontSize: 12,
-    color: '#64748B',
-    fontWeight: '500',
+    color: '#6B7280',
   },
   receiptValue: {
-    fontSize: 12,
-    color: '#0F172A',
+    fontSize: 12.5,
     fontWeight: '600',
+    color: '#111827',
   },
   receiptValueBold: {
-    fontSize: 12,
-    color: '#0F172A',
+    fontSize: 13,
     fontWeight: '700',
+    color: '#111827',
   },
   receiptValueMono: {
-    fontSize: 11.5,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-    color: '#334155',
-    fontWeight: '600',
+    fontSize: 12,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    color: '#111827',
   },
-  copyPill: {
+  copyRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    gap: 6,
   },
-  siteLocationWrapper: {
+  divider: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
+  },
+  destinationBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    maxWidth: '55%',
+    maxWidth: '65%',
   },
-  siteLocationText: {
-    fontSize: 12,
-    color: '#0F172A',
+  destinationText: {
+    fontSize: 12.5,
     fontWeight: '600',
+    color: '#111827',
   },
-  dispatchTimelineCard: {
+
+  // Dispatch Tracker
+  dispatchCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 12,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    gap: 10,
+    borderColor: '#E5E7EB',
+    padding: 14,
+    marginTop: 12,
   },
-  timelineHeader: {
+  dispatchHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 16,
+  },
+  dispatchHeaderTitle: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#059669',
+    letterSpacing: 0.5,
+  },
+  progressTracker: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 12,
   },
-  timelineHeaderLeft: {
-    flexDirection: 'row',
+  trackerStep: {
     alignItems: 'center',
-    gap: 6,
   },
-  timelineHeaderTitle: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  timelineHeaderEta: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#0066FF',
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  stepsList: {
-    gap: 0,
-  },
-  stepRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  stepIndicatorCol: {
-    alignItems: 'center',
+  trackerDot: {
     width: 18,
-  },
-  stepDotCompleted: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#16A34A',
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 6,
   },
-  stepDotCurrent: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#0066FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+  trackerDotDone: {
+    backgroundColor: '#059669',
   },
-  stepDotCurrentInner: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#0066FF',
-  },
-  stepDotPending: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#E2E8F0',
-    marginTop: 2,
-  },
-  stepLineActive: {
-    width: 2,
-    height: 24,
-    backgroundColor: '#16A34A',
-  },
-  stepLineInactive: {
-    width: 2,
-    height: 24,
-    backgroundColor: '#E2E8F0',
-  },
-  stepTextCol: {
+  trackerLine: {
     flex: 1,
-    paddingBottom: 10,
+    height: 2,
+    backgroundColor: '#E5E7EB',
+    marginHorizontal: 6,
+    marginBottom: 22,
   },
-  stepTitleCompleted: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#0F172A',
+  trackerLineDone: {
+    backgroundColor: '#059669',
   },
-  stepTitleCurrent: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#0066FF',
-  },
-  stepTitlePending: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#94A3B8',
-  },
-  stepSub: {
+  trackerLabel: {
     fontSize: 10.5,
-    color: '#64748B',
-    marginTop: 1,
+    color: '#9CA3AF',
+    fontWeight: '500',
   },
-  toastBanner: {
-    backgroundColor: '#0F172A',
+  trackerLabelDone: {
+    fontSize: 10.5,
+    color: '#111827',
+    fontWeight: '700',
+  },
+
+  toastNotice: {
+    backgroundColor: '#111827',
+    borderRadius: 6,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 8,
     alignItems: 'center',
+    marginTop: 12,
   },
-  toastBannerText: {
+  toastNoticeText: {
     color: '#FFFFFF',
     fontSize: 11.5,
-    fontWeight: '600',
+    fontWeight: '500',
   },
-  actionsSection: {
-    gap: 8,
-    marginTop: 2,
+
+  // Actions
+  actionsContainer: {
+    marginTop: 16,
+    gap: 10,
   },
-  primaryBtn: {
-    backgroundColor: '#0066FF',
+  primaryActionButton: {
+    width: '100%',
+    height: 46,
+    backgroundColor: '#111827',
+    borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 13,
-    borderRadius: 12,
   },
-  primaryBtnText: {
+  primaryActionButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  continueShoppingBtn: {
-    backgroundColor: '#F1F5F9',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  continueShoppingBtnText: {
-    color: '#0F172A',
     fontSize: 13.5,
     fontWeight: '700',
+    letterSpacing: 0.4,
   },
-  secondaryBtnRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  secondaryBtn: {
-    flex: 1,
-    flexDirection: 'row',
+  secondaryActionButton: {
+    width: '100%',
+    height: 44,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
   },
-  secondaryBtnText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#334155',
+  secondaryActionButtonText: {
+    color: '#111827',
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.3,
   },
-  doneBtn: {
+  utilityLinksRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
+    gap: 24,
+    marginTop: 8,
+  },
+  utilityLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     paddingVertical: 6,
   },
-  doneBtnText: {
-    fontSize: 13,
+  utilityLinkText: {
+    fontSize: 12,
+    color: '#6B7280',
     fontWeight: '600',
-    color: '#64748B',
   },
 });

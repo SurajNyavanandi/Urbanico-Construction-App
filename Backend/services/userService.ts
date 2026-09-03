@@ -5,7 +5,7 @@ const inMemoryUsers: any[] = [];
 
 export class UserService {
   public static async findOrCreateUser(phone: string, userData: Partial<IUser> = {}) {
-    const cleanPhone = phone ? phone.replace(/[^\d+]/g, '') : '+919666635009';
+    const cleanPhone = phone ? phone.replace(/[^\d+]/g, '') : '+919876543210';
 
     try {
       if (mongoose.connection.readyState === 1) {
@@ -13,8 +13,8 @@ export class UserService {
         if (!user) {
           user = new User({
             phone: cleanPhone,
-            name: userData.name || 'Suraj Nyavanandi',
-            email: userData.email || 'kanusuraj15@gmail.com',
+            name: userData.name || 'Urbanico Partner',
+            email: userData.email || 'partner@urbanico.in',
             role: userData.role || 'contractor',
             companyName: userData.companyName || 'Urbanico Infrastructure Pvt Ltd',
             gstin: userData.gstin || '36AABCU12341ZV',
@@ -29,7 +29,7 @@ export class UserService {
                 siteName: 'Miyapur Site (Tower B)',
                 address: 'Survey 114, Hafeezpet - Miyapur Main Rd, Hyderabad',
                 pincode: '500049',
-                supervisorName: 'Kishore V.',
+                supervisorName: 'Site Supervisor',
                 supervisorPhone: '+91 98480 12345',
                 isPrimary: true,
               },
@@ -42,7 +42,7 @@ export class UserService {
         return user;
       }
     } catch (err) {
-      console.warn('MongoDB not available, using in-memory user store:', err);
+      console.warn('[User] Note: In-memory fallback used');
     }
 
     let memoryUser = inMemoryUsers.find((u) => u.phone === cleanPhone);
@@ -50,8 +50,8 @@ export class UserService {
       memoryUser = {
         _id: `usr_${Date.now()}`,
         phone: cleanPhone,
-        name: userData.name || 'Suraj Nyavanandi',
-        email: userData.email || 'kanusuraj15@gmail.com',
+        name: userData.name || 'Urbanico Partner',
+        email: userData.email || 'partner@urbanico.in',
         role: userData.role || 'contractor',
         companyName: userData.companyName || 'Urbanico Infrastructure Pvt Ltd',
         gstin: userData.gstin || '36AABCU12341ZV',

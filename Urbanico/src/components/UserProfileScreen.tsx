@@ -1269,84 +1269,84 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 keyboardShouldPersistTaps="handled"
                 automaticallyAdjustKeyboardInsets={true}
               >
-              <Text style={[styles.sectionMicroHeader, { color: '#64748B', fontSize: 11, fontWeight: '700', letterSpacing: 0.5 }]}>
+              <Text style={[styles.sectionMicroHeader, { color: '#86868B', fontSize: 11, fontWeight: '600', letterSpacing: 0.8 }]}>
                 SAVED PAYMENT METHODS
               </Text>
 
               {/* UPI 1: Google Pay */}
-              <View style={[styles.paymentMethodCard, { backgroundColor: '#FFFFFF', borderColor: '#0066FF', borderRadius: 14, padding: 12, marginTop: 8 }]}>
+              <View style={[styles.paymentMethodCard, { backgroundColor: '#F5F5F7', borderColor: '#1D1D1F', borderRadius: 14, padding: 14, marginTop: 10, borderWidth: 1.5 }]}>
                 <View style={styles.paymentMethodLeft}>
-                  <GooglePayIcon size={26} />
-                  <View style={{ flex: 1, marginLeft: 10 }}>
+                  <GooglePayIcon size={24} />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                      <Text style={[styles.paymentMethodTitle, { color: '#0F172A', fontSize: 13.5, fontWeight: '700' }]}>
-                        Google Pay UPI
+                      <Text style={[styles.paymentMethodTitle, { color: '#1D1D1F', fontSize: 13.5, fontWeight: '600' }]}>
+                        Google Pay
                       </Text>
-                      <View style={{ backgroundColor: '#EFF6FF', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                        <Text style={{ color: '#0066FF', fontSize: 10, fontWeight: '700' }}>PRIMARY</Text>
+                      <View style={{ backgroundColor: '#1D1D1F', paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: 4 }}>
+                        <Text style={{ color: '#FFFFFF', fontSize: 9.5, fontWeight: '600' }}>DEFAULT</Text>
                       </View>
                     </View>
-                    <Text style={[styles.paymentMethodSub, { color: '#64748B', fontSize: 11.5, marginTop: 1 }]}>
-                      9876543210@okhdfcbank • Verified
+                    <Text style={[styles.paymentMethodSub, { color: '#86868B', fontSize: 11.5, marginTop: 2 }]}>
+                      9876543210@okhdfcbank
                     </Text>
                   </View>
                 </View>
-                <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: '#0066FF', justifyContent: 'center', alignItems: 'center' }}>
-                  <Check size={12} color="#FFFFFF" strokeWidth={3} />
+                <View style={{ width: 18, height: 18, borderRadius: 9, backgroundColor: '#1D1D1F', justifyContent: 'center', alignItems: 'center' }}>
+                  <Check size={11} color="#FFFFFF" strokeWidth={3} />
                 </View>
               </View>
 
               {/* UPI 2: PhonePe */}
-              <View style={[styles.paymentMethodCard, { backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', borderRadius: 14, padding: 12, marginTop: 8 }]}>
+              <View style={[styles.paymentMethodCard, { backgroundColor: '#F5F5F7', borderColor: 'transparent', borderRadius: 14, padding: 14, marginTop: 8, borderWidth: 1.5 }]}>
                 <View style={styles.paymentMethodLeft}>
-                  <PhonePeIcon size={26} />
-                  <View style={{ flex: 1, marginLeft: 10 }}>
-                    <Text style={[styles.paymentMethodTitle, { color: '#0F172A', fontSize: 13.5, fontWeight: '700' }]}>
-                      PhonePe UPI
+                  <PhonePeIcon size={24} />
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.paymentMethodTitle, { color: '#1D1D1F', fontSize: 13.5, fontWeight: '600' }]}>
+                      PhonePe
                     </Text>
-                    <Text style={[styles.paymentMethodSub, { color: '#64748B', fontSize: 11.5, marginTop: 1 }]}>
-                      9876543210@ybl • Active
+                    <Text style={[styles.paymentMethodSub, { color: '#86868B', fontSize: 11.5, marginTop: 2 }]}>
+                      9876543210@ybl
                     </Text>
                   </View>
                 </View>
               </View>
 
               {/* Card: Visa Business */}
-              <View style={[styles.paymentMethodCard, { backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', borderRadius: 14, padding: 12, marginTop: 8 }]}>
+              <View style={[styles.paymentMethodCard, { backgroundColor: '#F5F5F7', borderColor: 'transparent', borderRadius: 14, padding: 14, marginTop: 8, borderWidth: 1.5 }]}>
                 <View style={styles.paymentMethodLeft}>
                   <VisaIcon size={22} />
-                  <View style={{ flex: 1, marginLeft: 10 }}>
-                    <Text style={[styles.paymentMethodTitle, { color: '#0F172A', fontSize: 13.5, fontWeight: '700' }]}>
-                      Visa Commercial Debit
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.paymentMethodTitle, { color: '#1D1D1F', fontSize: 13.5, fontWeight: '600' }]}>
+                      Visa Debit
                     </Text>
-                    <Text style={[styles.paymentMethodSub, { color: '#64748B', fontSize: 11.5, marginTop: 1 }]}>
-                      •••• 2411 • Expires 08/28 (Tokenized)
+                    <Text style={[styles.paymentMethodSub, { color: '#86868B', fontSize: 11.5, marginTop: 2 }]}>
+                      •••• 2411 • Expires 08/28
                     </Text>
                   </View>
                 </View>
               </View>
 
               {/* Net Banking */}
-              <View style={[styles.paymentMethodCard, { backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', borderRadius: 14, padding: 12, marginTop: 8 }]}>
+              <View style={[styles.paymentMethodCard, { backgroundColor: '#F5F5F7', borderColor: 'transparent', borderRadius: 14, padding: 14, marginTop: 8, borderWidth: 1.5 }]}>
                 <View style={styles.paymentMethodLeft}>
-                  <View style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: '#EFF6FF', justifyContent: 'center', alignItems: 'center' }}>
-                    <Landmark size={18} color="#0066FF" />
+                  <View style={{ width: 28, height: 28, borderRadius: 7, backgroundColor: '#E5E5EA', justifyContent: 'center', alignItems: 'center' }}>
+                    <Landmark size={15} color="#1D1D1F" />
                   </View>
-                  <View style={{ flex: 1, marginLeft: 10 }}>
-                    <Text style={[styles.paymentMethodTitle, { color: '#0F172A', fontSize: 13.5, fontWeight: '700' }]}>
-                      HDFC Bank Direct Escrow
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.paymentMethodTitle, { color: '#1D1D1F', fontSize: 13.5, fontWeight: '600' }]}>
+                      HDFC Bank
                     </Text>
-                    <Text style={[styles.paymentMethodSub, { color: '#64748B', fontSize: 11.5, marginTop: 1 }]}>
-                      A/C •••• 9821 • Instant RTGS/NEFT
+                    <Text style={[styles.paymentMethodSub, { color: '#86868B', fontSize: 11.5, marginTop: 2 }]}>
+                      Account ending in •••• 9821
                     </Text>
                   </View>
                 </View>
               </View>
 
-              <View style={[styles.payInfoBanner, { backgroundColor: '#F8FAFC', borderColor: '#E2E8F0', borderWidth: 1, borderRadius: 12, marginTop: 14, padding: 10 }]}>
-                <ShieldCheck size={15} color="#059669" />
-                <Text style={[styles.payInfoBannerText, { color: '#64748B', fontSize: 11, lineHeight: 15 }]}>
-                  All payment tokens are encrypted and 100% compliant with RBI & NPCI directives.
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 18, gap: 6 }}>
+                <ShieldCheck size={13} color="#86868B" />
+                <Text style={{ color: '#86868B', fontSize: 11, fontWeight: '500' }}>
+                  Encrypted & RBI Tokenization Compliant
                 </Text>
               </View>
             </ScrollView>

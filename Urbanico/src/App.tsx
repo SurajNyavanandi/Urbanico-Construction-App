@@ -585,7 +585,7 @@ function MainAppContent() {
 
   const handleAuthSuccess = (phoneNum: string) => {
     setIsLoggedIn(true);
-    const validPhone = phoneNum || '9666635009';
+    const validPhone = phoneNum || '9876543210';
 
     // 1. Restore or initialize user profile
     let loadedProfile = { ...INITIAL_USER, phone: validPhone, isVerified: true };

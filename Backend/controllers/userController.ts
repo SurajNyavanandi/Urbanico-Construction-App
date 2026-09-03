@@ -5,7 +5,7 @@ import { validateBackendProfile } from '../utils/sanitizer';
 export class UserController {
   public static async getProfile(req: Request, res: Response) {
     try {
-      const phone = (req.query.phone as string) || '+919666635009';
+      const phone = (req.query.phone as string) || '+919876543210';
       const user = await UserService.findOrCreateUser(phone, req.body);
       return res.status(200).json({ success: true, user });
     } catch (err: any) {
@@ -24,7 +24,7 @@ export class UserController {
         });
       }
 
-      const idOrPhone = req.params.id || (req.query.phone as string) || req.body.phone || '+919666635009';
+      const idOrPhone = req.params.id || (req.query.phone as string) || req.body.phone || '+919876543210';
       const user = await UserService.updateUser(idOrPhone, validation.sanitized);
       if (!user) {
         // If not existing, create or find

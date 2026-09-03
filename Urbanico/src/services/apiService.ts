@@ -5,6 +5,7 @@
  */
 
 import { ActivityDelivery, UserProfile, MaterialItem } from '../types';
+import { Platform, NativeModules } from 'react-native';
 
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -14,37 +15,101 @@ export interface ApiResponse<T = any> {
   [key: string]: any;
 }
 
-const API_BASE_URL =
-  (typeof process !== 'undefined' &&
-    process.env &&
-    (process.env.EXPO_PUBLIC_API_URL || process.env.VITE_API_URL)) ||
-  (typeof window !== 'undefined' ? '' : 'http://localhost:3000');
+export function getBaseApiUrls(): string[] {
+  const urls: string[] = [];
+
+  // 1. Explicit env variable (EXPO_PUBLIC_API_URL or VITE_API_URL)
+  const envUrl =
+    (typeof process !== 'undefined' &&
+      process.env &&
+      (process.env.EXPO_PUBLIC_API_URL || process.env.VITE_API_URL)) ||
+    '';
+  if (envUrl && envUrl.trim()) {
+    urls.push(envUrl.trim().replace(/\/+$/, ''));
+  }
+
+  // 2. Mobile device running on Expo Go -> Metro Host IP (e.g. http://192.168.1.245:3000)
+  if (Platform.OS !== 'web') {
+    try {
+      const scriptURL = (NativeModules as any)?.SourceCode?.scriptURL;
+      if (scriptURL) {
+        const match = scriptURL.match(/^https?:\/\/([^:/]+)/);
+        if (match && match[1] && match[1] !== 'localhost' && match[1] !== '127.0.0.1') {
+          urls.push(`http://${match[1]}:3000/api`);
+          urls.push(`http://${match[1]}:3000`);
+        }
+      }
+    } catch {
+      // Safe fallback
+    }
+  }
+
+  // 3. Web runtime: relative /api or window origin
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location) {
+    urls.push('/api');
+    urls.push('');
+  }
+
+  // 4. Remote Render backend fallback (production)
+  urls.push('https://urbanico-construction-app.onrender.com/api');
+  urls.push('https://urbanico-construction-app.onrender.com');
+
+  // 5. Localhost fallback
+  urls.push('http://localhost:3000/api');
+  urls.push('http://localhost:3000');
+
+  return Array.from(new Set(urls.filter(Boolean)));
+}
+
+// Ultra-minimalistic runtime log for port and API URL verification
+if (typeof window !== 'undefined' && window.location) {
+  const currentPort = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
+  const targetApi = getBaseApiUrls()[0] || '/api';
+  console.log(`[Frontend] Port: ${currentPort} | URL: ${window.location.origin} | API: ${targetApi}`);
+}
 
 class ApiService {
+  private activeBaseUrl: string | null = null;
+
   /**
-   * Safe fetch with JSON parsing and standardized error handling
+   * Safe fetch with JSON parsing and standardized error handling across candidate endpoints
    */
   private async request<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
-    
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      ...(options.headers as Record<string, string> || {}),
+      Accept: 'application/json',
+      ...((options.headers as Record<string, string>) || {}),
     };
 
-    try {
-      const response = await fetch(url, {
-        ...options,
-        headers,
-      });
+    const candidateBases = this.activeBaseUrl ? [this.activeBaseUrl, ...getBaseApiUrls()] : getBaseApiUrls();
 
-      const data = await response.json().catch(() => ({ success: response.ok }));
-      return data;
-    } catch (err: any) {
-      console.warn(`[ApiService] Request to ${endpoint} failed:`, err?.message || err);
-      throw err;
+    let lastError: any = null;
+
+    for (const base of candidateBases) {
+      const formattedBase = base.endsWith('/') ? base.slice(0, -1) : base;
+      const finalUrl = formattedBase.endsWith('/api') && cleanEndpoint.startsWith('/api')
+        ? `${formattedBase}${cleanEndpoint.replace(/^\/api/, '')}`
+        : `${formattedBase}${cleanEndpoint}`;
+
+      try {
+        const response = await fetch(finalUrl, {
+          ...options,
+          headers,
+        });
+
+        if (response.ok) {
+          this.activeBaseUrl = formattedBase;
+          const data = await response.json().catch(() => ({ success: true }));
+          return data;
+        }
+      } catch (err: any) {
+        lastError = err;
+      }
     }
+
+    console.warn(`[ApiService] Request to ${endpoint} failed on candidate endpoints:`, lastError?.message || lastError);
+    throw lastError || new Error(`Network request failed for ${endpoint}`);
   }
 
   // ==================== MATERIALS ====================
@@ -229,7 +294,7 @@ class ApiService {
   /**
    * Fetch user profile from backend
    */
-  public async getUserProfile(phone: string = '+919666635009'): Promise<any | null> {
+  public async getUserProfile(phone: string = '+919876543210'): Promise<any | null> {
     try {
       const res = await this.request<{ success: boolean; user: any }>(`/api/users/profile?phone=${encodeURIComponent(phone)}`);
       if (res && res.success) {

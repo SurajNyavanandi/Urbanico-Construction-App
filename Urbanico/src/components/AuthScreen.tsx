@@ -15,7 +15,7 @@ import { ChevronLeft, X } from 'lucide-react-native';
 import { BRAND_LOGO_URL } from '../constants';
 import { ShimmerImage } from './common/ShimmerImage';
 
-const DEFAULT_DEV_MOBILE = '9666635009';
+const DEFAULT_DEV_MOBILE = '';
 const DEFAULT_DEV_OTP = '261125';
 
 interface AuthScreenProps {
