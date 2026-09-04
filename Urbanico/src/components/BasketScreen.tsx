@@ -48,6 +48,7 @@ import { syncManager } from '../utils/syncManager';
 import { safeStorage } from '../utils/safeStorage';
 import { soundService } from '../utils/soundHelper';
 import { OrderHistorySkeleton } from './common/SkeletonLoader';
+import { calculateCartTotals, isCartItemService } from '../utils/cartCalculations';
 import { apiService } from '../services/apiService';
 import {
   estimateTotalWeightTons,
@@ -160,14 +161,21 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   const [latestPaymentResult, setLatestPaymentResult] = useState<RazorpayPaymentResult | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
-  const totalUnitQuantity = cartItems.reduce((acc, item) => acc + item.quantity, 0);
-  const subtotal = cartItems.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
-  const gstTax = Math.round(subtotal * 0.18); // Flat 18% GST
   const deliveryDistanceKm = freightInfo.distanceKm || 10;
-  const deliveryRatePerKm = 5; // Flat ₹5/km
-  const deliveryCharge = freightInfo.deliveryCharge || Math.round(deliveryDistanceKm * deliveryRatePerKm);
-  const taxableTotal = subtotal + gstTax + deliveryCharge - couponDiscount;
-  const grandTotal = Math.max(0, taxableTotal);
+  const {
+    serviceItems,
+    materialItems,
+    isServicesOnly,
+    hasServices,
+    hasMaterials,
+    totalQuantity: totalUnitQuantity,
+    servicesSubtotal,
+    materialsSubtotal,
+    subtotal,
+    gstTax,
+    deliveryCharge,
+    grandTotal,
+  } = calculateCartTotals(cartItems, couponDiscount, deliveryDistanceKm);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -287,15 +295,16 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     const newOrder: ActivityDelivery = {
       id: `del-${Date.now()}`,
       orderNumber: generatedOrderNum,
-      materialName:
-        cartItems.map((c) => `${c.itemName} (${c.selectedOptionLabel})`).join(', ') ||
-        'Direct Supply Order',
-      quantity: `${cartItems.reduce((acc, c) => acc + c.quantity, 0)} Items`,
-      driverName: 'Ramesh Goud',
+      materialName: isServicesOnly
+        ? `${serviceItems[0]?.itemName || 'Skilled Trade'} Service Booking`
+        : cartItems.map((c) => `${c.itemName} (${c.selectedOptionLabel})`).join(', ') ||
+          'Direct Supply Order',
+      quantity: isServicesOnly ? '1 Site Visit' : `${cartItems.reduce((acc, c) => acc + c.quantity, 0)} Items`,
+      driverName: isServicesOnly ? 'Assigned Field Specialist' : 'Ramesh Goud',
       driverPhone: '+91 98480 22341',
-      vehicleType: freightInfo.vehicle.name,
-      vehicleNumber: 'TS 08 UB ' + Math.floor(1000 + Math.random() * 9000),
-      estimatedArrival: '35 mins',
+      vehicleType: isServicesOnly ? 'Service Inspection Vehicle' : freightInfo.vehicle.name,
+      vehicleNumber: isServicesOnly ? 'TS 09 SV ' + Math.floor(1000 + Math.random() * 9000) : 'TS 08 UB ' + Math.floor(1000 + Math.random() * 9000),
+      estimatedArrival: isServicesOnly ? 'Today within 2 hrs' : '35 mins',
       status: 'En Route',
       siteAddress: activeLocation,
       siteSupervisorName: activeSupervisor.name,
@@ -328,7 +337,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
         unit: item.selectedOptionLabel || 'Unit',
         unitPrice: item.unitPrice,
         totalPrice: item.unitPrice * item.quantity,
-        gstAmount: 0.18,
+        gstAmount: isCartItemService(item) ? 0 : 0.18,
       })),
       subtotal,
       taxAmount: gstTax,
@@ -344,8 +353,8 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
         amount: grandTotal,
         timestamp: new Date().toISOString(),
       },
-      vehicleNumber: 'TS 08 UB ' + Math.floor(1000 + Math.random() * 9000),
-      driverName: 'Ramesh Goud',
+      vehicleNumber: isServicesOnly ? 'TS 09 SV ' + Math.floor(1000 + Math.random() * 9000) : 'TS 08 UB ' + Math.floor(1000 + Math.random() * 9000),
+      driverName: isServicesOnly ? 'Assigned Field Specialist' : 'Ramesh Goud',
       driverPhone: '+91 98480 22341',
     }).catch((err) => {
       console.warn('Backend order recording notice:', err);
@@ -585,29 +594,35 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                 {cartItems.length > 0 && (
                   <View style={[styles.summaryCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <Text style={[styles.summaryTitle, { color: theme.textPrimary, borderBottomColor: theme.borderLight }]}>
-                      Commercial Tax Invoice Summary
+                      Order Summary
                     </Text>
                     <View style={styles.summaryRow}>
-                      <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>Subtotal ({totalUnitQuantity} items)</Text>
-                      <Text style={[styles.summaryValue, { color: theme.textPrimary }]}>₹{subtotal.toLocaleString('en-IN')}</Text>
-                    </View>
-                    <View style={styles.summaryRow}>
-                      <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>GST (18%)</Text>
-                      <Text style={[styles.summaryValue, { color: theme.textPrimary }]}>₹{gstTax.toLocaleString('en-IN')}</Text>
-                    </View>
-                    <View style={styles.summaryRow}>
-                      <View>
-                        <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>
-                          Platform Delivery Fee ({deliveryDistanceKm} km @ ₹5/km)
-                        </Text>
-                        <Text style={{ fontSize: 10, color: theme.textMuted }}>
-                          Calculated from Hyderabad Central Hub (Abids)
-                        </Text>
-                      </View>
-                      <Text style={[styles.summaryValue, { color: theme.textPrimary, fontWeight: '700' }]}>
-                        ₹{deliveryCharge.toLocaleString('en-IN')}
+                      <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>
+                        Subtotal ({totalUnitQuantity} {totalUnitQuantity === 1 ? 'item' : 'items'})
+                      </Text>
+                      <Text style={[styles.summaryValue, { color: theme.textPrimary }]}>
+                        ₹{subtotal.toLocaleString('en-IN')}
                       </Text>
                     </View>
+
+                    {materialItems.length > 0 && (
+                      <>
+                        <View style={styles.summaryRow}>
+                          <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>GST (18%)</Text>
+                          <Text style={[styles.summaryValue, { color: theme.textPrimary }]}>
+                            ₹{gstTax.toLocaleString('en-IN')}
+                          </Text>
+                        </View>
+                        <View style={styles.summaryRow}>
+                          <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>
+                            Platform Delivery ({deliveryDistanceKm} km)
+                          </Text>
+                          <Text style={[styles.summaryValue, { color: theme.textPrimary, fontWeight: '700' }]}>
+                            ₹{deliveryCharge.toLocaleString('en-IN')}
+                          </Text>
+                        </View>
+                      </>
+                    )}
 
                     {couponDiscount > 0 && (
                       <View style={styles.summaryRow}>
@@ -636,7 +651,11 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                     style={[styles.nikeCheckoutPill, { backgroundColor: theme.primary }]}
                   >
                     <Text style={styles.nikeCheckoutPillText}>
-                      {isPlacingOrder ? 'Processing...' : `Pay ₹${grandTotal.toLocaleString('en-IN')} & Book Dispatch`}
+                      {isPlacingOrder
+                        ? 'Processing...'
+                        : isServicesOnly
+                        ? `Book Service • ₹${grandTotal.toLocaleString('en-IN')}`
+                        : `Pay ₹${grandTotal.toLocaleString('en-IN')} • Place Order`}
                     </Text>
                     <ArrowRight size={16} color="#FFFFFF" strokeWidth={2.2} />
                   </TouchableOpacity>
@@ -836,80 +855,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                     ))}
                   </View>
                 </View>
-
-                {/* E-Commerce Post-Order Action Panel (Amazon/Flipkart/Nike style) */}
-                <View style={[styles.postOrderActionsCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                  <View style={styles.postOrderHeader}>
-                    <View style={styles.postOrderHeaderLeft}>
-                      <ShoppingBag size={18} color={theme.primary} strokeWidth={2.2} />
-                      <Text style={[styles.postOrderTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-                        Continue Shopping
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      onPress={() => onNavigateScreen('home')}
-                      style={styles.postOrderHomeBtn}
-                      activeOpacity={0.75}
-                    >
-                      <Text style={[styles.postOrderHomeBtnText, { color: theme.primary }]}>Explore Catalog</Text>
-                      <ChevronRight size={14} color={theme.primary} />
-                    </TouchableOpacity>
-                  </View>
-
-                  <Text style={[styles.postOrderSub, { color: theme.textSecondary }]}>
-                    Need more site materials or structural supplies for your ongoing project?
-                  </Text>
-
-                  {/* Primary Continue Shopping CTA */}
-                  <TouchableOpacity
-                    onPress={() => onNavigateScreen('home')}
-                    style={[styles.continueShoppingPrimaryBtn, { backgroundColor: theme.primary }]}
-                    activeOpacity={0.88}
-                  >
-                    <ShoppingBag size={16} color="#FFFFFF" strokeWidth={2.2} />
-                    <Text style={styles.continueShoppingPrimaryText}>Continue Shopping Materials</Text>
-                    <ArrowRight size={16} color="#FFFFFF" strokeWidth={2.2} />
-                  </TouchableOpacity>
-
-                  {/* Popular Category Shortcuts */}
-                  <View style={styles.categoryPillsRow}>
-                    {[
-                      { label: 'Cement', screen: 'home' as ScreenType },
-                      { label: 'TMT Steel', screen: 'home' as ScreenType },
-                      { label: 'River Sand', screen: 'home' as ScreenType },
-                      { label: 'Aggregates', screen: 'home' as ScreenType },
-                      { label: 'Vitrified Tiles', screen: 'home' as ScreenType },
-                    ].map((cat) => (
-                      <TouchableOpacity
-                        key={cat.label}
-                        onPress={() => onNavigateScreen(cat.screen)}
-                        style={[styles.categoryPill, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
-                        activeOpacity={0.75}
-                      >
-                        <Text style={[styles.categoryPillText, { color: theme.textPrimary }]}>{cat.label}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-
-                  {/* Support & Assistance Row */}
-                  <View style={[styles.orderSupportBox, { backgroundColor: theme.surfaceSecondary, borderColor: theme.borderLight }]}>
-                    <View style={styles.supportBoxLeft}>
-                      <PhoneCall size={16} color="#059669" strokeWidth={2.2} />
-                      <View>
-                        <Text style={[styles.supportBoxTitle, { color: theme.textPrimary }]}>24x7 Site Logistics Helpline</Text>
-                        <Text style={[styles.supportBoxPhone, { color: theme.textSecondary }]}>Toll-Free: 1800-123-9876 • Direct Yard Support</Text>
-                      </View>
-                    </View>
-                    <TouchableOpacity
-                      onPress={() => setShowDispatcherChat(true)}
-                      style={[styles.supportChatBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                      activeOpacity={0.8}
-                    >
-                      <MessageSquare size={13} color={theme.textPrimary} />
-                      <Text style={[styles.supportChatText, { color: theme.textPrimary }]}>Live Chat</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
               </>
             )}
           </View>
@@ -1005,7 +950,11 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
             visible={showRazorpayModal}
             onClose={() => setShowRazorpayModal(false)}
             amount={grandTotal}
-            orderDescription={`Booking (${cartItems.length} items) - Urbanico Supply`}
+            orderDescription={
+              isServicesOnly
+                ? `${serviceItems[0]?.itemName || 'Trade Service'} Booking - Urbanico`
+                : `Booking (${cartItems.length} items) - Urbanico Supply`
+            }
             selectedLocation={activeLocation}
             onPaymentSuccess={handlePaymentSuccess}
             onPaymentFailure={(err) => setPaymentError(err)}
@@ -1443,6 +1392,7 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 30,
     marginTop: 4,
+    paddingHorizontal: 16,
   },
   nikeCheckoutPillText: {
     color: '#FFFFFF',

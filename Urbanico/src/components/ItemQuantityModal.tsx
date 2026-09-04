@@ -174,7 +174,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
       : 0
     : 0;
 
-  const grossTotal = isTradeService ? 99 : unitPrice * quantity;
+  const grossTotal = unitPrice * quantity;
   const bulkDiscountAmount = Math.round((grossTotal * bulkDiscountPercent) / 100);
   const totalPrice = Math.max(1, grossTotal - bulkDiscountAmount);
 
@@ -242,7 +242,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
 
     setTimeout(() => {
       setIsAdding(false);
-      onAddToCart(item, selectedOption, isTradeService ? 1 : quantity, totalPrice);
+      onAddToCart(item, selectedOption, quantity, totalPrice);
       handleAnimatedClose();
     }, 250);
   };
@@ -251,9 +251,9 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
     if (!selectedOption) return;
     soundService.playAddToCart();
     if (onBuyNow) {
-      onBuyNow(item, selectedOption, isTradeService ? 1 : quantity, totalPrice);
+      onBuyNow(item, selectedOption, quantity, totalPrice);
     } else {
-      onAddToCart(item, selectedOption, isTradeService ? 1 : quantity, totalPrice);
+      onAddToCart(item, selectedOption, quantity, totalPrice);
     }
     handleAnimatedClose();
   };
@@ -357,120 +357,75 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
           {/* 1. TRADE SERVICES POPUP CONTENT                         */}
           {/* ======================================================== */}
           {isTradeService ? (
-            <View style={styles.tradeServiceFlowWrapper}>
-              {/* Highlight Banner: Rs. 99 Demo Charge & 30-Day Warranty */}
-              <View style={styles.highlightsGrid}>
-                {/* Highlight Card 1: Rs. 99 Demo Charge */}
-                <View style={[styles.highlightCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                  <View style={styles.highlightHeaderRow}>
-                    <Calendar size={14} color="#111111" />
-                    <Text style={styles.highlightMicroLabel}>DEMO CHARGE</Text>
-                  </View>
-                  <Text style={[styles.highlightMainText, { color: theme.textPrimary }]}>₹99</Text>
-                  <Text style={styles.highlightSubText}>Site Visit & Assessment</Text>
+            <View style={{ paddingVertical: 12 }}>
+              {/* Service Details Card */}
+              <View style={[styles.highlightCard, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: 16 }]}>
+                <View style={styles.highlightHeaderRow}>
+                  <Calendar size={15} color="#111111" />
+                  <Text style={styles.highlightMicroLabel}>EXPERT SITE VISIT</Text>
                 </View>
-
-                {/* Highlight Card 2: 30-Day Warranty */}
-                <View style={[styles.highlightCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                  <View style={styles.highlightHeaderRow}>
-                    <ShieldCheck size={14} color="#059669" />
-                    <Text style={[styles.highlightMicroLabel, { color: '#059669' }]}>WARRANTY</Text>
-                  </View>
-                  <Text style={[styles.highlightMainText, { color: theme.textPrimary }]}>30-Day</Text>
-                  <Text style={styles.highlightSubText}>Guaranteed Workmanship</Text>
-                </View>
-              </View>
-
-              {/* Three-Step Flow Card */}
-              <View style={[styles.stepsContainerCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                <View style={styles.stepsHeaderRow}>
-                  <Text style={[styles.stepsSectionTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-                    How Trade Services Work
-                  </Text>
-                  <Text style={styles.stepsSectionSubtitle}>3-Step Verified Flow</Text>
-                </View>
-
-                {/* Step 1: Expert Site Visit */}
-                <View style={styles.stepItemRow}>
-                  <View style={styles.stepNumberBadge}>
-                    <Text style={styles.stepNumberText}>1</Text>
-                  </View>
-                  <View style={styles.stepContentCol}>
-                    <View style={styles.stepTitleRow}>
-                      <MapPin size={14} color="#111111" />
-                      <Text style={[styles.stepItemTitle, { color: theme.textPrimary }]}>
-                        1. Expert Site Visit
-                      </Text>
-                    </View>
-                    <Text style={[styles.stepItemDesc, { color: theme.textSecondary }]}>
-                      A verified trade professional visits your site to inspect conditions, evaluate scope, and take exact measurements.
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.stepConnectingLine} />
-
-                {/* Step 2: Price Updated in-app */}
-                <View style={styles.stepItemRow}>
-                  <View style={styles.stepNumberBadge}>
-                    <Text style={styles.stepNumberText}>2</Text>
-                  </View>
-                  <View style={styles.stepContentCol}>
-                    <View style={styles.stepTitleRow}>
-                      <Smartphone size={14} color="#111111" />
-                      <Text style={[styles.stepItemTitle, { color: theme.textPrimary }]}>
-                        2. Price Updated in-app
-                      </Text>
-                    </View>
-                    <Text style={[styles.stepItemDesc, { color: theme.textSecondary }]}>
-                      Transparent itemized labor and material quotation is calculated and updated directly in your app.
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.stepConnectingLine} />
-
-                {/* Step 3: Pay Securely */}
-                <View style={styles.stepItemRow}>
-                  <View style={styles.stepNumberBadge}>
-                    <Text style={styles.stepNumberText}>3</Text>
-                  </View>
-                  <View style={styles.stepContentCol}>
-                    <View style={styles.stepTitleRow}>
-                      <Lock size={14} color="#111111" />
-                      <Text style={[styles.stepItemTitle, { color: theme.textPrimary }]}>
-                        3. Pay Securely
-                      </Text>
-                    </View>
-                    <Text style={[styles.stepItemDesc, { color: theme.textSecondary }]}>
-                      Review finalized quote and pay safely via digital checkout in-app to activate your 30-day warranty.
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              {/* Warning Against Direct Payments */}
-              <View style={styles.warningCard}>
-                <View style={styles.warningHeaderRow}>
-                  <AlertTriangle size={16} color="#D97706" />
-                  <Text style={styles.warningTitle}>Warning: No Direct Payments</Text>
-                </View>
-                <Text style={styles.warningText}>
-                  Never make direct cash or offline UPI payments to workers. All payments must be completed in-app to protect your 30-day warranty and guarantee dispute assistance.
+                <Text style={[styles.highlightMainText, { color: theme.textPrimary, marginTop: 4 }]}>
+                  ₹99 <Text style={{ fontSize: 13, fontWeight: '500', color: theme.textSecondary }}>/ session</Text>
+                </Text>
+                <Text style={[styles.highlightSubText, { color: theme.textSecondary, marginTop: 4 }]}>
+                  Direct on-site inspection, scope evaluation, and verified measurement.
                 </Text>
               </View>
 
-              {/* Note: Site Visit & Daily Rate Estimation Note */}
-              <View style={[styles.demoNoteCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                <View style={styles.demoNoteHeaderRow}>
-                  <Info size={14} color="#111111" />
-                  <Text style={[styles.demoNoteTitle, { color: theme.textPrimary }]}>
-                    Important Note on Final Pricing
+              {/* Quantity Stepper for Sessions */}
+              <View style={[styles.quantityRowCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <View>
+                  <Text style={[styles.qtyLabel, { color: theme.textPrimary }]}>Sessions / Visits</Text>
+                  <Text style={[styles.qtySublabel, { color: theme.textSecondary }]}>
+                    {quantity} × ₹99 = ₹{totalPrice.toLocaleString('en-IN')}
                   </Text>
                 </View>
-                <Text style={[styles.demoNoteText, { color: theme.textSecondary }]}>
-                  This booking confirms your initial ₹99 demo session and site evaluation. After the expert site visit, final charges may vary between ₹800, ₹900, or ₹1,000 per day based on the work complexity, site conditions, and project scope.
-                </Text>
+
+                <View style={[styles.stepperBox, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary }]}>
+                  <TouchableOpacity
+                    onPress={() => handleStepQuantity(-1)}
+                    style={[
+                      styles.stepBtn,
+                      {
+                        backgroundColor: theme.surface,
+                        borderColor: theme.border,
+                        opacity: quantity <= 1 ? 0.5 : 1,
+                      },
+                    ]}
+                    activeOpacity={0.7}
+                    disabled={quantity <= 1}
+                  >
+                    <Minus size={14} color={theme.textPrimary} strokeWidth={2.5} />
+                  </TouchableOpacity>
+
+                  <TextInput
+                    keyboardType="number-pad"
+                    value={quantityInputStr}
+                    onChangeText={handleQuantityInputChange}
+                    onBlur={handleQuantityBlur}
+                    selectTextOnFocus
+                    style={[
+                      styles.nativeQuantityInput,
+                      {
+                        color: theme.textPrimary,
+                      },
+                    ]}
+                  />
+
+                  <TouchableOpacity
+                    onPress={() => handleStepQuantity(1)}
+                    style={[
+                      styles.stepBtn,
+                      {
+                        backgroundColor: theme.surface,
+                        borderColor: theme.border,
+                      },
+                    ]}
+                    activeOpacity={0.7}
+                  >
+                    <Plus size={14} color={theme.textPrimary} strokeWidth={2.5} />
+                  </TouchableOpacity>
+                </View>
               </View>
             </View>
           ) : (
@@ -672,12 +627,8 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
             ]}
           >
             <ShoppingCart size={16} color={theme.textPrimary} strokeWidth={2} />
-            <Text style={[styles.secondaryBtnText, { color: theme.textPrimary }]}>
-              {isAdding
-                ? 'Adding...'
-                : isTradeService
-                ? 'Add Demo to Cart'
-                : 'Add to Cart'}
+            <Text numberOfLines={1} style={[styles.secondaryBtnText, { color: theme.textPrimary }]}>
+              {isAdding ? 'Adding...' : 'Add to Bag'}
             </Text>
           </TouchableOpacity>
 
@@ -693,9 +644,9 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
             ]}
           >
             <Zap size={16} color="#FFFFFF" strokeWidth={2} />
-            <Text style={styles.primaryBtnText}>
+            <Text numberOfLines={1} style={styles.primaryBtnText}>
               {isTradeService
-                ? 'Book Demo Session • ₹99'
+                ? `Book Now • ₹${totalPrice.toLocaleString('en-IN')}`
                 : `Buy Now • ₹${totalPrice.toLocaleString('en-IN')}`}
             </Text>
           </TouchableOpacity>

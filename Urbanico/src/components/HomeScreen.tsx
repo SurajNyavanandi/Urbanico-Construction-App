@@ -365,7 +365,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         onDismiss={() => setToastMessage(null)}
       />
       <ScrollView
-        style={[styles.container, { backgroundColor: '#FFFFFF' }]}
+        style={[styles.container, { backgroundColor: theme.background }]}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         refreshControl={

@@ -27,6 +27,7 @@ import { TopNavTab } from './common/TopNavTab';
 import { useToast } from '../context/ToastContext';
 import { soundService } from '../utils/soundHelper';
 import { ProductCardSkeleton } from './common/SkeletonLoader';
+import { useTheme } from '../context/ThemeContext';
 
 interface ShopScreenProps {
   onSelectItem: (item: MaterialItem) => void;
@@ -54,6 +55,7 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({
   onToggleFavorite,
 }) => {
   const { showToast } = useToast();
+  const { theme } = useTheme();
   const [activeTab, setActiveTab] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
@@ -83,7 +85,7 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({
   });
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Search Bar */}
       <View style={styles.searchHeader}>
         <View style={styles.searchBar}>

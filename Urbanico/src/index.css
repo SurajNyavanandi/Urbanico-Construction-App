@@ -158,3 +158,42 @@
   animation: shimmerSlide 1.5s infinite;
 }
 
+/* ========================================================================= */
+/* APPLE-INSPIRED DESIGN SYSTEM (PALETTE, SF PRO TYPOGRAPHY & CRISP 1PX)     */
+/* ========================================================================= */
+
+html.apple-design-active,
+body.apple-design-active,
+.apple-design-active *,
+.apple-design-active input,
+.apple-design-active textarea,
+.apple-design-active button,
+.apple-design-active select {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "SF Pro", "Helvetica Neue", "Inter", sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body.apple-design-active {
+  background-color: #F5F5F7 !important;
+  color: #1D1D1F !important;
+}
+
+/* Subtle Apple card radiuses (12px-16px) & 1px borders */
+.apple-design-active .apple-card,
+.apple-design-active [data-card="true"] {
+  background-color: #FFFFFF !important;
+  border: 1px solid #E5E5EA !important;
+  border-radius: 14px !important;
+}
+
+/* Apple Blue (#007AFF) accents */
+.apple-design-active .apple-accent-text {
+  color: #007AFF !important;
+}
+
+.apple-design-active .apple-accent-bg {
+  background-color: #007AFF !important;
+}
+
+

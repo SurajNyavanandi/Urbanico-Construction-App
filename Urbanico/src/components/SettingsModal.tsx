@@ -21,6 +21,7 @@ import {
   LayoutGrid,
   ArrowLeft,
   Check,
+  Sparkles,
 } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage, LanguageCode } from '../context/LanguageContext';
@@ -40,7 +41,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   viewMode = 'grid',
   onViewModeChange,
 }) => {
-  const { theme, themeMode, setThemeMode } = useTheme();
+  const { theme, themeMode, setThemeMode, isAppleDesign, setAppleDesign } = useTheme();
   const { language, setLanguage, languageOptions, currentLanguageOption, t } = useLanguage();
   const { showToast } = useToast();
 
@@ -223,6 +224,39 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       showToast(val ? 'Dark mode enabled' : 'Light mode enabled', 'info');
                     }}
                     trackColor={{ false: '#E4E4E7', true: '#111111' }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+
+                <View style={[styles.innerDivider, { backgroundColor: theme.border }]} />
+
+                {/* Apple Design System Switch (Testing Toggle in existing menu) */}
+                <View style={styles.switchRow}>
+                  <View style={styles.switchRowLeft}>
+                    <Sparkles size={16} color={isAppleDesign ? '#007AFF' : theme.textPrimary} strokeWidth={2} />
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Apple Design System</Text>
+                        {isAppleDesign && (
+                          <View style={{ backgroundColor: '#007AFF', paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: 999 }}>
+                            <Text style={{ color: '#FFFFFF', fontSize: 9.5, fontWeight: '700' }}>Active</Text>
+                          </View>
+                        )}
+                      </View>
+                      <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
+                        {isAppleDesign
+                          ? 'Pure White canvas, SF Pro hierarchy & Apple Blue accents'
+                          : 'Apple-inspired minimalist UI (test mode)'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Switch
+                    value={isAppleDesign}
+                    onValueChange={(val) => {
+                      setAppleDesign(val);
+                      showToast(val ? 'Apple Design System active' : 'Default design restored', 'info');
+                    }}
+                    trackColor={{ false: '#E4E4E7', true: '#007AFF' }}
                     thumbColor="#FFFFFF"
                   />
                 </View>

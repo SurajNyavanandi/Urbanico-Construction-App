@@ -15,6 +15,7 @@ import {
   Sun,
   Grid2X2,
   ArrowLeft,
+  Sparkles,
 } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -34,7 +35,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   viewMode = 'grid',
   onViewModeChange,
 }) => {
-  const { themeMode, setThemeMode } = useTheme();
+  const { themeMode, setThemeMode, isAppleDesign, setAppleDesign } = useTheme();
   const { languageOptions, currentLanguageOption, t } = useLanguage();
   const { showToast } = useToast();
 
@@ -124,6 +125,34 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 showToast(val ? 'Dark Mode Active' : 'Light Mode Active', 'info');
               }}
               trackColor={{ false: '#E5E7EB', true: '#111111' }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+
+          {/* Apple Design System Switch (Testing Toggle in existing menu) */}
+          <View style={styles.toggleRow}>
+            <View style={styles.toggleRowLeft}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={styles.menuTitleText}>Apple Design System</Text>
+                {isAppleDesign && (
+                  <View style={{ backgroundColor: '#007AFF', paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: 999 }}>
+                    <Text style={{ color: '#FFFFFF', fontSize: 9.5, fontWeight: '700' }}>Active</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.menuSubText}>
+                {isAppleDesign
+                  ? 'Pure White canvas, SF Pro hierarchy & Apple Blue accents'
+                  : 'Apple-inspired minimalist UI (test mode)'}
+              </Text>
+            </View>
+            <Switch
+              value={isAppleDesign}
+              onValueChange={(val) => {
+                setAppleDesign(val);
+                showToast(val ? 'Apple Design System active' : 'Default design restored', 'info');
+              }}
+              trackColor={{ false: '#E5E7EB', true: '#007AFF' }}
               thumbColor="#FFFFFF"
             />
           </View>

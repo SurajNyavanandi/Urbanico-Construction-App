@@ -1430,8 +1430,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 <View style={styles.helpItemLeft}>
                   <Phone size={18} color="#111111" />
                   <View>
-                    <Text style={[styles.helpItemTitle, { color: theme.textPrimary }]}>Toll-Free Yard Support</Text>
-                    <Text style={[styles.helpItemSub, { color: theme.textSecondary }]}>+91 1800 200 8829 (6:00 AM - 10:00 PM)</Text>
+                    <Text style={[styles.helpItemTitle, { color: theme.textPrimary }]}>Customer Support</Text>
+                    <Text style={[styles.helpItemSub, { color: theme.textSecondary }]}>Direct helpline assistance</Text>
                   </View>
                 </View>
                 <ChevronRight size={16} color={theme.textSecondary} />

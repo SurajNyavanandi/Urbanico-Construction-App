@@ -41,9 +41,10 @@ app.use((req, res, next) => {
     'https://urbanico-construction-app.onrender.com',
   ].filter(Boolean);
 
-  if (origin && (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app') || origin.endsWith('.onrender.com'))) {
+  // Allow requesting origin dynamically or fallback to *
+  if (origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
-  } else if (!origin) {
+  } else {
     res.setHeader('Access-Control-Allow-Origin', '*');
   }
 
@@ -94,6 +95,18 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
     database: getDBStatus(),
   });
+});
+
+// 6. Global Error Handler for API routes and JSON syntax errors
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err instanceof SyntaxError && 'body' in err) {
+    return res.status(400).json({ success: false, error: 'Malformed JSON payload' });
+  }
+  console.error('[Backend] Internal Error:', err?.message || err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  return res.status(500).json({ success: false, error: 'Internal server error' });
 });
 
 export async function startServer() {

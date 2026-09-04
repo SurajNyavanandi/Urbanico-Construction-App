@@ -17,7 +17,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   onSelectTab,
   cartCount,
 }) => {
-  const { theme } = useTheme();
+  const { theme, isAppleDesign } = useTheme();
   const insets = useSafeAreaInsets();
 
   const isHomeActive = activeScreen === 'home';
@@ -29,10 +29,10 @@ export const BottomNav: React.FC<BottomNavProps> = ({
     activeScreen === 'settings' ||
     activeScreen === 'activity';
 
-  const activeColor = theme.textPrimary;
-  const inactiveColor = theme.textMuted || '#707072';
+  const activeColor = isAppleDesign ? '#007AFF' : theme.textPrimary;
+  const inactiveColor = isAppleDesign ? '#86868B' : (theme.textMuted || '#707072');
   const navBgColor = theme.surface;
-  const navBorderColor = theme.borderLight;
+  const navBorderColor = isAppleDesign ? '#E5E5EA' : theme.borderLight;
 
   // Animation for Cart Badge Pop
   const cartScaleAnim = useRef(new Animated.Value(1)).current;

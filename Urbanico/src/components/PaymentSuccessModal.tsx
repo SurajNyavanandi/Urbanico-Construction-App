@@ -62,7 +62,7 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
   };
 
   const handleShareReceipt = async () => {
-    const summaryText = `*Urbanico Direct Order Confirmed*\nOrder ID: ${paymentResult.razorpay_order_id}\nPayment ID: ${paymentResult.razorpay_payment_id}\nMethod: ${paymentResult.method}\nAmount: ₹${paymentResult.amount.toLocaleString('en-IN')}\nDelivery Site: ${selectedLocation}\nHelpline: 1800-123-9876`;
+    const summaryText = `*Urbanico Order Confirmed*\nOrder ID: ${paymentResult.razorpay_order_id}\nPayment ID: ${paymentResult.razorpay_payment_id}\nMethod: ${paymentResult.method}\nAmount: ₹${paymentResult.amount.toLocaleString('en-IN')}\nDelivery Site: ${selectedLocation}`;
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({

@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { safeStorage } from '../utils/safeStorage';
 
 export type ThemeMode = 'light' | 'dark';
 export type AccentColor = 'blue' | 'black' | 'amber' | 'violet' | 'green';
@@ -7,6 +8,7 @@ export type TypographyFontFamily = 'system' | 'inter' | 'jakarta' | 'mono';
 export interface ThemeColors {
   mode: ThemeMode;
   accent: AccentColor;
+  isAppleDesign: boolean;
   background: string;
   surface: string;
   surfaceSecondary: string;
@@ -188,13 +190,71 @@ export const FONT_CONFIGS: Record<TypographyFontFamily, { name: string; family: 
   },
 };
 
-export function getThemeColors(mode: ThemeMode, accent: AccentColor): ThemeColors {
+export function getThemeColors(
+  mode: ThemeMode,
+  accent: AccentColor,
+  isAppleDesign: boolean = false
+): ThemeColors {
   const isLight = mode === 'light';
 
+  // 1. Apple-Inspired Design System Palette
+  // Pure White (#FFFFFF) & Crisp Subtle Neutral (#F5F5F7)
+  // Deep Black (#1D1D1F) & Slate Gray (#86868B)
+  // Apple Blue (#007AFF) accent
+  if (isAppleDesign) {
+    if (isLight) {
+      return {
+        mode: 'light',
+        accent,
+        isAppleDesign: true,
+        background: '#F5F5F7', // Apple Crisp Subtle Neutral
+        surface: '#FFFFFF', // Apple Pure White
+        surfaceSecondary: '#F5F5F7',
+        surfaceTertiary: '#E5E5EA', // Apple system gray 6
+        textPrimary: '#1D1D1F', // Apple Deep Black
+        textSecondary: '#86868B', // Apple Slate Gray
+        textMuted: '#86868B', // Apple Slate Gray
+        primary: '#007AFF', // Apple Blue Accent
+        primaryLight: '#EBF5FF',
+        primaryDark: '#0055B3',
+        border: '#E5E5EA', // 1px hairline border
+        borderLight: '#F2F2F7',
+        cardShadow: 'rgba(0, 0, 0, 0.04)',
+        headerBg: '#FFFFFF',
+        headerText: '#1D1D1F',
+        statusBarStyle: 'dark',
+      };
+    } else {
+      return {
+        mode: 'dark',
+        accent,
+        isAppleDesign: true,
+        background: '#000000', // Apple Pure Black
+        surface: '#1C1C1E', // Apple Dark Secondary System Background
+        surfaceSecondary: '#2C2C2E', // Apple Dark Tertiary System Background
+        surfaceTertiary: '#3A3A3C',
+        textPrimary: '#F5F5F7',
+        textSecondary: '#86868B', // Apple Slate Gray
+        textMuted: '#636366',
+        primary: '#007AFF', // Apple Blue Accent
+        primaryLight: '#152E4D',
+        primaryDark: '#64D2FF',
+        border: '#38383A',
+        borderLight: '#2C2C2E',
+        cardShadow: 'rgba(0, 0, 0, 0.4)',
+        headerBg: '#000000',
+        headerText: '#F5F5F7',
+        statusBarStyle: 'light',
+      };
+    }
+  }
+
+  // 2. Default Existing Palette (Unmodified fallback)
   if (isLight) {
     return {
       mode: 'light',
       accent,
+      isAppleDesign: false,
       background: '#FAFAFA',
       surface: '#FFFFFF',
       surfaceSecondary: '#F4F4F5',
@@ -216,6 +276,7 @@ export function getThemeColors(mode: ThemeMode, accent: AccentColor): ThemeColor
     return {
       mode: 'dark',
       accent,
+      isAppleDesign: false,
       background: '#000000',
       surface: '#121212',
       surfaceSecondary: '#1C1C1E',
@@ -236,7 +297,42 @@ export function getThemeColors(mode: ThemeMode, accent: AccentColor): ThemeColor
   }
 }
 
-export function getTypographyConfig(fontFamilyKey: TypographyFontFamily): TypographyConfig {
+export function getTypographyConfig(
+  fontFamilyKey: TypographyFontFamily,
+  isAppleDesign: boolean = false
+): TypographyConfig {
+  if (isAppleDesign) {
+    const appleFamily =
+      '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "SF Pro", "Helvetica Neue", Inter, sans-serif';
+    return {
+      fontFamily: appleFamily,
+      fontFamilyHeading: appleFamily,
+      fontFamilyMono: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      fontSize: {
+        xs: 11,
+        sm: 12,
+        base: 13,
+        lg: 14,
+        xl: 16,
+        '2xl': 18,
+        '3xl': 20,
+      },
+      fontWeight: {
+        normal: '400',
+        medium: '500',
+        semibold: '600',
+        bold: '700',
+        extraBold: '800',
+        black: '900',
+      },
+      letterSpacing: {
+        tight: -0.4,
+        normal: -0.1,
+        wide: 0.1,
+      },
+    };
+  }
+
   const fontConf = FONT_CONFIGS[fontFamilyKey] || FONT_CONFIGS.system;
   return {
     fontFamily: fontConf.family,
@@ -273,6 +369,9 @@ interface ThemeContextType {
   theme: ThemeColors;
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
+  isAppleDesign: boolean;
+  setAppleDesign: (enabled: boolean) => void;
+  toggleAppleDesign: () => void;
   accentColor: AccentColor;
   setAccentColor: (accent: AccentColor) => void;
   typography: TypographyConfig;
@@ -284,12 +383,15 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: getThemeColors('light', 'black'),
+  theme: getThemeColors('light', 'black', false),
   themeMode: 'light',
   setThemeMode: () => {},
+  isAppleDesign: false,
+  setAppleDesign: () => {},
+  toggleAppleDesign: () => {},
   accentColor: 'black',
   setAccentColor: () => {},
-  typography: getTypographyConfig('jakarta'),
+  typography: getTypographyConfig('jakarta', false),
   typographyFont: 'jakarta',
   setTypographyFont: () => {},
   themeKey: 'black',
@@ -300,9 +402,34 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [themeMode, setThemeMode] = useState<ThemeMode>('light');
   const [accentColor, setAccentColor] = useState<AccentColor>('black');
   const [typographyFont, setTypographyFont] = useState<TypographyFontFamily>('jakarta');
+  const [isAppleDesign, setIsAppleDesignState] = useState<boolean>(() => {
+    return safeStorage.getItem('apple_design_mode') === 'true';
+  });
 
-  const theme = getThemeColors(themeMode, accentColor);
-  const typography = getTypographyConfig(typographyFont);
+  const setAppleDesign = (val: boolean) => {
+    setIsAppleDesignState(val);
+    safeStorage.setItem('apple_design_mode', val ? 'true' : 'false');
+  };
+
+  const toggleAppleDesign = () => {
+    setAppleDesign(!isAppleDesign);
+  };
+
+  // Sync class on document / body for CSS typography and surface styling
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      if (isAppleDesign) {
+        document.documentElement.classList.add('apple-design-active');
+        document.body.classList.add('apple-design-active');
+      } else {
+        document.documentElement.classList.remove('apple-design-active');
+        document.body.classList.remove('apple-design-active');
+      }
+    }
+  }, [isAppleDesign]);
+
+  const theme = getThemeColors(themeMode, accentColor, isAppleDesign);
+  const typography = getTypographyConfig(typographyFont, isAppleDesign);
 
   // Backwards compatibility handler for legacy setThemeKey callers
   const setThemeKey = (key: string) => {
@@ -323,6 +450,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         theme,
         themeMode,
         setThemeMode,
+        isAppleDesign,
+        setAppleDesign,
+        toggleAppleDesign,
         accentColor,
         setAccentColor,
         typography,

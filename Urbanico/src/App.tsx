@@ -454,14 +454,16 @@ function MainAppContent() {
     quantity: number,
     totalPrice: number
   ) => {
+    const isService = item.categoryId === 'services' || item.id.startsWith('service-');
+    const unitPrice = isService ? 99 : option.price;
     const newItem: CartItem = {
       id: generateCartItemId(),
       itemId: item.id,
       itemName: item.name,
       categoryName: item.categoryId,
       selectedOptionLabel: option.label,
-      unitPrice: option.price,
-      quantity: quantity,
+      unitPrice,
+      quantity,
       image: item.image,
     };
 
@@ -484,9 +486,9 @@ function MainAppContent() {
     showAddToCartToast({
       name: item.name,
       optionLabel: option.label,
-      price: totalPrice || option.price * quantity,
+      price: totalPrice || unitPrice * quantity,
       image: item.image,
-      quantity: quantity,
+      quantity,
       onViewCart: () => setCurrentScreen('basket'),
     });
   };
@@ -497,14 +499,16 @@ function MainAppContent() {
     quantity: number,
     totalPrice: number
   ) => {
+    const isService = item.categoryId === 'services' || item.id.startsWith('service-');
+    const unitPrice = isService ? 99 : option.price;
     const newItem: CartItem = {
       id: generateCartItemId(),
       itemId: item.id,
       itemName: item.name,
       categoryName: item.categoryId,
       selectedOptionLabel: option.label,
-      unitPrice: option.price,
-      quantity: quantity,
+      unitPrice,
+      quantity,
       image: item.image,
     };
 
@@ -702,11 +706,11 @@ function MainAppContent() {
   const totalCartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
-    <SafeAreaView style={[styles.appContainer, { backgroundColor: '#FFFFFF' }]} edges={['top']}>
-      <ExpoStatusBar style="dark" />
+    <SafeAreaView style={[styles.appContainer, { backgroundColor: theme.background }]} edges={['top']}>
+      <ExpoStatusBar style={theme.statusBarStyle} />
 
       {/* Main View Router with Suspense for Lazy Loaded Screens */}
-      <View style={[styles.mainContent, { backgroundColor: '#FFFFFF' }]}>
+      <View style={[styles.mainContent, { backgroundColor: theme.background }]}>
         <Suspense fallback={<ScreenLoadingFallback />}>
           {currentScreen === 'shop' && (
             <ShopScreen
@@ -969,7 +973,6 @@ const styles = StyleSheet.create({
   },
   mainContent: {
     flex: 1,
-    minHeight: 720,
     width: '100%',
   },
   loadingContainer: {
