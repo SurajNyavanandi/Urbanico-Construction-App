@@ -200,8 +200,8 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   const [showWeighbridgeScan, setShowWeighbridgeScan] = useState(false);
   const [showSupervisorModal, setShowSupervisorModal] = useState(false);
   const [activeSupervisor, setActiveSupervisor] = useState({
-    name: 'Anand Verma',
-    phone: '9876543210',
+    name: user?.name || 'Site Incharge',
+    phone: user?.phone?.replace(/\D/g, '').slice(-10) || '',
   });
 
   // Extract active pincode from delivery address dynamically (defaults to 500081)
@@ -209,7 +209,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   const detectedPincodeMatch = currentAddressStr.match(/\b(50[0-9]{4})\b/);
   const activePincode = detectedPincodeMatch ? detectedPincodeMatch[1] : '500081';
 
-  // Dynamic Freight from Hyderabad Central Hub at ₹5/km
+  // Dynamic Freight from Central Hub with smart vehicle tiering
   const totalWeightTons = estimateTotalWeightTons(cartItems);
   const freightInfo = calculateDynamicFreight(activePincode, totalWeightTons);
 
@@ -242,7 +242,12 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     gstTax,
     deliveryCharge,
     grandTotal,
-  } = calculateCartTotals(cartItems, couponDiscount, deliveryDistanceKm);
+  } = calculateCartTotals(
+    cartItems,
+    couponDiscount,
+    deliveryDistanceKm,
+    freightInfo.deliveryCharge
+  );
 
   const payableAmount = grandTotal;
 
@@ -493,21 +498,32 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       ? `${freightInfo.vehicle.name} & Trade Service Unit`
       : freightInfo.vehicle.name;
 
+    const isHeavyBulk = totalWeightTons >= 3.5;
+    const isMediumLoad = totalWeightTons > 0.15 && totalWeightTons < 3.5;
+    const isSmallLoad = !isServicesOnly && totalWeightTons <= 0.15;
+
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000);
     const finalVehicleNum = isServicesOnly
-      ? 'TS 09 SV 4182'
+      ? 'Field Service Unit'
       : isMixedCart
-      ? 'TS 08 UB 6742 (Truck) & TS 09 SV 4182 (Service)'
-      : 'TS 08 UB 6742';
+      ? `TS 09 UB ${randomSuffix} (Cargo) & Service Unit`
+      : isSmallLoad
+      ? `TS 09 UB ${randomSuffix} (Cargo Tempo)`
+      : isMediumLoad
+      ? `TS 09 UB ${randomSuffix} (Light Commercial)`
+      : `TS 08 UB ${randomSuffix} (Heavy Transport)`;
 
     const finalDriverName = isServicesOnly
-      ? 'Vijay Kumar (Verified Specialist)'
+      ? 'Assigned Trade Specialist'
       : isMixedCart
-      ? 'Ramesh Goud (Yard Dispatch) & Vijay Kumar (Specialist)'
-      : 'Ramesh Goud';
+      ? 'Assigned Fleet Partner & Trade Specialist'
+      : isSmallLoad
+      ? 'Assigned Courier Partner'
+      : 'Assigned Fleet Driver';
 
-    const assignedDriverPhone = '+91 98480 22341';
+    const assignedDriverPhone = 'Central Dispatch Desk';
     const deliveryDestination = selectedCheckoutAddress || activeLocation;
-    const effectiveGstin = checkoutGstin.trim() || user?.gstin || (isServicesOnly ? undefined : '36AABCU12341ZV');
+    const effectiveGstin = checkoutGstin.trim() || user?.gstin || undefined;
 
     const newOrder: ActivityDelivery = {
       id: `del-${Date.now()}`,
@@ -518,7 +534,13 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       driverPhone: assignedDriverPhone,
       vehicleType: finalVehicleType,
       vehicleNumber: finalVehicleNum,
-      estimatedArrival: isServicesOnly ? 'Today within 2 hrs' : '35 mins',
+      estimatedArrival: isMixedCart
+        ? `Materials: ${isSmallLoad ? '25-30 mins' : '35-45 mins'} | Trade Visit: Today within 2 hrs`
+        : isServicesOnly
+        ? 'Today within 2 hrs'
+        : isSmallLoad
+        ? '25 mins'
+        : '35 mins',
       status: 'En Route',
       siteAddress: deliveryDestination,
       siteSupervisorName: activeSupervisor.name,
@@ -527,7 +549,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       totalAmount: grandTotal,
       deliveryOtp: String(Math.floor(1000 + Math.random() * 9000)),
       ewayBillNumber: `EWB-TS-2026-${Math.floor(10000000 + Math.random() * 90000000)}`,
-      weighmentSlipId: `WB-HYD-${Math.floor(1000 + Math.random() * 9000)}`,
+      weighmentSlipId: isHeavyBulk ? `WB-HYD-${Math.floor(1000 + Math.random() * 9000)}` : undefined,
     };
 
     createdOrderRef.current = newOrder;
@@ -535,9 +557,9 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     // Send real order data to the backend API with customer profile
     apiService.createOrder({
       orderNumber: generatedOrderNum,
-      customerName: user?.name || 'Urbanico Builder',
-      customerPhone: user?.phone ? (user.phone.startsWith('+91') ? user.phone : `+91 ${user.phone}`) : '+91 98480 12345',
-      customerEmail: user?.email || 'builder@urbanico.in',
+      customerName: user?.name || 'Customer',
+      customerPhone: user?.phone ? (user.phone.startsWith('+91') ? user.phone : `+91 ${user.phone}`) : '',
+      customerEmail: user?.email || '',
       gstin: effectiveGstin,
       siteAddress: {
         siteName: 'Site Delivery Location',
@@ -598,9 +620,9 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       freightVehicleName: freightInfo.vehicle.name,
       totalPayable: payableAmount,
       deliveryAddress: selectedCheckoutAddress || activeLocation,
-      customerName: user?.name || 'Valued Builder / Contractor',
-      customerPhone: user?.phone ? (user.phone.startsWith('+91') ? user.phone : `+91 ${user.phone}`) : '+91 98480 12345',
-      customerEmail: user?.email || 'builder@urbanico.in',
+      customerName: user?.name || 'Valued Client',
+      customerPhone: user?.phone ? (user.phone.startsWith('+91') ? user.phone : `+91 ${user.phone}`) : '',
+      customerEmail: user?.email || '',
       customerGstin: checkoutGstin.trim() || user?.gstin || undefined,
     });
     if (success) {
@@ -742,44 +764,66 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                           </TouchableOpacity>
                         </View>
 
-                        {/* Stepper + Delete */}
-                        <View style={styles.stepperActionRow}>
-                          <View style={[styles.stepperContainer, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary }]}>
+                        {/* Stepper + Delete (Locked to 1 for Services) */}
+                        {item.categoryId === 'services' || item.unitPrice === 99 || (item.selectedOptionLabel && item.selectedOptionLabel.toLowerCase().includes('demo')) ? (
+                          <View style={styles.stepperActionRow}>
+                            <View style={[styles.serviceFixedPill, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                              <ShieldCheck size={13} color="#059669" strokeWidth={2.4} />
+                              <Text style={[styles.serviceFixedPillText, { color: theme.textPrimary }]}>
+                                1 Demo Visit
+                              </Text>
+                            </View>
                             <TouchableOpacity
                               onPress={() => {
-                                soundService.playTap();
-                                onUpdateQuantity(item.id, item.quantity - 1);
+                                soundService.playAlert();
+                                onRemoveItem(item.id);
                               }}
-                              style={[styles.stepperBtn, { backgroundColor: theme.surface }]}
-                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                              style={styles.deleteBtn}
                               activeOpacity={0.7}
+                              accessibilityLabel="Remove demo visit"
                             >
-                              <Minus size={13} color={theme.textPrimary} />
-                            </TouchableOpacity>
-                            <Text style={[styles.stepperQtyText, { color: theme.textPrimary }]}>{item.quantity}</Text>
-                            <TouchableOpacity
-                              onPress={() => {
-                                soundService.playTap();
-                                onUpdateQuantity(item.id, item.quantity + 1);
-                              }}
-                              style={[styles.stepperBtn, { backgroundColor: theme.surface }]}
-                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                              activeOpacity={0.7}
-                            >
-                              <Plus size={13} color={theme.textPrimary} />
+                              <Trash2 size={15} color={theme.textSecondary} />
                             </TouchableOpacity>
                           </View>
-                          <TouchableOpacity
-                            onPress={() => {
-                              soundService.playAlert();
-                              onRemoveItem(item.id);
-                            }}
-                            style={styles.deleteBtn}
-                            activeOpacity={0.7}
-                          >
-                            <Trash2 size={15} color={theme.textSecondary} />
-                          </TouchableOpacity>
-                        </View>
+                        ) : (
+                          <View style={styles.stepperActionRow}>
+                            <View style={[styles.stepperContainer, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary }]}>
+                              <TouchableOpacity
+                                onPress={() => {
+                                  soundService.playTap();
+                                  onUpdateQuantity(item.id, item.quantity - 1);
+                                }}
+                                style={[styles.stepperBtn, { backgroundColor: theme.surface }]}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                activeOpacity={0.7}
+                              >
+                                <Minus size={13} color={theme.textPrimary} />
+                              </TouchableOpacity>
+                              <Text style={[styles.stepperQtyText, { color: theme.textPrimary }]}>{item.quantity}</Text>
+                              <TouchableOpacity
+                                onPress={() => {
+                                  soundService.playTap();
+                                  onUpdateQuantity(item.id, item.quantity + 1);
+                                }}
+                                style={[styles.stepperBtn, { backgroundColor: theme.surface }]}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                activeOpacity={0.7}
+                              >
+                                <Plus size={13} color={theme.textPrimary} />
+                              </TouchableOpacity>
+                            </View>
+                            <TouchableOpacity
+                              onPress={() => {
+                                soundService.playAlert();
+                                onRemoveItem(item.id);
+                              }}
+                              style={styles.deleteBtn}
+                              activeOpacity={0.7}
+                            >
+                              <Trash2 size={15} color={theme.textSecondary} />
+                            </TouchableOpacity>
+                          </View>
+                        )}
                       </View>
                     ))}
                   </View>
@@ -1432,7 +1476,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
 
                   {isAddingNewAddress && (
                     <View style={[styles.newAddressFormBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                      {addrFormError && (
+                      {Boolean(addrFormError) && (
                         <View style={styles.formErrorBox}>
                           <AlertTriangle size={14} color="#EF4444" />
                           <Text style={styles.formErrorText}>{addrFormError}</Text>
@@ -2123,6 +2167,19 @@ const styles = StyleSheet.create({
   },
   deleteBtn: {
     padding: 6,
+  },
+  serviceFixedPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  serviceFixedPillText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   axleCard: {
     borderRadius: 12,

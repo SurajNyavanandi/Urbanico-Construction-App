@@ -42,28 +42,52 @@ export interface VehicleCapacity {
   type: string;
   name: string;
   maxTons: number;
+  baseFee: number;
+  ratePerKm: number;
 }
 
 export const VEHICLE_FLEET: Record<string, VehicleCapacity> = {
-  pickup: {
-    type: 'pickup',
-    name: 'Tata Ace / Bolero Pickup (1.5 - 2.5 Tons)',
-    maxTons: 2.5,
+  micro_cargo: {
+    type: 'micro_cargo',
+    name: 'Compact Delivery Van / Cargo Tempo (Up to 150 kg)',
+    maxTons: 0.15,
+    baseFee: 49,
+    ratePerKm: 3,
+  },
+  small_pickup: {
+    type: 'small_pickup',
+    name: 'Tata Ace / 3-Wheeler Cargo (Up to 1.5 Tons)',
+    maxTons: 1.5,
+    baseFee: 149,
+    ratePerKm: 5,
+  },
+  medium_pickup: {
+    type: 'medium_pickup',
+    name: 'Mahindra Bolero Maxi Truck (1.5 - 3.5 Tons)',
+    maxTons: 3.5,
+    baseFee: 349,
+    ratePerKm: 8,
   },
   single_axle: {
     type: 'single_axle',
-    name: '6-Wheeler Tipper / Eicher (6 - 10 Tons)',
+    name: '6-Wheeler Medium Tipper / 407 (3.5 - 10 Tons)',
     maxTons: 10,
+    baseFee: 699,
+    ratePerKm: 12,
   },
   multi_axle: {
     type: 'multi_axle',
-    name: '10-Wheeler Heavy Tipper (16 - 25 Tons)',
+    name: '10-Wheeler Heavy Tipper (10 - 25 Tons)',
     maxTons: 25,
+    baseFee: 1299,
+    ratePerKm: 16,
   },
   trailer: {
     type: 'trailer',
-    name: 'Heavy 14-Wheeler Trailer (35 - 45 Tons)',
+    name: '14-Wheeler Heavy Industrial Trailer (25 - 45 Tons)',
     maxTons: 45,
+    baseFee: 2199,
+    ratePerKm: 22,
   },
 };
 
@@ -129,21 +153,21 @@ export function estimateTotalWeightTons(cartItems: { itemName: string; selectedO
 }
 
 export function recommendVehicle(totalTons: number): VehicleCapacity {
-  if (totalTons <= 2.5) return VEHICLE_FLEET.pickup;
+  if (totalTons <= 0.15) return VEHICLE_FLEET.micro_cargo;
+  if (totalTons <= 1.5) return VEHICLE_FLEET.small_pickup;
+  if (totalTons <= 3.5) return VEHICLE_FLEET.medium_pickup;
   if (totalTons <= 10) return VEHICLE_FLEET.single_axle;
   if (totalTons <= 25) return VEHICLE_FLEET.multi_axle;
   return VEHICLE_FLEET.trailer;
 }
 
 export function isServiceablePincode(pincode: string): boolean {
-  if (!pincode || pincode.length < 6) return false;
-  if (PINCODE_REGISTRY[pincode]) {
-    return PINCODE_REGISTRY[pincode].serviceable;
-  }
-  return pincode.startsWith('500') || pincode.startsWith('501') || pincode.startsWith('502');
+  if (!pincode) return false;
+  const clean = pincode.trim().replace(/\D/g, '');
+  return clean.length === 6;
 }
 
-// Flat ₹5 per kilometer distance delivery charge from Hyderabad center
+// Platform delivery rate per kilometer
 export const PLATFORM_DELIVERY_RATE_PER_KM = 5;
 
 export function calculateDistanceDeliveryCharge(
@@ -171,7 +195,7 @@ export function calculateDynamicFreight(
   hubName: string;
 } {
   let distance = 10.0;
-  let areaName = 'Hyderabad Site Area';
+  let areaName = 'Local Site Delivery';
 
   if (customCoords && customCoords.lat && customCoords.lng) {
     const rawDist = calculateHaversineDistanceKm(
@@ -181,23 +205,22 @@ export function calculateDynamicFreight(
       customCoords.lng
     );
     distance = Math.max(1, rawDist);
-    areaName = `Site GPS (${distance} km from Central Hub)`;
+    areaName = `Site GPS (${distance} km from Hub)`;
   } else if (pincode && PINCODE_REGISTRY[pincode]) {
     distance = PINCODE_REGISTRY[pincode].distanceKm;
     areaName = PINCODE_REGISTRY[pincode].areaName;
   } else if (pincode && pincode.length >= 6) {
-    // Estimate based on pincode offset from 500001
     const offset = Math.abs(parseInt(pincode.slice(3), 10) || 50);
-    distance = Math.min(50, Math.max(5, Math.round(offset * 0.45 * 10) / 10));
-    areaName = `PIN ${pincode} Site Area`;
+    distance = Math.min(45, Math.max(4, Math.round(offset * 0.35 * 10) / 10));
+    areaName = `PIN ${pincode} Delivery Zone`;
   }
 
-  const ratePerKm = PLATFORM_DELIVERY_RATE_PER_KM; // ₹5 per km
   const vehicle = recommendVehicle(totalTons);
-  // Calculate multi-trip count for massive orders exceeding single vehicle capacity (min 1 trip)
+  const ratePerKm = vehicle.ratePerKm;
+  // Multi-trip calculation if order exceeds single vehicle payload
   const tripsCount = totalTons > 0 ? Math.max(1, Math.ceil(totalTons / vehicle.maxTons)) : 1;
-  const singleTripCharge = calculateDistanceDeliveryCharge(distance, ratePerKm);
-  const deliveryCharge = Math.max(50, singleTripCharge * tripsCount);
+  const singleTripCharge = vehicle.baseFee + Math.round(distance * ratePerKm);
+  const deliveryCharge = Math.max(49, singleTripCharge * tripsCount);
 
   return {
     distanceKm: distance,

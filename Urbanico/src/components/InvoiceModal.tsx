@@ -65,7 +65,15 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   const cleanOrderNum = rawOrderNum.replace(/[^0-9]/g, '') || '88412';
   const invoiceNum = `URB/2026-27/${cleanOrderNum.padStart(6, '0')}`;
   const ewayBillNum = `3610 ${cleanOrderNum.slice(0, 4)} 8892`;
-  const invoiceDate = delivery.timestamp || '28 July 2026, 09:30 AM';
+  const invoiceDate =
+    delivery.timestamp ||
+    new Date().toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   const irnHash = generateIRNHash(cleanOrderNum, invoiceDate);
 
   // Material & Items calculation
@@ -78,6 +86,16 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
   // HSN resolution for primary material
   const primaryHsnInfo = getHSNCodeForMaterial(delivery.materialName);
+
+  // Determine if this order involves bulk weighable material
+  const isBulkMaterial = Boolean(
+    delivery.weighmentSlipId ||
+    delivery.materialName?.toLowerCase().includes('sand') ||
+    delivery.materialName?.toLowerCase().includes('aggregate') ||
+    delivery.materialName?.toLowerCase().includes('gravel') ||
+    delivery.materialName?.toLowerCase().includes('crusher') ||
+    delivery.materialName?.toLowerCase().includes('stone')
+  );
 
   // Copy helper
   const handleCopy = (text: string, label: string) => {
@@ -423,20 +441,20 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
           <div class="parties-grid">
             <div class="party-card">
               <div class="party-header">Details of Receiver / Billed To</div>
-              <div class="party-name">${user.companyName || 'Kumar Infra & Construction Pvt Ltd'}</div>
-              <div class="party-row"><b>Contact Person:</b> ${user.name} (${user.phone})</div>
-              <div class="party-row"><b>GSTIN / UIN:</b> ${user.gstin || '36AABCU12341ZV'}</div>
-              <div class="party-row"><b>PAN:</b> ${user.gstin ? user.gstin.slice(2, 12) : 'AABCU12341'}</div>
+              <div class="party-name">${user.companyName || user.name || 'Valued Client'}</div>
+              <div class="party-row"><b>Contact Person:</b> ${user.name || 'Site Incharge'} (${user.phone || 'Registered User'})</div>
+              <div class="party-row"><b>GSTIN / UIN:</b> ${user.gstin || 'Consumer / Unregistered'}</div>
+              <div class="party-row"><b>PAN:</b> ${user.gstin ? user.gstin.slice(2, 12) : 'Not Provided'}</div>
               <div class="party-row"><b>State & Code:</b> Telangana (36)</div>
             </div>
 
             <div class="party-card">
               <div class="party-header">Details of Consignee / Shipped To</div>
-              <div class="party-name">${delivery.siteAddress || user.siteLocation || 'Financial District Tower Site, Hyderabad'}</div>
-              <div class="party-row"><b>Dispatch Hub:</b> Miyapur Mega Material Quarry Cluster</div>
-              <div class="party-row"><b>Transport Mode:</b> ${delivery.vehicleType || '10-Wheel Hydraulic Tipper'}</div>
-              <div class="party-row"><b>Vehicle No:</b> <b>${delivery.vehicleNumber || 'TS 09 UB 4821'}</b></div>
-              <div class="party-row"><b>Driver:</b> ${delivery.driverName || 'Suresh Reddy'} (Ph: +91 98480 22199)</div>
+              <div class="party-name">${delivery.siteAddress || user.siteLocation || 'Site Location, Hyderabad'}</div>
+              <div class="party-row"><b>Dispatch Hub:</b> ${isBulkMaterial ? 'Miyapur Material Quarry Cluster' : 'Urbanico Central Fulfillment Hub'}</div>
+              <div class="party-row"><b>Transport Mode:</b> ${delivery.vehicleType || 'Commercial Logistics'}</div>
+              <div class="party-row"><b>Vehicle No:</b> <b>${delivery.vehicleNumber || 'Dispatch Vehicle'}</b></div>
+              <div class="party-row"><b>Driver / Partner:</b> ${delivery.driverName || 'Assigned Delivery Partner'}</div>
             </div>
           </div>
 
@@ -492,11 +510,19 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             </div>
           </div>
 
+          ${isBulkMaterial ? `
           <div class="weighbridge-strip">
             <b>⚖ ELECTRONIC WEIGHBRIDGE WEIGHT SLIP VERIFICATION:</b><br>
-            Slip No: <b>WB-2026-${cleanOrderNum}</b> | Weighbridge ID: <b>WB-HYD-04 (Miyapur Quarry)</b> | Driver: <b>${delivery.driverName}</b><br>
+            Slip No: <b>WB-2026-${cleanOrderNum}</b> | Weighbridge ID: <b>WB-HYD-04 (Miyapur Quarry)</b> | Driver: <b>${delivery.driverName || 'Assigned Driver'}</b><br>
             Gross Weight: <b>28,450 kg</b> | Tare (Empty) Weight: <b>10,150 kg</b> | <b>Net Material Delivered: 18,300 kg (18.30 MT)</b>
           </div>
+          ` : `
+          <div class="weighbridge-strip" style="background: #F8FAFC; border-color: #E2E8F0; color: #475569;">
+            <b>📦 DISPATCH & PACKAGE VERIFICATION:</b><br>
+            Order No: <b>URB-${cleanOrderNum}</b> | Quantity / Package Count: <b>${delivery.quantity}</b> | Mode: <b>${delivery.vehicleType || 'Commercial Logistics'}</b><br>
+            Materials verified & dispatched in sealed packaging from Urbanico Fulfillment Hub.
+          </div>
+          `}
 
           <div class="bottom-grid">
             <div class="bank-box">
@@ -610,24 +636,26 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={() => setActiveTab('weighbridge')}
-              style={[
-                styles.segmentTab,
-                activeTab === 'weighbridge' && styles.segmentTabActive,
-              ]}
-              activeOpacity={0.8}
-            >
-              <Scale size={14} color={activeTab === 'weighbridge' ? '#0F172A' : '#64748B'} />
-              <Text
+            {isBulkMaterial && (
+              <TouchableOpacity
+                onPress={() => setActiveTab('weighbridge')}
                 style={[
-                  styles.segmentLabel,
-                  activeTab === 'weighbridge' && styles.segmentLabelActive,
+                  styles.segmentTab,
+                  activeTab === 'weighbridge' && styles.segmentTabActive,
                 ]}
+                activeOpacity={0.8}
               >
-                Weight Slip
-              </Text>
-            </TouchableOpacity>
+                <Scale size={14} color={activeTab === 'weighbridge' ? '#0F172A' : '#64748B'} />
+                <Text
+                  style={[
+                    styles.segmentLabel,
+                    activeTab === 'weighbridge' && styles.segmentLabelActive,
+                  ]}
+                >
+                  Weight Slip
+                </Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               onPress={() => setActiveTab('bank')}
@@ -939,11 +967,11 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                   </View>
                   <View style={styles.wbDetailRow}>
                     <Text style={styles.wbDetailKey}>Vehicle Registration</Text>
-                    <Text style={styles.wbDetailVal}>{delivery.vehicleNumber || 'TS 09 UB 4821'} ({delivery.vehicleType || '10-Wheel Tipper'})</Text>
+                    <Text style={styles.wbDetailVal}>{delivery.vehicleNumber || 'Commercial Tipper'} ({delivery.vehicleType || 'Hydraulic Tipper'})</Text>
                   </View>
                   <View style={styles.wbDetailRow}>
                     <Text style={styles.wbDetailKey}>Driver Name</Text>
-                    <Text style={styles.wbDetailVal}>{delivery.driverName || 'Suresh Reddy'} (+91 98480 22199)</Text>
+                    <Text style={styles.wbDetailVal}>{delivery.driverName || 'Assigned Driver'}</Text>
                   </View>
                   <View style={styles.wbDetailRow}>
                     <Text style={styles.wbDetailKey}>Calibration Validity</Text>

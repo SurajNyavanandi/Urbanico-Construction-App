@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,9 @@ import {
   ShoppingCart,
   ChevronRight,
   ArrowLeft,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
   ShieldCheck,
   Sparkles,
   Filter,
@@ -31,7 +34,6 @@ import { soundService } from '../utils/soundHelper';
 import {
   normalizeSearchQuery,
   searchAndRankMaterials,
-  extractBrandFromItem,
   getDidYouMeanSuggestion,
 } from '../services/searchService';
 
@@ -75,15 +77,31 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
   // Display View Mode Option: Global setting defaulting to two-column 'grid'
   const [internalViewMode, setInternalViewMode] = useState<'list' | 'grid'>('grid');
   const [sortBy, setSortBy] = useState<'default' | 'price-asc' | 'price-desc' | 'savings'>('default');
-  const [selectedBrand, setSelectedBrand] = useState<string>('all');
   const [selectedPriceRange, setSelectedPriceRange] = useState<'all' | 'under-500' | '500-5000' | 'above-5000'>('all');
   const [fastDispatchOnly, setFastDispatchOnly] = useState<boolean>(false);
   const [forceAllCategories, setForceAllCategories] = useState<boolean>(false);
+
+  // Reset facet filters when switching categories to prevent sticky zero-result states
+  useEffect(() => {
+    setSelectedPriceRange('all');
+    setFastDispatchOnly(false);
+  }, [categoryId]);
 
   const viewMode = onViewModeChange ? externalViewMode : internalViewMode;
   const setViewMode = (mode: 'list' | 'grid') => {
     if (onViewModeChange) onViewModeChange(mode);
     else setInternalViewMode(mode);
+  };
+
+  const isPriceSortActive = sortBy === 'price-asc' || sortBy === 'price-desc';
+
+  const handlePriceToggle = () => {
+    soundService.playTap();
+    if (sortBy === 'price-asc') {
+      setSortBy('price-desc');
+    } else {
+      setSortBy('price-asc');
+    }
   };
 
   // Typo & query normalization
@@ -133,6 +151,8 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
     if (query) {
       if (categoryId === 'all' || forceAllCategories) {
         candidatePool = MATERIAL_ITEMS;
+      } else if (categoryId === 'materials') {
+        candidatePool = MATERIAL_ITEMS.filter((item) => item.categoryId !== 'services');
       } else {
         // Test if current category has matches
         const inCatItems = MATERIAL_ITEMS.filter((item) => item.categoryId === categoryId);
@@ -148,6 +168,8 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
     } else {
       if (categoryId === 'all') {
         candidatePool = MATERIAL_ITEMS;
+      } else if (categoryId === 'materials') {
+        candidatePool = MATERIAL_ITEMS.filter((item) => item.categoryId !== 'services');
       } else {
         candidatePool = MATERIAL_ITEMS.filter((item) => item.categoryId === categoryId);
       }
@@ -166,23 +188,8 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
         return 0;
       });
 
-  // Extract available brands for dynamic facet filter chips (Bug #10)
-  const availableBrands = Array.from(
-    new Set(
-      candidatePool
-        .map((item) => extractBrandFromItem(item))
-        .filter((b): b is string => Boolean(b))
-    )
-  ).slice(0, 8);
-
-  // Apply Facet Filters (Brand, Price Range, Fast Dispatch)
+  // Apply Facet Filters (Price Range, Fast Dispatch)
   const items = rankedItems.filter((item) => {
-    // Brand facet
-    if (selectedBrand !== 'all') {
-      const b = extractBrandFromItem(item);
-      if (b !== selectedBrand) return false;
-    }
-
     // Price facet
     const price = item.defaultPrice || item.options?.[0]?.price || 0;
     if (selectedPriceRange === 'under-500' && price >= 500) return false;
@@ -214,7 +221,11 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
     }
   };
 
-  const isCatalogMode = categoryId === 'all' || categoryId === 'services-catalog' || categoryId === 'services';
+  const isCatalogMode =
+    categoryId === 'all' ||
+    categoryId === 'materials' ||
+    categoryId === 'services-catalog' ||
+    categoryId === 'services';
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
@@ -247,7 +258,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.pillsScroll}
           >
-            {/* 1. All (Combination of Materials & Services) */}
+            {/* 1. All (Overview) */}
             <TopNavTab
               label="All"
               isActive={categoryId === 'all'}
@@ -257,17 +268,27 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
               }}
             />
 
-            {/* 2. Services (Skilled Trade Services) */}
+            {/* 2. Materials (All Building Materials) */}
+            <TopNavTab
+              label="Materials"
+              isActive={categoryId === 'materials'}
+              onPress={() => {
+                soundService.playTap();
+                onSelectCategoryTab('materials');
+              }}
+            />
+
+            {/* 3. Services (Skilled Trade Services) */}
             <TopNavTab
               label="Services"
               isActive={categoryId === 'services-catalog' || categoryId === 'services'}
               onPress={() => {
                 soundService.playTap();
-                onSelectCategoryTab('services-catalog');
+                onSelectCategoryTab('services');
               }}
             />
 
-            {/* 3. Building Material Categories */}
+            {/* 4. Building Material Categories Only */}
             {CATEGORIES.map((cat) => (
               <TopNavTab
                 key={cat.id}
@@ -276,19 +297,6 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                 onPress={() => {
                   soundService.playTap();
                   onSelectCategoryTab(cat.id);
-                }}
-              />
-            ))}
-
-            {/* 4. Trade Services */}
-            {SERVICES.map((srv) => (
-              <TopNavTab
-                key={srv.id}
-                label={srv.name}
-                isActive={categoryId === srv.id}
-                onPress={() => {
-                  soundService.playTap();
-                  onSelectCategoryTab(srv.id as any);
                 }}
               />
             ))}
@@ -309,7 +317,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
               <View style={styles.viewToggleHeaderBar}>
                 <View>
                   <Text style={[styles.sectionTitleText, { color: theme.textPrimary }]}>
-                    {filteredCategories.length + filteredServices.length} Categories & Services
+                    Categories & Services
                   </Text>
                   <Text style={[styles.sectionSubtitleText, { color: theme.textSecondary }]}>
                     Building materials and certified trade services
@@ -330,7 +338,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                     <View style={{ marginBottom: 20 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, marginTop: 4 }}>
                         <Text style={{ fontSize: 15, fontWeight: '700', color: theme.textPrimary }}>
-                          Building Materials ({filteredCategories.length})
+                          Building Materials
                         </Text>
                       </View>
 
@@ -371,17 +379,17 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                     <View style={{ marginBottom: 12 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                         <Text style={{ fontSize: 15, fontWeight: '700', color: theme.textPrimary }}>
-                          Skilled Trade Services ({filteredServices.length})
+                          Skilled Trade Services
                         </Text>
                         <TouchableOpacity
                           onPress={() => {
                             soundService.playTap();
-                            onSelectCategoryTab('services-catalog');
+                            onSelectCategoryTab('services');
                           }}
                           activeOpacity={0.7}
                         >
                           <Text style={{ fontSize: 12, fontWeight: '600', color: theme.primary }}>
-                            View Services Catalog →
+                            View Services →
                           </Text>
                         </TouchableOpacity>
                       </View>
@@ -442,18 +450,54 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
             </View>
           )}
 
-      {/* 2. Services Catalog (categoryId === 'services-catalog' || categoryId === 'services') */}
+      {/* 2. Materials Catalog (categoryId === 'materials') */}
+      {categoryId === 'materials' && (
+        <View style={styles.itemsSectionContainer}>
+          {filteredCategories.length === 0 ? (
+            <EmptyState
+              type="no-search"
+              title="No Categories Found"
+              description="No material categories matched your search term."
+            />
+          ) : (
+            <View style={{ marginBottom: 20 }}>
+              {viewMode === 'grid' ? (
+                <View style={styles.twoColumnGridRow}>
+                  {filteredCategories.map((cat) => (
+                    <ProductCard
+                      key={cat.id}
+                      title={cat.name}
+                      subtitle={cat.count}
+                      priceLabel={cat.priceLabel}
+                      image={cat.image}
+                      viewMode="grid"
+                      onPress={() => onSelectCategoryTab(cat.id)}
+                    />
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.oneColumnListContainer}>
+                  {filteredCategories.map((cat) => (
+                    <ProductCard
+                      key={cat.id}
+                      title={cat.name}
+                      subtitle={cat.count}
+                      priceLabel={cat.priceLabel}
+                      image={cat.image}
+                      viewMode="list"
+                      onPress={() => onSelectCategoryTab(cat.id)}
+                    />
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* 3. Services Catalog (categoryId === 'services-catalog' || categoryId === 'services') */}
       {(categoryId === 'services-catalog' || categoryId === 'services') && (
         <View style={styles.itemsSectionContainer}>
-          {/* Display Header Bar */}
-          <View style={styles.viewToggleHeaderBar}>
-            <View>
-              <Text style={[styles.sectionTitleText, { color: theme.textPrimary }]}>
-                {filteredServices.length} Skilled Services
-              </Text>
-            </View>
-          </View>
-
           {/* Services List / Grid Layout */}
           {filteredServices.length === 0 ? (
             <EmptyState
@@ -520,7 +564,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
         <View style={styles.itemsSectionContainer}>
 
           {/* Typo Correction Banner (Bug #4) */}
-          {query && wasCorrected && (
+          {Boolean(query && wasCorrected) && (
             <View style={[styles.correctionBanner, { backgroundColor: '#FEF3C7', borderColor: '#FCD34D' }]}>
               <Sparkles size={14} color="#D97706" strokeWidth={2.2} />
               <Text style={styles.correctionBannerText}>
@@ -533,7 +577,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
           )}
 
           {/* Cross-Category Breakout Notice (Bug #2) */}
-          {query && isGlobalFallback && (
+          {Boolean(query && isGlobalFallback) && (
             <View style={[styles.globalNoticeBanner, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
               <Text style={styles.globalNoticeText}>
                 No items in {activeCategoryObj?.name || 'this category'} matched "{searchQuery}". Showing matches from <Text style={{ fontWeight: '700' }}>All Materials</Text>.
@@ -541,47 +585,35 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
             </View>
           )}
 
-          {/* Header Bar */}
-          <View style={styles.viewToggleHeaderBar}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', flex: 1 }}>
-              <Text style={[styles.sectionTitleText, { color: theme.textPrimary }]}>
-                {items.length} Products {query ? `for "${searchQuery}"` : ''}
-              </Text>
-              {query && onClearSearch && (
-                <TouchableOpacity
-                  onPress={onClearSearch}
-                  style={[styles.resetFiltersMiniBtn, { backgroundColor: '#FEE2E2', borderColor: '#FECACA' }]}
-                  activeOpacity={0.7}
-                >
-                  <X size={11} color="#DC2626" strokeWidth={2.4} />
-                  <Text style={[styles.resetFiltersMiniBtnText, { color: '#DC2626', fontWeight: '700' }]}>Clear Search</Text>
-                </TouchableOpacity>
-              )}
+          {/* Search Result Bar (Displayed only during active search query) */}
+          {query ? (
+            <View style={styles.viewToggleHeaderBar}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', flex: 1 }}>
+                <Text style={[styles.sectionTitleText, { color: theme.textPrimary }]}>
+                  Results for "{searchQuery}"
+                </Text>
+                {onClearSearch && (
+                  <TouchableOpacity
+                    onPress={onClearSearch}
+                    style={[styles.resetFiltersMiniBtn, { backgroundColor: '#FEE2E2', borderColor: '#FECACA' }]}
+                    activeOpacity={0.7}
+                  >
+                    <X size={11} color="#DC2626" strokeWidth={2.4} />
+                    <Text style={[styles.resetFiltersMiniBtnText, { color: '#DC2626', fontWeight: '700' }]}>Clear Search</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
-            {(selectedBrand !== 'all' || selectedPriceRange !== 'all') && (
-              <TouchableOpacity
-                onPress={() => {
-                  setSelectedBrand('all');
-                  setSelectedPriceRange('all');
-                }}
-                style={styles.resetFiltersMiniBtn}
-                activeOpacity={0.7}
-              >
-                <RotateCcw size={11} color="#6B7280" strokeWidth={2} />
-                <Text style={styles.resetFiltersMiniBtnText}>Clear Filters</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          ) : null}
 
-          {/* Facet Filters & Quick Sort Row (Bug #10) */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.sortChipsScroll}
-          >
+          {/* Quick Sort Row: Featured & Single Price Toggle */}
+          <View style={styles.sortChipsScroll}>
             {/* Sort: Featured */}
             <TouchableOpacity
-              onPress={() => setSortBy('default')}
+              onPress={() => {
+                soundService.playTap();
+                setSortBy('default');
+              }}
               style={[
                 styles.sortChip,
                 sortBy === 'default'
@@ -593,121 +625,45 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
               <Text
                 style={[
                   styles.sortChipText,
-                  { color: sortBy === 'default' ? '#FFFFFF' : theme.textSecondary },
+                  {
+                    color: sortBy === 'default' ? '#FFFFFF' : theme.textSecondary,
+                    fontWeight: sortBy === 'default' ? '700' : '500',
+                  },
                 ]}
               >
                 Featured
               </Text>
             </TouchableOpacity>
 
-            {/* Sort: Price Low to High */}
+            {/* Sort: Single Price Toggle Button (Low to High / High to Low) */}
             <TouchableOpacity
-              onPress={() => setSortBy('price-asc')}
+              onPress={handlePriceToggle}
               style={[
                 styles.sortChip,
-                sortBy === 'price-asc'
+                isPriceSortActive
                   ? { backgroundColor: theme.primary, borderColor: theme.primary }
                   : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
               ]}
               activeOpacity={0.75}
             >
-              <Text
-                style={[
-                  styles.sortChipText,
-                  { color: sortBy === 'price-asc' ? '#FFFFFF' : theme.textSecondary },
-                ]}
-              >
-                Price: Low to High
-              </Text>
-            </TouchableOpacity>
-
-            {/* Sort: Price High to Low */}
-            <TouchableOpacity
-              onPress={() => setSortBy('price-desc')}
-              style={[
-                styles.sortChip,
-                sortBy === 'price-desc'
-                  ? { backgroundColor: theme.primary, borderColor: theme.primary }
-                  : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
-              ]}
-              activeOpacity={0.75}
-            >
-              <Text
-                style={[
-                  styles.sortChipText,
-                  { color: sortBy === 'price-desc' ? '#FFFFFF' : theme.textSecondary },
-                ]}
-              >
-                Price: High to Low
-              </Text>
-            </TouchableOpacity>
-
-            {/* Price Filter: Under 500 */}
-            <TouchableOpacity
-              onPress={() => setSelectedPriceRange((prev) => (prev === 'under-500' ? 'all' : 'under-500'))}
-              style={[
-                styles.sortChip,
-                selectedPriceRange === 'under-500'
-                  ? { backgroundColor: '#2563EB', borderColor: '#2563EB' }
-                  : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
-              ]}
-              activeOpacity={0.75}
-            >
-              <Text
-                style={[
-                  styles.sortChipText,
-                  { color: selectedPriceRange === 'under-500' ? '#FFFFFF' : theme.textSecondary },
-                ]}
-              >
-                Under ₹500
-              </Text>
-            </TouchableOpacity>
-
-            {/* Price Filter: 500 - 5k */}
-            <TouchableOpacity
-              onPress={() => setSelectedPriceRange((prev) => (prev === '500-5000' ? 'all' : '500-5000'))}
-              style={[
-                styles.sortChip,
-                selectedPriceRange === '500-5000'
-                  ? { backgroundColor: '#2563EB', borderColor: '#2563EB' }
-                  : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
-              ]}
-              activeOpacity={0.75}
-            >
-              <Text
-                style={[
-                  styles.sortChipText,
-                  { color: selectedPriceRange === '500-5000' ? '#FFFFFF' : theme.textSecondary },
-                ]}
-              >
-                ₹500 - ₹5,000
-              </Text>
-            </TouchableOpacity>
-
-            {/* Brand Facet Chips */}
-            {availableBrands.map((brand) => (
-              <TouchableOpacity
-                key={brand}
-                onPress={() => setSelectedBrand((prev) => (prev === brand ? 'all' : brand))}
-                style={[
-                  styles.sortChip,
-                  selectedBrand === brand
-                    ? { backgroundColor: '#059669', borderColor: '#059669' }
-                    : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
-                ]}
-                activeOpacity={0.75}
-              >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
                 <Text
                   style={[
                     styles.sortChipText,
-                    { color: selectedBrand === brand ? '#FFFFFF' : theme.textSecondary },
+                    {
+                      color: isPriceSortActive ? '#FFFFFF' : theme.textSecondary,
+                      fontWeight: isPriceSortActive ? '700' : '500',
+                    },
                   ]}
                 >
-                  {brand}
+                  {sortBy === 'price-desc' ? 'Price: High to Low' : 'Price: Low to High'}
                 </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+                {sortBy === 'price-asc' && <ArrowUp size={12} color="#FFFFFF" strokeWidth={2.4} />}
+                {sortBy === 'price-desc' && <ArrowDown size={12} color="#FFFFFF" strokeWidth={2.4} />}
+                {!isPriceSortActive && <ArrowUpDown size={11} color={theme.textMuted} strokeWidth={2} />}
+              </View>
+            </TouchableOpacity>
+          </View>
 
           {/* Product Items List / Grid */}
           {items.length === 0 ? (
@@ -720,7 +676,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
               </Text>
 
               {/* Did you mean suggestion (Bug #9) */}
-              {didYouMean && (
+              {Boolean(didYouMean) && (
                 <TouchableOpacity
                   onPress={() => onSelectCategoryTab && onSelectCategoryTab('all')}
                   style={[styles.didYouMeanPill, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}
@@ -735,7 +691,6 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
 
               <TouchableOpacity
                 onPress={() => {
-                  setSelectedBrand('all');
                   setSelectedPriceRange('all');
                   setSortBy('default');
                   if (onClearSearch) onClearSearch();

@@ -65,16 +65,45 @@ export class OrderService {
     // Auto-create initial dispatch delivery tracking record
     try {
       const otpCode = String(Math.floor(100000 + Math.random() * 900000));
+      const isServiceOrder = savedOrder.items?.every(
+        (i: any) =>
+          (i.category || '').toLowerCase().includes('service') ||
+          (i.name || '').toLowerCase().includes('visit') ||
+          (i.name || '').toLowerCase().includes('consult')
+      );
+      const totalQuantity = savedOrder.items?.reduce((s: number, i: any) => s + (i.quantity || 1), 0) || 1;
+      const hasBulkMaterials = savedOrder.items?.some(
+        (i: any) =>
+          (i.name || '').toLowerCase().includes('sand') ||
+          (i.name || '').toLowerCase().includes('aggregate') ||
+          (i.name || '').toLowerCase().includes('gravel') ||
+          (i.name || '').toLowerCase().includes('ton')
+      );
+
+      const dynamicVehicleNumber = savedOrder.vehicleNumber || (
+        isServiceOrder
+          ? 'Trade Inspection Vehicle'
+          : (!hasBulkMaterials && totalQuantity <= 3)
+          ? `TS 09 UB ${Math.floor(1000 + Math.random() * 9000)} (Cargo Tempo)`
+          : `TS 08 UB ${Math.floor(1000 + Math.random() * 9000)} (Commercial Fleet)`
+      );
+
+      const dynamicDriverName = savedOrder.driverName || (
+        isServiceOrder ? 'Assigned Field Specialist' : 'Assigned Fleet Partner'
+      );
+
       const deliveryPayload = {
         deliveryNumber: `DEL-${Date.now().toString().slice(-5)}`,
         orderId: savedOrder._id,
         orderNumber: savedOrder.orderNumber,
-        vehicleNumber: savedOrder.vehicleNumber || 'TS09-UA-8821 (10-Tyre Tipper)',
-        driverName: savedOrder.driverName || 'Ramesh Goud',
-        driverPhone: savedOrder.driverPhone || '+91 98480 22341',
+        vehicleNumber: dynamicVehicleNumber,
+        driverName: dynamicDriverName,
+        driverPhone: savedOrder.driverPhone || 'Logistics Dispatch Support',
         sourceQuarry: {
-          name: 'Urbanico Central Crushed Stone & Sand Quarry Hub',
-          location: 'Patancheru Outskirts, Hyderabad',
+          name: hasBulkMaterials
+            ? 'Urbanico Central Crushed Stone & Sand Quarry Hub'
+            : 'Urbanico Central Fulfillment Hub',
+          location: 'Hyderabad Logistics Corridor',
           gatePassNo: `GP-${Math.floor(10000 + Math.random() * 90000)}`,
         },
         destinationSite: {
@@ -82,7 +111,7 @@ export class OrderService {
           address: savedOrder.siteAddress?.street || 'Site Location, Hyderabad',
           pincode: savedOrder.siteAddress?.pincode || '500049',
           contactPerson: savedOrder.customerName || 'Site Supervisor',
-          contactPhone: savedOrder.customerPhone || '+91 96666 35009',
+          contactPhone: savedOrder.customerPhone || 'Site Contact',
         },
         currentLocation: {
           latitude: 17.4933,

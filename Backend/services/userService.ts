@@ -13,29 +13,15 @@ export class UserService {
         if (!user) {
           user = new User({
             phone: cleanPhone,
-            name: userData.name || 'Urbanico Partner',
-            email: userData.email || 'partner@urbanico.in',
+            name: userData.name || 'Site Incharge',
+            email: userData.email || '',
             role: userData.role || 'contractor',
-            companyName: userData.companyName || 'Urbanico Infrastructure Pvt Ltd',
-            gstin: userData.gstin || '36AABCU12341ZV',
-            billingAddress: {
-              street: 'Plot 402, Survey 88, Miyapur Road',
-              city: 'Hyderabad',
-              state: 'Telangana',
-              pincode: '500049',
-            },
-            deliverySites: [
-              {
-                siteName: 'Miyapur Site (Tower B)',
-                address: 'Survey 114, Hafeezpet - Miyapur Main Rd, Hyderabad',
-                pincode: '500049',
-                supervisorName: 'Site Supervisor',
-                supervisorPhone: '+91 98480 12345',
-                isPrimary: true,
-              },
-            ],
-            creditLimit: 500000,
-            availableCredit: 500000,
+            companyName: userData.companyName || '',
+            gstin: userData.gstin || '',
+            billingAddress: userData.billingAddress || undefined,
+            deliverySites: userData.deliverySites || [],
+            creditLimit: userData.creditLimit || 0,
+            availableCredit: userData.availableCredit || 0,
           });
           await user.save();
         }
@@ -50,29 +36,15 @@ export class UserService {
       memoryUser = {
         _id: `usr_${Date.now()}`,
         phone: cleanPhone,
-        name: userData.name || 'Urbanico Partner',
-        email: userData.email || 'partner@urbanico.in',
+        name: userData.name || 'Site Incharge',
+        email: userData.email || '',
         role: userData.role || 'contractor',
-        companyName: userData.companyName || 'Urbanico Infrastructure Pvt Ltd',
-        gstin: userData.gstin || '36AABCU12341ZV',
-        billingAddress: {
-          street: 'Plot 402, Survey 88, Miyapur Road',
-          city: 'Hyderabad',
-          state: 'Telangana',
-          pincode: '500049',
-        },
-        deliverySites: [
-          {
-            siteName: 'Miyapur Site (Tower B)',
-            address: 'Survey 114, Hafeezpet - Miyapur Main Rd, Hyderabad',
-            pincode: '500049',
-            supervisorName: 'Kishore V.',
-            supervisorPhone: '+91 98480 12345',
-            isPrimary: true,
-          },
-        ],
-        creditLimit: 500000,
-        availableCredit: 500000,
+        companyName: userData.companyName || '',
+        gstin: userData.gstin || '',
+        billingAddress: userData.billingAddress || undefined,
+        deliverySites: userData.deliverySites || [],
+        creditLimit: userData.creditLimit || 0,
+        availableCredit: userData.availableCredit || 0,
         createdAt: new Date(),
         updatedAt: new Date(),
       };

@@ -152,9 +152,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     defaultPrice: 58,
     options: [
       { id: 'v-box-4', label: '1 Box (4 Tiles / 15.5 Sq.Ft)', price: 899, type: 'radio' },
-      { id: 'v-box-10', label: '10 Boxes (~155 Sq.Ft)', price: 8750, type: 'radio' },
-      { id: 'v-box-50', label: '50 Boxes (~775 Sq.Ft)', price: 42500, type: 'radio' },
-      { id: 'v-pallet', label: '1 Pallet (~1,500 Sq.Ft)', price: 81000, type: 'radio' },
+      { id: 'v-pallet', label: 'Pallet Bundle (~1,500 Sq.Ft)', price: 81000, type: 'radio' },
     ],
   },
   {
@@ -167,8 +165,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     defaultPrice: 42,
     options: [
       { id: 'w-box-6', label: '1 Box (6 Tiles / 9 Sq.Ft)', price: 380, type: 'radio' },
-      { id: 'w-box-10', label: '10 Boxes (90 Sq.Ft)', price: 3700, type: 'radio' },
-      { id: 'w-box-50', label: '50 Boxes (450 Sq.Ft)', price: 18000, type: 'radio' },
+      { id: 'w-pallet', label: 'Pallet Bundle (~900 Sq.Ft)', price: 35000, type: 'radio' },
     ],
   },
   {
@@ -181,8 +178,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     defaultPrice: 48,
     options: [
       { id: 'f-box-9', label: '1 Box (9 Tiles / 9 Sq.Ft)', price: 430, type: 'radio' },
-      { id: 'f-box-10', label: '10 Boxes (90 Sq.Ft)', price: 4200, type: 'radio' },
-      { id: 'f-box-50', label: '50 Boxes (450 Sq.Ft)', price: 20500, type: 'radio' },
+      { id: 'f-pallet', label: 'Pallet Bundle (~900 Sq.Ft)', price: 39000, type: 'radio' },
     ],
   },
   {
@@ -195,8 +191,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     defaultPrice: 65,
     options: [
       { id: 'p-box-5', label: '1 Box (5 Tiles / 8.6 Sq.Ft)', price: 560, type: 'radio' },
-      { id: 'p-box-10', label: '10 Boxes (86 Sq.Ft)', price: 5400, type: 'radio' },
-      { id: 'p-box-50', label: '50 Boxes (430 Sq.Ft)', price: 26000, type: 'radio' },
+      { id: 'p-pallet', label: 'Pallet Bundle (~860 Sq.Ft)', price: 51000, type: 'radio' },
     ],
   },
   // CEMENT
@@ -210,10 +205,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     defaultPrice: 380,
     options: [
       { id: 'ut-1bag', label: '1 Bag (50 KG)', price: 380, type: 'radio' },
-      { id: 'ut-5bag', label: '5 Bags (250 KG)', price: 1880, type: 'radio' },
-      { id: 'ut-10bag', label: '10 Bags (500 KG)', price: 3750, type: 'radio' },
-      { id: 'ut-25bag', label: '25 Bags (1.25 Tons)', price: 9300, type: 'radio' },
-      { id: 'ut-50bag', label: '50 Bags (Full Pallet - 2.5 Tons)', price: 18500, type: 'radio' },
+      { id: 'ut-50bag', label: 'Pallet Bundle (50 Bags / 2.5 Tons)', price: 18500, type: 'radio' },
     ],
   },
   {
@@ -226,10 +218,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     defaultPrice: 365,
     options: [
       { id: 'utppc-1bag', label: '1 Bag (50 KG)', price: 365, type: 'radio' },
-      { id: 'utppc-5bag', label: '5 Bags (250 KG)', price: 1800, type: 'radio' },
-      { id: 'utppc-10bag', label: '10 Bags (500 KG)', price: 3580, type: 'radio' },
-      { id: 'utppc-25bag', label: '25 Bags (1.25 Tons)', price: 8900, type: 'radio' },
-      { id: 'utppc-50bag', label: '50 Bags (Full Pallet)', price: 17800, type: 'radio' },
+      { id: 'utppc-50bag', label: 'Pallet Bundle (50 Bags / 2.5 Tons)', price: 17800, type: 'radio' },
     ],
   },
   {
@@ -242,10 +231,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     defaultPrice: 395,
     options: [
       { id: 'amb-1bag', label: '1 Bag (50 KG)', price: 395, type: 'radio' },
-      { id: 'amb-5bag', label: '5 Bags (250 KG)', price: 1950, type: 'radio' },
-      { id: 'amb-10bag', label: '10 Bags (500 KG)', price: 3880, type: 'radio' },
-      { id: 'amb-25bag', label: '25 Bags (1.25 Tons)', price: 9650, type: 'radio' },
-      { id: 'amb-50bag', label: '50 Bags (Full Pallet)', price: 19200, type: 'radio' },
+      { id: 'amb-50bag', label: 'Pallet Bundle (50 Bags / 2.5 Tons)', price: 19200, type: 'radio' },
     ],
   },
   {
@@ -258,10 +244,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     defaultPrice: 385,
     options: [
       { id: 'acc-1bag', label: '1 Bag (50 KG)', price: 385, type: 'radio' },
-      { id: 'acc-5bag', label: '5 Bags (250 KG)', price: 1910, type: 'radio' },
-      { id: 'acc-10bag', label: '10 Bags (500 KG)', price: 3800, type: 'radio' },
-      { id: 'acc-25bag', label: '25 Bags (1.25 Tons)', price: 9450, type: 'radio' },
-      { id: 'acc-50bag', label: '50 Bags (Full Pallet)', price: 18800, type: 'radio' },
+      { id: 'acc-50bag', label: 'Pallet Bundle (50 Bags / 2.5 Tons)', price: 18800, type: 'radio' },
     ],
   },
   {
@@ -274,10 +257,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     defaultPrice: 370,
     options: [
       { id: 'birla-1bag', label: '1 Bag (50 KG)', price: 370, type: 'radio' },
-      { id: 'birla-5bag', label: '5 Bags (250 KG)', price: 1840, type: 'radio' },
-      { id: 'birla-10bag', label: '10 Bags (500 KG)', price: 3650, type: 'radio' },
-      { id: 'birla-25bag', label: '25 Bags (1.25 Tons)', price: 9100, type: 'radio' },
-      { id: 'birla-50bag', label: '50 Bags (Full Pallet)', price: 18100, type: 'radio' },
+      { id: 'birla-50bag', label: 'Pallet Bundle (50 Bags / 2.5 Tons)', price: 18100, type: 'radio' },
     ],
   },
   {
@@ -290,10 +270,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     defaultPrice: 375,
     options: [
       { id: 'jsw-1bag', label: '1 Bag (50 KG)', price: 375, type: 'radio' },
-      { id: 'jsw-5bag', label: '5 Bags (250 KG)', price: 1860, type: 'radio' },
-      { id: 'jsw-10bag', label: '10 Bags (500 KG)', price: 3700, type: 'radio' },
-      { id: 'jsw-25bag', label: '25 Bags (1.25 Tons)', price: 9200, type: 'radio' },
-      { id: 'jsw-50bag', label: '50 Bags (Full Pallet)', price: 18300, type: 'radio' },
+      { id: 'jsw-50bag', label: 'Pallet Bundle (50 Bags / 2.5 Tons)', price: 18300, type: 'radio' },
     ],
   },
   {
@@ -306,10 +283,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     defaultPrice: 390,
     options: [
       { id: 'dal-1bag', label: '1 Bag (50 KG)', price: 390, type: 'radio' },
-      { id: 'dal-5bag', label: '5 Bags (250 KG)', price: 1930, type: 'radio' },
-      { id: 'dal-10bag', label: '10 Bags (500 KG)', price: 3850, type: 'radio' },
-      { id: 'dal-25bag', label: '25 Bags (1.25 Tons)', price: 9500, type: 'radio' },
-      { id: 'dal-50bag', label: '50 Bags (Full Pallet)', price: 18900, type: 'radio' },
+      { id: 'dal-50bag', label: 'Pallet Bundle (50 Bags / 2.5 Tons)', price: 18900, type: 'radio' },
     ],
   },
 
@@ -341,9 +315,8 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     defaultPrice: 65,
     options: [
       { id: 'msand-bag25', label: 'Bag (25 KG)', price: 110, type: 'radio' },
-      { id: 'msand-auto', label: 'Auto (~1 Ton)', price: 1500, type: 'radio' },
-      { id: 'msand-trac3', label: 'Tractor Full level (~3 Tons)', price: 2400, type: 'radio' },
-      { id: 'msand-truck', label: 'Truck (~10 Tons)', price: 13500, type: 'radio' },
+      { id: 'msand-trac3', label: 'Tractor Load (~3 Tons)', price: 2400, type: 'radio' },
+      { id: 'msand-truck', label: 'Tipper Truck (~10 Tons)', price: 13500, type: 'radio' },
     ],
   },
   {
@@ -356,9 +329,8 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     defaultPrice: 68,
     options: [
       { id: 'pmsand-bag25', label: 'Bag (25 KG)', price: 115, type: 'radio' },
-      { id: 'pmsand-auto', label: 'Auto (~1 Ton)', price: 1600, type: 'radio' },
-      { id: 'pmsand-trac3', label: 'Tractor Full level (~3 Tons)', price: 2550, type: 'radio' },
-      { id: 'pmsand-truck', label: 'Truck (~10 Tons)', price: 14200, type: 'radio' },
+      { id: 'pmsand-trac3', label: 'Tractor Load (~3 Tons)', price: 2550, type: 'radio' },
+      { id: 'pmsand-truck', label: 'Tipper Truck (~10 Tons)', price: 14200, type: 'radio' },
     ],
   },
   {
@@ -370,8 +342,8 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     actionType: 'add_to_cart',
     defaultPrice: 55,
     options: [
-      { id: 'fsand-trac3', label: 'Tractor Full level (~3 Tons)', price: 2100, type: 'radio' },
-      { id: 'fsand-truck', label: 'Truck (~10 Tons)', price: 11500, type: 'radio' },
+      { id: 'fsand-trac3', label: 'Tractor Load (~3 Tons)', price: 2100, type: 'radio' },
+      { id: 'fsand-truck', label: 'Tipper Truck (~10 Tons)', price: 11500, type: 'radio' },
     ],
   },
 
@@ -386,8 +358,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     defaultPrice: 9,
     options: [
       { id: 'brick-500', label: 'Batch of 500 Bricks', price: 4500, type: 'radio' },
-      { id: 'brick-1000', label: 'Batch of 1000 Bricks', price: 8800, type: 'radio' },
-      { id: 'brick-truck', label: 'Tractor Load (3000 Bricks)', price: 25000, type: 'radio' },
+      { id: 'brick-truck', label: 'Truck Load (3000 Bricks)', price: 25000, type: 'radio' },
     ],
   },
   {
@@ -400,8 +371,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     defaultPrice: 6.5,
     options: [
       { id: 'flyash-500', label: 'Batch of 500 Bricks', price: 3250, type: 'radio' },
-      { id: 'flyash-1000', label: 'Batch of 1000 Bricks', price: 6200, type: 'radio' },
-      { id: 'flyash-truck', label: 'Tractor Load (3000 Bricks)', price: 17800, type: 'radio' },
+      { id: 'flyash-truck', label: 'Truck Load (3000 Bricks)', price: 17800, type: 'radio' },
     ],
   },
   {
@@ -414,7 +384,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     defaultPrice: 62,
     options: [
       { id: 'aac-100', label: '100 Blocks (600x200x150 mm)', price: 6200, type: 'radio' },
-      { id: 'aac-300', label: '300 Blocks (Full Truck)', price: 18000, type: 'radio' },
+      { id: 'aac-300', label: 'Full Truck (300 Blocks)', price: 18000, type: 'radio' },
     ],
   },
   {
@@ -427,7 +397,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     defaultPrice: 42,
     options: [
       { id: 'sblock-100', label: '100 Solid Blocks', price: 4200, type: 'radio' },
-      { id: 'sblock-500', label: '500 Solid Blocks (Truck)', price: 20000, type: 'radio' },
+      { id: 'sblock-500', label: 'Full Truck (500 Blocks)', price: 20000, type: 'radio' },
     ],
   },
   {
@@ -440,7 +410,7 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     defaultPrice: 38,
     options: [
       { id: 'hblock-100', label: '100 Hollow Blocks', price: 3800, type: 'radio' },
-      { id: 'hblock-500', label: '500 Hollow Blocks', price: 18200, type: 'radio' },
+      { id: 'hblock-500', label: 'Full Truck (500 Blocks)', price: 18200, type: 'radio' },
     ],
   },
 
@@ -454,12 +424,9 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     actionType: 'add_to_cart',
     defaultPrice: 70,
     options: [
-      { id: 'bag-10kg', label: 'Bag (10 KG)', price: 70, type: 'radio' },
       { id: 'bag-25kg', label: 'Bag (25 KG)', price: 120, type: 'radio' },
-      { id: 'auto-1ton', label: 'Auto (~1 Ton)', price: 1700, type: 'radio' },
-      { id: 'tractor-1.5ton', label: 'Tractor Body level (~1.5 Ton)', price: 2300, type: 'radio' },
-      { id: 'tractor-3ton', label: 'Tractor Full level (~3 Tons)', price: 2700, type: 'radio' },
-      { id: 'truck-10ton', label: 'Truck (~10 Tons)', price: 15000, type: 'radio' },
+      { id: 'tractor-3ton', label: 'Tractor Load (~3 Tons)', price: 2700, type: 'radio' },
+      { id: 'truck-10ton', label: 'Tipper Truck (~10 Tons)', price: 15000, type: 'radio' },
     ],
   },
   {
@@ -471,12 +438,9 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     actionType: 'add_to_cart',
     defaultPrice: 70,
     options: [
-      { id: 's20-bag-10kg', label: 'Bag (10 KG)', price: 70, type: 'radio' },
       { id: 's20-bag-25kg', label: 'Bag (25 KG)', price: 120, type: 'radio' },
-      { id: 's20-auto-1ton', label: 'Auto (~1 Ton)', price: 1700, type: 'radio' },
-      { id: 's20-tractor-1.5ton', label: 'Tractor Body level (~1.5 Ton)', price: 2300, type: 'radio' },
-      { id: 's20-tractor-3ton', label: 'Tractor Full level (~3 Tons)', price: 2700, type: 'radio' },
-      { id: 's20-truck-10ton', label: 'Truck (~10 Tons)', price: 15000, type: 'radio' },
+      { id: 's20-tractor-3ton', label: 'Tractor Load (~3 Tons)', price: 2700, type: 'radio' },
+      { id: 's20-truck-10ton', label: 'Tipper Truck (~10 Tons)', price: 15000, type: 'radio' },
     ],
   },
   {
@@ -489,8 +453,8 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     defaultPrice: 65,
     options: [
       { id: 's40-bag-25kg', label: 'Bag (25 KG)', price: 115, type: 'radio' },
-      { id: 's40-tractor-3ton', label: 'Tractor Full level (~3 Tons)', price: 2600, type: 'radio' },
-      { id: 's40-truck-10ton', label: 'Truck (~10 Tons)', price: 14500, type: 'radio' },
+      { id: 's40-tractor-3ton', label: 'Tractor Load (~3 Tons)', price: 2600, type: 'radio' },
+      { id: 's40-truck-10ton', label: 'Tipper Truck (~10 Tons)', price: 14500, type: 'radio' },
     ],
   },
   {
@@ -502,8 +466,8 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     actionType: 'add_to_cart',
     defaultPrice: 65,
     options: [
-      { id: 's60-tractor-3ton', label: 'Tractor Full level (~3 Tons)', price: 2500, type: 'radio' },
-      { id: 's60-truck-10ton', label: 'Truck (~10 Tons)', price: 14000, type: 'radio' },
+      { id: 's60-tractor-3ton', label: 'Tractor Load (~3 Tons)', price: 2500, type: 'radio' },
+      { id: 's60-truck-10ton', label: 'Tipper Truck (~10 Tons)', price: 14000, type: 'radio' },
     ],
   },
   {
@@ -516,8 +480,8 @@ export const MATERIAL_ITEMS: MaterialItem[] = [
     defaultPrice: 50,
     options: [
       { id: 'sdust-auto', label: 'Auto (~1 Ton)', price: 1200, type: 'radio' },
-      { id: 'sdust-tractor', label: 'Tractor Full level (~3 Tons)', price: 2100, type: 'radio' },
-      { id: 'sdust-truck', label: 'Truck (~10 Tons)', price: 11000, type: 'radio' },
+      { id: 'sdust-tractor', label: 'Tractor Load (~3 Tons)', price: 2100, type: 'radio' },
+      { id: 'sdust-truck', label: 'Tipper Truck (~10 Tons)', price: 11000, type: 'radio' },
     ],
   },
 

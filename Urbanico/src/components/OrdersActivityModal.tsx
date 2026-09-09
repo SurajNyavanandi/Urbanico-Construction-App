@@ -44,6 +44,8 @@ interface OrdersActivityModalProps {
   onExploreCatalog?: () => void;
   onViewInvoice?: (delivery: ActivityDelivery) => void;
   onReorderMaterial?: (materialName: string) => void;
+  isLoggedIn?: boolean;
+  onOpenLoginModal?: () => void;
 }
 
 const TRACKING_STEPS = [
@@ -61,6 +63,8 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
   onExploreCatalog,
   onViewInvoice,
   onReorderMaterial,
+  isLoggedIn = true,
+  onOpenLoginModal,
 }) => {
   const { theme, typography } = useTheme();
   const { showToast } = useToast();
@@ -105,7 +109,7 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
   const deliveredCount = deliveries.filter((d) => d.status === 'Delivered').length;
 
   const handleCallDriver = () => {
-    showToast(`Connecting secure line to Driver ${activeEnRoute?.driverName || 'Ramesh'}...`, 'info');
+    showToast(`Connecting secure line to ${activeEnRoute?.driverName || 'Assigned Partner'}...`, 'info');
   };
 
   return (
@@ -158,14 +162,48 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
             }
           >
             {deliveries.length === 0 ? (
-              <EmptyState
-                type="no-orders"
-                onAction={() => {
-                  onClose();
-                  if (onExploreCatalog) onExploreCatalog();
-                }}
-                actionLabel="Explore Catalog"
-              />
+              !isLoggedIn ? (
+                <View style={[styles.card, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, alignItems: 'center', padding: 24 }]}>
+                  <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: theme.surface, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                    <Truck size={32} color={theme.primary} strokeWidth={1.75} />
+                  </View>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: theme.textPrimary, textAlign: 'center', marginBottom: 8, fontFamily: typography.fontFamilyHeading }}>
+                    Log in to View Orders
+                  </Text>
+                  <Text style={{ fontSize: 13, color: theme.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 20, maxWidth: 280 }}>
+                    If you previously booked site deliveries with your mobile number, log in to access real-time GPS dispatches, E-Way bills, and GST tax invoices.
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      onClose();
+                      if (onOpenLoginModal) onOpenLoginModal();
+                    }}
+                    style={{ backgroundColor: theme.primary, paddingVertical: 12, paddingHorizontal: 28, borderRadius: 10, width: '100%', alignItems: 'center', marginBottom: 12 }}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>Log In or Sign Up</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      onClose();
+                      if (onExploreCatalog) onExploreCatalog();
+                    }}
+                    style={{ paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, alignItems: 'center' }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{ color: theme.textSecondary, fontWeight: '600', fontSize: 13 }}>Explore Catalog</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <EmptyState
+                  type="no-orders"
+                  onAction={() => {
+                    onClose();
+                    if (onExploreCatalog) onExploreCatalog();
+                  }}
+                  actionLabel="Explore Catalog"
+                />
+              )
             ) : (
               <>
                 {/* 1. Live Shipments Vertical Tracking Section & Simulated Map */}
@@ -231,10 +269,10 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.driverNameText, { color: theme.textPrimary }]}>
-                          {activeEnRoute.driverName || 'Ramesh (Certified Heavy Tipper Driver)'}
+                          {activeEnRoute.driverName || 'Assigned Delivery Partner'}
                         </Text>
                         <Text style={[styles.driverMetaText, { color: theme.textSecondary }]}>
-                          {activeEnRoute.vehicleNumber} • 16T Hydraulic Tipper
+                          {activeEnRoute.vehicleNumber} • {activeEnRoute.vehicleType || 'Commercial Logistics'}
                         </Text>
                       </View>
                       <View style={styles.driverActionButtons}>

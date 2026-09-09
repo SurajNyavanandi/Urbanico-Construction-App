@@ -261,6 +261,12 @@ function MainAppContent() {
       const updated = [newOrder, ...prev];
       try {
         safeStorage.setItem('urbanico_orders', JSON.stringify(updated));
+        if (user && user.phone) {
+          const cleanPhone = user.phone.replace(/[^0-9]/g, '');
+          if (cleanPhone) {
+            safeStorage.setItem(`urbanico_user_orders_${cleanPhone}`, JSON.stringify(updated));
+          }
+        }
       } catch {
         // ignore
       }
@@ -374,13 +380,13 @@ function MainAppContent() {
                   bo.items?.map((i: any) => `${i.name} (${i.unit || 'unit'})`).join(', ') ||
                   'Direct Yard Supply Order',
                 quantity: `${bo.items?.reduce((s: number, i: any) => s + (i.quantity || 1), 0) || 1} Items`,
-                driverName: bo.driverName || 'Ramesh Goud',
-                driverPhone: bo.driverPhone || '+91 98480 22341',
-                vehicleType: '10-Tyre Tipper (16T)',
-                vehicleNumber: bo.vehicleNumber || 'TS 08 UB 8821',
-                estimatedArrival: '35 mins away',
+                driverName: bo.driverName || 'Assigned Delivery Partner',
+                driverPhone: bo.driverPhone || 'Dispatch Support Desk',
+                vehicleType: bo.vehicleType || (bo.isService ? 'Field Service Unit' : 'Commercial Transport'),
+                vehicleNumber: bo.vehicleNumber || 'TS 09 UB 5120',
+                estimatedArrival: bo.estimatedArrival || '35 mins away',
                 status: bo.orderStatus === 'delivered' ? 'Delivered' : 'En Route',
-                siteAddress: bo.siteAddress?.street || bo.siteAddress?.siteName || 'Construction Site',
+                siteAddress: bo.siteAddress?.street || bo.siteAddress?.siteName || 'Site Location, Hyderabad',
                 siteSupervisorName: bo.customerName || 'Site Supervisor',
                 siteSupervisorPhone: bo.customerPhone || user.phone,
                 timestamp: new Date(bo.createdAt || Date.now()).toLocaleDateString('en-IN', {
@@ -390,7 +396,16 @@ function MainAppContent() {
                 totalAmount: bo.totalAmount || 0,
                 deliveryOtp: bo.deliveryOtp || '8842',
                 ewayBillNumber: bo.eWayBillNo || `EWB-TS-2026-${Math.floor(10000000 + Math.random() * 90000000)}`,
-                weighmentSlipId: `WB-MYP-${Math.floor(1000 + Math.random() * 9000)}`,
+                weighmentSlipId:
+                  bo.weighmentSlipId ||
+                  (bo.items?.some(
+                    (i: any) =>
+                      (i.name || '').toLowerCase().includes('sand') ||
+                      (i.name || '').toLowerCase().includes('aggregate') ||
+                      (i.name || '').toLowerCase().includes('gravel')
+                  )
+                    ? `WB-MYP-${Math.floor(1000 + Math.random() * 9000)}`
+                    : undefined),
               }));
               const existingNums = new Set(prev.map((d) => d.orderNumber));
               const newOnes = backendMapped.filter((d) => !existingNums.has(d.orderNumber));
@@ -703,11 +718,31 @@ function MainAppContent() {
       const mergedFavs = Array.from(new Set([...userSavedFavs, ...favoriteIds]));
       setFavoriteIds(mergedFavs);
       safeStorage.setItem(`urbanico_favorite_ids_${validPhone}`, JSON.stringify(mergedFavs));
+
+      // Restore user orders for this authenticated phone
+      const cleanPhone = validPhone.replace(/[^0-9]/g, '');
+      const userOrdersRaw = safeStorage.getItem(`urbanico_user_orders_${cleanPhone}`);
+      if (userOrdersRaw) {
+        const loadedOrders: ActivityDelivery[] = JSON.parse(userOrdersRaw);
+        if (loadedOrders && loadedOrders.length > 0) {
+          setDeliveries(loadedOrders);
+          safeStorage.setItem('urbanico_orders', JSON.stringify(loadedOrders));
+        }
+      } else {
+        const generalOrdersRaw = safeStorage.getItem('urbanico_orders');
+        if (generalOrdersRaw) {
+          const generalOrders: ActivityDelivery[] = JSON.parse(generalOrdersRaw);
+          if (generalOrders && generalOrders.length > 0) {
+            setDeliveries(generalOrders);
+            safeStorage.setItem(`urbanico_user_orders_${cleanPhone}`, JSON.stringify(generalOrders));
+          }
+        }
+      }
     } catch {
       // ignore
     }
 
-    // 4. Resume any pending user intent
+    // 4. Resume any pending user intent or reset full-screen auth
     if (pendingIntent) {
       if (pendingIntent.type === 'favorite') {
         const itemToFav = pendingIntent.itemId;
@@ -721,6 +756,11 @@ function MainAppContent() {
       setPendingIntent(null);
     } else {
       showToast('Account verified! Welcome to Urbanico.', 'success');
+    }
+
+    // Exit full-screen auth routes after successful authentication
+    if (currentScreen === 'auth_mobile' || currentScreen === 'auth_otp') {
+      setCurrentScreen('home');
     }
   };
 
@@ -840,6 +880,10 @@ function MainAppContent() {
             <FavoritesScreen
               onSelectItemModal={handleOpenItemModal}
               onNavigateHome={() => setCurrentScreen('home')}
+              onExploreCatalog={() => {
+                setSelectedCategoryId('all');
+                setCurrentScreen('shop');
+              }}
               favoriteIds={favoriteIds}
               onToggleFavorite={handleToggleFavorite}
               isLoggedIn={isLoggedIn}
@@ -899,6 +943,8 @@ function MainAppContent() {
           {currentScreen === 'activity' && (
             <ActivityDashboardScreen
               deliveries={deliveries}
+              isLoggedIn={isLoggedIn}
+              onOpenLoginModal={handleOpenAuthModal}
               onBack={() => setCurrentScreen('profile')}
               onExploreCatalog={() => {
                 setSelectedCategoryId('all');

@@ -260,7 +260,7 @@ export const NikeAuthModal: React.FC<NikeAuthModalProps> = ({
                 </View>
               </View>
 
-              {errorMessage && (
+              {Boolean(errorMessage) && (
                 <Text style={styles.errorText}>{errorMessage}</Text>
               )}
 
@@ -361,7 +361,7 @@ export const NikeAuthModal: React.FC<NikeAuthModalProps> = ({
                 )}
               </View>
 
-              {errorMessage && (
+              {Boolean(errorMessage) && (
                 <Text style={styles.errorText}>{errorMessage}</Text>
               )}
 

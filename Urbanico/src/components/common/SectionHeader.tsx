@@ -30,14 +30,14 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
         >
           {title}
         </Text>
-        {subtitle && (
+        {Boolean(subtitle) && (
           <Text style={[styles.subtitle, { color: theme.textMuted }]}>
             {subtitle}
           </Text>
         )}
       </View>
 
-      {actionText && onActionPress && (
+      {Boolean(actionText && onActionPress) && (
         <TouchableOpacity
           onPress={onActionPress}
           activeOpacity={0.7}

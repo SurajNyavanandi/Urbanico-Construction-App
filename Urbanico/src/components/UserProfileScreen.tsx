@@ -159,17 +159,17 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   };
 
   // Indian E-Commerce Standard Address input state
-  const [addressFullName, setAddressFullName] = useState('Suraj Kumar');
-  const [addressMobile, setAddressMobile] = useState('9876543210');
+  const [addressFullName, setAddressFullName] = useState(user.name || '');
+  const [addressMobile, setAddressMobile] = useState(user.phone?.replace(/\D/g, '').slice(-10) || '');
   const [addressAltPhone, setAddressAltPhone] = useState('');
-  const [addressPincode, setAddressPincode] = useState('500081');
+  const [addressPincode, setAddressPincode] = useState('');
   const [addressFlatBuilding, setAddressFlatBuilding] = useState('');
   const [addressAreaStreet, setAddressAreaStreet] = useState('');
   const [addressLandmark, setAddressLandmark] = useState('');
-  const [addressCity, setAddressCity] = useState('Hyderabad');
-  const [addressState, setAddressState] = useState('Telangana');
+  const [addressCity, setAddressCity] = useState('');
+  const [addressState, setAddressState] = useState('');
   const [addressType, setAddressType] = useState<'Site' | 'Home' | 'Office' | 'Warehouse'>('Site');
-  const [addressInstructions, setAddressInstructions] = useState('Wide Gate Access (10-Wheel Dumpers OK)');
+  const [addressInstructions, setAddressInstructions] = useState('');
   const [addressIsDefault, setAddressIsDefault] = useState(true);
   const [addressErrors, setAddressErrors] = useState<Record<string, string>>({});
   const [showAddressStateDropdown, setShowAddressStateDropdown] = useState(false);
@@ -182,6 +182,15 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       setAddressErrors((prev) => ({ ...prev, pincode: '' }));
     }
     if (clean.length === 6) {
+      const pinPrefix = parseInt(clean.slice(0, 3), 10);
+      if (isNaN(pinPrefix) || pinPrefix < 500 || pinPrefix > 509) {
+        setAddressErrors((prev) => ({
+          ...prev,
+          pincode: 'Currently delivering exclusively across Hyderabad & Telangana (PIN: 500xxx - 509xxx). Out-of-zone freight unavailable.',
+        }));
+      } else {
+        setAddressErrors((prev) => ({ ...prev, pincode: '' }));
+      }
       const lookup = lookupCityStateFromPincode(clean);
       if (lookup.city) setAddressCity(lookup.city);
       if (lookup.state) setAddressState(lookup.state);
@@ -409,6 +418,17 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       return;
     }
 
+    // Enforce Telangana delivery corridor (500xxx - 509xxx) matching BasketScreen
+    const pinPrefix = parseInt(addressPincode.trim().slice(0, 3), 10);
+    if (isNaN(pinPrefix) || pinPrefix < 500 || pinPrefix > 509) {
+      setAddressErrors((prev) => ({
+        ...prev,
+        pincode: 'Currently delivering exclusively across Hyderabad & Telangana (PIN: 500xxx - 509xxx). Out-of-zone addresses cannot be serviced.',
+      }));
+      showToast('Delivery available only across Hyderabad & Telangana (500xxx - 509xxx)', 'error');
+      return;
+    }
+
     setAddressErrors({});
     const fullAddress = formatIndianAddressSummary(validation.sanitized);
     addLocation(fullAddress);
@@ -460,7 +480,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     ) : null}
                   </View>
                   <Text style={[styles.welcomeSubtitle, { color: theme.textSecondary }]}>
-                    {user.phone || '+91 98480 12345'} • {user.companyName || 'Apex Builders & Infra'}
+                    {user.phone ? (user.phone.startsWith('+91') ? user.phone : `+91 ${user.phone}`) : 'Registered Customer'}
+                    {user.companyName ? ` • ${user.companyName}` : ''}
                   </Text>
                   {user.gstin ? (
                     <Text style={[styles.gstinSubText, { color: theme.textMuted }]}>
@@ -692,8 +713,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
             <TouchableOpacity
               onPress={() => {
+                closeAllSubModals();
                 onLogout();
-                showToast('Logged out of Urbanico account', 'info');
               }}
               style={styles.menuRow}
               activeOpacity={0.7}
@@ -742,6 +763,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         visible={isOrdersModalOpen}
         onClose={() => setIsOrdersModalOpen(false)}
         deliveries={deliveries}
+        isLoggedIn={isLoggedIn}
+        onOpenLoginModal={() => {
+          setIsOrdersModalOpen(false);
+          if (onOpenLoginModal) onOpenLoginModal();
+        }}
         onExploreCatalog={() => {
           setIsOrdersModalOpen(false);
           if (onExploreCatalog) onExploreCatalog();
@@ -892,7 +918,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                         borderColor: addressErrors.fullName ? '#EF4444' : theme.border,
                       },
                     ]}
-                    placeholder="e.g. Suraj Kumar / Kishore V."
+                    placeholder="e.g. Site Incharge / Contact Person"
                     placeholderTextColor={theme.textMuted}
                   />
                   {addressErrors.fullName ? (
@@ -1570,7 +1596,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     borderColor: profileErrors.companyName ? '#EF4444' : theme.border,
                   },
                 ]}
-                placeholder="e.g. Apex Builders & Infra"
+                placeholder="e.g. ABC Constructions / Independent Developer"
                 placeholderTextColor={theme.textMuted}
               />
               {profileErrors.companyName ? (

@@ -236,7 +236,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               </View>
             </View>
 
-            {errorMessage && (
+            {Boolean(errorMessage) && (
               <Text style={styles.errorText}>{errorMessage}</Text>
             )}
 
@@ -337,7 +337,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               )}
             </View>
 
-            {errorMessage && (
+            {Boolean(errorMessage) && (
               <Text style={styles.errorText}>{errorMessage}</Text>
             )}
 

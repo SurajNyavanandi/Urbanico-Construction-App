@@ -416,7 +416,7 @@ export const Header: React.FC<HeaderProps> = ({
             {/* ------------------------------------------------------------- */}
             {/* VIEW B: ACTIVE QUERY (Live Matching Materials, Services, Cats) */}
             {/* ------------------------------------------------------------- */}
-            {queryLower && (
+            {Boolean(queryLower) && (
               <View style={styles.searchSectionGap}>
                 {/* A. Typo / Contractor Normalization Notice */}
                 {wasCorrected && (
@@ -488,7 +488,7 @@ export const Header: React.FC<HeaderProps> = ({
                             </Text>
                             <View style={styles.stockBadgeRow}>
                               <CheckCircle2 size={11} color="#059669" strokeWidth={2.2} />
-                              <Text style={styles.stockBadgeText}>In Stock • Fast Yard Dispatch</Text>
+                              <Text style={styles.stockBadgeText}>In Stock • Ready for Delivery</Text>
                             </View>
                           </View>
                           {item.defaultPrice && (
@@ -586,7 +586,7 @@ export const Header: React.FC<HeaderProps> = ({
                     <Text style={[styles.searchZeroSub, { color: theme.textSecondary }]}>
                       Check your spelling or try popular construction keywords
                     </Text>
-                    {didYouMean && (
+                    {Boolean(didYouMean) && (
                       <TouchableOpacity
                         onPress={() => {
                           setSearchInputText(didYouMean);

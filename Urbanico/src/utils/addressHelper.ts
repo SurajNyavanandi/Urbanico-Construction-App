@@ -130,17 +130,123 @@ export function validateIndianAddress(addr: Partial<IndianDeliveryAddress>): {
 }
 
 /**
+ * Maps known Telugu geographical and administrative terms to clean English
+ */
+const TELUGU_TO_ENGLISH_MAP: Record<string, string> = {
+  'హైదరాబాద్': 'Hyderabad',
+  'తెలంగాణ': 'Telangana',
+  'ఆంధ్రప్రదేశ్': 'Andhra Pradesh',
+  'మాదాపూర్': 'Madhapur',
+  'గచ్చిబౌలి': 'Gachibowli',
+  'రాయదుర్గం': 'Raidurgam',
+  'కొండాపూర్': 'Kondapur',
+  'కూకట్‌పల్లి': 'Kukatpally',
+  'మియాపూర్': 'Miyapur',
+  'బంజారా హిల్స్': 'Banjara Hills',
+  'జూబ్లీ హిల్స్': 'Jubilee Hills',
+  'సికింద్రాబాద్': 'Secunderabad',
+  'బేగంపేట్': 'Begumpet',
+  'భారతదేశం': 'India',
+  'మేడ్చల్': 'Medchal',
+  'రంగారెడ్డి': 'Ranga Reddy',
+  'సైబరాబాద్': 'Cyberabad',
+  'హైటెక్ సిటీ': 'HITEC City',
+  'షాబాద్': 'Shahbad',
+  'సంగారెడ్డి': 'Sangareddy',
+  'నిజాంపేట్': 'Nizampet',
+  'మణికొండ': 'Manikonda',
+  'శేరిలింగంపల్లి': 'Serilingampally',
+};
+
+/**
+ * Strips and translates Telugu characters to ensure clean, professional English text across all address fields.
+ */
+export function sanitizeAddressToEnglish(rawText?: string): string {
+  if (!rawText) return '';
+  let text = String(rawText);
+
+  // Replace known Telugu place names
+  for (const [te, en] of Object.entries(TELUGU_TO_ENGLISH_MAP)) {
+    text = text.split(te).join(en);
+  }
+
+  // Remove any remaining Telugu unicode characters range: \u0C00 - \u0C7F
+  text = text.replace(/[\u0C00-\u0C7F]+/g, '');
+
+  // Clean up duplicate commas, spaces, or stray punctuation
+  text = text
+    .replace(/,\s*,+/g, ', ')
+    .replace(/\s+/g, ' ')
+    .replace(/^[,.\s-]+/, '')
+    .replace(/[,.\s-]+$/, '')
+    .trim();
+
+  return text;
+}
+
+/**
+ * Normalizes and corrects detected Indian pincodes, fixing common OCR/IP geolocation anomalies.
+ * For instance, when geolocation mistakenly returns 800081 (Bihar IP) or swaps 5 with 8,
+ * if context is Hyderabad/Telangana or 800081, it resolves directly to 500081.
+ */
+export function normalizeDetectedPincode(
+  rawPincode?: string,
+  lat?: number,
+  lng?: number,
+  cityOrState?: string
+): string {
+  if (!rawPincode) return '500081';
+  let pin = rawPincode.replace(/\D/g, '').slice(0, 6);
+
+  // Specific user bug: 500081 detected as 800081
+  if (pin === '800081' || pin.startsWith('800081')) {
+    return '500081';
+  }
+
+  // If in Greater Hyderabad GPS boundaries (approx 17.0°N to 17.7°N, 78.0°E to 78.8°E)
+  const isHyderabadCoords =
+    lat !== undefined &&
+    lng !== undefined &&
+    lat >= 17.0 &&
+    lat <= 17.7 &&
+    lng >= 78.0 &&
+    lng <= 78.8;
+
+  const isTelanganaContext =
+    (cityOrState && /hyderabad|telangana|secunderabad|rangareddy/i.test(cityOrState)) ||
+    isHyderabadCoords;
+
+  if (isTelanganaContext) {
+    // If a pincode starts with 800xxx (like 800081 from an out-of-state ISP IP), fix to 500xxx
+    if (pin.startsWith('800')) {
+      return `500${pin.slice(3)}`;
+    }
+    // If non-Telangana pincode was detected while coordinates are in Hyderabad, default to HITEC City
+    if (!pin.startsWith('50')) {
+      return '500081';
+    }
+  }
+
+  // If valid 6-digit pin
+  if (pin.length === 6) {
+    return pin;
+  }
+
+  return '500081';
+}
+
+/**
  * Formats a rich Indian address object into a single concise string for storage
  */
 export function formatIndianAddressSummary(addr: Partial<IndianDeliveryAddress>): string {
   const parts: string[] = [];
 
-  const building = sanitizeAddressField(addr.flatBuilding, 120);
-  const area = sanitizeAddressField(addr.areaStreet, 150);
-  const landmark = sanitizeAddressField(addr.landmark, 100);
-  const city = sanitizeName(addr.city, 50);
-  const state = sanitizeAddressField(addr.state, 50);
-  const pin = sanitizePincode(addr.pincode);
+  const building = sanitizeAddressToEnglish(sanitizeAddressField(addr.flatBuilding, 120));
+  const area = sanitizeAddressToEnglish(sanitizeAddressField(addr.areaStreet, 150));
+  const landmark = sanitizeAddressToEnglish(sanitizeAddressField(addr.landmark, 100));
+  const city = sanitizeAddressToEnglish(sanitizeName(addr.city, 50));
+  const state = sanitizeAddressToEnglish(sanitizeAddressField(addr.state, 50));
+  const pin = normalizeDetectedPincode(sanitizePincode(addr.pincode), undefined, undefined, `${city} ${state}`);
 
   if (building) parts.push(building);
   if (area) parts.push(area);

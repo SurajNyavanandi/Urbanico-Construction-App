@@ -8,7 +8,7 @@ import {
   Animated,
   Platform,
 } from 'react-native';
-import { Heart, Plus, Share2, Truck } from 'lucide-react-native';
+import { Heart, Plus, Share2 } from 'lucide-react-native';
 import { MaterialItem } from '../../types';
 import { ShimmerImage } from './ShimmerImage';
 import { useTheme } from '../../context/ThemeContext';
@@ -205,9 +205,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               <Text style={[styles.productTag, { color: theme.textSecondary }]}>
                 {displayTag.toUpperCase()}
               </Text>
-              <View style={styles.etaBadge}>
-                <Text style={styles.etaBadgeText}>2-3h ETA</Text>
-              </View>
             </View>
             <Text style={[styles.productTitleList, { color: theme.textPrimary }]} numberOfLines={1}>
               {displayTitle}
@@ -300,12 +297,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             />
           ) : null}
 
-          {/* Top Badges: Express Dispatch ETA & Share / Favorite */}
+          {/* Top Badges: Share / Favorite */}
           <View style={styles.gridTopOverlayRow}>
-            <View style={styles.gridEtaPill}>
-              <Truck size={10} color="#FFFFFF" />
-              <Text style={styles.gridEtaText}>2-3 Hr Dispatch</Text>
-            </View>
+            <View style={{ flex: 1 }} />
 
             <View style={styles.gridRightIcons}>
               <TouchableOpacity

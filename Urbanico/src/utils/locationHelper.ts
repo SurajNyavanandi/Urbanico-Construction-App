@@ -1,10 +1,13 @@
 import { Platform } from 'react-native';
+import { sanitizeAddressToEnglish, normalizeDetectedPincode } from './addressHelper';
 
 // Safe module resolver for Expo Location across React Native Metro and Web
 let ExpoLocationModule: any = null;
 try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  ExpoLocationModule = require('expo-location');
+  if (typeof require !== 'undefined') {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    ExpoLocationModule = require('expo-location');
+  }
 } catch {
   // If not available or running in web bundler without require
 }
@@ -88,18 +91,21 @@ export async function getCurrentDeviceLocation(): Promise<LocationResult> {
           const lng = pos.coords.longitude;
 
           try {
+            // Always request English results to avoid raw Telugu strings in address fields
             const response = await fetch(
-              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=en`
             );
             const data = await response.json();
             const addr = data?.address || {};
-            const detectedPincode = addr.postcode ? addr.postcode.replace(/\D/g, '').slice(0, 6) : '';
-            const detectedCity = addr.city || addr.town || addr.village || addr.suburb || 'Hyderabad';
-            const detectedState = addr.state || 'Telangana';
+            const rawPincode = addr.postcode ? addr.postcode.replace(/\D/g, '').slice(0, 6) : '';
+            const detectedCity = sanitizeAddressToEnglish(addr.city || addr.town || addr.village || addr.suburb || 'Hyderabad');
+            const detectedState = sanitizeAddressToEnglish(addr.state || 'Telangana');
+            const detectedPincode = normalizeDetectedPincode(rawPincode, lat, lng, `${detectedCity} ${detectedState}`);
+            const cleanAddress = sanitizeAddressToEnglish(data?.display_name) || `${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E`;
 
             resolve({
               coords: { lat, lng },
-              address: data?.display_name || `${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E`,
+              address: cleanAddress,
               pincode: detectedPincode,
               city: detectedCity,
               state: detectedState,
@@ -110,29 +116,29 @@ export async function getCurrentDeviceLocation(): Promise<LocationResult> {
               address: `${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E`,
               city: 'Hyderabad',
               state: 'Telangana',
-              pincode: '500049',
+              pincode: '500081',
             });
           }
         },
         () => {
-          // Fallback location if permission denied
+          // Fallback location if permission denied (HITEC City, Hyderabad)
           resolve({
-            coords: { lat: 17.4933, lng: 78.3414 },
-            address: 'Miyapur Main Road, Phase 2, Hyderabad',
+            coords: { lat: 17.4435, lng: 78.3772 },
+            address: 'HITEC City Main Road, Madhapur, Hyderabad, Telangana',
             city: 'Hyderabad',
             state: 'Telangana',
-            pincode: '500049',
+            pincode: '500081',
           });
         },
         { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
       );
     } else {
       resolve({
-        coords: { lat: 17.4933, lng: 78.3414 },
-        address: 'Miyapur Main Road, Phase 2, Hyderabad',
+        coords: { lat: 17.4435, lng: 78.3772 },
+        address: 'HITEC City Main Road, Madhapur, Hyderabad, Telangana',
         city: 'Hyderabad',
         state: 'Telangana',
-        pincode: '500049',
+        pincode: '500081',
       });
     }
   });

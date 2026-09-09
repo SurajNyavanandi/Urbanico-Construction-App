@@ -11,6 +11,7 @@ export type ScreenType =
   | 'auth_otp';
 
 export type CategoryId =
+  | 'materials'
   | 'tiles'
   | 'sand'
   | 'bricks'
@@ -133,4 +134,17 @@ export interface IndianDeliveryAddress {
   addressType?: 'Site' | 'Home' | 'Office' | 'Warehouse';
   deliveryInstructions?: string;
   isDefault?: boolean;
+}
+
+export interface SavedPaymentMethod {
+  id: string;
+  type: 'upi' | 'card' | 'netbanking';
+  title: string;
+  subtitle: string;
+  details?: string;
+  isDefault?: boolean;
+  upiApp?: 'gpay' | 'phonepe' | 'paytm' | 'cred' | 'bhim' | 'custom';
+  cardLast4?: string;
+  cardExpiry?: string;
+  bankName?: string;
 }

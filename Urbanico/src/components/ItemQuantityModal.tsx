@@ -258,7 +258,9 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
 
     setTimeout(() => {
       setIsAdding(false);
-      onAddToCart(item, selectedOption, quantity, totalPrice);
+      const effectiveQty = isTradeService ? 1 : quantity;
+      const effectiveTotal = isTradeService ? 99 : totalPrice;
+      onAddToCart(item, selectedOption, effectiveQty, effectiveTotal);
       handleAnimatedClose();
     }, 250);
   };
@@ -266,10 +268,12 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
   const handleBuyNowClick = () => {
     if (!selectedOption) return;
     soundService.playAddToCart();
+    const effectiveQty = isTradeService ? 1 : quantity;
+    const effectiveTotal = isTradeService ? 99 : totalPrice;
     if (onBuyNow) {
-      onBuyNow(item, selectedOption, quantity, totalPrice);
+      onBuyNow(item, selectedOption, effectiveQty, effectiveTotal);
     } else {
-      onAddToCart(item, selectedOption, quantity, totalPrice);
+      onAddToCart(item, selectedOption, effectiveQty, effectiveTotal);
     }
     handleAnimatedClose();
   };
@@ -401,61 +405,21 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
                 {/* Subtle Divider */}
                 <View style={[styles.serviceDivider, { backgroundColor: theme.border }]} />
 
-                {/* Session Stepper Row */}
-                <View style={styles.serviceStepperRow}>
-                  <View style={styles.serviceStepperInfo}>
-                    <Text style={[styles.serviceStepperTitle, { color: theme.textPrimary }]}>
-                      Sessions / Visits
+                {/* Single Site Visit Confirmation Box (Locked to 1 Visit) */}
+                <View style={[styles.serviceVisitConfirmationBox, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                  <View style={styles.serviceVisitIconBadge}>
+                    <ShieldCheck size={16} color="#059669" strokeWidth={2.5} />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={[styles.serviceVisitNoticeTitle, { color: theme.textPrimary }]}>
+                      Single Site Demo & Scope Inspection
                     </Text>
-                    <Text style={[styles.serviceStepperCalculation, { color: theme.textSecondary }]}>
-                      {quantity} × ₹99 = <Text style={{ fontWeight: '700', color: theme.textPrimary }}>₹{totalPrice.toLocaleString('en-IN')}</Text>
+                    <Text style={[styles.serviceVisitNoticeSub, { color: theme.textSecondary }]}>
+                      1 certified expert visit per site booking. The ₹99 demo fee is 100% credited toward your final project bill upon hire.
                     </Text>
                   </View>
-
-                  <View style={[styles.serviceStepperBox, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary }]}>
-                    <TouchableOpacity
-                      onPress={() => handleStepQuantity(-1)}
-                      style={[
-                        styles.serviceStepBtn,
-                        {
-                          backgroundColor: theme.surface,
-                          borderColor: theme.border,
-                          opacity: quantity <= 1 ? 0.4 : 1,
-                        },
-                      ]}
-                      activeOpacity={0.7}
-                      disabled={quantity <= 1}
-                    >
-                      <Minus size={13} color={theme.textPrimary} strokeWidth={2.5} />
-                    </TouchableOpacity>
-
-                    <TextInput
-                      keyboardType="number-pad"
-                      value={quantityInputStr}
-                      onChangeText={handleQuantityInputChange}
-                      onBlur={handleQuantityBlur}
-                      selectTextOnFocus
-                      style={[
-                        styles.serviceNativeInput,
-                        {
-                          color: theme.textPrimary,
-                        },
-                      ]}
-                    />
-
-                    <TouchableOpacity
-                      onPress={() => handleStepQuantity(1)}
-                      style={[
-                        styles.serviceStepBtn,
-                        {
-                          backgroundColor: theme.surface,
-                          borderColor: theme.border,
-                        },
-                      ]}
-                      activeOpacity={0.7}
-                    >
-                      <Plus size={13} color={theme.textPrimary} strokeWidth={2.5} />
-                    </TouchableOpacity>
+                  <View style={[styles.serviceFixedQtyBadge, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                    <Text style={[styles.serviceFixedQtyText, { color: theme.textPrimary }]}>1 Visit</Text>
                   </View>
                 </View>
               </View>
@@ -581,7 +545,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
                   <View style={styles.serviceableBadgeRow}>
                     <Check size={13} color="#059669" strokeWidth={2.5} />
                     <Text style={styles.serviceableText}>
-                      Express 2-3 Hr Dispatch available to PIN {pincodeInput}
+                      Delivery available to PIN {pincodeInput}
                     </Text>
                   </View>
                 )}
@@ -1572,6 +1536,41 @@ const styles = StyleSheet.create({
   serviceDivider: {
     height: 1,
     width: '100%',
+  },
+  serviceVisitConfirmationBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  serviceVisitIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#ECFDF5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  serviceVisitNoticeTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  serviceVisitNoticeSub: {
+    fontSize: 11.5,
+    lineHeight: 16,
+  },
+  serviceFixedQtyBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    marginLeft: 8,
+  },
+  serviceFixedQtyText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   serviceStepperRow: {
     flexDirection: 'row',

@@ -113,7 +113,7 @@ export const SupervisorHandoffModal: React.FC<SupervisorHandoffModalProps> = ({
                   keyboardType="phone-pad"
                   maxLength={10}
                   value={phone}
-                  onChangeText={(val) => setPhone(val.replace(/[^0-9]/g, ''))}
+                  onChangeText={(val: string) => setPhone(val.replace(/[^0-9]/g, ''))}
                   placeholder="e.g. 9876543210"
                   placeholderTextColor={theme.textSecondary}
                   style={[

@@ -390,7 +390,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                   placeholderTextColor={theme.textMuted}
                 />
               </View>
-              {errors.pincode && <Text style={styles.errorText}>{errors.pincode}</Text>}
+              {Boolean(errors.pincode) && <Text style={styles.errorText}>{errors.pincode}</Text>}
             </View>
 
             {/* 2. Flat / House / Building / Plot Name */}
@@ -419,7 +419,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                   placeholderTextColor={theme.textMuted}
                 />
               </View>
-              {errors.flatBuilding && <Text style={styles.errorText}>{errors.flatBuilding}</Text>}
+              {Boolean(errors.flatBuilding) && <Text style={styles.errorText}>{errors.flatBuilding}</Text>}
             </View>
 
             {/* 3. Area, Street, Village */}
@@ -447,7 +447,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                   placeholderTextColor={theme.textMuted}
                 />
               </View>
-              {errors.areaStreet && <Text style={styles.errorText}>{errors.areaStreet}</Text>}
+              {Boolean(errors.areaStreet) && <Text style={styles.errorText}>{errors.areaStreet}</Text>}
             </View>
 
             {/* 4. Landmark (Optional) */}
@@ -500,7 +500,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                     placeholderTextColor={theme.textMuted}
                   />
                 </View>
-                {errors.city && <Text style={styles.errorText}>{errors.city}</Text>}
+                {Boolean(errors.city) && <Text style={styles.errorText}>{errors.city}</Text>}
               </View>
 
               <View style={[styles.fieldWrapper, { flex: 1 }]}>
@@ -524,7 +524,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
                   </Text>
                   <ChevronDown size={15} color={theme.textSecondary} />
                 </TouchableOpacity>
-                {errors.state && <Text style={styles.errorText}>{errors.state}</Text>}
+                {Boolean(errors.state) && <Text style={styles.errorText}>{errors.state}</Text>}
               </View>
             </View>
 

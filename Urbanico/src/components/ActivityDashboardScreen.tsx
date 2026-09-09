@@ -39,6 +39,8 @@ interface ActivityDashboardScreenProps {
   onExploreCatalog?: () => void;
   onViewInvoice?: (delivery: ActivityDelivery) => void;
   onReorderMaterial?: (materialName: string) => void;
+  isLoggedIn?: boolean;
+  onOpenLoginModal?: () => void;
 }
 
 const TRACKING_STEPS = [
@@ -55,6 +57,8 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
   onExploreCatalog,
   onViewInvoice,
   onReorderMaterial,
+  isLoggedIn = true,
+  onOpenLoginModal,
 }) => {
   const { theme, typography } = useTheme();
   const { showToast } = useToast();
@@ -100,7 +104,7 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
   const successRate = deliveries.length > 0 ? Math.round((deliveredCount / deliveries.length) * 100) : 100;
 
   const handleCallDriver = () => {
-    showToast(`Connecting secure line to Driver ${activeEnRoute?.driverName || 'Ramesh'}...`, 'info');
+    showToast(`Connecting secure line to ${activeEnRoute?.driverName || 'Assigned Partner'}...`, 'info');
   };
 
   return (
@@ -135,11 +139,41 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
         }
       >
         {deliveries.length === 0 ? (
-          <EmptyState
-            type="no-orders"
-            onAction={onExploreCatalog}
-            actionLabel="Explore Catalog"
-          />
+          !isLoggedIn ? (
+            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, alignItems: 'center', padding: 24 }]}>
+              <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: theme.surfaceSecondary, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
+                <Truck size={32} color={theme.primary} strokeWidth={1.75} />
+              </View>
+              <Text style={{ fontSize: 18, fontWeight: '700', color: theme.textPrimary, textAlign: 'center', marginBottom: 8, fontFamily: typography.fontFamilyHeading }}>
+                Log in to View Orders
+              </Text>
+              <Text style={{ fontSize: 13, color: theme.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 20, maxWidth: 280 }}>
+                If you previously placed site orders with your mobile number, log in to track active dispatches, GPS telemetry, and GST tax invoices.
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  if (onOpenLoginModal) onOpenLoginModal();
+                }}
+                style={{ backgroundColor: theme.primary, paddingVertical: 12, paddingHorizontal: 28, borderRadius: 10, width: '100%', alignItems: 'center', marginBottom: 12 }}
+                activeOpacity={0.85}
+              >
+                <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>Log In or Sign Up</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={onExploreCatalog}
+                style={{ paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, alignItems: 'center' }}
+                activeOpacity={0.7}
+              >
+                <Text style={{ color: theme.textSecondary, fontWeight: '600', fontSize: 13 }}>Explore Catalog</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <EmptyState
+              type="no-orders"
+              onAction={onExploreCatalog}
+              actionLabel="Explore Catalog"
+            />
+          )
         ) : (
           <>
             {/* 1. Live Shipments Vertical Tracking Section & Simulated Map */}
@@ -250,14 +284,16 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
                     <Text style={styles.actionBtnTextWhite}>Call Driver</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity
-                    onPress={() => setShowWeighbridgeModal(true)}
-                    style={[styles.actionBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, borderWidth: 1 }]}
-                    activeOpacity={0.8}
-                  >
-                    <Camera size={13} color={theme.textPrimary} />
-                    <Text style={[styles.actionBtnText, { color: theme.textPrimary }]}>Weighbridge OCR</Text>
-                  </TouchableOpacity>
+                  {activeEnRoute?.weighmentSlipId && (
+                    <TouchableOpacity
+                      onPress={() => setShowWeighbridgeModal(true)}
+                      style={[styles.actionBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, borderWidth: 1 }]}
+                      activeOpacity={0.8}
+                    >
+                      <Camera size={13} color={theme.textPrimary} />
+                      <Text style={[styles.actionBtnText, { color: theme.textPrimary }]}>Weighbridge OCR</Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
 
                 {/* Vertical Tracking Hierarchy */}
@@ -346,13 +382,13 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
                     name: 'Dr. Fixit Slabguard Curing Compound (20L)',
                     category: 'Chemicals',
                     rate: '₹2,450 / Drum',
-                    leadTime: 'Same Day Dispatch',
+                    leadTime: 'Same Day Delivery',
                   },
                   {
                     name: 'Manufactured Sand (Zone-II) Plastering Batch',
                     category: 'Aggregates',
                     rate: '₹4,200 / Brass',
-                    leadTime: '2 Hours Delivery',
+                    leadTime: 'Express Delivery',
                   },
                   {
                     name: 'Binding Wire (18 Gauge) 25kg Bundle',
@@ -437,7 +473,7 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
                     <View style={styles.orderLeft}>
                       <Text style={[styles.orderMaterialName, { color: theme.textPrimary }]}>{del.materialName}</Text>
                       <Text style={[styles.orderTimeText, { color: theme.textSecondary }]}>{del.timestamp} • {del.vehicleNumber}</Text>
-                      {del.ewayBillNumber && (
+                      {Boolean(del.ewayBillNumber) && (
                         <Text style={[styles.ewayText, { color: '#0284C7' }]}>E-Way Bill: {del.ewayBillNumber}</Text>
                       )}
                     </View>

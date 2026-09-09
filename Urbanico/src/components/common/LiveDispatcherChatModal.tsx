@@ -31,24 +31,31 @@ export const LiveDispatcherChatModal: React.FC<LiveDispatcherChatModalProps> = (
   delivery,
 }) => {
   const isVisible = visible !== undefined ? visible : !!isOpen;
-  const activeOrderNum = orderNumber || delivery?.orderNumber || 'URB-HYD-9821';
-  const activeDriverName = driverName || delivery?.driverName || 'Ramesh Goud';
-  const activeDriverPhone = driverPhone || delivery?.driverPhone || '+91 98480 22341';
+  const activeOrderNum = orderNumber || delivery?.orderNumber || 'URB-8821';
+  const activeDriverName = driverName || delivery?.driverName || 'Assigned Delivery Partner';
+  const activeDriverPhone = driverPhone || delivery?.driverPhone || 'Central Dispatch';
   const { theme } = useTheme();
   const { showToast } = useToast();
+
+  const isServiceOrder = Boolean(
+    delivery?.vehicleType?.toLowerCase().includes('service') ||
+    delivery?.materialName?.toLowerCase().includes('service')
+  );
 
   const [inputVal, setInputVal] = useState('');
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'm1',
       sender: 'system',
-      text: `Connected to Central Dispatch Yard (Miyapur Hub). Active Order #${activeOrderNum} is assigned to Driver ${activeDriverName}.`,
+      text: `Connected to Urbanico Support Desk. Active Order #${activeOrderNum} is assigned to ${activeDriverName}.`,
       time: 'Just now',
     },
     {
       id: 'm2',
       sender: 'dispatcher',
-      text: `Hello! I am Srikanth from Logistics. The 6-Wheeler Tipper has cleared the weighbridge and is on route via ORR Exit 3. How can I assist?`,
+      text: isServiceOrder
+        ? `Hello! I am your Urbanico service coordinator. Your verified trade specialist is scheduled and on track. How can I assist you with this booking?`
+        : `Hello! I am your Urbanico dispatch coordinator. Your consignment (${delivery?.vehicleType || 'Commercial Transport'}) is in transit and moving on schedule. How can I assist?`,
       time: 'Just now',
     },
   ]);
@@ -73,14 +80,16 @@ export const LiveDispatcherChatModal: React.FC<LiveDispatcherChatModalProps> = (
 
     setTimeout(() => {
       setIsTyping(false);
-      let reply = `Understood. Driver ${activeDriverName} has been notified. Current distance from site is 3.4 km with expected arrival in ~18 minutes.`;
+      let reply = `Understood. ${activeDriverName} has been alerted. Current estimated arrival to your site is within the expected window.`;
 
       if (currentQuery.includes('delay') || currentQuery.includes('traffic') || currentQuery.includes('where')) {
-        reply = `Vehicle TS-08-UB-4491 is crossing Gachibowli flyover. Minor signal queue detected; ETA adjusted by +4 mins.`;
+        reply = `Dispatch tracking reports active transit along the delivery corridor. Transit ETA is confirmed on schedule.`;
       } else if (currentQuery.includes('unloading') || currentQuery.includes('labor') || currentQuery.includes('crane')) {
-        reply = `Hydraulic tipper unloading is included. Please ensure the site gate has clear 12-foot vertical clearance for body lift.`;
-      } else if (currentQuery.includes('bill') || currentQuery.includes('slip') || currentQuery.includes('weight')) {
-        reply = `Digital Weighbridge Gross tare slip #WB-MYP-8832 is attached to your digital invoice. Net weight verified: 10.00 MT.`;
+        reply = isServiceOrder
+          ? `Trade specialists arrive with standard professional equipment. Please ensure site work areas are accessible.`
+          : `Please ensure your site access and unloading bay are cleared for safe offloading.`;
+      } else if (currentQuery.includes('bill') || currentQuery.includes('slip') || currentQuery.includes('invoice') || currentQuery.includes('weight')) {
+        reply = `Your digital GST tax invoice and delivery manifest are always accessible in the Orders & Activity section.`;
       }
 
       const botMsg: Message = {
@@ -94,7 +103,7 @@ export const LiveDispatcherChatModal: React.FC<LiveDispatcherChatModalProps> = (
   };
 
   const handleMaskedCall = () => {
-    showToast(`Connecting secure masked line to Driver ${activeDriverName} (${activeDriverPhone})...`, 'info');
+    showToast(`Connecting secure line to ${activeDriverName}...`, 'info');
   };
 
   return (

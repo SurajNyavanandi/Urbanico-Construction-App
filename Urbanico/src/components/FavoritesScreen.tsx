@@ -18,6 +18,7 @@ import { ProductCardSkeleton } from './common/SkeletonLoader';
 interface FavoritesScreenProps {
   onSelectItemModal: (item: MaterialItem) => void;
   onNavigateHome: () => void;
+  onExploreCatalog?: () => void;
   favoriteIds?: string[];
   onToggleFavorite?: (id: string) => void;
   onAddAllToCart?: (items: MaterialItem[]) => void;
@@ -28,6 +29,7 @@ interface FavoritesScreenProps {
 export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
   onSelectItemModal,
   onNavigateHome,
+  onExploreCatalog,
   favoriteIds = [],
   onToggleFavorite,
   onAddAllToCart,
@@ -184,7 +186,13 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={onNavigateHome}
+              onPress={() => {
+                if (onExploreCatalog) {
+                  onExploreCatalog();
+                } else {
+                  onNavigateHome();
+                }
+              }}
               style={styles.exploreLink}
               activeOpacity={0.7}
             >
@@ -203,7 +211,13 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
             </Text>
 
             <TouchableOpacity
-              onPress={onNavigateHome}
+              onPress={() => {
+                if (onExploreCatalog) {
+                  onExploreCatalog();
+                } else {
+                  onNavigateHome();
+                }
+              }}
               style={styles.loginPill}
               activeOpacity={0.85}
             >

@@ -100,7 +100,7 @@ export class DeliveryService {
     if (!delivery) {
       return { success: false, message: 'Delivery record not found' };
     }
-    if (delivery.otp !== otp && otp !== '123456' && otp !== '1234') {
+    if (delivery.otp !== otp) {
       return { success: false, message: 'Invalid OTP code. Please enter the valid site confirmation OTP.' };
     }
     delivery.isOtpVerified = true;
