@@ -39,11 +39,24 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
       const phone = authSaved ? JSON.parse(authSaved).phone : null;
       const key = phone ? `urbanico_saved_locations_${phone.replace(/\D/g, '')}` : 'urbanico_saved_locations_guest';
       const stored = safeStorage.getItem(key);
-      if (stored) return JSON.parse(stored);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      // Check universal fallback
+      const universalStored = safeStorage.getItem('urbanico_universal_saved_locations');
+      if (universalStored) {
+        const parsed = JSON.parse(universalStored);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
     } catch {
       // ignore
     }
-    return [];
+    return [
+      'Miyapur Site, Phase 2, Hyderabad - 500049',
+      'Gachibowli Site 4, Financial District, Hyderabad - 500032',
+      'Hitech City Commercial Tower, Madhapur, Hyderabad - 500081',
+    ];
   });
 
   const [selectedLocation, setSelectedLocationState] = useState<string>(() => {
@@ -53,6 +66,8 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
       const key = phone ? `urbanico_selected_location_${phone.replace(/\D/g, '')}` : 'urbanico_selected_location_guest';
       const stored = safeStorage.getItem(key);
       if (stored) return stored;
+      const universalSel = safeStorage.getItem('urbanico_universal_selected_location');
+      if (universalSel) return universalSel;
     } catch {
       // ignore
     }
@@ -70,13 +85,18 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
   });
 
   const resetLocationsToDefault = () => {
-    setSavedLocations([]);
+    // Retain default construction sites rather than completely blanking
+    const defaults = [
+      'Miyapur Site, Phase 2, Hyderabad - 500049',
+      'Gachibowli Site 4, Financial District, Hyderabad - 500032',
+      'Hitech City Commercial Tower, Madhapur, Hyderabad - 500081',
+    ];
+    setSavedLocations(defaults);
     setSelectedLocationState(DEFAULT_FALLBACK_LOCATION);
   };
 
   const loadUserLocations = (userPhone?: string) => {
     if (!userPhone) {
-      resetLocationsToDefault();
       return;
     }
     try {
@@ -85,28 +105,37 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
       const selKey = `urbanico_selected_location_${cleanPhone}`;
       const stored = safeStorage.getItem(key);
       const storedSel = safeStorage.getItem(selKey);
-      if (stored) {
-        setSavedLocations(JSON.parse(stored));
-      } else {
-        setSavedLocations([]);
-      }
+
+      // Preserve guest or checkout addresses added before login
+      const guestKey = 'urbanico_saved_locations_guest';
+      const guestStored = safeStorage.getItem(guestKey);
+      const guestList: string[] = guestStored ? JSON.parse(guestStored) : [];
+      let userList: string[] = stored ? JSON.parse(stored) : [];
+
+      const merged = Array.from(new Set([...userList, ...guestList, ...savedLocations])).filter(Boolean);
+      setSavedLocations(merged);
+      safeStorage.setItem(key, JSON.stringify(merged));
+      safeStorage.setItem('urbanico_universal_saved_locations', JSON.stringify(merged));
+
       if (storedSel) {
         setSelectedLocationState(storedSel);
-      } else {
-        setSelectedLocationState(DEFAULT_FALLBACK_LOCATION);
+      } else if (selectedLocation && selectedLocation !== DEFAULT_FALLBACK_LOCATION) {
+        setSelectedLocationState(selectedLocation);
+        safeStorage.setItem(selKey, selectedLocation);
       }
     } catch {
       // ignore
     }
   };
 
-  // Persist changes with user partition
+  // Persist changes with user partition and universal backup
   useEffect(() => {
     try {
       const authSaved = safeStorage.getItem('urbanico_auth_session');
       const phone = authSaved ? JSON.parse(authSaved).phone : null;
       const key = phone ? `urbanico_saved_locations_${phone.replace(/\D/g, '')}` : 'urbanico_saved_locations_guest';
       safeStorage.setItem(key, JSON.stringify(savedLocations));
+      safeStorage.setItem('urbanico_universal_saved_locations', JSON.stringify(savedLocations));
     } catch {
       // ignore
     }
@@ -118,6 +147,7 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
       const phone = authSaved ? JSON.parse(authSaved).phone : null;
       const key = phone ? `urbanico_selected_location_${phone.replace(/\D/g, '')}` : 'urbanico_selected_location_guest';
       safeStorage.setItem(key, selectedLocation);
+      safeStorage.setItem('urbanico_universal_selected_location', selectedLocation);
     } catch {
       // ignore
     }

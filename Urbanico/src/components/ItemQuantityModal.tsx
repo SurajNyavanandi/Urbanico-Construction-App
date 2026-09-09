@@ -208,6 +208,14 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
     });
   };
 
+  const handleSelectOption = (optId: string) => {
+    if (optId !== selectedOptionId) {
+      setSelectedOptionId(optId);
+      setQuantity(1);
+      setQuantityInputStr('1');
+    }
+  };
+
   const handlePincodeKeystroke = (val: string) => {
     const clean = val.replace(/[^0-9]/g, '').slice(0, 6);
     setPincodeInput(clean);
@@ -218,20 +226,28 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
         soundService.playNotification();
         showToast(`PIN ${clean} verified: Yard express dispatch available`, 'success');
       } else {
-        showToast(`PIN ${clean} outside primary zone: standard 24hr transit applies`, 'info');
+        showToast(`PIN ${clean}: Standard 24hr regional transit applies`, 'info');
       }
+    } else {
+      setPincodeChecked(false);
     }
   };
 
   const handleCheckPincode = () => {
-    if (pincodeInput.length >= 6) {
-      const isServ = isServiceablePincode(pincodeInput);
+    const clean = pincodeInput.replace(/[^0-9]/g, '');
+    if (/^[1-9][0-9]{5}$/.test(clean)) {
+      const isServ = isServiceablePincode(clean);
       setPincodeChecked(isServ);
       if (isServ) soundService.playNotification();
-      showToast(isServ ? `Pincode ${pincodeInput} is serviceable for express dispatch!` : `Standard transit to ${pincodeInput}`, isServ ? 'success' : 'info');
+      showToast(
+        isServ
+          ? `Pincode ${clean} verified: Same-day yard dispatch available!`
+          : `Pincode ${clean}: Standard regional transit applies`,
+        isServ ? 'success' : 'info'
+      );
     } else {
       soundService.playAlert();
-      showToast('Please enter a valid 6-digit site pincode', 'error');
+      showToast('Please enter a valid 6-digit Indian site pincode (e.g. 500081)', 'error');
     }
   };
 
@@ -267,7 +283,14 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
       {/* Floating Close Button for Ease of Navigation */}
       <TouchableOpacity
         onPress={handleAnimatedClose}
-        style={styles.floatingCloseBtn}
+        style={[
+          styles.floatingCloseBtn,
+          {
+            backgroundColor: theme.mode === 'dark' ? '#27272A' : '#111111',
+            borderColor: theme.mode === 'dark' ? '#3F3F46' : 'transparent',
+            borderWidth: theme.mode === 'dark' ? 1 : 0,
+          },
+        ]}
         activeOpacity={0.8}
         accessibilityLabel="Close item options"
       >
@@ -357,74 +380,165 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
           {/* 1. TRADE SERVICES POPUP CONTENT                         */}
           {/* ======================================================== */}
           {isTradeService ? (
-            <View style={{ paddingVertical: 12 }}>
-              {/* Service Details Card */}
-              <View style={[styles.highlightCard, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: 16 }]}>
-                <View style={styles.highlightHeaderRow}>
-                  <Calendar size={15} color="#111111" />
-                  <Text style={styles.highlightMicroLabel}>EXPERT SITE VISIT</Text>
-                </View>
-                <Text style={[styles.highlightMainText, { color: theme.textPrimary, marginTop: 4 }]}>
-                  ₹99 <Text style={{ fontSize: 13, fontWeight: '500', color: theme.textSecondary }}>/ session</Text>
-                </Text>
-                <Text style={[styles.highlightSubText, { color: theme.textSecondary, marginTop: 4 }]}>
-                  Direct on-site inspection, scope evaluation, and verified measurement.
-                </Text>
-              </View>
-
-              {/* Quantity Stepper for Sessions */}
-              <View style={[styles.quantityRowCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                <View>
-                  <Text style={[styles.qtyLabel, { color: theme.textPrimary }]}>Sessions / Visits</Text>
-                  <Text style={[styles.qtySublabel, { color: theme.textSecondary }]}>
-                    {quantity} × ₹99 = ₹{totalPrice.toLocaleString('en-IN')}
+            <View style={styles.serviceFlowContainer}>
+              {/* Card 1: Expert Site Visit & Session Selector */}
+              <View style={[styles.serviceBookingCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                {/* Inspection Scope & Pricing */}
+                <View style={styles.serviceBookingTop}>
+                  <View style={styles.serviceBadgeRow}>
+                    <Calendar size={13} color={theme.textPrimary} strokeWidth={2.2} />
+                    <Text style={[styles.serviceMicroLabel, { color: theme.textSecondary }]}>EXPERT SITE VISIT</Text>
+                  </View>
+                  <View style={styles.servicePriceRow}>
+                    <Text style={[styles.servicePriceValue, { color: theme.textPrimary }]}>₹99</Text>
+                    <Text style={[styles.servicePriceUnit, { color: theme.textSecondary }]}>/ session</Text>
+                  </View>
+                  <Text style={[styles.serviceInspectionDesc, { color: theme.textSecondary }]}>
+                    Direct on-site inspection, scope evaluation, and verified measurement.
                   </Text>
                 </View>
 
-                <View style={[styles.stepperBox, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary }]}>
-                  <TouchableOpacity
-                    onPress={() => handleStepQuantity(-1)}
-                    style={[
-                      styles.stepBtn,
-                      {
-                        backgroundColor: theme.surface,
-                        borderColor: theme.border,
-                        opacity: quantity <= 1 ? 0.5 : 1,
-                      },
-                    ]}
-                    activeOpacity={0.7}
-                    disabled={quantity <= 1}
-                  >
-                    <Minus size={14} color={theme.textPrimary} strokeWidth={2.5} />
-                  </TouchableOpacity>
+                {/* Subtle Divider */}
+                <View style={[styles.serviceDivider, { backgroundColor: theme.border }]} />
 
-                  <TextInput
-                    keyboardType="number-pad"
-                    value={quantityInputStr}
-                    onChangeText={handleQuantityInputChange}
-                    onBlur={handleQuantityBlur}
-                    selectTextOnFocus
-                    style={[
-                      styles.nativeQuantityInput,
-                      {
-                        color: theme.textPrimary,
-                      },
-                    ]}
-                  />
+                {/* Session Stepper Row */}
+                <View style={styles.serviceStepperRow}>
+                  <View style={styles.serviceStepperInfo}>
+                    <Text style={[styles.serviceStepperTitle, { color: theme.textPrimary }]}>
+                      Sessions / Visits
+                    </Text>
+                    <Text style={[styles.serviceStepperCalculation, { color: theme.textSecondary }]}>
+                      {quantity} × ₹99 = <Text style={{ fontWeight: '700', color: theme.textPrimary }}>₹{totalPrice.toLocaleString('en-IN')}</Text>
+                    </Text>
+                  </View>
 
-                  <TouchableOpacity
-                    onPress={() => handleStepQuantity(1)}
-                    style={[
-                      styles.stepBtn,
-                      {
-                        backgroundColor: theme.surface,
-                        borderColor: theme.border,
-                      },
-                    ]}
-                    activeOpacity={0.7}
-                  >
-                    <Plus size={14} color={theme.textPrimary} strokeWidth={2.5} />
-                  </TouchableOpacity>
+                  <View style={[styles.serviceStepperBox, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary }]}>
+                    <TouchableOpacity
+                      onPress={() => handleStepQuantity(-1)}
+                      style={[
+                        styles.serviceStepBtn,
+                        {
+                          backgroundColor: theme.surface,
+                          borderColor: theme.border,
+                          opacity: quantity <= 1 ? 0.4 : 1,
+                        },
+                      ]}
+                      activeOpacity={0.7}
+                      disabled={quantity <= 1}
+                    >
+                      <Minus size={13} color={theme.textPrimary} strokeWidth={2.5} />
+                    </TouchableOpacity>
+
+                    <TextInput
+                      keyboardType="number-pad"
+                      value={quantityInputStr}
+                      onChangeText={handleQuantityInputChange}
+                      onBlur={handleQuantityBlur}
+                      selectTextOnFocus
+                      style={[
+                        styles.serviceNativeInput,
+                        {
+                          color: theme.textPrimary,
+                        },
+                      ]}
+                    />
+
+                    <TouchableOpacity
+                      onPress={() => handleStepQuantity(1)}
+                      style={[
+                        styles.serviceStepBtn,
+                        {
+                          backgroundColor: theme.surface,
+                          borderColor: theme.border,
+                        },
+                      ]}
+                      activeOpacity={0.7}
+                    >
+                      <Plus size={13} color={theme.textPrimary} strokeWidth={2.5} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+
+              {/* Card 2: Structured Service Process & Guidelines Hierarchy */}
+              <View style={[styles.serviceProcessCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <View style={styles.serviceProcessHeader}>
+                  <Text style={[styles.serviceProcessHeading, { color: theme.textPrimary }]}>
+                    Service Process & Guidelines
+                  </Text>
+                </View>
+
+                <View style={styles.timelineContainer}>
+                  {/* Step 1: Site Inspection */}
+                  <View style={styles.timelineItem}>
+                    <View style={styles.timelineLeftTrack}>
+                      <View style={[styles.timelineNode, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                        <Text style={[styles.timelineNodeText, { color: theme.textPrimary }]}>1</Text>
+                      </View>
+                      <View style={[styles.timelineConnectingLine, { backgroundColor: theme.border }]} />
+                    </View>
+
+                    <View style={styles.timelineContent}>
+                      <View style={styles.timelineTitleRow}>
+                        <Text style={[styles.timelineStepTitle, { color: theme.textPrimary }]}>
+                          Site Inspection
+                        </Text>
+                        <View style={[styles.timelinePriceBadge, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                          <Text style={[styles.timelinePriceBadgeText, { color: theme.textPrimary }]}>₹99</Text>
+                        </View>
+                      </View>
+                      <Text style={[styles.timelineStepDesc, { color: theme.textSecondary }]}>
+                        Certified professional visits your site to evaluate requirements and assess project scope.
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Step 2: Labor Rate Estimate */}
+                  <View style={styles.timelineItem}>
+                    <View style={styles.timelineLeftTrack}>
+                      <View style={[styles.timelineNode, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                        <Text style={[styles.timelineNodeText, { color: theme.textPrimary }]}>2</Text>
+                      </View>
+                      <View style={[styles.timelineConnectingLine, { backgroundColor: theme.border }]} />
+                    </View>
+
+                    <View style={styles.timelineContent}>
+                      <View style={styles.timelineTitleRow}>
+                        <Text style={[styles.timelineStepTitle, { color: theme.textPrimary }]}>
+                          Labor Rate Estimate
+                        </Text>
+                        <View style={[styles.timelinePriceBadge, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                          <Text style={[styles.timelinePriceBadgeText, { color: theme.textPrimary }]}>₹800 – ₹1,000 / day</Text>
+                        </View>
+                      </View>
+                      <Text style={[styles.timelineStepDesc, { color: theme.textSecondary }]}>
+                        Standardized daily labor pricing determined transparently based on project complexity.
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Step 3: In-App Settlement & Warranty */}
+                  <View style={styles.timelineItem}>
+                    <View style={styles.timelineLeftTrack}>
+                      <View style={[styles.timelineNode, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
+                        <ShieldCheck size={12} color="#059669" strokeWidth={2.6} />
+                      </View>
+                    </View>
+
+                    <View style={styles.timelineContent}>
+                      <View style={styles.timelineTitleRow}>
+                        <Text style={[styles.timelineStepTitle, { color: theme.textPrimary }]}>
+                          In-App Settlement
+                        </Text>
+                        <View style={[styles.timelinePriceBadge, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
+                          <Text style={[styles.timelinePriceBadgeText, { color: '#047857' }]}>30-Day Warranty</Text>
+                        </View>
+                      </View>
+                      <Text style={[styles.timelineStepDesc, { color: theme.textSecondary }]}>
+                        Final scope is updated in the app for digital settlement, activating your 30-day workmanship warranty.
+                      </Text>
+                    </View>
+                  </View>
                 </View>
               </View>
             </View>
@@ -490,7 +604,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
                   return (
                     <TouchableOpacity
                       key={opt.id}
-                      onPress={() => setSelectedOptionId(opt.id)}
+                      onPress={() => handleSelectOption(opt.id)}
                       activeOpacity={0.7}
                       style={[
                         styles.variantOptionRow,
@@ -597,7 +711,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
                 <View style={[styles.bulkDiscountCard, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
                   <View style={styles.bulkDiscountRow}>
                     <Text style={[styles.bulkDiscountTitle, { color: '#065F46' }]}>
-                      🎉 {bulkDiscountPercent}% Bulk Contractor Savings Applied
+                      {bulkDiscountPercent}% Bulk Contractor Savings Applied
                     </Text>
                     <Text style={[styles.bulkSavingsAmount, { color: '#047857' }]}>
                       -₹{bulkDiscountAmount.toLocaleString('en-IN')}
@@ -628,7 +742,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
           >
             <ShoppingCart size={16} color={theme.textPrimary} strokeWidth={2} />
             <Text numberOfLines={1} style={[styles.secondaryBtnText, { color: theme.textPrimary }]}>
-              {isAdding ? 'Adding...' : 'Add to Bag'}
+              {isAdding ? 'Adding...' : 'Add to Cart'}
             </Text>
           </TouchableOpacity>
 
@@ -639,12 +753,18 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
             style={[
               styles.primaryBtn,
               {
-                backgroundColor: '#111111',
+                backgroundColor: theme.mode === 'dark' ? '#FFFFFF' : '#111111',
               },
             ]}
           >
-            <Zap size={16} color="#FFFFFF" strokeWidth={2} />
-            <Text numberOfLines={1} style={styles.primaryBtnText}>
+            <Zap size={16} color={theme.mode === 'dark' ? '#111111' : '#FFFFFF'} strokeWidth={2} />
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.primaryBtnText,
+                { color: theme.mode === 'dark' ? '#111111' : '#FFFFFF' },
+              ]}
+            >
               {isTradeService
                 ? `Book Now • ₹${totalPrice.toLocaleString('en-IN')}`
                 : `Buy Now • ₹${totalPrice.toLocaleString('en-IN')}`}
@@ -1403,5 +1523,168 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     textAlign: 'center',
+  },
+  /* Clean Minimalist Service Process & Hierarchy Styles */
+  serviceFlowContainer: {
+    paddingVertical: 6,
+    gap: 14,
+  },
+  serviceBookingCard: {
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 14,
+  },
+  serviceBookingTop: {
+    gap: 2,
+  },
+  serviceBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  serviceMicroLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  servicePriceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+    marginBottom: 4,
+  },
+  servicePriceValue: {
+    fontSize: 26,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  servicePriceUnit: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  serviceInspectionDesc: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  serviceDivider: {
+    height: 1,
+    width: '100%',
+  },
+  serviceStepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  serviceStepperInfo: {
+    flex: 1,
+  },
+  serviceStepperTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  serviceStepperCalculation: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  serviceStepperBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 3,
+  },
+  serviceStepBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+  },
+  serviceNativeInput: {
+    width: 36,
+    textAlign: 'center',
+    fontSize: 14,
+    fontWeight: '700',
+    paddingVertical: 0,
+  },
+  serviceProcessCard: {
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  serviceProcessHeader: {
+    marginBottom: 16,
+  },
+  serviceProcessHeading: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  timelineContainer: {
+    gap: 0,
+  },
+  timelineItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  timelineLeftTrack: {
+    alignItems: 'center',
+    width: 26,
+  },
+  timelineNode: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timelineNodeText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  timelineConnectingLine: {
+    width: 2,
+    height: 38,
+    marginVertical: 3,
+  },
+  timelineContent: {
+    flex: 1,
+    paddingBottom: 16,
+  },
+  timelineTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 4,
+  },
+  timelineStepTitle: {
+    fontSize: 13.5,
+    fontWeight: '600',
+  },
+  timelinePriceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  timelinePriceBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  timelineStepDesc: {
+    fontSize: 12.5,
+    lineHeight: 18,
   },
 });

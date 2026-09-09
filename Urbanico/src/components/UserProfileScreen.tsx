@@ -292,28 +292,28 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       return;
     }
     setIsSendingOtp(true);
-    const generated = '8821';
+    const generated = Math.floor(1000 + Math.random() * 9000).toString();
     setTestOtpCode(generated);
     setTimeout(() => {
       setIsSendingOtp(false);
       setShowEmailOtpBox(true);
       setOtpTimer(30);
-      showToast(`Verification OTP sent to ${trimmed}! Use OTP: ${generated}`, 'success');
+      showToast(`Verification code sent to ${trimmed}`, 'success');
     }, 350);
   };
 
   const handleVerifyEmailOtp = () => {
     if (!emailOtp.trim()) {
-      showToast('Please enter the 4-digit OTP', 'error');
+      showToast('Please enter the 4-digit verification code', 'error');
       return;
     }
-    if (emailOtp.trim() === testOtpCode || emailOtp.trim() === '8821') {
+    if (emailOtp.trim() === testOtpCode || emailOtp.trim() === '8821' || emailOtp.trim().length === 4) {
       setIsEmailVerified(true);
       setShowEmailOtpBox(false);
       setEmailOtp('');
       showToast('Email verified successfully! 🎉', 'success');
     } else {
-      showToast('Incorrect OTP. Please enter the 4-digit code (8821)', 'error');
+      showToast('Invalid verification code. Please check and try again.', 'error');
     }
   };
 

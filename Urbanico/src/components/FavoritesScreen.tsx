@@ -7,7 +7,7 @@ import {
   StyleSheet,
   RefreshControl,
 } from 'react-native';
-import { Heart, Plus, ShoppingBag, ArrowRight } from 'lucide-react-native';
+import { Heart, Plus, ShoppingCart, ArrowRight } from 'lucide-react-native';
 import { MaterialItem } from '../types';
 import { MATERIAL_ITEMS } from '../data/materialsData';
 import { useToast } from '../context/ToastContext';
@@ -53,7 +53,7 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
     } else {
       favorites.forEach((fav) => onSelectItemModal(fav));
     }
-    showToast(`Added ${favorites.length} saved supplies to Bag!`, 'success');
+    showToast(`Added ${favorites.length} saved supplies to Cart!`, 'success');
   };
 
   return (
@@ -85,8 +85,8 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
               style={styles.addAllBtn}
               activeOpacity={0.85}
             >
-              <ShoppingBag size={14} color="#FFFFFF" />
-              <Text style={styles.addAllBtnText}>Add All to Bag</Text>
+              <ShoppingCart size={14} color="#FFFFFF" />
+              <Text style={styles.addAllBtnText}>Add All to Cart</Text>
             </TouchableOpacity>
           )}
         </View>

@@ -16,8 +16,25 @@ export interface ApiResponse<T = any> {
   [key: string]: any;
 }
 
+let sharedActiveApiBase: string | null = null;
+
+export function getActiveApiBase(): string | null {
+  return sharedActiveApiBase;
+}
+
+export function setActiveApiBase(url: string | null): void {
+  if (url && typeof url === 'string') {
+    sharedActiveApiBase = url.trim().replace(/\/+$/, '');
+  }
+}
+
 export function getBaseApiUrls(): string[] {
   const urls: string[] = [];
+
+  // Prioritize active verified working base URL if discovered
+  if (sharedActiveApiBase) {
+    urls.push(sharedActiveApiBase);
+  }
 
   // 1. Explicit env variable (EXPO_PUBLIC_API_URL or VITE_API_URL)
   const envUrl =
@@ -30,32 +47,37 @@ export function getBaseApiUrls(): string[] {
   }
 
   const isWeb = Platform.OS === 'web' && typeof window !== 'undefined' && window.location;
-  const isLocalhost =
+  const isMetroDev =
     isWeb &&
-    (window.location.hostname === 'localhost' ||
-      window.location.hostname === '127.0.0.1' ||
-      window.location.hostname.startsWith('192.168.') ||
-      window.location.hostname.endsWith('.local'));
+    (window.location.port === '8081' ||
+      window.location.port === '19006' ||
+      window.location.port === '8082');
 
-  // 2. Web runtime: relative /api or LAN host port 3000
-  if (isWeb) {
-    if (
-      window.location.hostname &&
-      window.location.hostname !== 'localhost' &&
-      window.location.hostname !== '127.0.0.1' &&
-      (window.location.hostname.startsWith('192.168.') ||
-        window.location.hostname.startsWith('10.') ||
-        window.location.hostname.startsWith('172.') ||
-        window.location.hostname.endsWith('.local'))
-    ) {
-      urls.push(`http://${window.location.hostname}:3000/api`);
-      urls.push(`http://${window.location.hostname}:3000`);
-    }
+  // 2. Standard Web runtime (Express / Vite on port 3000, Cloud Run, Vercel proxy)
+  if (isWeb && !isMetroDev) {
     urls.push('/api');
-    urls.push('');
   }
 
-  // 3. Mobile device running on Expo Go -> Metro Host IP (e.g. http://192.168.1.245:3000)
+  // 3. Localhost Express backend port 3000
+  if (isWeb) {
+    if (isMetroDev) {
+      urls.push('http://localhost:3000/api');
+    }
+  }
+
+  // 4. LAN IP discovery (e.g. testing on mobile device over Wi-Fi)
+  if (isWeb && window.location.hostname && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+    if (
+      window.location.hostname.startsWith('192.168.') ||
+      window.location.hostname.startsWith('10.') ||
+      window.location.hostname.startsWith('172.') ||
+      window.location.hostname.endsWith('.local')
+    ) {
+      urls.push(`http://${window.location.hostname}:3000/api`);
+    }
+  }
+
+  // 5. Mobile Native Expo Go resolution
   if (Platform.OS !== 'web') {
     try {
       const scriptURL = (NativeModules as any)?.SourceCode?.scriptURL;
@@ -63,27 +85,18 @@ export function getBaseApiUrls(): string[] {
         const match = scriptURL.match(/^https?:\/\/([^:/]+)/);
         if (match && match[1] && match[1] !== 'localhost' && match[1] !== '127.0.0.1') {
           urls.push(`http://${match[1]}:3000/api`);
-          urls.push(`http://${match[1]}:3000`);
         }
       }
     } catch {
       // Safe fallback
     }
-  }
-
-  // 4. Localhost fallback - strictly ONLY when running on a local development machine
-  if (isLocalhost || Platform.OS !== 'web') {
     urls.push('http://localhost:3000/api');
-    urls.push('http://localhost:3000');
   }
 
-  // 5. Remote Render backend fallback (only if explicitly set or testing on render)
-  if (envUrl && envUrl.includes('onrender.com')) {
-    urls.push('https://urbanico-construction-app.onrender.com/api');
-    urls.push('https://urbanico-construction-app.onrender.com');
-  }
+  // 6. Live production cloud backend fallback (Render)
+  urls.push('https://urbanico-construction-app.onrender.com/api');
 
-  return Array.from(new Set(urls.filter(Boolean)));
+  return Array.from(new Set(urls.filter(Boolean).map((u) => u.trim().replace(/\/+$/, ''))));
 }
 
 // Minimalistic runtime log for port and API URL verification
@@ -94,8 +107,6 @@ if (typeof window !== 'undefined' && window.location) {
 }
 
 class ApiService {
-  private activeBaseUrl: string | null = null;
-
   /**
    * Safe fetch with JSON parsing and standardized error handling across candidate endpoints
    */
@@ -107,7 +118,7 @@ class ApiService {
       ...((options.headers as Record<string, string>) || {}),
     };
 
-    const candidateBases = this.activeBaseUrl ? [this.activeBaseUrl, ...getBaseApiUrls()] : getBaseApiUrls();
+    const candidateBases = getBaseApiUrls();
 
     let lastError: any = null;
 
@@ -124,7 +135,7 @@ class ApiService {
         });
 
         if (response.ok) {
-          this.activeBaseUrl = formattedBase;
+          setActiveApiBase(formattedBase);
           const data = await response.json().catch(() => ({ success: true }));
           return data;
         }

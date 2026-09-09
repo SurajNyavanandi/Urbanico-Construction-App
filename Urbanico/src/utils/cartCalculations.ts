@@ -57,7 +57,8 @@ export interface CartTotals {
 export function calculateCartTotals(
   cartItems: CartItem[],
   couponDiscount: number = 0,
-  deliveryDistanceKm: number = 10
+  deliveryDistanceKm: number = 10,
+  customDeliveryCharge?: number
 ): CartTotals {
   const serviceItems = cartItems.filter(isCartItemService);
   const materialItems = cartItems.filter((i) => !isCartItemService(i));
@@ -89,6 +90,8 @@ export function calculateCartTotals(
   const deliveryCharge =
     isServicesOnly || materialItems.length === 0
       ? 0
+      : customDeliveryCharge !== undefined
+      ? customDeliveryCharge
       : Math.max(50, Math.round(deliveryDistanceKm * 5));
 
   const taxableTotal = subtotal + gstTax + deliveryCharge - (couponDiscount || 0);

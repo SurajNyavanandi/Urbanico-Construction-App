@@ -106,9 +106,14 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
     setNotifications((prev) =>
       prev.map((n) => (n.id === notif.id ? { ...n, isUnread: false } : n))
     );
-    if (notif.type === 'dispatch' && onNavigateScreen) {
-      onClose();
+    if (!onNavigateScreen) return;
+    onClose();
+    if (notif.type === 'dispatch' || notif.type === 'weighment') {
       onNavigateScreen('activity');
+    } else if (notif.type === 'combo' || notif.type === 'rate') {
+      onNavigateScreen('shop');
+    } else {
+      onNavigateScreen('home');
     }
   };
 
@@ -123,7 +128,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
       case 'rate':
         return <Tag size={18} color="#7C3AED" strokeWidth={2.2} />;
       default:
-        return <Bell size={18} color="#111111" strokeWidth={2.2} />;
+        return <Bell size={18} color={theme.textPrimary} strokeWidth={2.2} />;
     }
   };
 
@@ -145,8 +150,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
           {/* Header */}
           <View style={[styles.headerRow, { borderBottomColor: theme.border }]}>
             <View style={styles.headerLeft}>
-              <View style={styles.bellIconCircle}>
-                <Bell size={18} color="#111111" strokeWidth={2.2} />
+              <View style={[styles.bellIconCircle, { backgroundColor: theme.surfaceSecondary }]}>
+                <Bell size={18} color={theme.textPrimary} strokeWidth={2.2} />
               </View>
               <View>
                 <Text style={[styles.headerTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
@@ -205,8 +210,16 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                   style={[
                     styles.notificationCard,
                     {
-                      backgroundColor: item.isUnread ? '#F8FAFC' : theme.surface,
-                      borderColor: item.isUnread ? '#CBD5E1' : theme.border,
+                      backgroundColor: item.isUnread
+                        ? theme.mode === 'dark'
+                          ? '#1E293B'
+                          : '#F8FAFC'
+                        : theme.surface,
+                      borderColor: item.isUnread
+                        ? theme.mode === 'dark'
+                          ? '#334155'
+                          : '#CBD5E1'
+                        : theme.border,
                     },
                   ]}
                 >

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, ViewStyle, TouchableOpacity, Platform } from 'react-native';
 import { useTheme } from '../../context/ThemeContext';
 
 interface CardContainerProps {
@@ -36,11 +36,15 @@ export const CardContainer: React.FC<CardContainerProps> = ({
           backgroundColor: theme.surface,
           borderWidth: 1,
           borderColor: theme.borderLight,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.05,
-          shadowRadius: 6,
-          elevation: 2,
+          ...(Platform.OS === 'web'
+            ? { boxShadow: '0 2px 6px rgba(0, 0, 0, 0.05)' }
+            : {
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.05,
+                shadowRadius: 6,
+                elevation: 2,
+              }),
         };
     }
   };

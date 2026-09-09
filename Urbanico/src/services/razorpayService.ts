@@ -1,5 +1,5 @@
 import { Platform, Linking } from 'react-native';
-import { getBaseApiUrls } from './apiService';
+import { getBaseApiUrls, getActiveApiBase, setActiveApiBase } from './apiService';
 import { safeStorage } from '../utils/safeStorage';
 
 export interface CreateOrderParams {
@@ -328,17 +328,31 @@ export async function launchUpiPaymentIntent(params: UpiIntentParams): Promise<{
   try {
     if (Platform.OS === 'web') {
       if (typeof window !== 'undefined') {
+        const isTouchMobile =
+          /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '') ||
+          ('ontouchstart' in window && window.innerWidth < 768);
         const isAndroid = /Android/i.test(navigator.userAgent || '');
         const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
-        
-        // On Android mobile, intent:// or customScheme directly activates Google Pay or PhonePe
-        const launchUri = isAndroid
-          ? uriInfo.androidIntentUri
-          : isIOS
-          ? uriInfo.customSchemeUri
+
+        // On desktop web, native mobile app schemes (intent://) are not registered in Chrome.
+        // Return cleanly so UI provides QR code scanning or VPA copy.
+        if (!isTouchMobile) {
+          return {
+            success: false,
+            launchedApp: uriInfo.appName,
+            targetUri: uriInfo.universalUri,
+            universalUri: uriInfo.universalUri,
+            fallbackUrl: uriInfo.fallbackRazorpayUrl,
+          };
+        }
+
+        // On mobile devices, prefer clean app scheme or standard NPCI upi:// URI
+        const launchUri = isIOS
+          ? uriInfo.customSchemeUri || uriInfo.universalUri
+          : isAndroid
+          ? uriInfo.universalUri
           : uriInfo.universalUri;
 
-        // Try direct invisible link click to trigger protocol handler or Android Intent
         try {
           const anchor = document.createElement('a');
           anchor.href = launchUri;
@@ -352,14 +366,8 @@ export async function launchUpiPaymentIntent(params: UpiIntentParams): Promise<{
           }, 600);
           success = true;
         } catch {
-          // Fallback to direct location change
-          try {
-            window.location.href = launchUri;
-            success = true;
-          } catch {
-            window.location.href = uriInfo.universalUri;
-            success = true;
-          }
+          window.location.href = uriInfo.universalUri;
+          success = true;
         }
       }
     } else {
@@ -412,31 +420,23 @@ export function getCandidateApiEndpoints(pathSuffix: string): string[] {
   const cleanSuffix = pathSuffix.replace(/^\/+/, '');
   const list: string[] = [];
 
+  // Prioritize active working base URL
+  const activeBase = getActiveApiBase();
+  if (activeBase) {
+    list.push(`${activeBase}/${cleanSuffix}`);
+  }
+
   const baseUrls = getBaseApiUrls();
   for (const base of baseUrls) {
     const formattedBase = base.trim().replace(/\/+$/, '');
     if (!formattedBase) continue;
 
-    const rootBase = formattedBase.endsWith('/api') ? formattedBase.slice(0, -4) : formattedBase;
     const apiBase = formattedBase.endsWith('/api') ? formattedBase : `${formattedBase}/api`;
 
     list.push(`${apiBase}/${cleanSuffix}`);
-    list.push(`${rootBase}/${cleanSuffix}`);
     if (cleanSuffix.startsWith('razorpay/')) {
       const flatSuffix = cleanSuffix.replace('razorpay/', '');
       list.push(`${apiBase}/${flatSuffix}`);
-      list.push(`${rootBase}/${flatSuffix}`);
-    }
-  }
-
-  // Local / relative routes (for Web)
-  if (Platform.OS === 'web') {
-    list.push(`/api/${cleanSuffix}`);
-    list.push(`/${cleanSuffix}`);
-    if (cleanSuffix.startsWith('razorpay/')) {
-      const flatSuffix = cleanSuffix.replace('razorpay/', '');
-      list.push(`/api/${flatSuffix}`);
-      list.push(`/${flatSuffix}`);
     }
   }
 
@@ -485,6 +485,11 @@ export async function createRazorpayOrder(params: CreateOrderParams): Promise<Cr
             const finalOrderId = data.order_id || data.id;
             if (finalOrderId) {
               console.log(`[Payment] Order: ${finalOrderId}`);
+              // Record successful working base
+              const baseMatch = url.split('/razorpay/')[0] || url.split('/create-order')[0];
+              if (baseMatch) {
+                setActiveApiBase(baseMatch.endsWith('/api') ? baseMatch : `${baseMatch}/api`);
+              }
               if (data.key_id) {
                 setCachedRazorpayKey(data.key_id);
               }
@@ -570,6 +575,10 @@ export async function verifyRazorpayPayment(params: VerifyPaymentParams): Promis
           const data = await response.json().catch(() => null);
           if (data && (data.success || data.verified || data.status === 'ok' || data.razorpay_payment_id)) {
             console.log(`[Payment] Verified: ${sanitizedVerifyPayload.razorpay_payment_id}`);
+            const baseMatch = url.split('/razorpay/')[0] || url.split('/verify-payment')[0];
+            if (baseMatch) {
+              setActiveApiBase(baseMatch.endsWith('/api') ? baseMatch : `${baseMatch}/api`);
+            }
             verifyData = {
               ...data,
               success: true,

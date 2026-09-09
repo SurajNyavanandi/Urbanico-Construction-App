@@ -24,7 +24,6 @@ import { safeStorage } from './utils/safeStorage';
 import { BRAND_LOGO_URL } from './constants';
 
 // Lazy load heavy screens to optimize bundle size and app startup time
-const CategoryDetailScreen = lazy(() => import('./components/CategoryDetailScreen'));
 const UserProfileScreen = lazy(() => import('./components/UserProfileScreen'));
 const ActivityDashboardScreen = lazy(() => import('./components/ActivityDashboardScreen'));
 
@@ -81,12 +80,21 @@ function MainAppContent() {
   } = useLocation();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [recentSearches, setRecentSearches] = useState<string[]>([
-    'UltraTech Cement 53',
-    'Plastering Sand',
-    'TMT 12mm Rebar',
-    'Mason',
-  ]);
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => {
+    try {
+      const stored = safeStorage.getItem('urbanico_recent_searches');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [
+      'UltraTech Cement 53',
+      'Plastering Sand',
+      'TMT 12mm Rebar',
+      'Mason',
+    ];
+  });
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false);
   const [isLanguageModalOpen, setIsLanguageModalOpen] = useState(false);
 
@@ -200,7 +208,15 @@ function MainAppContent() {
       const phone = authSaved ? JSON.parse(authSaved).phone : null;
       const key = phone ? `urbanico_cart_${phone}` : 'urbanico_cart_guest';
       const savedCart = safeStorage.getItem(key);
-      if (savedCart) return JSON.parse(savedCart);
+      if (savedCart) {
+        const parsed = JSON.parse(savedCart);
+        if (Array.isArray(parsed)) {
+          return parsed.map((item: any, idx: number) => ({
+            ...item,
+            id: item.id || `cart-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`,
+          }));
+        }
+      }
     } catch {
       // ignore
     }
@@ -225,7 +241,13 @@ function MainAppContent() {
       if (isAuth) {
         const saved = safeStorage.getItem('urbanico_orders');
         if (saved) {
-          return JSON.parse(saved);
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            return parsed.map((del: any, idx: number) => ({
+              ...del,
+              id: del.id || (del.orderNumber ? `order-${del.orderNumber}-${idx}` : `del-${Date.now()}-${idx}`),
+            }));
+          }
         }
       }
     } catch {
@@ -300,25 +322,40 @@ function MainAppContent() {
     if (!queryStr || !queryStr.trim()) return;
     const cleanQuery = queryStr.trim();
     setSearchQuery(cleanQuery);
-    setRecentSearches((prev) => [
-      cleanQuery,
-      ...prev.filter((item) => item.toLowerCase() !== cleanQuery.toLowerCase()),
-    ].slice(0, 6));
+    setRecentSearches((prev) => {
+      const updated = [
+        cleanQuery,
+        ...prev.filter((item) => item.toLowerCase() !== cleanQuery.toLowerCase()),
+      ].slice(0, 8);
+      try {
+        safeStorage.setItem('urbanico_recent_searches', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
 
     // Resolve exact subcategory (e.g. 'sand', 'bricks', 'cement', 'stone', 'iron_bars', 'centring', 'services-catalog')
     const resolution = resolveSearchCategory(cleanQuery);
-    setSelectedCategoryId(resolution.categoryId);
-    setCurrentScreen('category');
+    setSelectedCategoryId(resolution.categoryId === 'services-catalog' ? 'services' : resolution.categoryId);
+    setCurrentScreen('shop');
   };
 
   const handleClearRecentSearches = () => {
     setRecentSearches([]);
+    try {
+      safeStorage.removeItem('urbanico_recent_searches');
+    } catch {}
+    showToast('Recent searches cleared', 'info');
   };
 
   const handleRemoveRecentSearch = (queryStr: string) => {
-    setRecentSearches((prev) =>
-      prev.filter((item) => item.toLowerCase() !== queryStr.toLowerCase())
-    );
+    setRecentSearches((prev) => {
+      const updated = prev.filter((item) => item.toLowerCase() !== queryStr.toLowerCase());
+      try {
+        safeStorage.setItem('urbanico_recent_searches', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+    showToast(`Removed "${queryStr}" from search history`, 'info');
   };
 
   // Sync with backend on mount and auth changes
@@ -411,9 +448,9 @@ function MainAppContent() {
   };
 
   // Navigation Handlers
-  const handleSelectCategory = (catId: CategoryId) => {
-    setSelectedCategoryId(catId);
-    setCurrentScreen('category');
+  const handleSelectCategory = (catId: CategoryId | 'all' | 'services' | 'services-catalog') => {
+    setSelectedCategoryId(catId as any);
+    setCurrentScreen('shop');
   };
 
   const handleOpenItemModal = (item: MaterialItem) => {
@@ -561,7 +598,7 @@ function MainAppContent() {
       return updated;
     });
 
-    showToast(`Added ${bundle.bundleItems.length} items from ${bundle.title} to Bag!`, 'success');
+    showToast(`Added ${bundle.bundleItems.length} items from ${bundle.title} to Cart!`, 'success');
     setCurrentScreen('basket');
   };
 
@@ -585,6 +622,23 @@ function MainAppContent() {
   const handleClearCart = () => {
     setCartItems([]);
     showToast('Cart cleared', 'info');
+  };
+
+  const handleAddToCartItem = (item: CartItem) => {
+    setCartItems((prev) => {
+      const existingIdx = prev.findIndex(
+        (ci) => ci.itemId === item.itemId && ci.selectedOptionLabel === item.selectedOptionLabel
+      );
+      if (existingIdx >= 0) {
+        const updated = [...prev];
+        updated[existingIdx] = {
+          ...updated[existingIdx],
+          quantity: updated[existingIdx].quantity + (item.quantity || 1),
+        };
+        return updated;
+      }
+      return [{ ...item, id: generateCartItemId(), quantity: item.quantity || 1 }, ...prev];
+    });
   };
 
   const handleAuthSuccess = (phoneNum: string) => {
@@ -613,19 +667,24 @@ function MainAppContent() {
         JSON.stringify({ isLoggedIn: true, phone: validPhone })
       );
 
-      // Merge cart items
+      // Read current guest cart from storage as well as in-memory state
+      const guestCartRaw = safeStorage.getItem('urbanico_cart_guest');
+      const guestStoredItems: CartItem[] = guestCartRaw ? JSON.parse(guestCartRaw) : [];
+      const currentItemsToMerge = cartItems.length > 0 ? cartItems : guestStoredItems;
+
+      // Merge with any pre-existing cart for this user phone
       const userSavedCartRaw = safeStorage.getItem(`urbanico_cart_${validPhone}`);
       const userSavedCart: CartItem[] = userSavedCartRaw ? JSON.parse(userSavedCartRaw) : [];
 
       let mergedCart = [...userSavedCart];
-      cartItems.forEach((guestItem) => {
+      currentItemsToMerge.forEach((guestItem) => {
         const matchIdx = mergedCart.findIndex(
           (ci) => ci.itemId === guestItem.itemId && ci.selectedOptionLabel === guestItem.selectedOptionLabel
         );
         if (matchIdx >= 0) {
           mergedCart[matchIdx] = {
             ...mergedCart[matchIdx],
-            quantity: mergedCart[matchIdx].quantity + guestItem.quantity,
+            quantity: Math.max(mergedCart[matchIdx].quantity, guestItem.quantity),
           };
         } else {
           mergedCart.push(guestItem);
@@ -634,6 +693,7 @@ function MainAppContent() {
 
       setCartItems(mergedCart);
       safeStorage.setItem(`urbanico_cart_${validPhone}`, JSON.stringify(mergedCart));
+      safeStorage.removeItem('urbanico_cart_guest');
 
       // Merge favorites
       const userSavedFavsRaw = safeStorage.getItem(`urbanico_favorite_ids_${validPhone}`);
@@ -684,17 +744,8 @@ function MainAppContent() {
 
   // Determine current screen title for header
   const getScreenTitle = (): string => {
-    if (currentScreen === 'shop') return 'Shop';
-    if (currentScreen === 'category') {
-      if (selectedCategoryId === 'all') return 'Materials Catalog';
-      if (selectedCategoryId === 'services-catalog' || selectedCategoryId === 'services') return 'Services Catalog';
-      const cat = CATEGORIES.find((c) => c.id === selectedCategoryId);
-      if (cat) return cat.name;
-      const srv = SERVICES.find((s) => s.id === selectedCategoryId);
-      if (srv) return `${srv.name} Service`;
-      return 'Materials';
-    }
-    if (currentScreen === 'basket') return 'Bag';
+    if (currentScreen === 'shop' || currentScreen === 'category') return 'Shop';
+    if (currentScreen === 'basket') return 'Cart';
     if (currentScreen === 'favorites') return 'Favourites';
     if (currentScreen === 'profile') return 'Profile';
     if (currentScreen === 'settings') return 'Settings';
@@ -712,12 +763,18 @@ function MainAppContent() {
       {/* Main View Router with Suspense for Lazy Loaded Screens */}
       <View style={[styles.mainContent, { backgroundColor: theme.background }]}>
         <Suspense fallback={<ScreenLoadingFallback />}>
-          {currentScreen === 'shop' && (
+          {(currentScreen === 'shop' || currentScreen === 'category') && (
             <ShopScreen
+              selectedCategoryId={selectedCategoryId}
               onSelectCategoryTab={handleSelectCategory}
               onSelectItem={handleOpenItemModal}
               favoriteIds={favoriteIds}
               onToggleFavorite={handleToggleFavorite}
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              viewMode={globalViewMode}
+              onViewModeChange={setGlobalViewMode}
+              onBack={() => setCurrentScreen('home')}
             />
           )}
 
@@ -743,11 +800,11 @@ function MainAppContent() {
               onSelectCategory={handleSelectCategory}
               onNavigateAllMaterials={() => {
                 setSelectedCategoryId('all');
-                setCurrentScreen('category');
+                setCurrentScreen('shop');
               }}
               onNavigateAllServices={() => {
                 setSelectedCategoryId('services-catalog');
-                setCurrentScreen('category');
+                setCurrentScreen('shop');
               }}
               onSelectItem={handleOpenItemModal}
               searchQuery={searchQuery}
@@ -757,26 +814,14 @@ function MainAppContent() {
             />
           )}
 
-          {currentScreen === 'category' && (
-            <CategoryDetailScreen
-              categoryId={selectedCategoryId}
-              onSelectItem={handleOpenItemModal}
-              onSelectCategoryTab={(catId) => setSelectedCategoryId(catId)}
-              searchQuery={searchQuery}
-              onBack={() => setCurrentScreen('home')}
-              favoriteIds={favoriteIds}
-              onToggleFavorite={handleToggleFavorite}
-              viewMode={globalViewMode}
-              onViewModeChange={setGlobalViewMode}
-            />
-          )}
-
           {currentScreen === 'basket' && (
             <BasketScreen
+              user={user}
               cartItems={cartItems}
               onUpdateQuantity={handleUpdateCartQty}
               onRemoveItem={handleRemoveCartItem}
               onClearCart={handleClearCart}
+              onAddToCart={handleAddToCartItem}
               selectedLocation={selectedLocation}
               onNavigateScreen={setCurrentScreen}
               deliveries={deliveries}
@@ -826,7 +871,7 @@ function MainAppContent() {
               onViewModeChange={setGlobalViewMode}
               onExploreCatalog={() => {
                 setSelectedCategoryId('all');
-                setCurrentScreen('category');
+                setCurrentScreen('shop');
               }}
               onReorderMaterial={(matName) => {
                 const matchedItem = MATERIAL_ITEMS.find((m) =>
@@ -836,7 +881,7 @@ function MainAppContent() {
                   handleOpenItemModal(matchedItem);
                 } else {
                   setSelectedCategoryId('all');
-                  setCurrentScreen('category');
+                  setCurrentScreen('shop');
                 }
               }}
             />
@@ -857,7 +902,7 @@ function MainAppContent() {
               onBack={() => setCurrentScreen('profile')}
               onExploreCatalog={() => {
                 setSelectedCategoryId('all');
-                setCurrentScreen('category');
+                setCurrentScreen('shop');
               }}
               onViewInvoice={handleOpenInvoiceModal}
               onReorderMaterial={(matName) => {
@@ -868,7 +913,7 @@ function MainAppContent() {
                   handleOpenItemModal(matchedItem);
                 } else {
                   setSelectedCategoryId('all');
-                  setCurrentScreen('category');
+                  setCurrentScreen('shop');
                 }
               }}
             />
@@ -942,7 +987,12 @@ function MainAppContent() {
       {currentScreen !== 'auth_mobile' && currentScreen !== 'auth_otp' && (
         <BottomNav
           activeScreen={currentScreen}
-          onSelectTab={(scr) => setCurrentScreen(scr)}
+          onSelectTab={(scr) => {
+            if (scr === 'shop' && !selectedCategoryId) {
+              setSelectedCategoryId('all');
+            }
+            setCurrentScreen(scr);
+          }}
           cartCount={totalCartCount}
         />
       )}

@@ -197,7 +197,7 @@ export const AmbujaVideoAd: React.FC<AmbujaVideoAdProps> = ({
               }}
             />
           ) : (
-            <View style={styles.nativeWebViewContainer} pointerEvents="none">
+            <View style={[styles.nativeWebViewContainer, { pointerEvents: 'none' as any }]}>
               <WebView
                 ref={webViewRef}
                 source={{ html: ambujaHtml }}
@@ -218,7 +218,7 @@ export const AmbujaVideoAd: React.FC<AmbujaVideoAdProps> = ({
           )}
 
           {/* High contrast overlay for readability & controls */}
-          <View style={styles.subtleGradientOverlay} pointerEvents="none" />
+          <View style={[styles.subtleGradientOverlay, { pointerEvents: 'none' as any }]} />
 
           {/* Top Bar: Sound Control */}
           <View style={styles.topControlsRow}>
@@ -280,11 +280,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#0F172A',
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 14,
-    elevation: 4,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 6px 14px rgba(0, 0, 0, 0.12)',
+      },
+      default: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.12,
+        shadowRadius: 14,
+        elevation: 4,
+      },
+    }),
   },
   videoWrapper: {
     width: '100%',
@@ -376,18 +383,32 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: '#FFFFFF',
     letterSpacing: -0.3,
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    ...Platform.select({
+      web: {
+        textShadow: '0 1px 3px rgba(0, 0, 0, 0.8)',
+      },
+      default: {
+        textShadowColor: 'rgba(0, 0, 0, 0.8)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 3,
+      },
+    }),
   },
   brandSub: {
     fontSize: 10,
     fontWeight: '500',
     color: '#F1F5F9',
     marginTop: 1,
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
+    ...Platform.select({
+      web: {
+        textShadow: '0 1px 3px rgba(0, 0, 0, 0.8)',
+      },
+      default: {
+        textShadowColor: 'rgba(0, 0, 0, 0.8)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 3,
+      },
+    }),
   },
   exploreButton: {
     flexDirection: 'row',
@@ -397,11 +418,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 3,
+      },
+    }),
   },
   exploreButtonText: {
     fontSize: 11,

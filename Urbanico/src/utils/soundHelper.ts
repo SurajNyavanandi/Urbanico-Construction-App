@@ -29,13 +29,31 @@ class SoundHelper {
           }
         }
         if (this.ctx && this.ctx.state === 'suspended') {
-          this.ctx.resume().catch(() => {});
+          // Attempt resume silently without throwing errors
+          const promise = this.ctx.resume();
+          if (promise && typeof promise.catch === 'function') {
+            promise.catch(() => {});
+          }
         }
       }
       return this.ctx;
     } catch {
       return null;
     }
+  }
+
+  // Explicit user gesture unlocker to prevent autoplay console warnings
+  public unlockAudio() {
+    try {
+      if (this.ctx && this.ctx.state === 'suspended') {
+        this.ctx.resume().catch(() => {});
+      } else if (!this.ctx && typeof window !== 'undefined') {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx) {
+          this.ctx = new AudioCtx();
+        }
+      }
+    } catch {}
   }
 
   public setSoundEnabled(enabled: boolean) {

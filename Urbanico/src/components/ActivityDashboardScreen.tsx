@@ -117,7 +117,7 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
             <ArrowLeft color="#111111" size={20} strokeWidth={2.2} />
           </TouchableOpacity>
         )}
-        <Text style={styles.navBarTitle}>Activity & Live Dispatches</Text>
+        <Text style={styles.navBarTitle}>Activity</Text>
         <View style={{ width: 36 }} />
       </View>
 
@@ -388,7 +388,7 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
             <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
               <View style={[styles.cardHeader, { borderBottomColor: theme.borderLight }]}>
                 <Text style={[styles.cardTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
-                  Commercial Procurement Ledger
+                  Procurement Summary
                 </Text>
                 <View style={[styles.etaPill, { backgroundColor: '#ECFDF5' }]}>
                   <Text style={[styles.etaPillText, { color: '#059669' }]}>

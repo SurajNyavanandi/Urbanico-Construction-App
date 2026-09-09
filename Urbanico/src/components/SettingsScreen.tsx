@@ -142,8 +142,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               </View>
               <Text style={styles.menuSubText}>
                 {isAppleDesign
-                  ? 'Pure White canvas, SF Pro hierarchy & Apple Blue accents'
-                  : 'Apple-inspired minimalist UI (test mode)'}
+                  ? 'Pure white canvas, SF Pro hierarchy & Apple accents'
+                  : 'Apple-inspired minimalist UI'}
               </Text>
             </View>
             <Switch

@@ -295,10 +295,10 @@ export const LocationModal: React.FC<LocationModalProps> = ({
             )}
             <View style={{ flex: 1 }}>
               <Text style={[styles.gpsTitle, { color: theme.primaryDark }]}>
-                Use Current Location (GPS)
+                Use Current Location
               </Text>
               <Text style={[styles.gpsSub, { color: theme.textSecondary }]}>
-                Auto-fills Pincode, Street, City & State in 1 tap
+                Detect location via GPS
               </Text>
             </View>
           </TouchableOpacity>
@@ -307,7 +307,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
           {savedLocations.length > 0 && (
             <View style={styles.quickChipsSection}>
               <Text style={[styles.sectionHeading, { color: theme.textSecondary }]}>
-                RECENT / SAVED LOCATIONS
+                SAVED LOCATIONS
               </Text>
               <View style={styles.chipsContainer}>
                 {savedLocations.map((loc, idx) => {

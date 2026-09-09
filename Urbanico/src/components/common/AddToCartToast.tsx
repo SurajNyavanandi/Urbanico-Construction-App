@@ -105,7 +105,7 @@ export const AddToCartToast: React.FC<AddToCartToastProps> = ({
   const AnimatedView = Animated.View as any;
 
   return (
-    <View style={styles.topOverlay} pointerEvents="box-none">
+    <View style={[styles.topOverlay, { pointerEvents: 'box-none' as any }]}>
       <AnimatedView
         style={[
           styles.toastCard,

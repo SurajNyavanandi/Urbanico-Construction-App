@@ -264,7 +264,7 @@ export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = () 
               }}
             />
           ) : (
-            <View style={styles.nativeWebViewContainer} pointerEvents="none">
+            <View style={[styles.nativeWebViewContainer, { pointerEvents: 'none' as any }]}>
               <WebView
                 ref={webViewRef}
                 source={{ html: promoHtml }}

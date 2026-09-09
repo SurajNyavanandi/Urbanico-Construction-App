@@ -385,6 +385,7 @@ const styles = StyleSheet.create({
   },
   defaultGridWidth: {
     width: '48%',
+    maxWidth: '48%',
   },
   productImageWrapper: {
     width: '100%',

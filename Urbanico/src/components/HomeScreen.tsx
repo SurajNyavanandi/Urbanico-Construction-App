@@ -9,6 +9,7 @@ import {
   useWindowDimensions,
   RefreshControl,
   ImageBackground,
+  Platform,
 } from 'react-native';
 import {
   ArrowRight,
@@ -419,12 +420,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <View style={styles.childNavRowWrapper}>
             <View style={styles.childNavHeader}>
               <Text style={styles.childNavSectionTitle}>Materials</Text>
-              <TouchableOpacity
-                onPress={onNavigateAllMaterials}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.childNavViewAll}>View All</Text>
-              </TouchableOpacity>
             </View>
             <ScrollView
               horizontal
@@ -459,12 +454,6 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <View style={styles.childNavRowWrapper}>
             <View style={styles.childNavHeader}>
               <Text style={styles.childNavSectionTitle}>Trade Services</Text>
-              <TouchableOpacity
-                onPress={onNavigateAllServices || (() => onSelectCategory('services-catalog'))}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.childNavViewAll}>View All</Text>
-              </TouchableOpacity>
             </View>
             <ScrollView
               horizontal
@@ -560,21 +549,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <AmbujaVideoAd onPressAd={() => onSelectCategory('cement')} />
 
         {/* ========================================================================= */}
-        {/* 6. TRADE SERVICES SECTION (Arranged Above Bundles with Coming Soon Badge) */}
+        {/* 6. TRADE SERVICES SECTION (Steve Jobs Minimalist UI)                      */}
         {/* ========================================================================= */}
         <View style={styles.sectionContainer}>
           {/* Section Header */}
           <View style={styles.sectionHeader}>
             <View style={styles.sectionHeaderLeft}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={styles.sectionHeading}>Trade Services</Text>
-                <View style={styles.comingSoonBadge}>
-                  <Clock size={11} color="#B45309" strokeWidth={2.2} />
-                  <Text style={styles.comingSoonBadgeText}>Coming soon</Text>
-                </View>
-              </View>
+              <Text style={styles.sectionHeading}>Trade Services</Text>
               <Text style={styles.sectionSubtitle}>
-                Skilled masons, plumbers, electricians & contractors
+                Verified trade professionals for your site
               </Text>
             </View>
             <TouchableOpacity
@@ -626,29 +609,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </View>
 
         {/* ========================================================================= */}
-        {/* 7. GENUINELY USEFUL SECTION: TRENDING PROJECT BUNDLES (Below Trade Services) */}
+        {/* 7. GENUINELY USEFUL SECTION: PROJECT BUNDLES (Below Trade Services) */}
         {/* ========================================================================= */}
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionHeaderLeft}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={styles.sectionHeading}>Trending Project Bundles</Text>
-                <View style={styles.bundleSparkleBadge}>
-                  <Sparkles size={10} color="#D97706" />
-                  <Text style={styles.bundleSparkleText}>YARD COMBO</Text>
-                </View>
-              </View>
+              <Text style={styles.sectionHeading}>Project Bundles</Text>
               <Text style={styles.sectionSubtitle}>
                 Pre-calibrated material packages with direct yard bulk savings
               </Text>
             </View>
             <TouchableOpacity
               onPress={() => {
-                if (onAddBundleToCartAndNavigate) {
-                  onAddBundleToCartAndNavigate(PROJECT_BUNDLES[0]);
-                } else {
-                  onNavigateAllMaterials();
-                }
+                onNavigateAllMaterials();
               }}
               style={styles.viewAllButton}
               activeOpacity={0.7}
@@ -702,20 +675,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     {bundle.subtitle}
                   </Text>
 
-                  {/* Why this combo is useful - Light description box */}
-                  <View style={styles.bundleWhyBox}>
-                    <View style={styles.bundleWhyHeader}>
-                      <Sparkles size={11} color="#B45309" />
-                      <Text style={styles.bundleWhyTitle}>WHY THIS COMBO IS USEFUL</Text>
-                    </View>
-                    <Text style={styles.bundleWhyDescription}>
-                      {bundle.description}
-                    </Text>
-                  </View>
+                  {/* Clean concise description */}
+                  <Text style={styles.bundleCleanDescription} numberOfLines={2}>
+                    {bundle.description}
+                  </Text>
 
                   {/* Items Included List */}
                   <View style={styles.bundleItemsList}>
-                    <Text style={styles.bundleItemsHeading}>INCLUDED IN PACKAGE (3 ITEMS):</Text>
                     {bundle.itemsIncluded.map((itemStr, idx) => (
                       <View key={idx} style={styles.bundleItemRow}>
                         <CheckCircle2 size={12} color="#059669" strokeWidth={2.5} />
@@ -729,7 +695,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   {/* Pricing and Direct Explore CTA */}
                   <View style={styles.bundleActionSection}>
                     <View style={styles.bundlePriceCol}>
-                      <Text style={styles.bundlePriceLabel}>COMBO PACKAGE RATE</Text>
+                      <Text style={styles.bundlePriceLabel}>PACKAGE PRICE</Text>
                       <View style={styles.bundlePriceRow}>
                         <Text style={styles.bundlePrice}>₹{bundle.price.toLocaleString('en-IN')}</Text>
                         <Text style={styles.bundleOriginalPrice}>₹{bundle.originalPrice.toLocaleString('en-IN')}</Text>
@@ -748,7 +714,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                         }
                       }}
                     >
-                      <Text style={styles.bundleExploreBtnText}>Explore & Add</Text>
+                      <Text style={styles.bundleExploreBtnText}>Explore</Text>
                       <ArrowRight size={13} color="#FFFFFF" strokeWidth={2.5} />
                     </TouchableOpacity>
                   </View>
@@ -792,11 +758,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#F3F4F6',
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 14,
-    elevation: 4,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 6px 14px rgba(0, 0, 0, 0.1)',
+      },
+      default: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.1,
+        shadowRadius: 14,
+        elevation: 4,
+      },
+    }),
   },
   heroCardImage: {
     width: '100%',
@@ -969,11 +942,18 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     padding: 12,
     gap: 10,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 2px 6px rgba(0, 0, 0, 0.04)',
+      },
+      default: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 6,
+        elevation: 2,
+      },
+    }),
   },
   bundleImageWrapper: {
     width: '100%',
@@ -1039,30 +1019,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.1,
     marginTop: -4,
   },
-  bundleWhyBox: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 10,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    gap: 4,
-  },
-  bundleWhyHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  bundleWhyTitle: {
-    fontSize: 9.5,
-    fontWeight: '800',
-    color: '#B45309',
-    letterSpacing: 0.5,
-  },
-  bundleWhyDescription: {
-    fontSize: 11,
-    color: '#334155',
+  bundleCleanDescription: {
+    fontSize: 11.5,
+    color: '#4B5563',
     lineHeight: 16,
-    fontWeight: '500',
+    fontWeight: '400',
   },
   bundleItemsList: {
     backgroundColor: '#FAFAFA',
@@ -1071,13 +1032,6 @@ const styles = StyleSheet.create({
     gap: 4,
     borderWidth: 1,
     borderColor: '#F1F5F9',
-  },
-  bundleItemsHeading: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#64748B',
-    letterSpacing: 0.4,
-    marginBottom: 2,
   },
   bundleItemRow: {
     flexDirection: 'row',

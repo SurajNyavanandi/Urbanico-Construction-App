@@ -32,6 +32,10 @@ export const PINCODE_REGISTRY: Record<string, PincodeDistanceInfo> = {
   '500049': { pincode: '500049', areaName: 'Miyapur / Chandanagar', distanceKm: 18.0, tollFee: 0, serviceable: true },
   '500090': { pincode: '500090', areaName: 'Nizampet / Pragathi Nagar', distanceKm: 16.5, tollFee: 0, serviceable: true },
   '500018': { pincode: '500018', areaName: 'Sanath Nagar / Erragadda', distanceKm: 9.5, tollFee: 0, serviceable: true },
+  '501301': { pincode: '501301', areaName: 'Ghatkesar / ORR East Exit', distanceKm: 28.0, tollFee: 40, serviceable: true },
+  '501505': { pincode: '501505', areaName: 'Shamshabad / Airport Zone', distanceKm: 24.0, tollFee: 50, serviceable: true },
+  '502032': { pincode: '502032', areaName: 'Patancheru / Industrial Corridor', distanceKm: 32.0, tollFee: 40, serviceable: true },
+  '509216': { pincode: '509216', areaName: 'Shadnagar / Industrial South Hub', distanceKm: 48.0, tollFee: 80, serviceable: true },
 };
 
 export interface VehicleCapacity {
@@ -159,6 +163,7 @@ export function calculateDynamicFreight(
   ratePerKm: number;
   deliveryCharge: number;
   vehicle: VehicleCapacity;
+  tripsCount: number;
   freightCost: number;
   tollFee: number;
   totalFreight: number;
@@ -183,19 +188,23 @@ export function calculateDynamicFreight(
   } else if (pincode && pincode.length >= 6) {
     // Estimate based on pincode offset from 500001
     const offset = Math.abs(parseInt(pincode.slice(3), 10) || 50);
-    distance = Math.min(30, Math.max(3, Math.round(offset * 0.35 * 10) / 10));
-    areaName = `PIN ${pincode} Area`;
+    distance = Math.min(50, Math.max(5, Math.round(offset * 0.45 * 10) / 10));
+    areaName = `PIN ${pincode} Site Area`;
   }
 
   const ratePerKm = PLATFORM_DELIVERY_RATE_PER_KM; // ₹5 per km
-  const deliveryCharge = calculateDistanceDeliveryCharge(distance, ratePerKm);
   const vehicle = recommendVehicle(totalTons);
+  // Calculate multi-trip count for massive orders exceeding single vehicle capacity (min 1 trip)
+  const tripsCount = totalTons > 0 ? Math.max(1, Math.ceil(totalTons / vehicle.maxTons)) : 1;
+  const singleTripCharge = calculateDistanceDeliveryCharge(distance, ratePerKm);
+  const deliveryCharge = Math.max(50, singleTripCharge * tripsCount);
 
   return {
     distanceKm: distance,
     ratePerKm,
     deliveryCharge,
     vehicle,
+    tripsCount,
     freightCost: deliveryCharge,
     tollFee: 0,
     totalFreight: deliveryCharge,

@@ -7,7 +7,18 @@ import {
   StyleSheet,
   RefreshControl,
 } from 'react-native';
-import { Heart, ShoppingCart, LayoutList, Grid2X2, ChevronRight, ArrowLeft } from 'lucide-react-native';
+import {
+  Heart,
+  ShoppingCart,
+  ChevronRight,
+  ArrowLeft,
+  ShieldCheck,
+  Sparkles,
+  Filter,
+  X,
+  Zap,
+  RotateCcw,
+} from 'lucide-react-native';
 import { CATEGORIES, SERVICES, MATERIAL_ITEMS } from '../data/materialsData';
 import { CategoryId, MaterialItem } from '../types';
 import { useTheme } from '../context/ThemeContext';
@@ -17,12 +28,19 @@ import { EmptyState } from './common/EmptyState';
 import { CatalogSkeleton } from './common/SkeletonLoader';
 import { useToast } from '../context/ToastContext';
 import { soundService } from '../utils/soundHelper';
+import {
+  normalizeSearchQuery,
+  searchAndRankMaterials,
+  extractBrandFromItem,
+  getDidYouMeanSuggestion,
+} from '../services/searchService';
 
 interface CategoryDetailScreenProps {
   categoryId: CategoryId | 'all';
   onSelectItem: (item: MaterialItem) => void;
   onSelectCategoryTab: (catId: CategoryId | 'all') => void;
   searchQuery: string;
+  onClearSearch?: () => void;
   onBack?: () => void;
   favoriteIds?: string[];
   onToggleFavorite?: (id: string) => void;
@@ -35,6 +53,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
   onSelectItem,
   onSelectCategoryTab,
   searchQuery,
+  onClearSearch,
   onBack,
   favoriteIds = [],
   onToggleFavorite,
@@ -56,11 +75,20 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
   // Display View Mode Option: Global setting defaulting to two-column 'grid'
   const [internalViewMode, setInternalViewMode] = useState<'list' | 'grid'>('grid');
   const [sortBy, setSortBy] = useState<'default' | 'price-asc' | 'price-desc' | 'savings'>('default');
+  const [selectedBrand, setSelectedBrand] = useState<string>('all');
+  const [selectedPriceRange, setSelectedPriceRange] = useState<'all' | 'under-500' | '500-5000' | 'above-5000'>('all');
+  const [fastDispatchOnly, setFastDispatchOnly] = useState<boolean>(false);
+  const [forceAllCategories, setForceAllCategories] = useState<boolean>(false);
+
   const viewMode = onViewModeChange ? externalViewMode : internalViewMode;
   const setViewMode = (mode: 'list' | 'grid') => {
     if (onViewModeChange) onViewModeChange(mode);
     else setInternalViewMode(mode);
   };
+
+  // Typo & query normalization
+  const { normalizedQuery, wasCorrected, cleanQuery } = normalizeSearchQuery(searchQuery);
+  const didYouMean = !wasCorrected && searchQuery.trim() ? getDidYouMeanSuggestion(searchQuery) : null;
 
   // Determine whether current context is Services mode or Materials mode
   const isServicesMode =
@@ -70,52 +98,98 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
 
   const activeCategoryObj = CATEGORIES.find((c) => c.id === categoryId);
 
-  // Filter items strictly based on current flow (Services vs Materials) and search query
-  const rawItems = MATERIAL_ITEMS.filter((item) => {
-    if (isServicesMode) {
-      if (item.categoryId !== 'services') return false;
+  // Filter items based on current flow (Services vs Materials) and search query
+  const query = searchQuery ? searchQuery.trim().toLowerCase() : '';
+  const isTradeServiceSearch =
+    query &&
+    ['plumber', 'mason', 'electrician', 'painter', 'fabricator', 'carpenter', 'trade', 'service'].some((t) =>
+      query.includes(t)
+    );
+
+  // Determine Candidate Pool with Cross-Category Silo Prevention (Bug #2)
+  let candidatePool = MATERIAL_ITEMS;
+  let isGlobalFallback = false;
+
+  if (isTradeServiceSearch) {
+    candidatePool = MATERIAL_ITEMS.filter((item) => item.categoryId === 'services');
+  } else if (isServicesMode) {
+    if (query && !SERVICES.some((s) => s.name.toLowerCase().includes(query))) {
+      // User typed a material while on services page
+      candidatePool = MATERIAL_ITEMS.filter((item) => item.categoryId !== 'services');
+      isGlobalFallback = true;
+    } else {
+      candidatePool = MATERIAL_ITEMS.filter((item) => item.categoryId === 'services');
       if (categoryId !== 'services-catalog' && categoryId !== 'services') {
-        // Specific service trade filter
         const targetTrade = categoryId.toLowerCase();
-        const matchesTrade =
-          item.id.toLowerCase() === `service-${targetTrade}` ||
-          item.id.toLowerCase() === targetTrade ||
-          item.name.toLowerCase() === targetTrade ||
-          item.id.toLowerCase().includes(targetTrade) ||
-          item.name.toLowerCase().includes(targetTrade);
-        if (!matchesTrade) {
-          return false;
+        candidatePool = candidatePool.filter(
+          (m) =>
+            m.id.toLowerCase().includes(targetTrade) ||
+            m.name.toLowerCase().includes(targetTrade)
+        );
+      }
+    }
+  } else {
+    // Materials & Combined Flow
+    if (query) {
+      if (categoryId === 'all' || forceAllCategories) {
+        candidatePool = MATERIAL_ITEMS;
+      } else {
+        // Test if current category has matches
+        const inCatItems = MATERIAL_ITEMS.filter((item) => item.categoryId === categoryId);
+        const inCatMatches = searchAndRankMaterials(inCatItems, query);
+        if (inCatMatches.length > 0) {
+          candidatePool = inCatItems;
+        } else {
+          // Cross-category breakout: 0 items matched in current category, auto-expand to all items!
+          candidatePool = MATERIAL_ITEMS;
+          isGlobalFallback = true;
         }
       }
     } else {
-      // Materials mode
-      if (item.categoryId === 'services') return false;
-      if (categoryId !== 'all' && item.categoryId !== categoryId) {
-        return false;
+      if (categoryId === 'all') {
+        candidatePool = MATERIAL_ITEMS;
+      } else {
+        candidatePool = MATERIAL_ITEMS.filter((item) => item.categoryId === categoryId);
       }
     }
+  }
 
-    // Smart search match: if query is category name (e.g. "sand"), show all items in sand
-    const query = searchQuery ? searchQuery.trim().toLowerCase() : '';
-    const categoryName = activeCategoryObj ? activeCategoryObj.name.toLowerCase() : '';
-    const isCategoryQuery = query && (query === categoryId.toLowerCase() || query === categoryName);
+  // Multi-word Tokenized Search, Deep Specs Matching, and Scoring
+  const rankedItems = query
+    ? searchAndRankMaterials(candidatePool, query, { sortBy })
+    : [...candidatePool].sort((a, b) => {
+        const priceA = a.defaultPrice || a.options?.[0]?.price || 0;
+        const priceB = b.defaultPrice || b.options?.[0]?.price || 0;
+        if (sortBy === 'price-asc') return priceA - priceB;
+        if (sortBy === 'price-desc') return priceB - priceA;
+        if (sortBy === 'savings') return (b.options?.length || 0) - (a.options?.length || 0);
+        return 0;
+      });
 
-    const matchesSearch =
-      !query ||
-      isCategoryQuery ||
-      item.name.toLowerCase().includes(query) ||
-      (item.subtitle && item.subtitle.toLowerCase().includes(query));
-    return matchesSearch;
-  });
+  // Extract available brands for dynamic facet filter chips (Bug #10)
+  const availableBrands = Array.from(
+    new Set(
+      candidatePool
+        .map((item) => extractBrandFromItem(item))
+        .filter((b): b is string => Boolean(b))
+    )
+  ).slice(0, 8);
 
-  // Apply sorting
-  const items = [...rawItems].sort((a, b) => {
-    const priceA = a.defaultPrice || a.options?.[0]?.price || 0;
-    const priceB = b.defaultPrice || b.options?.[0]?.price || 0;
-    if (sortBy === 'price-asc') return priceA - priceB;
-    if (sortBy === 'price-desc') return priceB - priceA;
-    if (sortBy === 'savings') return (b.options?.length || 0) - (a.options?.length || 0);
-    return 0;
+  // Apply Facet Filters (Brand, Price Range, Fast Dispatch)
+  const items = rankedItems.filter((item) => {
+    // Brand facet
+    if (selectedBrand !== 'all') {
+      const b = extractBrandFromItem(item);
+      if (b !== selectedBrand) return false;
+    }
+
+    // Price facet
+    const price = item.defaultPrice || item.options?.[0]?.price || 0;
+    if (selectedPriceRange === 'under-500' && price >= 500) return false;
+    if (selectedPriceRange === '500-5000' && (price < 500 || price > 5000)) return false;
+    if (selectedPriceRange === 'above-5000' && price <= 5000) return false;
+
+    return true;
   });
 
   const filteredCategories = CATEGORIES.filter(
@@ -131,11 +205,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
 
   const handleSmartBack = () => {
     soundService.playTap();
-    if (isServicesMode && categoryId !== 'services-catalog' && categoryId !== 'services') {
-      onSelectCategoryTab('services-catalog' as any);
-      return;
-    }
-    if (!isServicesMode && categoryId !== 'all') {
+    if (categoryId !== 'all') {
       onSelectCategoryTab('all' as any);
       return;
     }
@@ -144,7 +214,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
     }
   };
 
-  const isCatalogMode = categoryId === 'all' || categoryId === 'services-catalog';
+  const isCatalogMode = categoryId === 'all' || categoryId === 'services-catalog' || categoryId === 'services';
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
@@ -177,56 +247,54 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.pillsScroll}
           >
-            {isServicesMode ? (
-              /* ================= SERVICES FLOW NAVIGATION ================= */
-              <>
-                <TopNavTab
-                  label="All Services"
-                  isActive={categoryId === 'services-catalog' || categoryId === 'services'}
-                  onPress={() => {
-                    soundService.playTap();
-                    onSelectCategoryTab('services-catalog');
-                  }}
-                />
-                {SERVICES.map((srv) => (
-                  <TopNavTab
-                    key={srv.id}
-                    label={srv.name}
-                    isActive={categoryId === srv.id}
-                    onPress={() => {
-                      soundService.playTap();
-                      onSelectCategoryTab(srv.id as any);
-                    }}
-                  />
-                ))}
-              </>
-            ) : (
-              /* ================= MATERIALS FLOW NAVIGATION ================= */
-              <>
-                <TopNavTab
-                  label="All Materials"
-                  isActive={categoryId === 'all'}
-                  onPress={() => {
-                    soundService.playTap();
-                    onSelectCategoryTab('all');
-                  }}
-                />
-                {CATEGORIES.map((cat) => (
-                  <TopNavTab
-                    key={cat.id}
-                    label={cat.name}
-                    isActive={categoryId === cat.id}
-                    onPress={() => {
-                      soundService.playTap();
-                      onSelectCategoryTab(cat.id);
-                    }}
-                  />
-                ))}
-              </>
-            )}
+            {/* 1. All (Combination of Materials & Services) */}
+            <TopNavTab
+              label="All"
+              isActive={categoryId === 'all'}
+              onPress={() => {
+                soundService.playTap();
+                onSelectCategoryTab('all');
+              }}
+            />
+
+            {/* 2. Services (Skilled Trade Services) */}
+            <TopNavTab
+              label="Services"
+              isActive={categoryId === 'services-catalog' || categoryId === 'services'}
+              onPress={() => {
+                soundService.playTap();
+                onSelectCategoryTab('services-catalog');
+              }}
+            />
+
+            {/* 3. Building Material Categories */}
+            {CATEGORIES.map((cat) => (
+              <TopNavTab
+                key={cat.id}
+                label={cat.name}
+                isActive={categoryId === cat.id}
+                onPress={() => {
+                  soundService.playTap();
+                  onSelectCategoryTab(cat.id);
+                }}
+              />
+            ))}
+
+            {/* 4. Trade Services */}
+            {SERVICES.map((srv) => (
+              <TopNavTab
+                key={srv.id}
+                label={srv.name}
+                isActive={categoryId === srv.id}
+                onPress={() => {
+                  soundService.playTap();
+                  onSelectCategoryTab(srv.id as any);
+                }}
+              />
+            ))}
           </ScrollView>
           {/* Subtle Right Edge Fade Indicator to signal more horizontal pills */}
-          <View pointerEvents="none" style={[styles.horizontalFadeIndicator, { backgroundColor: theme.surface }]} />
+          <View style={[styles.horizontalFadeIndicator, { backgroundColor: theme.surface, pointerEvents: 'none' as any }]} />
         </View>
       </View>
 
@@ -234,73 +302,154 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
         <CatalogSkeleton />
       ) : (
         <>
-          {/* 1. Materials Catalog (categoryId === 'all') */}
+          {/* 1. All Combination: Materials & Skilled Services (categoryId === 'all') */}
           {categoryId === 'all' && (
-        <View style={styles.itemsSectionContainer}>
-          {/* Display Header Bar */}
-          <View style={styles.viewToggleHeaderBar}>
-            <View>
-              <Text style={[styles.sectionTitleText, { color: theme.textPrimary }]}>
-                {filteredCategories.length} Material Categories
-              </Text>
-              <Text style={[styles.sectionSubtitleText, { color: theme.textMuted }]}>
-                Select category to explore subcategories & items
-              </Text>
-            </View>
-          </View>
+            <View style={styles.itemsSectionContainer}>
+              {/* Display Header Bar */}
+              <View style={styles.viewToggleHeaderBar}>
+                <View>
+                  <Text style={[styles.sectionTitleText, { color: theme.textPrimary }]}>
+                    {filteredCategories.length + filteredServices.length} Categories & Services
+                  </Text>
+                  <Text style={[styles.sectionSubtitleText, { color: theme.textSecondary }]}>
+                    Building materials and certified trade services
+                  </Text>
+                </View>
+              </View>
 
-          {/* Materials List / Grid Layout */}
-          {filteredCategories.length === 0 ? (
-            <EmptyState
-              type="no-search"
-              title="No Categories Found"
-              description="No material categories matched your search term."
-            />
-          ) : viewMode === 'grid' ? (
-            /* 2-Column Grid View Layout */
-            <View style={styles.twoColumnGridRow}>
-              {filteredCategories.map((cat) => (
-                <ProductCard
-                  key={cat.id}
-                  title={cat.name}
-                  subtitle={cat.count}
-                  priceLabel={cat.priceLabel}
-                  image={cat.image}
-                  viewMode="grid"
-                  onPress={() => onSelectCategoryTab(cat.id)}
+              {filteredCategories.length === 0 && filteredServices.length === 0 ? (
+                <EmptyState
+                  type="no-search"
+                  title="No Categories or Services Found"
+                  description="No material categories or trade services matched your search term."
                 />
-              ))}
-            </View>
-          ) : (
-            /* 1-Column Single List View Layout */
-            <View style={styles.oneColumnListContainer}>
-              {filteredCategories.map((cat) => (
-                <ProductCard
-                  key={cat.id}
-                  title={cat.name}
-                  subtitle={cat.count}
-                  priceLabel={cat.priceLabel}
-                  image={cat.image}
-                  viewMode="list"
-                  onPress={() => onSelectCategoryTab(cat.id)}
-                />
-              ))}
+              ) : (
+                <>
+                  {/* Building Materials Group */}
+                  {filteredCategories.length > 0 && (
+                    <View style={{ marginBottom: 20 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, marginTop: 4 }}>
+                        <Text style={{ fontSize: 15, fontWeight: '700', color: theme.textPrimary }}>
+                          Building Materials ({filteredCategories.length})
+                        </Text>
+                      </View>
+
+                      {viewMode === 'grid' ? (
+                        <View style={styles.twoColumnGridRow}>
+                          {filteredCategories.map((cat) => (
+                            <ProductCard
+                              key={cat.id}
+                              title={cat.name}
+                              subtitle={cat.count}
+                              priceLabel={cat.priceLabel}
+                              image={cat.image}
+                              viewMode="grid"
+                              onPress={() => onSelectCategoryTab(cat.id)}
+                            />
+                          ))}
+                        </View>
+                      ) : (
+                        <View style={styles.oneColumnListContainer}>
+                          {filteredCategories.map((cat) => (
+                            <ProductCard
+                              key={cat.id}
+                              title={cat.name}
+                              subtitle={cat.count}
+                              priceLabel={cat.priceLabel}
+                              image={cat.image}
+                              viewMode="list"
+                              onPress={() => onSelectCategoryTab(cat.id)}
+                            />
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  )}
+
+                  {/* Skilled Trade Services Group */}
+                  {filteredServices.length > 0 && (
+                    <View style={{ marginBottom: 12 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                        <Text style={{ fontSize: 15, fontWeight: '700', color: theme.textPrimary }}>
+                          Skilled Trade Services ({filteredServices.length})
+                        </Text>
+                        <TouchableOpacity
+                          onPress={() => {
+                            soundService.playTap();
+                            onSelectCategoryTab('services-catalog');
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={{ fontSize: 12, fontWeight: '600', color: theme.primary }}>
+                            View Services Catalog →
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {viewMode === 'grid' ? (
+                        <View style={styles.twoColumnGridRow}>
+                          {filteredServices.map((srv) => {
+                            const matchingItem = MATERIAL_ITEMS.find((m) => m.id === `service-${srv.id}`);
+                            return (
+                              <ProductCard
+                                key={srv.id}
+                                title={srv.name}
+                                subtitle={srv.subtitle}
+                                priceLabel={srv.rate}
+                                image={srv.image}
+                                item={matchingItem}
+                                viewMode="grid"
+                                onPress={() => {
+                                  if (matchingItem) onSelectItem(matchingItem);
+                                  else onSelectCategoryTab(srv.id as any);
+                                }}
+                                onAddToCartPress={matchingItem ? () => onSelectItem(matchingItem) : undefined}
+                                isFavorite={matchingItem ? favoriteIds.includes(matchingItem.id) : false}
+                                onToggleFavorite={matchingItem && onToggleFavorite ? () => onToggleFavorite(matchingItem.id) : undefined}
+                              />
+                            );
+                          })}
+                        </View>
+                      ) : (
+                        <View style={styles.oneColumnListContainer}>
+                          {filteredServices.map((srv) => {
+                            const matchingItem = MATERIAL_ITEMS.find((m) => m.id === `service-${srv.id}`);
+                            return (
+                              <ProductCard
+                                key={srv.id}
+                                title={srv.name}
+                                subtitle={srv.subtitle}
+                                priceLabel={srv.rate}
+                                image={srv.image}
+                                item={matchingItem}
+                                viewMode="list"
+                                onPress={() => {
+                                  if (matchingItem) onSelectItem(matchingItem);
+                                  else onSelectCategoryTab(srv.id as any);
+                                }}
+                                onAddToCartPress={matchingItem ? () => onSelectItem(matchingItem) : undefined}
+                                isFavorite={matchingItem ? favoriteIds.includes(matchingItem.id) : false}
+                                onToggleFavorite={matchingItem && onToggleFavorite ? () => onToggleFavorite(matchingItem.id) : undefined}
+                              />
+                            );
+                          })}
+                        </View>
+                      )}
+                    </View>
+                  )}
+                </>
+              )}
             </View>
           )}
-        </View>
-      )}
 
-      {/* 2. Services Catalog (categoryId === 'services-catalog') */}
-      {categoryId === 'services-catalog' && (
+      {/* 2. Services Catalog (categoryId === 'services-catalog' || categoryId === 'services') */}
+      {(categoryId === 'services-catalog' || categoryId === 'services') && (
         <View style={styles.itemsSectionContainer}>
           {/* Display Header Bar */}
           <View style={styles.viewToggleHeaderBar}>
             <View>
               <Text style={[styles.sectionTitleText, { color: theme.textPrimary }]}>
                 {filteredServices.length} Skilled Services
-              </Text>
-              <Text style={[styles.sectionSubtitleText, { color: theme.textMuted }]}>
-                Select service to view details & book
               </Text>
             </View>
           </View>
@@ -370,24 +519,67 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
       {!isCatalogMode && (
         <View style={styles.itemsSectionContainer}>
 
-          {/* Header Bar */}
-          <View style={styles.viewToggleHeaderBar}>
-            <View>
-              <Text style={[styles.sectionTitleText, { color: theme.textPrimary }]}>
-                {items.length} Products
-              </Text>
-              <Text style={[styles.sectionSubtitleText, { color: theme.textMuted }]}>
-                Select item to customize & add
+          {/* Typo Correction Banner (Bug #4) */}
+          {query && wasCorrected && (
+            <View style={[styles.correctionBanner, { backgroundColor: '#FEF3C7', borderColor: '#FCD34D' }]}>
+              <Sparkles size={14} color="#D97706" strokeWidth={2.2} />
+              <Text style={styles.correctionBannerText}>
+                Showing results for <Text style={{ fontWeight: '700', color: '#92400E' }}>"{normalizedQuery}"</Text>
+                {cleanQuery.toLowerCase() !== normalizedQuery && (
+                  <Text style={{ color: '#B45309', fontSize: 11 }}> (searched "{cleanQuery}")</Text>
+                )}
               </Text>
             </View>
+          )}
+
+          {/* Cross-Category Breakout Notice (Bug #2) */}
+          {query && isGlobalFallback && (
+            <View style={[styles.globalNoticeBanner, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
+              <Text style={styles.globalNoticeText}>
+                No items in {activeCategoryObj?.name || 'this category'} matched "{searchQuery}". Showing matches from <Text style={{ fontWeight: '700' }}>All Materials</Text>.
+              </Text>
+            </View>
+          )}
+
+          {/* Header Bar */}
+          <View style={styles.viewToggleHeaderBar}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', flex: 1 }}>
+              <Text style={[styles.sectionTitleText, { color: theme.textPrimary }]}>
+                {items.length} Products {query ? `for "${searchQuery}"` : ''}
+              </Text>
+              {query && onClearSearch && (
+                <TouchableOpacity
+                  onPress={onClearSearch}
+                  style={[styles.resetFiltersMiniBtn, { backgroundColor: '#FEE2E2', borderColor: '#FECACA' }]}
+                  activeOpacity={0.7}
+                >
+                  <X size={11} color="#DC2626" strokeWidth={2.4} />
+                  <Text style={[styles.resetFiltersMiniBtnText, { color: '#DC2626', fontWeight: '700' }]}>Clear Search</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            {(selectedBrand !== 'all' || selectedPriceRange !== 'all') && (
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectedBrand('all');
+                  setSelectedPriceRange('all');
+                }}
+                style={styles.resetFiltersMiniBtn}
+                activeOpacity={0.7}
+              >
+                <RotateCcw size={11} color="#6B7280" strokeWidth={2} />
+                <Text style={styles.resetFiltersMiniBtnText}>Clear Filters</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
-          {/* Quick Sort Filter Chips */}
+          {/* Facet Filters & Quick Sort Row (Bug #10) */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.sortChipsScroll}
           >
+            {/* Sort: Featured */}
             <TouchableOpacity
               onPress={() => setSortBy('default')}
               style={[
@@ -408,6 +600,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
               </Text>
             </TouchableOpacity>
 
+            {/* Sort: Price Low to High */}
             <TouchableOpacity
               onPress={() => setSortBy('price-asc')}
               style={[
@@ -428,6 +621,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
               </Text>
             </TouchableOpacity>
 
+            {/* Sort: Price High to Low */}
             <TouchableOpacity
               onPress={() => setSortBy('price-desc')}
               style={[
@@ -448,12 +642,13 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
               </Text>
             </TouchableOpacity>
 
+            {/* Price Filter: Under 500 */}
             <TouchableOpacity
-              onPress={() => setSortBy('savings')}
+              onPress={() => setSelectedPriceRange((prev) => (prev === 'under-500' ? 'all' : 'under-500'))}
               style={[
                 styles.sortChip,
-                sortBy === 'savings'
-                  ? { backgroundColor: theme.primary, borderColor: theme.primary }
+                selectedPriceRange === 'under-500'
+                  ? { backgroundColor: '#2563EB', borderColor: '#2563EB' }
                   : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
               ]}
               activeOpacity={0.75}
@@ -461,21 +656,120 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
               <Text
                 style={[
                   styles.sortChipText,
-                  { color: sortBy === 'savings' ? '#FFFFFF' : theme.textSecondary },
+                  { color: selectedPriceRange === 'under-500' ? '#FFFFFF' : theme.textSecondary },
                 ]}
               >
-                Bulk Discount
+                Under ₹500
               </Text>
             </TouchableOpacity>
+
+            {/* Price Filter: 500 - 5k */}
+            <TouchableOpacity
+              onPress={() => setSelectedPriceRange((prev) => (prev === '500-5000' ? 'all' : '500-5000'))}
+              style={[
+                styles.sortChip,
+                selectedPriceRange === '500-5000'
+                  ? { backgroundColor: '#2563EB', borderColor: '#2563EB' }
+                  : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+              ]}
+              activeOpacity={0.75}
+            >
+              <Text
+                style={[
+                  styles.sortChipText,
+                  { color: selectedPriceRange === '500-5000' ? '#FFFFFF' : theme.textSecondary },
+                ]}
+              >
+                ₹500 - ₹5,000
+              </Text>
+            </TouchableOpacity>
+
+            {/* Brand Facet Chips */}
+            {availableBrands.map((brand) => (
+              <TouchableOpacity
+                key={brand}
+                onPress={() => setSelectedBrand((prev) => (prev === brand ? 'all' : brand))}
+                style={[
+                  styles.sortChip,
+                  selectedBrand === brand
+                    ? { backgroundColor: '#059669', borderColor: '#059669' }
+                    : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                ]}
+                activeOpacity={0.75}
+              >
+                <Text
+                  style={[
+                    styles.sortChipText,
+                    { color: selectedBrand === brand ? '#FFFFFF' : theme.textSecondary },
+                  ]}
+                >
+                  {brand}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </ScrollView>
 
           {/* Product Items List / Grid */}
           {items.length === 0 ? (
-            <EmptyState
-              type="no-search"
-              title="No Products Found"
-              description="No products matched your search or subcategory filter."
-            />
+            <View style={styles.zeroResultCard}>
+              <Text style={[styles.zeroResultTitle, { color: theme.textPrimary }]}>
+                No products found {query ? `for "${searchQuery}"` : ''}
+              </Text>
+              <Text style={[styles.zeroResultSub, { color: theme.textSecondary }]}>
+                Try adjusting your brand, price filters, or search terms.
+              </Text>
+
+              {/* Did you mean suggestion (Bug #9) */}
+              {didYouMean && (
+                <TouchableOpacity
+                  onPress={() => onSelectCategoryTab && onSelectCategoryTab('all')}
+                  style={[styles.didYouMeanPill, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}
+                  activeOpacity={0.8}
+                >
+                  <Sparkles size={14} color="#2563EB" strokeWidth={2.2} />
+                  <Text style={styles.didYouMeanText}>
+                    Did you mean: <Text style={{ fontWeight: '700', textDecorationLine: 'underline' }}>{didYouMean}</Text>?
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectedBrand('all');
+                  setSelectedPriceRange('all');
+                  setSortBy('default');
+                  if (onClearSearch) onClearSearch();
+                  onSelectCategoryTab('all');
+                }}
+                style={[styles.resetFiltersBtn, { backgroundColor: theme.primary }]}
+                activeOpacity={0.85}
+              >
+                <RotateCcw size={14} color="#FFFFFF" strokeWidth={2} />
+                <Text style={styles.resetFiltersBtnText}>Clear Filters & Browse All Catalog</Text>
+              </TouchableOpacity>
+
+              {/* Popular Construction Essentials Recommendations */}
+              <View style={styles.recommendedSection}>
+                <Text style={[styles.recommendedSectionTitle, { color: theme.textPrimary }]}>
+                  Popular Construction Essentials
+                </Text>
+                <View style={styles.twoColumnGridRow}>
+                  {MATERIAL_ITEMS.filter((m) =>
+                    ['mat-cement-1', 'mat-steel-1', 'mat-sand-1', 'mat-bricks-1'].includes(m.id)
+                  ).map((recItem) => (
+                    <ProductCard
+                      key={recItem.id}
+                      item={recItem}
+                      viewMode="grid"
+                      onPress={() => onSelectItem(recItem)}
+                      onAddToCartPress={() => onSelectItem(recItem)}
+                      isFavorite={favoriteIds.includes(recItem.id)}
+                      onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(recItem.id) : undefined}
+                    />
+                  ))}
+                </View>
+              </View>
+            </View>
           ) : viewMode === 'grid' ? (
             /* 2-Column Grid View Layout (Reference Image 1) */
             <View style={styles.twoColumnGridRow}>
@@ -630,28 +924,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginTop: 1,
   },
-  togglePillContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 3,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 3,
-  },
-  toggleBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  toggleBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
   sortChipsScroll: {
     paddingVertical: 6,
     gap: 8,
@@ -672,6 +944,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
+    width: '100%',
   },
   oneColumnListContainer: {
     flexDirection: 'column',
@@ -759,6 +1032,103 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  correctionBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  correctionBannerText: {
+    fontSize: 12,
+    color: '#78350F',
+    flex: 1,
+  },
+  globalNoticeBanner: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  globalNoticeText: {
+    fontSize: 12,
+    color: '#1E40AF',
+  },
+  resetFiltersMiniBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: '#F3F4F6',
+  },
+  resetFiltersMiniBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#4B5563',
+  },
+  zeroResultCard: {
+    paddingVertical: 24,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    gap: 8,
+  },
+  zeroResultTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  zeroResultSub: {
+    fontSize: 13,
+    textAlign: 'center',
+    maxWidth: 320,
+    marginBottom: 4,
+  },
+  didYouMeanPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    marginVertical: 4,
+  },
+  didYouMeanText: {
+    fontSize: 13,
+    color: '#1D4ED8',
+  },
+  resetFiltersBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 999,
+    marginTop: 6,
+  },
+  resetFiltersBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  recommendedSection: {
+    width: '100%',
+    marginTop: 24,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  recommendedSectionTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 12,
   },
 });
 

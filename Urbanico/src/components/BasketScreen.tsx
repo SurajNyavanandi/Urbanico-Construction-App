@@ -28,17 +28,25 @@ import {
   Scale,
   Sparkles,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   X,
   FileCheck2,
   PhoneCall,
   MessageSquare,
   Camera,
   ShoppingBag,
+  Building2,
+  Home,
+  Briefcase,
+  FileSpreadsheet,
+  Download,
 } from 'lucide-react-native';
 import { CartItem, ScreenType, ActivityDelivery } from '../types';
 import { INITIAL_DELIVERIES } from '../data/materialsData';
 import { useTheme } from '../context/ThemeContext';
 import { useLocation } from '../context/LocationContext';
+import { lookupCityStateFromPincode } from '../utils/addressHelper';
 import { RazorpayModal, RazorpayPaymentResult } from './RazorpayModal';
 import { PaymentSuccessModal } from './PaymentSuccessModal';
 import { EmptyState } from './common/EmptyState';
@@ -57,6 +65,7 @@ import {
   PINCODE_REGISTRY,
 } from '../utils/freightCalculator';
 import { validateGSTIN } from '../utils/gstinValidator';
+import { openProformaQuotationPrint } from '../utils/proformaQuotationHelper';
 import { LiveDispatcherChatModal } from './common/LiveDispatcherChatModal';
 import { WeighbridgeScanModal } from './common/WeighbridgeScanModal';
 import { SupervisorHandoffModal } from './common/SupervisorHandoffModal';
@@ -66,6 +75,7 @@ interface BasketScreenProps {
   onUpdateQuantity: (id: string, newQty: number) => void;
   onRemoveItem: (id: string) => void;
   onClearCart: () => void;
+  onAddToCart?: (item: CartItem) => void;
   selectedLocation?: string;
   onNavigateScreen: (screen: ScreenType) => void;
   deliveries?: ActivityDelivery[];
@@ -74,6 +84,7 @@ interface BasketScreenProps {
   onChangeAddressRedirect?: () => void;
   isLoggedIn?: boolean;
   onOpenLoginModal?: () => void;
+  user?: any;
 }
 
 export const BasketScreen: React.FC<BasketScreenProps> = ({
@@ -81,6 +92,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   onUpdateQuantity,
   onRemoveItem,
   onClearCart,
+  onAddToCart,
   selectedLocation: propLocation,
   onNavigateScreen,
   deliveries = INITIAL_DELIVERIES,
@@ -89,20 +101,64 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   onChangeAddressRedirect,
   isLoggedIn = false,
   onOpenLoginModal,
+  user,
 }) => {
   const { theme, typography } = useTheme();
-  const { selectedLocation: globalLocation } = useLocation();
+  const {
+    selectedLocation: globalLocation,
+    savedLocations,
+    setSelectedLocation,
+    addLocation,
+  } = useLocation();
   const { showToast } = useToast();
   const activeLocation = globalLocation || propLocation || 'Miyapur Site, Phase 2, Hyderabad';
   const [activeTab, setActiveTab] = useState<'cart' | 'history'>('cart');
   const [refreshing, setRefreshing] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const createdOrderRef = React.useRef<ActivityDelivery | null>(null);
+
+  // Checkout Delivery Address Selection Modal (Flipkart / Amazon Style)
+  const [showCheckoutModal, setShowCheckoutModal] = useState(false);
+  const [selectedCheckoutAddress, setSelectedCheckoutAddress] = useState<string>(activeLocation);
+  const [isAddingNewAddress, setIsAddingNewAddress] = useState(false);
+
+  // New Address Form State
+  const [newAddrName, setNewAddrName] = useState(user?.name || '');
+  const [newAddrPhone, setNewAddrPhone] = useState(user?.phone?.replace(/\D/g, '') || '');
+  const [newAddrPincode, setNewAddrPincode] = useState('500081');
+  const [newAddrFlat, setNewAddrFlat] = useState('');
+  const [newAddrStreet, setNewAddrStreet] = useState('');
+  const [newAddrLandmark, setNewAddrLandmark] = useState('');
+  const [newAddrCity, setNewAddrCity] = useState('Hyderabad');
+  const [newAddrState, setNewAddrState] = useState('Telangana');
+  const [newAddrType, setNewAddrType] = useState<'Site' | 'Home' | 'Office' | 'Warehouse'>('Site');
+  const [addrFormError, setAddrFormError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeLocation && !selectedCheckoutAddress) {
+      setSelectedCheckoutAddress(activeLocation);
+    }
+  }, [activeLocation]);
+
+  useEffect(() => {
+    if (user?.name && !newAddrName) setNewAddrName(user.name);
+    if (user?.phone && !newAddrPhone) setNewAddrPhone(user.phone.replace(/\D/g, ''));
+  }, [user]);
 
   // Saved for Later state
   const [savedForLaterItems, setSavedForLaterItems] = useState<CartItem[]>(() => {
     try {
       const saved = safeStorage.getItem('urbanico_saved_for_later');
-      return saved ? JSON.parse(saved) : [];
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.map((item: any, idx: number) => ({
+            ...item,
+            id: item.id || `saved-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`,
+          }));
+        }
+      }
+      return [];
     } catch {
       return [];
     }
@@ -139,9 +195,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   const [promoInput, setPromoInput] = useState('');
   const [showCouponModal, setShowCouponModal] = useState(false);
 
-  // Split Payment state (100% full vs 50% booking advance)
-  const [paymentMode, setPaymentMode] = useState<'100_percent' | '50_split'>('100_percent');
-
   // Modals for live dispatcher, OCR weighbridge, supervisor handoff
   const [showDispatcherChat, setShowDispatcherChat] = useState(false);
   const [showWeighbridgeScan, setShowWeighbridgeScan] = useState(false);
@@ -151,15 +204,29 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     phone: '9876543210',
   });
 
+  // Extract active pincode from delivery address dynamically (defaults to 500081)
+  const currentAddressStr = selectedCheckoutAddress || activeLocation || '';
+  const detectedPincodeMatch = currentAddressStr.match(/\b(50[0-9]{4})\b/);
+  const activePincode = detectedPincodeMatch ? detectedPincodeMatch[1] : '500081';
+
   // Dynamic Freight from Hyderabad Central Hub at ₹5/km
   const totalWeightTons = estimateTotalWeightTons(cartItems);
-  const freightInfo = calculateDynamicFreight('500081', totalWeightTons);
+  const freightInfo = calculateDynamicFreight(activePincode, totalWeightTons);
 
   // Razorpay Payment States
   const [showRazorpayModal, setShowRazorpayModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [latestPaymentResult, setLatestPaymentResult] = useState<RazorpayPaymentResult | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+
+  // B2B GSTIN input for Tax Invoicing & 18% Input Tax Credit
+  const [checkoutGstin, setCheckoutGstin] = useState(user?.gstin || '');
+  const [gstinError, setGstinError] = useState<string | null>(null);
+
+  // Order Cancellation Guard & Status State
+  const [cancelledOrderIds, setCancelledOrderIds] = useState<string[]>([]);
+  const [orderToCancel, setOrderToCancel] = useState<ActivityDelivery | null>(null);
+  const [showCancelConfirmModal, setShowCancelConfirmModal] = useState(false);
 
   const deliveryDistanceKm = freightInfo.distanceKm || 10;
   const {
@@ -176,6 +243,8 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     deliveryCharge,
     grandTotal,
   } = calculateCartTotals(cartItems, couponDiscount, deliveryDistanceKm);
+
+  const payableAmount = grandTotal;
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -203,9 +272,13 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       safeStorage.setItem('urbanico_saved_for_later', JSON.stringify(updatedSaved));
       syncManager.broadcast('SAVED_FOR_LATER_UPDATED', updatedSaved);
     } catch {}
-    // trigger adding back
-    onUpdateQuantity(item.id, 1);
-    showToast(`Moved "${item.itemName}" back to bag`, 'success');
+    // trigger adding back to cart
+    if (onAddToCart) {
+      onAddToCart(item);
+    } else {
+      onUpdateQuantity(item.id, 1);
+    }
+    showToast(`Moved "${item.itemName}" back to cart`, 'success');
   };
 
   const handleRemoveSavedItem = (id: string) => {
@@ -216,6 +289,117 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       syncManager.broadcast('SAVED_FOR_LATER_UPDATED', updated);
     } catch {}
     showToast('Removed item from saved list', 'info');
+  };
+
+  // Saved Delivery Addresses list (E-commerce Flipkart / Amazon style)
+  const availableAddresses: string[] = Array.from(
+    new Set([
+      activeLocation,
+      ...savedLocations,
+      'Miyapur Site, Phase 2, Hyderabad - 500049',
+      'Gachibowli Site 4, Financial District, Hyderabad - 500032',
+      'Hitech City Commercial Tower, Madhapur, Hyderabad - 500081',
+    ].filter(Boolean))
+  );
+
+  const handlePincodeChange = (pin: string) => {
+    const cleaned = pin.replace(/\D/g, '').slice(0, 6);
+    setNewAddrPincode(cleaned);
+    if (cleaned.length >= 3) {
+      const lookup = lookupCityStateFromPincode(cleaned);
+      if (lookup.city) setNewAddrCity(lookup.city);
+      if (lookup.state) setNewAddrState(lookup.state);
+    }
+    if (cleaned.length === 6) {
+      const prefix = parseInt(cleaned.slice(0, 3), 10);
+      if (prefix < 500 || prefix > 509) {
+        setAddrFormError('Currently delivering exclusively across Hyderabad & Telangana regions (PIN: 500xxx - 509xxx). Out-of-zone freight is not yet serviceable.');
+      } else {
+        setAddrFormError(null);
+      }
+    }
+  };
+
+  const handlePincodeBlur = () => {
+    if (newAddrPincode.length >= 3) {
+      const lookup = lookupCityStateFromPincode(newAddrPincode);
+      if (lookup.city) setNewAddrCity(lookup.city);
+      if (lookup.state) setNewAddrState(lookup.state);
+    }
+  };
+
+  const handleSaveAndSelectNewAddress = () => {
+    if (!newAddrName.trim()) {
+      setAddrFormError('Please enter full name or site incharge');
+      return;
+    }
+    if (!newAddrPhone.trim() || newAddrPhone.trim().length < 10) {
+      setAddrFormError('Please enter a valid 10-digit mobile number');
+      return;
+    }
+    if (!newAddrPincode.trim() || newAddrPincode.trim().length !== 6) {
+      setAddrFormError('Please enter a valid 6-digit Indian pincode');
+      return;
+    }
+    const pinPrefix = parseInt(newAddrPincode.trim().slice(0, 3), 10);
+    if (pinPrefix < 500 || pinPrefix > 509) {
+      setAddrFormError('Currently delivering exclusively across Hyderabad & Telangana regions (PIN: 500xxx - 509xxx). Out-of-zone freight is unavailable.');
+      return;
+    }
+    if (!newAddrFlat.trim()) {
+      setAddrFormError('Please enter flat/plot/building or site name');
+      return;
+    }
+    if (!newAddrStreet.trim()) {
+      setAddrFormError('Please enter street or area name');
+      return;
+    }
+
+    const fullFormatted = `${newAddrFlat.trim()}, ${newAddrStreet.trim()}${newAddrLandmark.trim() ? `, Near ${newAddrLandmark.trim()}` : ''}, ${newAddrCity.trim()} - ${newAddrPincode.trim()}, ${newAddrState.trim()}`;
+
+    addLocation(fullFormatted);
+    setSelectedCheckoutAddress(fullFormatted);
+    setSelectedLocation(fullFormatted);
+    setIsAddingNewAddress(false);
+    setAddrFormError(null);
+    showToast('New delivery address added and selected!', 'success');
+  };
+
+  const handleConfirmCancelOrder = () => {
+    if (!orderToCancel) return;
+    setCancelledOrderIds((prev) => [...prev, orderToCancel.id]);
+    showToast(`Order #${orderToCancel.orderNumber} cancelled. 100% refund of ₹${orderToCancel.totalAmount.toLocaleString('en-IN')} initiated to your source account.`, 'info');
+    setShowCancelConfirmModal(false);
+    setOrderToCancel(null);
+  };
+
+  const handleStartCheckout = () => {
+    if (!isLoggedIn) {
+      showToast('Please log in or sign up to proceed to checkout', 'info');
+      if (onOpenLoginModal) onOpenLoginModal();
+      return;
+    }
+
+    setShowCouponModal(false);
+    setShowSupervisorModal(false);
+    setShowDispatcherChat(false);
+    setShowWeighbridgeScan(false);
+    setPaymentError(null);
+    setSelectedCheckoutAddress(activeLocation);
+    setIsAddingNewAddress(false);
+    setAddrFormError(null);
+    setShowCheckoutModal(true);
+  };
+
+  const handleConfirmAddressAndProceedToPay = () => {
+    const chosenAddress = selectedCheckoutAddress || activeLocation;
+    setSelectedLocation(chosenAddress);
+    setShowCheckoutModal(false);
+    setIsPlacingOrder(true);
+    setTimeout(() => {
+      setIsPlacingOrder(false);
+      setShowRazorpayModal(true);
+    }, 200);
   };
 
   const handleApplyCoupon = (code: string) => {
@@ -292,21 +476,51 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     const now = new Date();
     const formattedTime = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
     const generatedOrderNum = `URB-${Math.floor(10000 + Math.random() * 90000)}`;
+
+    const isMixedCart = hasMaterials && hasServices;
+    const materialSummary = materialItems.map((c) => `${c.itemName} (${c.selectedOptionLabel})`).join(', ');
+    const serviceSummary = serviceItems.map((c) => `${c.itemName}`).join(', ');
+
+    const finalMaterialName = isServicesOnly
+      ? `${serviceItems[0]?.itemName || 'Skilled Trade'} Service Booking`
+      : isMixedCart
+      ? `${materialSummary} + [Service: ${serviceSummary}]`
+      : materialSummary || 'Direct Supply Order';
+
+    const finalVehicleType = isServicesOnly
+      ? 'Service Inspection Vehicle'
+      : isMixedCart
+      ? `${freightInfo.vehicle.name} & Trade Service Unit`
+      : freightInfo.vehicle.name;
+
+    const finalVehicleNum = isServicesOnly
+      ? 'TS 09 SV 4182'
+      : isMixedCart
+      ? 'TS 08 UB 6742 (Truck) & TS 09 SV 4182 (Service)'
+      : 'TS 08 UB 6742';
+
+    const finalDriverName = isServicesOnly
+      ? 'Vijay Kumar (Verified Specialist)'
+      : isMixedCart
+      ? 'Ramesh Goud (Yard Dispatch) & Vijay Kumar (Specialist)'
+      : 'Ramesh Goud';
+
+    const assignedDriverPhone = '+91 98480 22341';
+    const deliveryDestination = selectedCheckoutAddress || activeLocation;
+    const effectiveGstin = checkoutGstin.trim() || user?.gstin || (isServicesOnly ? undefined : '36AABCU12341ZV');
+
     const newOrder: ActivityDelivery = {
       id: `del-${Date.now()}`,
       orderNumber: generatedOrderNum,
-      materialName: isServicesOnly
-        ? `${serviceItems[0]?.itemName || 'Skilled Trade'} Service Booking`
-        : cartItems.map((c) => `${c.itemName} (${c.selectedOptionLabel})`).join(', ') ||
-          'Direct Supply Order',
+      materialName: finalMaterialName,
       quantity: isServicesOnly ? '1 Site Visit' : `${cartItems.reduce((acc, c) => acc + c.quantity, 0)} Items`,
-      driverName: isServicesOnly ? 'Assigned Field Specialist' : 'Ramesh Goud',
-      driverPhone: '+91 98480 22341',
-      vehicleType: isServicesOnly ? 'Service Inspection Vehicle' : freightInfo.vehicle.name,
-      vehicleNumber: isServicesOnly ? 'TS 09 SV ' + Math.floor(1000 + Math.random() * 9000) : 'TS 08 UB ' + Math.floor(1000 + Math.random() * 9000),
+      driverName: finalDriverName,
+      driverPhone: assignedDriverPhone,
+      vehicleType: finalVehicleType,
+      vehicleNumber: finalVehicleNum,
       estimatedArrival: isServicesOnly ? 'Today within 2 hrs' : '35 mins',
       status: 'En Route',
-      siteAddress: activeLocation,
+      siteAddress: deliveryDestination,
       siteSupervisorName: activeSupervisor.name,
       siteSupervisorPhone: activeSupervisor.phone,
       timestamp: `Today, ${formattedTime}`,
@@ -316,19 +530,21 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       weighmentSlipId: `WB-HYD-${Math.floor(1000 + Math.random() * 9000)}`,
     };
 
-    // Send real order data to the backend API
+    createdOrderRef.current = newOrder;
+
+    // Send real order data to the backend API with customer profile
     apiService.createOrder({
       orderNumber: generatedOrderNum,
-      customerName: 'Urbanico Customer',
-      customerPhone: '+91 98765 43210',
-      customerEmail: 'orders@urbanico.in',
-      gstin: '36AABCU12341ZV',
+      customerName: user?.name || 'Urbanico Builder',
+      customerPhone: user?.phone ? (user.phone.startsWith('+91') ? user.phone : `+91 ${user.phone}`) : '+91 98480 12345',
+      customerEmail: user?.email || 'builder@urbanico.in',
+      gstin: effectiveGstin,
       siteAddress: {
         siteName: 'Site Delivery Location',
-        street: activeLocation,
+        street: deliveryDestination,
         city: 'Hyderabad',
         state: 'Telangana',
-        pincode: '500001',
+        pincode: activePincode || '500081',
       },
       items: cartItems.map((item) => ({
         name: item.itemName,
@@ -337,7 +553,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
         unit: item.selectedOptionLabel || 'Unit',
         unitPrice: item.unitPrice,
         totalPrice: item.unitPrice * item.quantity,
-        gstAmount: isCartItemService(item) ? 0 : 0.18,
+        gstAmount: isCartItemService(item) ? 0 : Math.round(item.unitPrice * item.quantity * 0.18),
       })),
       subtotal,
       taxAmount: gstTax,
@@ -350,12 +566,12 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
         razorpayPaymentId: result.razorpay_payment_id,
         razorpayOrderId: result.razorpay_order_id,
         paymentMethod: result.method,
-        amount: grandTotal,
+        amount: payableAmount,
         timestamp: new Date().toISOString(),
       },
-      vehicleNumber: isServicesOnly ? 'TS 09 SV ' + Math.floor(1000 + Math.random() * 9000) : 'TS 08 UB ' + Math.floor(1000 + Math.random() * 9000),
-      driverName: isServicesOnly ? 'Assigned Field Specialist' : 'Ramesh Goud',
-      driverPhone: '+91 98480 22341',
+      vehicleNumber: finalVehicleNum,
+      driverName: finalDriverName,
+      driverPhone: assignedDriverPhone,
     }).catch((err) => {
       console.warn('Backend order recording notice:', err);
     });
@@ -368,8 +584,33 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     onClearCart();
   };
 
+  const handleDownloadProformaQuotation = () => {
+    if (cartItems.length === 0) {
+      showToast('Add materials to cart to generate a proforma quotation', 'info');
+      return;
+    }
+    soundService.playTap();
+    const success = openProformaQuotationPrint({
+      cartItems,
+      subtotal,
+      gstTax,
+      freightCharge: deliveryCharge,
+      freightVehicleName: freightInfo.vehicle.name,
+      totalPayable: payableAmount,
+      deliveryAddress: selectedCheckoutAddress || activeLocation,
+      customerName: user?.name || 'Valued Builder / Contractor',
+      customerPhone: user?.phone ? (user.phone.startsWith('+91') ? user.phone : `+91 ${user.phone}`) : '+91 98480 12345',
+      customerEmail: user?.email || 'builder@urbanico.in',
+      customerGstin: checkoutGstin.trim() || user?.gstin || undefined,
+    });
+    if (success) {
+      showToast('Opening Proforma Quotation PDF for print/save...', 'success');
+    } else {
+      showToast('Please enable popups to print/download quotation PDF', 'error');
+    }
+  };
 
-  const activeEnRoute = deliveries.find((d) => d.status === 'En Route') || deliveries[0];
+  const activeEnRoute = deliveries.find((d) => d.status === 'En Route' && !cancelledOrderIds.includes(d.id));
 
   return (
     <View style={{ flex: 1 }}>
@@ -409,7 +650,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                 },
               ]}
             >
-              My Bag {totalUnitQuantity > 0 ? `(${totalUnitQuantity})` : ''}
+              Cart {totalUnitQuantity > 0 ? `(${totalUnitQuantity})` : ''}
             </Text>
           </TouchableOpacity>
 
@@ -441,24 +682,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
 
         {activeTab === 'cart' ? (
           <>
-            {/* Delivery Location Header */}
-            <View style={[styles.locationHeader, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <View style={styles.locationLeftRow}>
-                <View style={[styles.locationIconBox, { backgroundColor: theme.surfaceSecondary }]}>
-                  <MapPin size={16} color={theme.textPrimary} />
-                </View>
-                <View style={styles.locationTextContainer}>
-                  <Text style={[styles.locationLabel, { color: theme.textSecondary }]}>Delivery Site</Text>
-                  <Text style={[styles.locationValue, { color: theme.textPrimary }]} numberOfLines={1}>
-                    {activeLocation}
-                  </Text>
-                </View>
-              </View>
-              <TouchableOpacity onPress={() => (onChangeAddressRedirect ? onChangeAddressRedirect() : onNavigateScreen('profile'))}>
-                <Text style={[styles.changeBtnText, { color: theme.primary }]}>Change</Text>
-              </TouchableOpacity>
-            </View>
-
             {cartItems.length === 0 && savedForLaterItems.length === 0 ? (
               <View style={[styles.nikeEmptyBagContainer, { backgroundColor: theme.surface }]}>
                 <View style={[styles.nikeEmptyBagIconCircle, { backgroundColor: theme.surfaceSecondary }]}>
@@ -481,8 +704,11 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                 {/* Cart Items List */}
                 {cartItems.length > 0 && (
                   <View style={styles.itemsCardList}>
-                    {cartItems.map((item) => (
-                      <View key={item.id} style={[styles.cartItemRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                    {cartItems.map((item, idx) => (
+                      <View
+                        key={item.id ? `${item.id}-${idx}` : `cart-item-${item.itemId || 'item'}-${idx}`}
+                        style={[styles.cartItemRow, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                      >
                         <View style={[styles.itemImageWrapper, { backgroundColor: theme.surfaceSecondary, borderColor: theme.borderLight }]}>
                           <ShimmerImage
                             source={{ uri: item.image }}
@@ -500,8 +726,11 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                           <Text style={[styles.itemOptionLabel, { color: theme.textSecondary }]}>
                             {item.selectedOptionLabel}
                           </Text>
-                          <Text style={[styles.itemUnitPrice, { color: theme.textPrimary }]}>
-                            ₹{item.unitPrice.toLocaleString('en-IN')} / unit
+                          <Text style={[styles.itemUnitPrice, { color: theme.textPrimary, fontWeight: '700' }]}>
+                            ₹{(item.unitPrice * item.quantity).toLocaleString('en-IN')}{' '}
+                            <Text style={{ fontSize: 11, fontWeight: '400', color: theme.textSecondary }}>
+                              (₹{item.unitPrice.toLocaleString('en-IN')} × {item.quantity})
+                            </Text>
                           </Text>
                           <TouchableOpacity
                             onPress={() => handleSaveForLater(item)}
@@ -522,9 +751,10 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                                 onUpdateQuantity(item.id, item.quantity - 1);
                               }}
                               style={[styles.stepperBtn, { backgroundColor: theme.surface }]}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                               activeOpacity={0.7}
                             >
-                              <Minus size={12} color={theme.textPrimary} />
+                              <Minus size={13} color={theme.textPrimary} />
                             </TouchableOpacity>
                             <Text style={[styles.stepperQtyText, { color: theme.textPrimary }]}>{item.quantity}</Text>
                             <TouchableOpacity
@@ -533,9 +763,10 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                                 onUpdateQuantity(item.id, item.quantity + 1);
                               }}
                               style={[styles.stepperBtn, { backgroundColor: theme.surface }]}
+                              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                               activeOpacity={0.7}
                             >
-                              <Plus size={12} color={theme.textPrimary} />
+                              <Plus size={13} color={theme.textPrimary} />
                             </TouchableOpacity>
                           </View>
                           <TouchableOpacity
@@ -605,23 +836,34 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                       </Text>
                     </View>
 
+                    {isServicesOnly && (
+                      <View style={styles.summaryRow}>
+                        <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>
+                          Technician Site Conveyance
+                        </Text>
+                        <Text style={[styles.summaryValue, { color: '#16A34A', fontWeight: '700' }]}>
+                          FREE (Included in ₹99)
+                        </Text>
+                      </View>
+                    )}
+
                     {materialItems.length > 0 && (
-                      <>
-                        <View style={styles.summaryRow}>
-                          <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>GST (18%)</Text>
-                          <Text style={[styles.summaryValue, { color: theme.textPrimary }]}>
-                            ₹{gstTax.toLocaleString('en-IN')}
-                          </Text>
-                        </View>
-                        <View style={styles.summaryRow}>
-                          <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>
-                            Platform Delivery ({deliveryDistanceKm} km)
-                          </Text>
-                          <Text style={[styles.summaryValue, { color: theme.textPrimary, fontWeight: '700' }]}>
-                            ₹{deliveryCharge.toLocaleString('en-IN')}
-                          </Text>
-                        </View>
-                      </>
+                      <View style={styles.summaryRow}>
+                        <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>GST (18%)</Text>
+                        <Text style={[styles.summaryValue, { color: theme.textPrimary }]}>
+                          ₹{gstTax.toLocaleString('en-IN')}
+                        </Text>
+                      </View>
+                    )}
+                    {materialItems.length > 0 && (
+                      <View style={styles.summaryRow}>
+                        <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>
+                          Direct Yard Freight ({deliveryDistanceKm} km)
+                        </Text>
+                        <Text style={[styles.summaryValue, { color: theme.textPrimary, fontWeight: '700' }]}>
+                          {deliveryCharge === 0 ? 'FREE' : `₹${deliveryCharge.toLocaleString('en-IN')}`}
+                        </Text>
+                      </View>
                     )}
 
                     {couponDiscount > 0 && (
@@ -634,7 +876,9 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                     )}
 
                     <View style={[styles.summaryRow, styles.grandTotalRow, { borderTopColor: theme.borderLight }]}>
-                      <Text style={[styles.grandTotalLabel, { color: theme.textPrimary }]}>Total Payable</Text>
+                      <Text style={[styles.grandTotalLabel, { color: theme.textPrimary }]}>
+                        Total Payable
+                      </Text>
                       <Text style={[styles.grandTotalValue, { color: theme.textPrimary }]}>
                         ₹{grandTotal.toLocaleString('en-IN')}
                       </Text>
@@ -644,21 +888,34 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
 
                 {/* Checkout CTA */}
                 {cartItems.length > 0 && (
-                  <TouchableOpacity
-                    onPress={handlePlaceOrder}
-                    disabled={isPlacingOrder}
-                    activeOpacity={0.85}
-                    style={[styles.nikeCheckoutPill, { backgroundColor: theme.primary }]}
-                  >
-                    <Text style={styles.nikeCheckoutPillText}>
-                      {isPlacingOrder
-                        ? 'Processing...'
-                        : isServicesOnly
-                        ? `Book Service • ₹${grandTotal.toLocaleString('en-IN')}`
-                        : `Pay ₹${grandTotal.toLocaleString('en-IN')} • Place Order`}
-                    </Text>
-                    <ArrowRight size={16} color="#FFFFFF" strokeWidth={2.2} />
-                  </TouchableOpacity>
+                  <View style={{ gap: 8, marginTop: 6 }}>
+                    <TouchableOpacity
+                      onPress={handleStartCheckout}
+                      disabled={isPlacingOrder}
+                      activeOpacity={0.85}
+                      style={[styles.nikeCheckoutPill, { backgroundColor: theme.primary }]}
+                    >
+                      <Text style={styles.nikeCheckoutPillText}>
+                        {isPlacingOrder
+                          ? 'Processing...'
+                          : isServicesOnly
+                          ? `Book Service • ₹${payableAmount.toLocaleString('en-IN')}`
+                          : `Place Order • ₹${payableAmount.toLocaleString('en-IN')}`}
+                      </Text>
+                      <ArrowRight size={16} color="#FFFFFF" strokeWidth={2.2} />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      onPress={handleDownloadProformaQuotation}
+                      style={[styles.proformaQuoteBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                      activeOpacity={0.8}
+                    >
+                      <FileSpreadsheet size={15} color={theme.textPrimary} strokeWidth={2} />
+                      <Text style={[styles.proformaQuoteBtnText, { color: theme.textPrimary }]}>
+                        Export Proforma Quotation (PDF)
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
                 )}
 
                 {/* Saved for Later Section (Item 24) */}
@@ -672,8 +929,11 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                     </View>
 
                     <View style={styles.savedItemsList}>
-                      {savedForLaterItems.map((item) => (
-                        <View key={item.id} style={[styles.savedItemRow, { borderTopColor: theme.borderLight }]}>
+                      {savedForLaterItems.map((item, idx) => (
+                        <View
+                          key={item.id ? `saved-${item.id}-${idx}` : `saved-item-${item.itemId || 'item'}-${idx}`}
+                          style={[styles.savedItemRow, { borderTopColor: theme.borderLight }]}
+                        >
                           <View style={styles.savedItemInfo}>
                             <Text style={[styles.savedItemName, { color: theme.textPrimary }]} numberOfLines={1}>
                               {item.itemName}
@@ -689,7 +949,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                               style={[styles.moveToCartBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
                               activeOpacity={0.7}
                             >
-                              <Text style={[styles.moveToCartText, { color: theme.textPrimary }]}>Move to Bag</Text>
+                              <Text style={[styles.moveToCartText, { color: theme.textPrimary }]}>Move to Cart</Text>
                             </TouchableOpacity>
                             <TouchableOpacity onPress={() => handleRemoveSavedItem(item.id)} style={styles.deleteBtn}>
                               <Trash2 size={14} color={theme.textSecondary} />
@@ -745,7 +1005,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                 </TouchableOpacity>
               </View>
             ) : (
-              <>
+              <View style={{ gap: 14 }}>
                 {/* Active Live Delivery Tracking Card with Real-Time Actions */}
                 {activeEnRoute && (
                   <View style={[styles.trackingCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -794,7 +1054,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                       </View>
                     </View>
 
-                    {/* Action Bar (Live Dispatcher Chat + GST Invoice) */}
+                    {/* Action Bar (Live Dispatcher Chat + GST Invoice + Cancel) */}
                     <View style={styles.activeActionBar}>
                       <TouchableOpacity
                         onPress={() => setShowDispatcherChat(true)}
@@ -815,6 +1075,18 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                           <Text style={[styles.actionChipBtnText, { color: theme.textPrimary }]}>GST Invoice</Text>
                         </TouchableOpacity>
                       )}
+
+                      <TouchableOpacity
+                        onPress={() => {
+                          setOrderToCancel(activeEnRoute);
+                          setShowCancelConfirmModal(true);
+                        }}
+                        style={[styles.actionChipBtn, { backgroundColor: '#FEE2E2', borderColor: '#FCA5A5', borderWidth: 1 }]}
+                        activeOpacity={0.8}
+                      >
+                        <X size={13} color="#DC2626" />
+                        <Text style={[styles.actionChipBtnText, { color: '#DC2626' }]}>Cancel Dispatch</Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
                 )}
@@ -829,33 +1101,46 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                   </View>
 
                   <View style={styles.deliveriesList}>
-                    {deliveries.map((del, idx) => (
-                      <View key={del.id} style={[styles.deliveryRow, idx > 0 && { borderTopColor: theme.borderLight, borderTopWidth: 1 }]}>
-                        <View style={styles.deliveryLeftInfo}>
-                          <Text style={[styles.delMaterialName, { color: theme.textPrimary }]} numberOfLines={1}>
-                            {del.materialName}
-                          </Text>
-                          <Text style={[styles.timestampText, { color: theme.textSecondary }]}>
-                            {del.timestamp} • {del.vehicleNumber}
-                          </Text>
-                        </View>
+                    {deliveries.map((del, idx) => {
+                      const isCancelled = cancelledOrderIds.includes(del.id) || del.status === 'Cancelled';
+                      return (
+                        <View
+                          key={del.id ? `${del.id}-${idx}` : (del.orderNumber ? `${del.orderNumber}-${idx}` : `delivery-${idx}`)}
+                          style={[styles.deliveryRow, idx > 0 && { borderTopColor: theme.borderLight, borderTopWidth: 1 }]}
+                        >
+                          <View style={styles.deliveryLeftInfo}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Text style={[styles.delMaterialName, { color: theme.textPrimary }]} numberOfLines={1}>
+                                {del.materialName}
+                              </Text>
+                              {isCancelled && (
+                                <View style={{ backgroundColor: '#FEE2E2', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                                  <Text style={{ fontSize: 10, fontWeight: '700', color: '#DC2626' }}>CANCELLED</Text>
+                                </View>
+                              )}
+                            </View>
+                            <Text style={[styles.timestampText, { color: theme.textSecondary }]}>
+                              {del.timestamp} • {isCancelled ? '100% Refund Issued' : del.vehicleNumber}
+                            </Text>
+                          </View>
 
-                        <View style={styles.deliveryRightInfo}>
-                          <Text style={[styles.delAmountText, { color: theme.textPrimary }]}>
-                            ₹{del.totalAmount.toLocaleString('en-IN')}
-                          </Text>
-                          <TouchableOpacity
-                            onPress={() => onViewInvoice && onViewInvoice(del)}
-                            style={styles.miniInvoiceBtn}
-                          >
-                            <Text style={styles.miniInvoiceText}>Invoice</Text>
-                          </TouchableOpacity>
+                          <View style={styles.deliveryRightInfo}>
+                            <Text style={[styles.delAmountText, { color: theme.textPrimary, textDecorationLine: isCancelled ? 'line-through' : 'none' }]}>
+                              ₹{del.totalAmount.toLocaleString('en-IN')}
+                            </Text>
+                            <TouchableOpacity
+                              onPress={() => onViewInvoice && onViewInvoice(del)}
+                              style={styles.miniInvoiceBtn}
+                            >
+                              <Text style={styles.miniInvoiceText}>Invoice</Text>
+                            </TouchableOpacity>
+                          </View>
                         </View>
-                      </View>
-                    ))}
+                      );
+                    })}
                   </View>
                 </View>
-              </>
+              </View>
             )}
           </View>
         )}
@@ -920,8 +1205,11 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                       desc: 'Direct quarry bulk voucher for orders exceeding ₹20,000.',
                       minVal: 'Min ₹20,000',
                     },
-                  ].map((c) => (
-                    <View key={c.code} style={[styles.offerCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                  ].map((c, idx) => (
+                    <View
+                      key={`coupon-${c.code}-${idx}`}
+                      style={[styles.offerCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
+                    >
                       <View style={styles.offerLeft}>
                         <View style={styles.offerCodeBadge}>
                           <Text style={styles.offerCodeBadgeText}>{c.code}</Text>
@@ -944,20 +1232,609 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
           </View>
         </Modal>
 
+        {/* Order Checkout: Delivery Address & Order Review Modal (Flipkart / Amazon Style) */}
+        <Modal
+          visible={showCheckoutModal}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowCheckoutModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <Pressable
+              style={styles.modalBackdrop}
+              onPress={() => setShowCheckoutModal(false)}
+            />
+            <View style={[styles.checkoutModalCard, { backgroundColor: theme.surface }]}>
+              {/* Header */}
+              <View style={[styles.checkoutModalHeader, { borderBottomColor: theme.border }]}>
+                <View style={styles.checkoutModalHeaderLeft}>
+                  <Text style={[styles.checkoutModalTitle, { color: theme.textPrimary }]}>
+                    Select Delivery Address
+                  </Text>
+                  <Text style={[styles.checkoutModalSubtitle, { color: theme.textSecondary }]}>
+                    Step 1 of 2: Confirm Site Destination
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setShowCheckoutModal(false)}
+                  style={[styles.checkoutCloseBtn, { backgroundColor: theme.surfaceSecondary }]}
+                  accessibilityLabel="Close Checkout"
+                >
+                  <X size={18} color={theme.textPrimary} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Progress Stepper Bar */}
+              <View style={[styles.checkoutStepperBar, { backgroundColor: theme.surfaceSecondary, borderBottomColor: theme.borderLight }]}>
+                <View style={styles.checkoutStepItem}>
+                  <View style={[styles.checkoutStepDotActive, { backgroundColor: theme.primary }]}>
+                    <Check size={11} color="#FFFFFF" strokeWidth={3} />
+                  </View>
+                  <Text style={[styles.checkoutStepTextActive, { color: theme.primary }]}>
+                    1. Address
+                  </Text>
+                </View>
+                <View style={[styles.checkoutStepLine, { backgroundColor: theme.border }]} />
+                <View style={styles.checkoutStepItem}>
+                  <View style={[styles.checkoutStepDotPending, { borderColor: theme.textMuted }]}>
+                    <Text style={[styles.checkoutStepNumText, { color: theme.textMuted }]}>2</Text>
+                  </View>
+                  <Text style={[styles.checkoutStepTextPending, { color: theme.textMuted }]}>
+                    2. Payment
+                  </Text>
+                </View>
+              </View>
+
+              <ScrollView
+                style={styles.checkoutModalBody}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ paddingBottom: 160 }}
+              >
+                {/* Saved Addresses Section */}
+                <View style={styles.checkoutSection}>
+                  <View style={styles.sectionHeaderRow}>
+                    <MapPin size={16} color={theme.primary} />
+                    <Text style={[styles.checkoutSectionTitle, { color: theme.textPrimary }]}>
+                      Saved Site Addresses
+                    </Text>
+                  </View>
+
+                  <View style={styles.addressesListContainer}>
+                    {availableAddresses.map((addr, idx) => {
+                      const isSelected = selectedCheckoutAddress === addr;
+                      const parts = addr.split(',');
+                      const primaryLine = parts[0]?.trim() || 'Site Location';
+                      const secondaryLine = parts.slice(1).join(',').trim();
+
+                      return (
+                        <TouchableOpacity
+                          key={`checkout-addr-${idx}`}
+                          activeOpacity={0.8}
+                          onPress={() => {
+                            setSelectedCheckoutAddress(addr);
+                            soundService.playTap();
+                          }}
+                          style={[
+                            styles.addressSelectCard,
+                            {
+                              backgroundColor: isSelected
+                                ? (theme.mode === 'dark' ? '#1E293B' : '#F0F9FF')
+                                : theme.surfaceSecondary,
+                              borderColor: isSelected ? theme.primary : theme.border,
+                            },
+                          ]}
+                        >
+                          <View style={styles.addressCardRadioRow}>
+                            <View
+                              style={[
+                                styles.radioCircle,
+                                {
+                                  borderColor: isSelected ? theme.primary : theme.textMuted,
+                                },
+                              ]}
+                            >
+                              {isSelected && (
+                                <View
+                                  style={[
+                                    styles.radioCircleInner,
+                                    { backgroundColor: theme.primary },
+                                  ]}
+                                />
+                              )}
+                            </View>
+
+                            <View style={styles.addressInfoCol}>
+                              <View style={styles.addressNameTagRow}>
+                                <Text
+                                  style={[
+                                    styles.addressPrimaryName,
+                                    { color: theme.textPrimary },
+                                  ]}
+                                  numberOfLines={1}
+                                >
+                                  {primaryLine}
+                                </Text>
+                                <View
+                                  style={[
+                                    styles.addressTypeBadge,
+                                    {
+                                      backgroundColor: isSelected
+                                        ? theme.primary
+                                        : (theme.mode === 'dark' ? '#334155' : '#E2E8F0'),
+                                    },
+                                  ]}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.addressTypeBadgeText,
+                                      {
+                                        color: isSelected ? '#FFFFFF' : theme.textSecondary,
+                                      },
+                                    ]}
+                                  >
+                                    {idx === 0 ? 'DEFAULT SITE' : 'CONSTRUCTION SITE'}
+                                  </Text>
+                                </View>
+                              </View>
+
+                              {secondaryLine ? (
+                                <Text
+                                  style={[styles.addressSecondaryText, { color: theme.textSecondary }]}
+                                  numberOfLines={2}
+                                >
+                                  {secondaryLine}
+                                </Text>
+                              ) : null}
+
+                              <View style={styles.contactDetailsRow}>
+                                <Text style={[styles.contactName, { color: theme.textSecondary }]}>
+                                  Recipient: <Text style={{ color: theme.textPrimary, fontWeight: '600' }}>{user?.name || 'Site Incharge'}</Text>
+                                </Text>
+                                <Text style={[styles.contactDot, { color: theme.textMuted }]}>•</Text>
+                                <Text style={[styles.contactPhone, { color: theme.textSecondary }]}>
+                                  +91 {user?.phone?.replace(/\D/g, '') || '98480 12345'}
+                                </Text>
+                              </View>
+                            </View>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                {/* Add New Delivery Address Toggle & Form */}
+                <View style={styles.checkoutSection}>
+                  <TouchableOpacity
+                    activeOpacity={0.75}
+                    onPress={() => setIsAddingNewAddress(!isAddingNewAddress)}
+                    style={[
+                      styles.addNewAddressToggleBtn,
+                      {
+                        backgroundColor: theme.surfaceSecondary,
+                        borderColor: isAddingNewAddress ? theme.primary : theme.border,
+                      },
+                    ]}
+                  >
+                    <View style={styles.addNewAddressToggleLeft}>
+                      <Plus size={16} color={theme.primary} strokeWidth={2.5} />
+                      <Text style={[styles.addNewAddressToggleText, { color: theme.primary }]}>
+                        Add New Delivery Address
+                      </Text>
+                    </View>
+                    {isAddingNewAddress ? (
+                      <ChevronUp size={18} color={theme.primary} />
+                    ) : (
+                      <ChevronDown size={18} color={theme.textSecondary} />
+                    )}
+                  </TouchableOpacity>
+
+                  {isAddingNewAddress && (
+                    <View style={[styles.newAddressFormBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                      {addrFormError && (
+                        <View style={styles.formErrorBox}>
+                          <AlertTriangle size={14} color="#EF4444" />
+                          <Text style={styles.formErrorText}>{addrFormError}</Text>
+                        </View>
+                      )}
+
+                      <View style={styles.formRow}>
+                        <View style={styles.formCol}>
+                          <Text style={[styles.formLabel, { color: theme.textSecondary }]}>
+                            Full Name / Site Incharge *
+                          </Text>
+                          <TextInput
+                            value={newAddrName}
+                            onChangeText={(t) => {
+                              setNewAddrName(t);
+                              setAddrFormError(null);
+                            }}
+                            placeholder="e.g. Ramesh Reddy"
+                            placeholderTextColor={theme.textMuted}
+                            style={[
+                              styles.formTextInput,
+                              {
+                                backgroundColor: theme.surfaceSecondary,
+                                borderColor: theme.border,
+                                color: theme.textPrimary,
+                              },
+                            ]}
+                          />
+                        </View>
+                        <View style={styles.formCol}>
+                          <Text style={[styles.formLabel, { color: theme.textSecondary }]}>
+                            10-Digit Mobile *
+                          </Text>
+                          <TextInput
+                            value={newAddrPhone}
+                            onChangeText={(t) => {
+                              setNewAddrPhone(t.replace(/\D/g, '').slice(0, 10));
+                              setAddrFormError(null);
+                            }}
+                            placeholder="98480 12345"
+                            placeholderTextColor={theme.textMuted}
+                            keyboardType="phone-pad"
+                            maxLength={10}
+                            style={[
+                              styles.formTextInput,
+                              {
+                                backgroundColor: theme.surfaceSecondary,
+                                borderColor: theme.border,
+                                color: theme.textPrimary,
+                              },
+                            ]}
+                          />
+                        </View>
+                      </View>
+
+                      <View style={styles.formRow}>
+                        <View style={styles.formCol}>
+                          <Text style={[styles.formLabel, { color: theme.textSecondary }]}>
+                            Pincode (6-Digit) *
+                          </Text>
+                          <TextInput
+                            value={newAddrPincode}
+                            onChangeText={handlePincodeChange}
+                            onBlur={handlePincodeBlur}
+                            placeholder="500081"
+                            placeholderTextColor={theme.textMuted}
+                            keyboardType="numeric"
+                            maxLength={6}
+                            style={[
+                              styles.formTextInput,
+                              {
+                                backgroundColor: theme.surfaceSecondary,
+                                borderColor: theme.border,
+                                color: theme.textPrimary,
+                              },
+                            ]}
+                          />
+                        </View>
+                        <View style={styles.formCol}>
+                          <Text style={[styles.formLabel, { color: theme.textSecondary }]}>
+                            City & State
+                          </Text>
+                          <TextInput
+                            value={`${newAddrCity}, ${newAddrState}`}
+                            editable={false}
+                            style={[
+                              styles.formTextInput,
+                              {
+                                backgroundColor: theme.surfaceSecondary,
+                                borderColor: theme.border,
+                                color: theme.textSecondary,
+                              },
+                            ]}
+                          />
+                        </View>
+                      </View>
+
+                      <View style={styles.formColSingle}>
+                        <Text style={[styles.formLabel, { color: theme.textSecondary }]}>
+                          Plot / Flat / Building / Site Name *
+                        </Text>
+                        <TextInput
+                          value={newAddrFlat}
+                          onChangeText={(t) => {
+                            setNewAddrFlat(t);
+                            setAddrFormError(null);
+                          }}
+                          placeholder="Plot 42, Skyview Enclave"
+                          placeholderTextColor={theme.textMuted}
+                          style={[
+                            styles.formTextInput,
+                            {
+                              backgroundColor: theme.surfaceSecondary,
+                              borderColor: theme.border,
+                              color: theme.textPrimary,
+                            },
+                          ]}
+                        />
+                      </View>
+
+                      <View style={styles.formColSingle}>
+                        <Text style={[styles.formLabel, { color: theme.textSecondary }]}>
+                          Street / Colony / Landmark *
+                        </Text>
+                        <TextInput
+                          value={newAddrStreet}
+                          onChangeText={(t) => {
+                            setNewAddrStreet(t);
+                            setAddrFormError(null);
+                          }}
+                          placeholder="Financial District Main Road, Near ORR Exit"
+                          placeholderTextColor={theme.textMuted}
+                          style={[
+                            styles.formTextInput,
+                            {
+                              backgroundColor: theme.surfaceSecondary,
+                              borderColor: theme.border,
+                              color: theme.textPrimary,
+                            },
+                          ]}
+                        />
+                      </View>
+
+                      {/* Address Type Chips */}
+                      <View style={styles.formColSingle}>
+                        <Text style={[styles.formLabel, { color: theme.textSecondary }]}>
+                          Address Type
+                        </Text>
+                        <View style={styles.typeChipsRow}>
+                          {(['Site', 'Home', 'Office', 'Warehouse'] as const).map((typ) => (
+                            <TouchableOpacity
+                              key={typ}
+                              onPress={() => setNewAddrType(typ)}
+                              style={[
+                                styles.typeChip,
+                                {
+                                  backgroundColor:
+                                    newAddrType === typ ? theme.primary : theme.surfaceSecondary,
+                                  borderColor:
+                                    newAddrType === typ ? theme.primary : theme.border,
+                                },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.typeChipText,
+                                  {
+                                    color: newAddrType === typ ? '#FFFFFF' : theme.textPrimary,
+                                    fontWeight: newAddrType === typ ? '700' : '500',
+                                  },
+                                ]}
+                              >
+                                {typ === 'Site' ? 'Construction Site' : typ}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      </View>
+
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        onPress={handleSaveAndSelectNewAddress}
+                        style={[styles.saveNewAddressBtn, { backgroundColor: theme.primary }]}
+                      >
+                        <Text style={styles.saveNewAddressBtnText}>
+                          Save & Deliver to this Address
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+
+                {/* B2B GSTIN Input for Input Tax Credit (ITC) */}
+                <View style={[styles.checkoutSection, { marginTop: 12 }]}>
+                  <View style={styles.sectionHeaderRow}>
+                    <FileCheck2 size={16} color={theme.primary} />
+                    <Text style={[styles.checkoutSectionTitle, { color: theme.textPrimary }]}>
+                      B2B GSTIN / Input Tax Credit (Optional)
+                    </Text>
+                  </View>
+                  <View
+                    style={[
+                      styles.newAddressFormBox,
+                      {
+                        backgroundColor: theme.surfaceSecondary,
+                        borderColor: gstinError ? '#EF4444' : checkoutGstin.length === 15 ? '#10B981' : theme.border,
+                        marginTop: 4,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.formLabel, { color: theme.textSecondary }]}>
+                      Company GSTIN (15 Characters)
+                    </Text>
+                    <TextInput
+                      value={checkoutGstin}
+                      onChangeText={(t) => {
+                        const val = t.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15);
+                        setCheckoutGstin(val);
+                        if (val.length === 15) {
+                          const res = validateGSTIN(val);
+                          if (!res.isValid) {
+                            setGstinError(res.errorMessage || 'Invalid Telangana GSTIN format');
+                          } else {
+                            setGstinError(null);
+                          }
+                        } else if (val.length > 0) {
+                          setGstinError('GSTIN must be 15 characters (e.g. 36AAACU9812A1Z4)');
+                        } else {
+                          setGstinError(null);
+                        }
+                      }}
+                      placeholder="e.g. 36AAACU9812A1Z4"
+                      placeholderTextColor={theme.textMuted}
+                      maxLength={15}
+                      autoCapitalize="characters"
+                      style={[
+                        styles.formTextInput,
+                        {
+                          backgroundColor: theme.surface,
+                          borderColor: gstinError ? '#EF4444' : checkoutGstin.length === 15 ? '#10B981' : theme.border,
+                          color: theme.textPrimary,
+                          fontFamily: typography.fontFamilyMono || 'monospace',
+                          letterSpacing: 1,
+                        },
+                      ]}
+                    />
+                    {gstinError ? (
+                      <Text style={{ fontSize: 11, color: '#EF4444', marginTop: 4 }}>{gstinError}</Text>
+                    ) : checkoutGstin.length === 15 ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
+                        <Check size={12} color="#10B981" strokeWidth={2.5} />
+                        <Text style={{ fontSize: 11.5, color: '#10B981', fontWeight: '600' }}>
+                          Verified Telangana GSTIN (18% ITC Eligible on Tax Invoice)
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text style={{ fontSize: 11, color: theme.textMuted, marginTop: 4 }}>
+                        Enter GSTIN to receive an official B2B GST tax invoice with full ITC credit.
+                      </Text>
+                    )}
+                  </View>
+                </View>
+
+                {/* Order Summary Preview (Flipkart / Amazon Style) */}
+                <View
+                  style={[
+                    styles.checkoutOrderSummaryCard,
+                    { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                  ]}
+                >
+                  <Text style={[styles.checkoutSummaryTitle, { color: theme.textPrimary }]}>
+                    Order Price Breakdown ({cartItems.length} {cartItems.length === 1 ? 'item' : 'items'})
+                  </Text>
+
+                  <View style={styles.checkoutSummaryRow}>
+                    <Text style={[styles.checkoutSummaryLabel, { color: theme.textSecondary }]}>
+                      Subtotal
+                    </Text>
+                    <Text style={[styles.checkoutSummaryVal, { color: theme.textPrimary }]}>
+                      ₹{subtotal.toLocaleString('en-IN')}
+                    </Text>
+                  </View>
+
+                  <View style={styles.checkoutSummaryRow}>
+                    <Text style={[styles.checkoutSummaryLabel, { color: theme.textSecondary }]}>
+                      Direct Yard Freight ({deliveryDistanceKm} km)
+                    </Text>
+                    <Text
+                      style={[
+                        styles.checkoutSummaryVal,
+                        { color: deliveryCharge === 0 ? '#10B981' : theme.textPrimary },
+                      ]}
+                    >
+                      {deliveryCharge === 0 ? 'FREE' : `₹${deliveryCharge.toLocaleString('en-IN')}`}
+                    </Text>
+                  </View>
+
+                  {couponDiscount > 0 && (
+                    <View style={styles.checkoutSummaryRow}>
+                      <Text style={[styles.checkoutSummaryLabel, { color: '#10B981' }]}>
+                        Contractor Coupon ({appliedCoupon})
+                      </Text>
+                      <Text style={[styles.checkoutSummaryVal, { color: '#10B981' }]}>
+                        -₹{couponDiscount.toLocaleString('en-IN')}
+                      </Text>
+                    </View>
+                  )}
+
+                  <View style={styles.checkoutSummaryRow}>
+                    <Text style={[styles.checkoutSummaryLabel, { color: theme.textSecondary }]}>
+                      GST Tax (18% Input Tax Credit)
+                    </Text>
+                    <Text style={[styles.checkoutSummaryVal, { color: theme.textPrimary }]}>
+                      ₹{gstTax.toLocaleString('en-IN')}
+                    </Text>
+                  </View>
+
+                  <View style={[styles.checkoutTotalRow, { borderTopColor: theme.border }]}>
+                    <Text style={[styles.checkoutTotalLabel, { color: theme.textPrimary }]}>
+                      Total Payable
+                    </Text>
+                    <Text style={[styles.checkoutTotalVal, { color: theme.primary }]}>
+                      ₹{payableAmount.toLocaleString('en-IN')}
+                    </Text>
+                  </View>
+
+                  {/* Proforma Quotation PDF Export Option */}
+                  <TouchableOpacity
+                    onPress={handleDownloadProformaQuotation}
+                    style={[
+                      styles.checkoutProformaBtn,
+                      { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                    ]}
+                    activeOpacity={0.8}
+                  >
+                    <FileSpreadsheet size={14} color={theme.textPrimary} strokeWidth={2} />
+                    <Text style={[styles.checkoutProformaBtnText, { color: theme.textPrimary }]}>
+                      Export Formal Proforma Quotation (PDF)
+                    </Text>
+                    <Download size={13} color={theme.textSecondary} />
+                  </TouchableOpacity>
+
+                  <View style={styles.trustBadgeRow}>
+                    <ShieldCheck size={14} color="#10B981" />
+                    <Text style={[styles.trustBadgeText, { color: theme.textSecondary }]}>
+                      100% Secure Checkout • Verified Yard Dispatch
+                    </Text>
+                  </View>
+                </View>
+              </ScrollView>
+
+              {/* Bottom Sticky Action Footer */}
+              <View style={[styles.checkoutModalFooter, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
+                <View style={styles.checkoutFooterLeft}>
+                  <Text style={[styles.checkoutFooterTotalLabel, { color: theme.textSecondary }]}>
+                    Total Amount
+                  </Text>
+                  <Text style={[styles.checkoutFooterAmount, { color: theme.textPrimary }]}>
+                    ₹{payableAmount.toLocaleString('en-IN')}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={handleConfirmAddressAndProceedToPay}
+                  style={[styles.checkoutProceedBtn, { backgroundColor: theme.primary }]}
+                >
+                  <Text style={styles.checkoutProceedBtnText}>
+                    Deliver Here & Pay
+                  </Text>
+                  <ArrowRight size={16} color="#FFFFFF" strokeWidth={2.5} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
         {/* Razorpay Modal */}
         {showRazorpayModal && (
           <RazorpayModal
             visible={showRazorpayModal}
-            onClose={() => setShowRazorpayModal(false)}
-            amount={grandTotal}
+            onClose={() => {
+              setShowRazorpayModal(false);
+              setIsPlacingOrder(false);
+              showToast('Payment window closed. Your items are safe in your cart.', 'info');
+            }}
+            amount={payableAmount}
+            userName={user?.name}
+            userPhone={user?.phone}
+            userEmail={user?.email}
             orderDescription={
               isServicesOnly
                 ? `${serviceItems[0]?.itemName || 'Trade Service'} Booking - Urbanico`
                 : `Booking (${cartItems.length} items) - Urbanico Supply`
             }
-            selectedLocation={activeLocation}
+            selectedLocation={selectedCheckoutAddress || activeLocation}
             onPaymentSuccess={handlePaymentSuccess}
-            onPaymentFailure={(err) => setPaymentError(err)}
+            onPaymentFailure={(err) => {
+              setPaymentError(err);
+              setIsPlacingOrder(false);
+              showToast(err || 'Payment was not completed. Please try again.', 'error');
+            }}
           />
         )}
 
@@ -982,8 +1859,9 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
             onViewInvoice={() => {
               setShowSuccessModal(false);
               setActiveTab('history');
-              if (onViewInvoice && deliveries[0]) {
-                onViewInvoice(deliveries[0]);
+              const targetOrder = createdOrderRef.current || deliveries[0];
+              if (onViewInvoice && targetOrder) {
+                onViewInvoice(targetOrder);
               }
             }}
           />
@@ -1021,6 +1899,45 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
             onSaveSupervisor={(name, phone) => setActiveSupervisor({ name, phone })}
           />
         )}
+
+        {/* Order Cancellation Guard Confirmation Modal */}
+        <Modal
+          visible={showCancelConfirmModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowCancelConfirmModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <Pressable style={styles.modalBackdrop} onPress={() => setShowCancelConfirmModal(false)} />
+            <View style={[styles.cancelConfirmCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <View style={styles.cancelConfirmIconCircle}>
+                <AlertTriangle size={24} color="#DC2626" />
+              </View>
+              <Text style={[styles.cancelConfirmTitle, { color: theme.textPrimary }]}>
+                Cancel Material Dispatch?
+              </Text>
+              <Text style={[styles.cancelConfirmMessage, { color: theme.textSecondary }]}>
+                Are you sure you want to cancel Dispatch #{orderToCancel?.orderNumber}? Materials may already be loading at the yard onto {orderToCancel?.vehicleNumber}. A 100% refund of ₹{orderToCancel?.totalAmount?.toLocaleString('en-IN')} will be credited back to your payment source within 24-48 hours.
+              </Text>
+              <View style={styles.cancelConfirmBtnRow}>
+                <TouchableOpacity
+                  onPress={() => setShowCancelConfirmModal(false)}
+                  style={[styles.cancelConfirmDismissBtn, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary }]}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.cancelConfirmDismissText, { color: theme.textPrimary }]}>Keep Dispatch</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={handleConfirmCancelOrder}
+                  style={styles.cancelConfirmExecuteBtn}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.cancelConfirmExecuteText}>Yes, Cancel Order</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </View>
   );
@@ -1192,17 +2109,17 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   stepperBtn: {
-    width: 24,
-    height: 24,
+    width: 28,
+    height: 28,
     borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepperQtyText: {
-    width: 24,
+    width: 28,
     textAlign: 'center',
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
   },
   deleteBtn: {
     padding: 6,
@@ -1399,6 +2316,36 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     fontWeight: '700',
     letterSpacing: -0.2,
+  },
+  proformaQuoteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+  },
+  proformaQuoteBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: -0.1,
+  },
+  checkoutProformaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginTop: 10,
+  },
+  checkoutProformaBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   savedSection: {
     borderRadius: 14,
@@ -1846,6 +2793,412 @@ const styles = StyleSheet.create({
   },
   supportChatText: {
     fontSize: 11,
+    fontWeight: '700',
+  },
+  // Checkout Delivery Address Modal Styles (Flipkart / Amazon)
+  checkoutModalCard: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '90%',
+    width: '100%',
+    overflow: 'hidden',
+  },
+  checkoutModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+  },
+  checkoutModalHeaderLeft: {
+    flex: 1,
+  },
+  checkoutModalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+  },
+  checkoutModalSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  checkoutCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkoutStepperBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    gap: 12,
+  },
+  checkoutStepItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  checkoutStepDotActive: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkoutStepDotPending: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkoutStepNumText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  checkoutStepTextActive: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  checkoutStepTextPending: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  checkoutStepLine: {
+    width: 32,
+    height: 1.5,
+  },
+  checkoutModalBody: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+  },
+  checkoutSection: {
+    marginBottom: 16,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  checkoutSectionTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  addressesListContainer: {
+    gap: 10,
+  },
+  addressSelectCard: {
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 12,
+  },
+  addressCardRadioRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  radioCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  radioCircleInner: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+  },
+  addressInfoCol: {
+    flex: 1,
+  },
+  addressNameTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginBottom: 4,
+  },
+  addressPrimaryName: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    flex: 1,
+  },
+  addressTypeBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  addressTypeBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  addressSecondaryText: {
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: 6,
+  },
+  contactDetailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  contactName: {
+    fontSize: 11.5,
+  },
+  contactDot: {
+    fontSize: 11,
+  },
+  contactPhone: {
+    fontSize: 11.5,
+    fontWeight: '500',
+  },
+  addNewAddressToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  addNewAddressToggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  addNewAddressToggleText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  newAddressFormBox: {
+    marginTop: 10,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 10,
+  },
+  formErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FEF2F2',
+    padding: 8,
+    borderRadius: 8,
+  },
+  formErrorText: {
+    color: '#EF4444',
+    fontSize: 11.5,
+    fontWeight: '500',
+  },
+  formRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  formCol: {
+    flex: 1,
+  },
+  formColSingle: {
+    width: '100%',
+  },
+  formLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginBottom: 4,
+  },
+  formTextInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 12.5,
+  },
+  typeChipsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+    flexWrap: 'wrap',
+  },
+  typeChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  typeChipText: {
+    fontSize: 11,
+  },
+  saveNewAddressBtn: {
+    marginTop: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveNewAddressBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  checkoutOrderSummaryCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    marginTop: 4,
+    gap: 8,
+  },
+  checkoutSummaryTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  checkoutSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  checkoutSummaryLabel: {
+    fontSize: 12,
+  },
+  checkoutSummaryVal: {
+    fontSize: 12.5,
+    fontWeight: '600',
+  },
+  checkoutTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    paddingTop: 8,
+    marginTop: 4,
+  },
+  checkoutTotalLabel: {
+    fontSize: 13.5,
+    fontWeight: '700',
+  },
+  checkoutTotalVal: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  trustBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  trustBadgeText: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  checkoutModalFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    gap: 12,
+  },
+  checkoutFooterLeft: {
+    justifyContent: 'center',
+  },
+  checkoutFooterTotalLabel: {
+    fontSize: 10.5,
+    fontWeight: '500',
+  },
+  checkoutFooterAmount: {
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  checkoutProceedBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    borderRadius: 12,
+    flex: 1,
+  },
+  checkoutProceedBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  cancelConfirmCard: {
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: 18,
+    borderWidth: 1,
+    padding: 24,
+    alignItems: 'center',
+    gap: 12,
+  },
+  cancelConfirmIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  cancelConfirmTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    textAlign: 'center',
+    letterSpacing: -0.3,
+  },
+  cancelConfirmMessage: {
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  cancelConfirmBtnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    width: '100%',
+  },
+  cancelConfirmDismissBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelConfirmDismissText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  cancelConfirmExecuteBtn: {
+    flex: 1,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#DC2626',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelConfirmExecuteText: {
+    color: '#FFFFFF',
+    fontSize: 13,
     fontWeight: '700',
   },
 });

@@ -176,7 +176,7 @@ export const Toast: React.FC<ToastProps> = ({
   const AnimatedView = Animated.View as any;
 
   return (
-    <View style={[styles.topOverlay, style]} pointerEvents="box-none">
+    <View style={[styles.topOverlay, style, { pointerEvents: 'box-none' as any }]}>
       <AnimatedView
         style={[
           styles.toastCard,

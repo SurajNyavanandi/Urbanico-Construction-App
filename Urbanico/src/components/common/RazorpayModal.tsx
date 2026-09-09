@@ -155,8 +155,11 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
       if (envPayee) setMerchantPayeeName(envPayee);
       initOrder();
       setCardHolder(userName || 'Cardholder');
+      if (userPhone) {
+        setUpiId(`${userPhone.replace(/\D/g, '')}@upi`);
+      }
     }
-  }, [visible, amount, userName]);
+  }, [visible, amount, userName, userPhone]);
 
   // Real-time countdown (5:00 min timer)
   useEffect(() => {
@@ -271,10 +274,12 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
         orderDescription.toLowerCase().includes('demo'))
   );
 
-  const effectivePayableAmount =
-    selectedCategory === 'site_pay' && advancePercent === 50
-      ? Math.round(amount / 2)
-      : amount;
+  const isTouchMobile =
+    typeof window !== 'undefined' &&
+    (/Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '') ||
+      ('ontouchstart' in window && window.innerWidth < 768));
+
+  const effectivePayableAmount = amount;
 
   const launchNativeUpiApp = async (appId: UpiApp) => {
     const targetVpa = (appId === 'custom' && upiId.trim()) ? upiId.trim() : merchantVpa;
@@ -324,11 +329,17 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
     setLaunchedAppName(appName);
     setCountdownSeconds(300);
     setPollingCycle(1);
+    // On desktop, immediately show QR code since native upi:// deep-links are unhandled
+    if (!isTouchMobile) {
+      setShowQrInAwaiting(true);
+    }
     setIsAwaitingUpiConfirmation(true);
     setIsProcessing(true);
 
     try {
-      await launchNativeUpiApp(appId);
+      if (isTouchMobile) {
+        await launchNativeUpiApp(appId);
+      }
     } catch (err) {
       console.warn('[Direct UPI App Click Error]', err);
     } finally {
@@ -733,25 +744,34 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                 ) : null}
               </View>
 
-              {/* PRIMARY ACTION 1: Re-Launch Native UPI App */}
-              <TouchableOpacity
-                onPress={() => launchNativeUpiApp(selectedUpiApp)}
-                style={styles.relaunchAppButton}
-                activeOpacity={0.88}
-              >
-                <View style={styles.relaunchAppLeft}>
-                  {selectedUpiApp === 'gpay' && <GooglePayIcon size={20} />}
-                  {selectedUpiApp === 'phonepe' && <PhonePeIcon size={20} />}
-                  {selectedUpiApp === 'paytm' && <PaytmIcon size={20} />}
-                  {selectedUpiApp === 'cred' && <CredIcon size={20} />}
-                  {selectedUpiApp === 'bhim' && <BhimIcon size={20} />}
-                  {selectedUpiApp === 'custom' && (
-                    <Smartphone size={18} color="#FFFFFF" strokeWidth={2} />
-                  )}
-                  <Text style={styles.relaunchAppButtonText}>Open {launchedAppName} App</Text>
+              {/* PRIMARY ACTION 1: Launch Native UPI App (Mobile) or Desktop Instruction */}
+              {isTouchMobile ? (
+                <TouchableOpacity
+                  onPress={() => launchNativeUpiApp(selectedUpiApp)}
+                  style={styles.relaunchAppButton}
+                  activeOpacity={0.88}
+                >
+                  <View style={styles.relaunchAppLeft}>
+                    {selectedUpiApp === 'gpay' && <GooglePayIcon size={20} />}
+                    {selectedUpiApp === 'phonepe' && <PhonePeIcon size={20} />}
+                    {selectedUpiApp === 'paytm' && <PaytmIcon size={20} />}
+                    {selectedUpiApp === 'cred' && <CredIcon size={20} />}
+                    {selectedUpiApp === 'bhim' && <BhimIcon size={20} />}
+                    {selectedUpiApp === 'custom' && (
+                      <Smartphone size={18} color="#FFFFFF" strokeWidth={2} />
+                    )}
+                    <Text style={styles.relaunchAppButtonText}>Open {launchedAppName} App</Text>
+                  </View>
+                  <ExternalLink size={14} color="#FFFFFF" />
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.desktopUpiNotice}>
+                  <QrCode size={16} color="#059669" />
+                  <Text style={styles.desktopUpiNoticeText}>
+                    Scan the QR code below with {launchedAppName} on your phone, or copy the UPI ID to pay.
+                  </Text>
                 </View>
-                <ExternalLink size={14} color="#FFFFFF" />
-              </TouchableOpacity>
+              )}
 
               {/* PRIMARY ACTION 2: I Have Authorized */}
               <TouchableOpacity
@@ -1330,49 +1350,20 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                   {/* Expanded Site Pay Option */}
                   {selectedCategory === 'site_pay' && (
                     <View style={styles.optionBody}>
-                      <TouchableOpacity
-                        onPress={() => setAdvancePercent(50)}
-                        style={[
-                          styles.siteSubCard,
-                          advancePercent === 50 && styles.siteSubCardActive,
-                        ]}
-                        activeOpacity={0.7}
-                      >
+                      <View style={[styles.siteSubCard, styles.siteSubCardActive]}>
                         <View style={styles.radioOuterSmall}>
-                          {advancePercent === 50 && <View style={styles.radioInnerSmall} />}
+                          <View style={styles.radioInnerSmall} />
                         </View>
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.siteSubTitle}>50% Booking Advance</Text>
+                          <Text style={styles.siteSubTitle}>Pay on Site Delivery</Text>
                           <Text style={styles.siteSubAmount}>
-                            Pay ₹{Math.round(amount / 2).toLocaleString('en-IN')} now
+                            ₹{amount.toLocaleString('en-IN')}
                           </Text>
                           <Text style={styles.siteSubDesc}>
-                            Remaining ₹{Math.round(amount / 2).toLocaleString('en-IN')} via UPI/NEFT at site
+                            Inspect materials and weighbridge slip before completing digital payment.
                           </Text>
                         </View>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        onPress={() => setAdvancePercent(100)}
-                        style={[
-                          styles.siteSubCard,
-                          advancePercent === 100 && styles.siteSubCardActive,
-                        ]}
-                        activeOpacity={0.7}
-                      >
-                        <View style={styles.radioOuterSmall}>
-                          {advancePercent === 100 && <View style={styles.radioInnerSmall} />}
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.siteSubTitle}>100% Full Payment</Text>
-                          <Text style={styles.siteSubAmount}>
-                            Pay ₹{amount.toLocaleString('en-IN')} now
-                          </Text>
-                          <Text style={styles.siteSubDesc}>
-                            Fast-track driver gate-pass clearance
-                          </Text>
-                        </View>
-                      </TouchableOpacity>
+                      </View>
                     </View>
                   )}
                 </View>
@@ -2289,5 +2280,24 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: '#6B7280',
     fontWeight: '600',
+  },
+  desktopUpiNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 8,
+    marginBottom: 6,
+  },
+  desktopUpiNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#065F46',
+    lineHeight: 16,
+    fontWeight: '500',
   },
 });
