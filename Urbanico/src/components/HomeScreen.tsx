@@ -505,7 +505,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <View style={styles.sectionHeaderLeft}>
               <Text style={styles.sectionHeading}>Building Materials</Text>
               <Text style={styles.sectionSubtitle}>
-                Essential yard supplies & wholesale direct rates
+                Materials & supplies
               </Text>
             </View>
             <TouchableOpacity
@@ -529,7 +529,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   key={cat.id}
                   title={cat.name}
                   subtitle={cat.subcategoriesText || cat.count || 'Direct Yard Supply'}
-                  tag={cat.tag || cat.id.toUpperCase()}
+                  tag={cat.tag || (cat.id || '').toUpperCase()}
                   priceLabel={cat.priceLabel || 'Direct Yard Rates'}
                   image={cat.image}
                   width={CARD_WIDTH}
@@ -557,7 +557,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <View style={styles.sectionHeaderLeft}>
               <Text style={styles.sectionHeading}>Trade Services</Text>
               <Text style={styles.sectionSubtitle}>
-                Verified trade professionals for your site
+                Trade & equipment assistance
               </Text>
             </View>
             <TouchableOpacity

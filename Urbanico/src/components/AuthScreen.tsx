@@ -202,7 +202,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           <View style={styles.mainCard}>
             <Text style={styles.headingTitle}>Log in or Sign up</Text>
             <Text style={styles.subHeading}>
-              Get personalised picks & faster checkout
+              Enter your mobile number to continue
             </Text>
 
             {/* Outlined Notched Input Box */}

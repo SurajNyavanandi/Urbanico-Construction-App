@@ -225,7 +225,7 @@ export const NikeAuthModal: React.FC<NikeAuthModalProps> = ({
             <View style={styles.contentBody}>
               <Text style={styles.headingTitle}>Log in or Sign up</Text>
               <Text style={styles.subHeading}>
-                Get personalised picks & faster checkout
+                Enter your mobile number to continue
               </Text>
 
               {/* Outlined Notched Input Box */}

@@ -40,6 +40,7 @@ import {
   sendTaxInvoiceEmail,
 } from '../utils/invoiceHelper';
 import { INDIAN_GST_STATES, validateGSTIN } from '../utils/gstinValidator';
+import { formatSiteAddress } from '../utils/addressHelper';
 
 interface InvoiceModalProps {
   isOpen: boolean;
@@ -97,12 +98,13 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   const sgstAmount = totalGst - cgstAmount;
 
   // GSTIN verification status & business entity resolution
-  const effectiveGstin = (delivery.gstin || user.gstin || '').trim().toUpperCase();
-  const effectiveBusinessName = delivery.businessName || user.companyName || (effectiveGstin ? 'Verified Enterprise Contractor' : 'Valued Client');
-  const recipientEmail = delivery.customerEmail || delivery.invoiceEmailedTo || user.email || 'accounts@urbanico.in';
+  const effectiveGstin = (delivery.gstin || user?.gstin || '').trim().toUpperCase();
+  const effectiveBusinessName = delivery.businessName || user?.companyName || (effectiveGstin ? 'Verified Enterprise Contractor' : 'Valued Client');
+  const recipientEmail = delivery.customerEmail || delivery.invoiceEmailedTo || user?.email || 'accounts@urbanico.in';
   const gstinValidation = effectiveGstin ? validateGSTIN(effectiveGstin) : null;
   const isGstVerified = Boolean(gstinValidation?.isValid);
-  const stateName = gstinValidation?.stateName || (delivery.siteAddress?.includes('Telangana') ? 'Telangana' : 'Telangana');
+  const formattedDeliverySiteAddress = formatSiteAddress(delivery.siteAddress || user?.siteLocation || 'Site Location, Hyderabad');
+  const stateName = gstinValidation?.stateName || (formattedDeliverySiteAddress.includes('Telangana') ? 'Telangana' : 'Telangana');
   const stateCode = gstinValidation?.stateCode || '36';
   const constitutionName = gstinValidation?.info?.constitution || 'Commercial Enterprise';
 
@@ -590,7 +592,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                 <span>Details of Consignee / Shipped To</span>
                 <span>DISPATCH SITE</span>
               </div>
-              <div class="party-name">${delivery.siteAddress || user.siteLocation || 'Site Location, Hyderabad'}</div>
+              <div class="party-name">${formattedDeliverySiteAddress}</div>
               <div class="party-row"><b>Dispatch Hub:</b> ${isBulkMaterial ? 'Miyapur Material Quarry Cluster' : 'Urbanico Central Fulfillment Hub'}</div>
               <div class="party-row"><b>Recommended Vehicle:</b> <b>${vehicleDisplay}</b></div>
               <div class="party-row"><b>Vehicle No:</b> <b>${delivery.vehicleNumber || 'Dispatch Vehicle'}</b> | <b>Driver:</b> ${delivery.driverName || 'Assigned Logistics Partner'}</div>
@@ -746,26 +748,13 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
             <View style={styles.headerRightActions}>
               <TouchableOpacity
-                onPress={handleEmailInvoice}
-                disabled={isSendingEmail}
-                style={[styles.printActionBtn, { backgroundColor: '#059669', marginRight: 4 }]}
-                activeOpacity={0.8}
-                accessibilityLabel="Email tax invoice"
-              >
-                <Mail size={14} color="#FFFFFF" strokeWidth={2.2} />
-                <Text style={styles.printActionText}>
-                  {isSendingEmail ? '...' : 'Email'}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
                 onPress={handlePrintPdf}
                 style={styles.printActionBtn}
                 activeOpacity={0.8}
-                accessibilityLabel="Print or download PDF invoice"
+                accessibilityLabel="Download PDF invoice"
               >
-                <Printer size={15} color="#FFFFFF" strokeWidth={2.2} />
-                <Text style={styles.printActionText}>PDF</Text>
+                <Download size={14} color="#FFFFFF" strokeWidth={2.2} />
+                <Text style={styles.printActionText}>Download PDF</Text>
               </TouchableOpacity>
 
               {/* Dedicated Top Right Close Button */}
@@ -962,7 +951,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                       <Text style={styles.partyRoleTag}>SITE</Text>
                     </View>
                     <Text style={styles.partyBoxName} numberOfLines={1}>
-                      {delivery.siteAddress || user.siteLocation || 'Financial District Site'}
+                      {formattedDeliverySiteAddress}
                     </Text>
                     <Text style={styles.partyBoxLine}>
                       Vehicle No: <Text style={styles.docBold}>{delivery.vehicleNumber || 'TS 09 UB 4821'}</Text>

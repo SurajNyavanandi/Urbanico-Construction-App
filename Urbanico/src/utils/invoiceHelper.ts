@@ -5,6 +5,7 @@
 
 import { CartItem, ActivityDelivery, UserProfile } from '../types';
 import { INDIAN_GST_STATES } from './gstinValidator';
+import { formatSiteAddress } from './addressHelper';
 
 export function getHSNCodeForMaterial(materialName: string): { code: string; desc: string; gstRate: number } {
   const lower = (materialName || '').toLowerCase();
@@ -215,7 +216,7 @@ export function buildTaxInvoiceData(
   const customerName = delivery.customerName || user?.name || 'Valued Client';
   const customerPhone = delivery.customerPhone || user?.phone || '+91 98480 12345';
   const customerEmail = delivery.customerEmail || delivery.invoiceEmailedTo || user?.email || 'accounts@urbanico.in';
-  const deliveryAddress = delivery.siteAddress || user?.siteLocation || 'Site Delivery Destination, Hyderabad';
+  const deliveryAddress = formatSiteAddress(delivery.siteAddress || user?.siteLocation || 'Site Delivery Destination, Hyderabad');
 
   const laborFee = delivery.unloadingCharges || (delivery.laborAssistanceOpted ? 450 : 0);
   const totalAmount = delivery.totalAmount || 45000;
@@ -226,27 +227,8 @@ export function buildTaxInvoiceData(
     items = delivery.cartItemsSnapshot.map((cartItem) => {
       const lineTotal = cartItem.unitPrice * cartItem.quantity;
       const hsn = getHSNCodeForMaterial(cartItem.itemName);
-      const taxable = Math.round(lineTotal / 1.18);
-      const gst = lineTotal - taxable;
+      const taxable = lineTotal;
 
-      if (isInterState) {
-        return {
-          name: cartItem.itemName,
-          description: `${hsn.desc} • Direct Quarry Dispatch`,
-          hsnCode: hsn.code,
-          quantity: cartItem.quantity,
-          unit: cartItem.selectedOptionLabel || 'Unit',
-          unitPrice: cartItem.unitPrice,
-          totalAmount: lineTotal,
-          taxableAmount: taxable,
-          cgstAmount: 0,
-          sgstAmount: 0,
-          igstAmount: gst,
-        };
-      }
-
-      const cgst = Math.round(gst / 2);
-      const sgst = gst - cgst;
       return {
         name: cartItem.itemName,
         description: `${hsn.desc} • Direct Quarry Dispatch`,
@@ -256,83 +238,48 @@ export function buildTaxInvoiceData(
         unitPrice: cartItem.unitPrice,
         totalAmount: lineTotal,
         taxableAmount: taxable,
-        cgstAmount: cgst,
-        sgstAmount: sgst,
+        cgstAmount: 0,
+        sgstAmount: 0,
+        igstAmount: 0,
       };
     });
   } else {
     // Single delivery item fallback
     const hsn = getHSNCodeForMaterial(delivery.materialName);
     const materialAmount = Math.max(0, totalAmount - laborFee);
-    const taxable = Math.round(materialAmount / 1.18);
-    const gst = materialAmount - taxable;
+    const taxable = materialAmount;
 
-    if (isInterState) {
-      items.push({
-        name: delivery.materialName,
-        description: `${hsn.desc} • Heavy Industrial Supply`,
-        hsnCode: hsn.code,
-        quantity: 1,
-        unit: delivery.quantity || 'Consignment',
-        unitPrice: materialAmount,
-        totalAmount: materialAmount,
-        taxableAmount: taxable,
-        cgstAmount: 0,
-        sgstAmount: 0,
-        igstAmount: gst,
-      });
-    } else {
-      const cgst = Math.round(gst / 2);
-      const sgst = gst - cgst;
-      items.push({
-        name: delivery.materialName,
-        description: `${hsn.desc} • Heavy Industrial Supply`,
-        hsnCode: hsn.code,
-        quantity: 1,
-        unit: delivery.quantity || 'Consignment',
-        unitPrice: materialAmount,
-        totalAmount: materialAmount,
-        taxableAmount: taxable,
-        cgstAmount: cgst,
-        sgstAmount: sgst,
-      });
-    }
+    items.push({
+      name: delivery.materialName,
+      description: `${hsn.desc} • Heavy Industrial Supply`,
+      hsnCode: hsn.code,
+      quantity: 1,
+      unit: delivery.quantity || 'Consignment',
+      unitPrice: materialAmount,
+      totalAmount: materialAmount,
+      taxableAmount: taxable,
+      cgstAmount: 0,
+      sgstAmount: 0,
+      igstAmount: 0,
+    });
   }
 
   // Add Labor Assistance if opted
   if (laborFee > 0) {
-    const laborTaxable = Math.round(laborFee / 1.18);
-    const laborGst = laborFee - laborTaxable;
-    if (isInterState) {
-      items.push({
-        name: 'Site Labor Assistance & Offloading Service',
-        description: 'SAC 998540 • Professional Material Offloading Support at Project Site',
-        hsnCode: '998540',
-        quantity: 1,
-        unit: 'Service Trip',
-        unitPrice: laborFee,
-        totalAmount: laborFee,
-        taxableAmount: laborTaxable,
-        cgstAmount: 0,
-        sgstAmount: 0,
-        igstAmount: laborGst,
-      });
-    } else {
-      const laborCgst = Math.round(laborGst / 2);
-      const laborSgst = laborGst - laborCgst;
-      items.push({
-        name: 'Site Labor Assistance & Offloading Service',
-        description: 'SAC 998540 • Professional Material Offloading Support at Project Site',
-        hsnCode: '998540',
-        quantity: 1,
-        unit: 'Service Trip',
-        unitPrice: laborFee,
-        totalAmount: laborFee,
-        taxableAmount: laborTaxable,
-        cgstAmount: laborCgst,
-        sgstAmount: laborSgst,
-      });
-    }
+    const laborTaxable = laborFee;
+    items.push({
+      name: 'Site Labor Assistance & Offloading Service',
+      description: 'SAC 998540 • Professional Material Offloading Support at Project Site',
+      hsnCode: '998540',
+      quantity: 1,
+      unit: 'Service Trip',
+      unitPrice: laborFee,
+      totalAmount: laborFee,
+      taxableAmount: laborTaxable,
+      cgstAmount: 0,
+      sgstAmount: 0,
+      igstAmount: 0,
+    });
   }
 
   const taxableAmount = items.reduce((acc, i) => acc + i.taxableAmount, 0);
@@ -388,14 +335,8 @@ export function generateTaxInvoiceHtml(data: TaxInvoiceData): { title: string; h
         <td style="text-align: center; font-weight: 600; font-size: 12px; padding: 10px 8px; color: #0f172a;">${item.quantity} ${item.unit}</td>
         <td style="text-align: right; padding: 10px 8px; font-size: 12px; color: #334155;">₹${Math.round(item.taxableAmount / (item.quantity || 1)).toLocaleString('en-IN')}</td>
         <td style="text-align: right; font-weight: 600; padding: 10px 8px; font-size: 12px; color: #0f172a;">₹${item.taxableAmount.toLocaleString('en-IN')}</td>
-        ${
-          isInterState
-            ? `<td style="text-align: right; padding: 10px 8px; font-size: 11px; color: #0f172a;">₹${(item.igstAmount || 0).toLocaleString('en-IN')} (18%)</td>`
-            : `
-              <td style="text-align: right; padding: 10px 8px; font-size: 11px; color: #0f172a;">₹${item.cgstAmount.toLocaleString('en-IN')} (9%)</td>
-              <td style="text-align: right; padding: 10px 8px; font-size: 11px; color: #0f172a;">₹${item.sgstAmount.toLocaleString('en-IN')} (9%)</td>
-            `
-        }
+        <td style="text-align: right; padding: 10px 8px; font-size: 11px; color: #64748b;">₹0 (0%)</td>
+        <td style="text-align: right; padding: 10px 8px; font-size: 11px; color: #64748b;">₹0 (0%)</td>
         <td style="text-align: right; font-weight: 700; padding: 10px 8px; font-size: 13px; color: #0f172a;">₹${item.totalAmount.toLocaleString('en-IN')}</td>
       </tr>
     `)
@@ -569,16 +510,13 @@ export function generateTaxInvoiceHtml(data: TaxInvoiceData): { title: string; h
           <thead>
             <tr>
               <th style="width: 5%;">#</th>
-              <th style="width: 32%; text-align: left;">Item Description & Specifications</th>
+              <th style="width: 38%; text-align: left;">Item Description & Specifications</th>
               <th style="width: 10%;">HSN/SAC</th>
               <th style="width: 13%;">Qty & Unit</th>
               <th style="width: 10%; text-align: right;">Unit Rate</th>
-              <th style="width: 12%; text-align: right;">Taxable (₹)</th>
-              ${
-                isInterState
-                  ? '<th style="width: 18%; text-align: right;">IGST (18%)</th>'
-                  : '<th style="width: 9%; text-align: right;">CGST (9%)</th><th style="width: 9%; text-align: right;">SGST (9%)</th>'
-              }
+              <th style="width: 12%; text-align: right;">Amount (₹)</th>
+              <th style="width: 6%; text-align: right;">CGST</th>
+              <th style="width: 6%; text-align: right;">SGST</th>
               <th style="width: 12%; text-align: right;">Total (₹)</th>
             </tr>
           </thead>
@@ -601,36 +539,21 @@ export function generateTaxInvoiceHtml(data: TaxInvoiceData): { title: string; h
                 <div style="margin-top: 12px; font-size: 11px; color: #475569; line-height: 1.5;">
                   <strong>Direct Yard Dispatch Terms:</strong><br/>
                   1. Goods once dispatched with digital weighment slip are non-returnable.<br/>
-                  2. Input Tax Credit (ITC) is readily claimable on GSTN Portal under GSTR-2B.<br/>
-                  3. This is an authentic system-generated, digitally authenticated computer tax invoice.
+                  2. Official B2B Invoice generated with verified GSTIN.<br/>
+                  3. This is an authentic system-generated, digitally authenticated tax invoice.
                 </div>
               </div>
             </td>
             <td style="width: 40%; vertical-align: top;">
               <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
                 <tr>
-                  <td style="padding: 6px 0; color: #475569;">Total Taxable Amount:</td>
+                  <td style="padding: 6px 0; color: #475569;">Total Supply Amount:</td>
                   <td style="padding: 6px 0; text-align: right; font-weight: 600;">₹${data.taxableAmount.toLocaleString('en-IN')}</td>
                 </tr>
-                ${
-                  isInterState
-                    ? `
-                      <tr>
-                        <td style="padding: 6px 0; color: #475569;">Integrated GST (IGST 18%):</td>
-                        <td style="padding: 6px 0; text-align: right; font-weight: 600;">₹${(data.igstAmount || 0).toLocaleString('en-IN')}</td>
-                      </tr>
-                    `
-                    : `
-                      <tr>
-                        <td style="padding: 6px 0; color: #475569;">Central GST (CGST 9%):</td>
-                        <td style="padding: 6px 0; text-align: right; font-weight: 600;">₹${data.cgstAmount.toLocaleString('en-IN')}</td>
-                      </tr>
-                      <tr>
-                        <td style="padding: 6px 0; color: #475569;">State GST (SGST 9%):</td>
-                        <td style="padding: 6px 0; text-align: right; font-weight: 600;">₹${data.sgstAmount.toLocaleString('en-IN')}</td>
-                      </tr>
-                    `
-                }
+                <tr>
+                  <td style="padding: 6px 0; color: #475569;">GST (0% Direct Quarry Billing):</td>
+                  <td style="padding: 6px 0; text-align: right; font-weight: 600;">₹0</td>
+                </tr>
                 <tr style="border-top: 2px solid #0f172a; border-bottom: 2px solid #0f172a;">
                   <td style="padding: 10px 0; font-size: 14px; font-weight: 800; color: #0f172a;">Net Payable / Paid:</td>
                   <td style="padding: 10px 0; text-align: right; font-size: 16px; font-weight: 900; color: #0f172a;">₹${data.totalAmount.toLocaleString('en-IN')}</td>

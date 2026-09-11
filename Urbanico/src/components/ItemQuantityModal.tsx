@@ -224,9 +224,9 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
       setPincodeChecked(isServ);
       if (isServ) {
         soundService.playNotification();
-        showToast(`PIN ${clean} verified: Yard express dispatch available`, 'success');
+        showToast(`PIN ${clean}: Delivery available`, 'success');
       } else {
-        showToast(`PIN ${clean}: Standard 24hr regional transit applies`, 'info');
+        showToast(`PIN ${clean}: Standard delivery applies`, 'info');
       }
     } else {
       setPincodeChecked(false);
@@ -241,13 +241,13 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
       if (isServ) soundService.playNotification();
       showToast(
         isServ
-          ? `Pincode ${clean} verified: Same-day yard dispatch available!`
-          : `Pincode ${clean}: Standard regional transit applies`,
+          ? `Pincode ${clean}: Delivery available`
+          : `Pincode ${clean}: Standard delivery applies`,
         isServ ? 'success' : 'info'
       );
     } else {
       soundService.playAlert();
-      showToast('Please enter a valid 6-digit Indian site pincode (e.g. 500081)', 'error');
+      showToast('Please enter a valid 6-digit pincode', 'error');
     }
   };
 

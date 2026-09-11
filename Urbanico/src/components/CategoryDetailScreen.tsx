@@ -21,6 +21,8 @@ import {
   X,
   Zap,
   RotateCcw,
+  LayoutGrid,
+  List,
 } from 'lucide-react-native';
 import { CATEGORIES, SERVICES, MATERIAL_ITEMS } from '../data/materialsData';
 import { CategoryId, MaterialItem } from '../types';
@@ -124,7 +126,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
       query.includes(t)
     );
 
-  // Determine Candidate Pool with Cross-Category Silo Prevention (Bug #2)
+  // Determine Candidate Pool with Cross-Category Silo Prevention
   let candidatePool = MATERIAL_ITEMS;
   let isGlobalFallback = false;
 
@@ -188,16 +190,85 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
         return 0;
       });
 
-  // Apply Facet Filters (Price Range, Fast Dispatch)
-  const items = rankedItems.filter((item) => {
-    // Price facet
+  // Direct matching collections for multi-tab contextual displays
+  const directMatchingMaterials = query
+    ? searchAndRankMaterials(
+        MATERIAL_ITEMS.filter((item) => item.categoryId !== 'services'),
+        query,
+        { sortBy }
+      )
+    : [];
+
+  const directMatchingServices = query
+    ? SERVICES.filter(
+        (srv) =>
+          srv.name.toLowerCase().includes(query) ||
+          srv.subtitle.toLowerCase().includes(query) ||
+          (srv.id && query.includes(srv.id))
+      )
+    : [];
+
+  // Helper sort function to consistently sort product arrays according to active sortBy mode
+  const sortProductsByPreference = (list: MaterialItem[]) => {
+    return [...list].sort((a, b) => {
+      const priceA = a.defaultPrice || a.options?.[0]?.price || 0;
+      const priceB = b.defaultPrice || b.options?.[0]?.price || 0;
+      if (sortBy === 'price-asc') return priceA - priceB;
+      if (sortBy === 'price-desc') return priceB - priceA;
+      if (sortBy === 'savings') return (b.options?.length || 0) - (a.options?.length || 0);
+      return 0;
+    });
+  };
+
+  // Helper filter for price facet
+  const filterByPriceRange = (item: MaterialItem) => {
     const price = item.defaultPrice || item.options?.[0]?.price || 0;
     if (selectedPriceRange === 'under-500' && price >= 500) return false;
     if (selectedPriceRange === '500-5000' && (price < 500 || price > 5000)) return false;
     if (selectedPriceRange === 'above-5000' && price <= 5000) return false;
-
     return true;
-  });
+  };
+
+  // Apply Facet Filters (Price Range, Fast Dispatch)
+  const items = rankedItems.filter(filterByPriceRange);
+
+  // Split items for "All" tab when query is active:
+  // 1. Direct matched items (Rank 1)
+  const allTabMatchingItems = query
+    ? searchAndRankMaterials(MATERIAL_ITEMS, query, { sortBy }).filter(filterByPriceRange)
+    : items;
+
+  // Find the primary category matched (e.g., if user searched "ultra tech cement", matched category is "cement")
+  const primaryMatchedCategories = Array.from(
+    new Set(allTabMatchingItems.map((m) => m.categoryId))
+  );
+
+  // 2. Related category cluster items (Rank 2: e.g. all other cement products like ACC, Ambuja if user searched UltraTech)
+  const allTabRelatedItems = query && primaryMatchedCategories.length > 0
+    ? sortProductsByPreference(
+        MATERIAL_ITEMS.filter(
+          (m) =>
+            primaryMatchedCategories.includes(m.categoryId) &&
+            !allTabMatchingItems.some((match) => match.id === m.id)
+        ).filter(filterByPriceRange)
+      )
+    : [];
+
+  // 3. Remaining catalog items (Rank 3: all other products like steel, sand, bricks, services)
+  const allTabRemainingItems = query
+    ? sortProductsByPreference(
+        MATERIAL_ITEMS.filter(
+          (m) =>
+            !allTabMatchingItems.some((match) => match.id === m.id) &&
+            !allTabRelatedItems.some((rel) => rel.id === m.id)
+        ).filter(filterByPriceRange)
+      )
+    : [];
+
+  // Get human friendly primary category label for section header
+  const primaryCategoryLabel = primaryMatchedCategories.length > 0
+    ? CATEGORIES.find((c) => c.id === primaryMatchedCategories[0])?.name || 'Related Products'
+    : 'Related Products';
 
   const filteredCategories = CATEGORIES.filter(
     (c) => !searchQuery || c.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -262,6 +333,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
             <TopNavTab
               label="All"
               isActive={categoryId === 'all'}
+              badgeCount={query ? (directMatchingMaterials.length + directMatchingServices.length) : undefined}
               onPress={() => {
                 soundService.playTap();
                 onSelectCategoryTab('all');
@@ -272,6 +344,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
             <TopNavTab
               label="Materials"
               isActive={categoryId === 'materials'}
+              badgeCount={query ? directMatchingMaterials.length : undefined}
               onPress={() => {
                 soundService.playTap();
                 onSelectCategoryTab('materials');
@@ -282,6 +355,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
             <TopNavTab
               label="Services"
               isActive={categoryId === 'services-catalog' || categoryId === 'services'}
+              badgeCount={query ? directMatchingServices.length : undefined}
               onPress={() => {
                 soundService.playTap();
                 onSelectCategoryTab('services');
@@ -289,17 +363,23 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
             />
 
             {/* 4. Building Material Categories Only */}
-            {CATEGORIES.map((cat) => (
-              <TopNavTab
-                key={cat.id}
-                label={cat.name}
-                isActive={categoryId === cat.id}
-                onPress={() => {
-                  soundService.playTap();
-                  onSelectCategoryTab(cat.id);
-                }}
-              />
-            ))}
+            {CATEGORIES.map((cat) => {
+              const catMatches = query
+                ? searchAndRankMaterials(MATERIAL_ITEMS.filter((m) => m.categoryId === cat.id), query).length
+                : undefined;
+              return (
+                <TopNavTab
+                  key={cat.id}
+                  label={cat.name}
+                  isActive={categoryId === cat.id}
+                  badgeCount={catMatches}
+                  onPress={() => {
+                    soundService.playTap();
+                    onSelectCategoryTab(cat.id);
+                  }}
+                />
+              );
+            })}
           </ScrollView>
           {/* Subtle Right Edge Fade Indicator to signal more horizontal pills */}
           <View style={[styles.horizontalFadeIndicator, { backgroundColor: theme.surface, pointerEvents: 'none' as any }]} />
@@ -310,63 +390,288 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
         <CatalogSkeleton />
       ) : (
         <>
-          {/* 1. All Combination: Materials & Skilled Services (categoryId === 'all') */}
+          {/* 1. All Products Feed (categoryId === 'all') */}
           {categoryId === 'all' && (
             <View style={styles.itemsSectionContainer}>
-              {/* Display Header Bar */}
+              {/* Header Bar with Count, Sort, and View Mode */}
               <View style={styles.viewToggleHeaderBar}>
-                <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', flex: 1 }}>
                   <Text style={[styles.sectionTitleText, { color: theme.textPrimary }]}>
-                    Categories & Services
+                    {query ? `Results for "${searchQuery}"` : 'All Products'}
                   </Text>
-                  <Text style={[styles.sectionSubtitleText, { color: theme.textSecondary }]}>
-                    Building materials and certified trade services
+                  <Text style={[styles.sectionSubtitleText, { color: theme.textSecondary, marginLeft: 2 }]}>
+                    ({query ? (allTabMatchingItems.length + allTabRelatedItems.length + allTabRemainingItems.length) : items.length})
                   </Text>
+                  {Boolean(query && onClearSearch) && (
+                    <TouchableOpacity
+                      onPress={onClearSearch}
+                      style={[styles.resetFiltersMiniBtn, { backgroundColor: '#FEE2E2', borderColor: '#FECACA' }]}
+                      activeOpacity={0.7}
+                    >
+                      <X size={11} color="#DC2626" strokeWidth={2.4} />
+                      <Text style={[styles.resetFiltersMiniBtnText, { color: '#DC2626', fontWeight: '700' }]}>Clear Search</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Sort & Grid/List Controls */}
+                <View style={styles.actionControlsRow}>
+                  <TouchableOpacity
+                    onPress={handlePriceToggle}
+                    style={[
+                      styles.sortCompactButton,
+                      {
+                        backgroundColor: isPriceSortActive ? theme.primary : theme.surfaceSecondary,
+                        borderColor: isPriceSortActive ? theme.primary : theme.border,
+                      },
+                    ]}
+                    activeOpacity={0.7}
+                  >
+                    <ArrowUpDown
+                      size={13}
+                      color={isPriceSortActive ? '#FFFFFF' : theme.textSecondary}
+                      strokeWidth={2.2}
+                    />
+                    <Text
+                      style={[
+                        styles.sortCompactButtonText,
+                        { color: isPriceSortActive ? '#FFFFFF' : theme.textSecondary },
+                      ]}
+                    >
+                      {sortBy === 'price-asc'
+                        ? 'Low to High'
+                        : sortBy === 'price-desc'
+                        ? 'High to Low'
+                        : 'Price'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <View style={[styles.viewModePillGroup, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                    <TouchableOpacity
+                      onPress={() => setViewMode('grid')}
+                      style={[
+                        styles.viewModePillBtn,
+                        viewMode === 'grid' && [styles.viewModePillActive, { backgroundColor: theme.surface }],
+                      ]}
+                      activeOpacity={0.7}
+                    >
+                      <LayoutGrid
+                        size={15}
+                        color={viewMode === 'grid' ? theme.primary : theme.textSecondary}
+                        strokeWidth={viewMode === 'grid' ? 2.5 : 2}
+                      />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => setViewMode('list')}
+                      style={[
+                        styles.viewModePillBtn,
+                        viewMode === 'list' && [styles.viewModePillActive, { backgroundColor: theme.surface }],
+                      ]}
+                      activeOpacity={0.7}
+                    >
+                      <List
+                        size={15}
+                        color={viewMode === 'list' ? theme.primary : theme.textSecondary}
+                        strokeWidth={viewMode === 'list' ? 2.5 : 2}
+                      />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
 
-              {filteredCategories.length === 0 && filteredServices.length === 0 ? (
-                <EmptyState
-                  type="no-search"
-                  title="No Categories or Services Found"
-                  description="No material categories or trade services matched your search term."
-                />
-              ) : (
+              {/* Price Filter Pills Scroll for All Tab */}
+              <View style={[styles.sortChipsScroll, { marginTop: 4, marginBottom: 12 }]}>
+                <TouchableOpacity
+                  onPress={() => {
+                    soundService.playTap();
+                    setSelectedPriceRange('all');
+                  }}
+                  style={[
+                    styles.sortChip,
+                    selectedPriceRange === 'all'
+                      ? { backgroundColor: theme.primary, borderColor: theme.primary }
+                      : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                  ]}
+                  activeOpacity={0.75}
+                >
+                  <Text
+                    style={[
+                      styles.sortChipText,
+                      {
+                        color: selectedPriceRange === 'all' ? '#FFFFFF' : theme.textSecondary,
+                        fontWeight: selectedPriceRange === 'all' ? '700' : '500',
+                      },
+                    ]}
+                  >
+                    All Prices
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    soundService.playTap();
+                    setSelectedPriceRange(selectedPriceRange === 'under-500' ? 'all' : 'under-500');
+                  }}
+                  style={[
+                    styles.sortChip,
+                    selectedPriceRange === 'under-500'
+                      ? { backgroundColor: theme.primary, borderColor: theme.primary }
+                      : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                  ]}
+                  activeOpacity={0.75}
+                >
+                  <Text
+                    style={[
+                      styles.sortChipText,
+                      {
+                        color: selectedPriceRange === 'under-500' ? '#FFFFFF' : theme.textSecondary,
+                        fontWeight: selectedPriceRange === 'under-500' ? '700' : '500',
+                      },
+                    ]}
+                  >
+                    Under ₹500
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    soundService.playTap();
+                    setSelectedPriceRange(selectedPriceRange === '500-5000' ? 'all' : '500-5000');
+                  }}
+                  style={[
+                    styles.sortChip,
+                    selectedPriceRange === '500-5000'
+                      ? { backgroundColor: theme.primary, borderColor: theme.primary }
+                      : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                  ]}
+                  activeOpacity={0.75}
+                >
+                  <Text
+                    style={[
+                      styles.sortChipText,
+                      {
+                        color: selectedPriceRange === '500-5000' ? '#FFFFFF' : theme.textSecondary,
+                        fontWeight: selectedPriceRange === '500-5000' ? '700' : '500',
+                      },
+                    ]}
+                  >
+                    ₹500 - ₹5,000
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    soundService.playTap();
+                    setSelectedPriceRange(selectedPriceRange === 'above-5000' ? 'all' : 'above-5000');
+                  }}
+                  style={[
+                    styles.sortChip,
+                    selectedPriceRange === 'above-5000'
+                      ? { backgroundColor: theme.primary, borderColor: theme.primary }
+                      : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                  ]}
+                  activeOpacity={0.75}
+                >
+                  <Text
+                    style={[
+                      styles.sortChipText,
+                      {
+                        color: selectedPriceRange === 'above-5000' ? '#FFFFFF' : theme.textSecondary,
+                        fontWeight: selectedPriceRange === 'above-5000' ? '700' : '500',
+                      },
+                    ]}
+                  >
+                    Above ₹5,000
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* When a query is active: Show matched products on top, related category cluster, then remaining items */}
+              {query ? (
                 <>
-                  {/* Building Materials Group */}
-                  {filteredCategories.length > 0 && (
-                    <View style={{ marginBottom: 20 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, marginTop: 4 }}>
+                  {/* Rank 1: Exact / High Match Products */}
+                  {allTabMatchingItems.length > 0 ? (
+                    <View style={{ marginBottom: 16 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                         <Text style={{ fontSize: 15, fontWeight: '700', color: theme.textPrimary }}>
-                          Building Materials
+                          Top Matching Results ({allTabMatchingItems.length})
                         </Text>
                       </View>
-
                       {viewMode === 'grid' ? (
                         <View style={styles.twoColumnGridRow}>
-                          {filteredCategories.map((cat) => (
+                          {allTabMatchingItems.map((item) => (
                             <ProductCard
-                              key={cat.id}
-                              title={cat.name}
-                              subtitle={cat.count}
-                              priceLabel={cat.priceLabel}
-                              image={cat.image}
+                              key={item.id}
+                              item={item}
                               viewMode="grid"
-                              onPress={() => onSelectCategoryTab(cat.id)}
+                              searchQuery={searchQuery}
+                              onPress={() => onSelectItem(item)}
+                              onAddToCartPress={() => onSelectItem(item)}
+                              isFavorite={favoriteIds.includes(item.id)}
+                              onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
                             />
                           ))}
                         </View>
                       ) : (
                         <View style={styles.oneColumnListContainer}>
-                          {filteredCategories.map((cat) => (
+                          {allTabMatchingItems.map((item) => (
                             <ProductCard
-                              key={cat.id}
-                              title={cat.name}
-                              subtitle={cat.count}
-                              priceLabel={cat.priceLabel}
-                              image={cat.image}
+                              key={item.id}
+                              item={item}
                               viewMode="list"
-                              onPress={() => onSelectCategoryTab(cat.id)}
+                              searchQuery={searchQuery}
+                              onPress={() => onSelectItem(item)}
+                              onAddToCartPress={() => onSelectItem(item)}
+                              isFavorite={favoriteIds.includes(item.id)}
+                              onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
+                            />
+                          ))}
+                        </View>
+                      )}
+                    </View>
+                  ) : (
+                    <View style={[styles.globalNoticeBanner, { backgroundColor: '#F3F4F6', borderColor: '#E5E7EB', marginBottom: 16 }]}>
+                      <Text style={styles.globalNoticeText}>
+                        No exact match for "{searchQuery}". Showing all available construction catalog products below:
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Rank 2: Related Category Cluster (e.g. Other Cements if searched UltraTech) */}
+                  {allTabRelatedItems.length > 0 && (
+                    <View style={{ marginTop: 8, paddingTop: 16, borderTopWidth: 1, borderTopColor: theme.borderLight, marginBottom: 16 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                        <Text style={{ fontSize: 15, fontWeight: '700', color: theme.textPrimary }}>
+                          Other {primaryCategoryLabel} ({allTabRelatedItems.length})
+                        </Text>
+                      </View>
+                      {viewMode === 'grid' ? (
+                        <View style={styles.twoColumnGridRow}>
+                          {allTabRelatedItems.map((item) => (
+                            <ProductCard
+                              key={item.id}
+                              item={item}
+                              viewMode="grid"
+                              searchQuery={searchQuery}
+                              onPress={() => onSelectItem(item)}
+                              onAddToCartPress={() => onSelectItem(item)}
+                              isFavorite={favoriteIds.includes(item.id)}
+                              onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
+                            />
+                          ))}
+                        </View>
+                      ) : (
+                        <View style={styles.oneColumnListContainer}>
+                          {allTabRelatedItems.map((item) => (
+                            <ProductCard
+                              key={item.id}
+                              item={item}
+                              viewMode="list"
+                              searchQuery={searchQuery}
+                              onPress={() => onSelectItem(item)}
+                              onAddToCartPress={() => onSelectItem(item)}
+                              isFavorite={favoriteIds.includes(item.id)}
+                              onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
                             />
                           ))}
                         </View>
@@ -374,78 +679,79 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                     </View>
                   )}
 
-                  {/* Skilled Trade Services Group */}
-                  {filteredServices.length > 0 && (
-                    <View style={{ marginBottom: 12 }}>
+                  {/* Rank 3: Remaining Catalog Products (Steel, Sand, Bricks, Tiles, Services, etc.) */}
+                  {allTabRemainingItems.length > 0 && (
+                    <View style={{ marginTop: 8, paddingTop: 16, borderTopWidth: 1, borderTopColor: theme.borderLight }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                         <Text style={{ fontSize: 15, fontWeight: '700', color: theme.textPrimary }}>
-                          Skilled Trade Services
+                          All Other Products & Services ({allTabRemainingItems.length})
                         </Text>
-                        <TouchableOpacity
-                          onPress={() => {
-                            soundService.playTap();
-                            onSelectCategoryTab('services');
-                          }}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={{ fontSize: 12, fontWeight: '600', color: theme.primary }}>
-                            View Services →
-                          </Text>
-                        </TouchableOpacity>
                       </View>
-
                       {viewMode === 'grid' ? (
                         <View style={styles.twoColumnGridRow}>
-                          {filteredServices.map((srv) => {
-                            const matchingItem = MATERIAL_ITEMS.find((m) => m.id === `service-${srv.id}`);
-                            return (
-                              <ProductCard
-                                key={srv.id}
-                                title={srv.name}
-                                subtitle={srv.subtitle}
-                                priceLabel={srv.rate}
-                                image={srv.image}
-                                item={matchingItem}
-                                viewMode="grid"
-                                onPress={() => {
-                                  if (matchingItem) onSelectItem(matchingItem);
-                                  else onSelectCategoryTab(srv.id as any);
-                                }}
-                                onAddToCartPress={matchingItem ? () => onSelectItem(matchingItem) : undefined}
-                                isFavorite={matchingItem ? favoriteIds.includes(matchingItem.id) : false}
-                                onToggleFavorite={matchingItem && onToggleFavorite ? () => onToggleFavorite(matchingItem.id) : undefined}
-                              />
-                            );
-                          })}
+                          {allTabRemainingItems.map((item) => (
+                            <ProductCard
+                              key={item.id}
+                              item={item}
+                              viewMode="grid"
+                              searchQuery={searchQuery}
+                              onPress={() => onSelectItem(item)}
+                              onAddToCartPress={() => onSelectItem(item)}
+                              isFavorite={favoriteIds.includes(item.id)}
+                              onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
+                            />
+                          ))}
                         </View>
                       ) : (
                         <View style={styles.oneColumnListContainer}>
-                          {filteredServices.map((srv) => {
-                            const matchingItem = MATERIAL_ITEMS.find((m) => m.id === `service-${srv.id}`);
-                            return (
-                              <ProductCard
-                                key={srv.id}
-                                title={srv.name}
-                                subtitle={srv.subtitle}
-                                priceLabel={srv.rate}
-                                image={srv.image}
-                                item={matchingItem}
-                                viewMode="list"
-                                onPress={() => {
-                                  if (matchingItem) onSelectItem(matchingItem);
-                                  else onSelectCategoryTab(srv.id as any);
-                                }}
-                                onAddToCartPress={matchingItem ? () => onSelectItem(matchingItem) : undefined}
-                                isFavorite={matchingItem ? favoriteIds.includes(matchingItem.id) : false}
-                                onToggleFavorite={matchingItem && onToggleFavorite ? () => onToggleFavorite(matchingItem.id) : undefined}
-                              />
-                            );
-                          })}
+                          {allTabRemainingItems.map((item) => (
+                            <ProductCard
+                              key={item.id}
+                              item={item}
+                              viewMode="list"
+                              searchQuery={searchQuery}
+                              onPress={() => onSelectItem(item)}
+                              onAddToCartPress={() => onSelectItem(item)}
+                              isFavorite={favoriteIds.includes(item.id)}
+                              onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
+                            />
+                          ))}
                         </View>
                       )}
                     </View>
                   )}
                 </>
+              ) : (
+                /* When no query is active: Show all individual items */
+                viewMode === 'grid' ? (
+                  <View style={styles.twoColumnGridRow}>
+                    {items.map((item) => (
+                      <ProductCard
+                        key={item.id}
+                        item={item}
+                        viewMode="grid"
+                        onPress={() => onSelectItem(item)}
+                        onAddToCartPress={() => onSelectItem(item)}
+                        isFavorite={favoriteIds.includes(item.id)}
+                        onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
+                      />
+                    ))}
+                  </View>
+                ) : (
+                  <View style={styles.oneColumnListContainer}>
+                    {items.map((item) => (
+                      <ProductCard
+                        key={item.id}
+                        item={item}
+                        viewMode="list"
+                        onPress={() => onSelectItem(item)}
+                        onAddToCartPress={() => onSelectItem(item)}
+                        isFavorite={favoriteIds.includes(item.id)}
+                        onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
+                      />
+                    ))}
+                  </View>
+                )
               )}
             </View>
           )}
@@ -453,117 +759,321 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
       {/* 2. Materials Catalog (categoryId === 'materials') */}
       {categoryId === 'materials' && (
         <View style={styles.itemsSectionContainer}>
-          {filteredCategories.length === 0 ? (
-            <EmptyState
-              type="no-search"
-              title="No Categories Found"
-              description="No material categories matched your search term."
-            />
-          ) : (
-            <View style={{ marginBottom: 20 }}>
+          {query ? (
+            <View style={styles.viewToggleHeaderBar}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', flex: 1 }}>
+                <Text style={[styles.sectionTitleText, { color: theme.textPrimary }]}>
+                  Materials matching "{searchQuery}"
+                </Text>
+                {onClearSearch && (
+                  <TouchableOpacity
+                    onPress={onClearSearch}
+                    style={[styles.resetFiltersMiniBtn, { backgroundColor: '#FEE2E2', borderColor: '#FECACA' }]}
+                    activeOpacity={0.7}
+                  >
+                    <X size={11} color="#DC2626" strokeWidth={2.4} />
+                    <Text style={[styles.resetFiltersMiniBtnText, { color: '#DC2626', fontWeight: '700' }]}>Clear Search</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          ) : null}
+
+          {/* Matched Products directly on top */}
+          {Boolean(query && directMatchingMaterials.length > 0) && (
+            <View style={{ marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: theme.textPrimary }}>
+                  Matching Products ({directMatchingMaterials.length})
+                </Text>
+              </View>
+
               {viewMode === 'grid' ? (
                 <View style={styles.twoColumnGridRow}>
-                  {filteredCategories.map((cat) => (
+                  {directMatchingMaterials.map((item) => (
                     <ProductCard
-                      key={cat.id}
-                      title={cat.name}
-                      subtitle={cat.count}
-                      priceLabel={cat.priceLabel}
-                      image={cat.image}
+                      key={item.id}
+                      item={item}
                       viewMode="grid"
-                      onPress={() => onSelectCategoryTab(cat.id)}
+                      onPress={() => onSelectItem(item)}
+                      onAddToCartPress={() => onSelectItem(item)}
+                      isFavorite={favoriteIds.includes(item.id)}
+                      onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
                     />
                   ))}
                 </View>
               ) : (
                 <View style={styles.oneColumnListContainer}>
-                  {filteredCategories.map((cat) => (
+                  {directMatchingMaterials.map((item) => (
                     <ProductCard
-                      key={cat.id}
-                      title={cat.name}
-                      subtitle={cat.count}
-                      priceLabel={cat.priceLabel}
-                      image={cat.image}
+                      key={item.id}
+                      item={item}
                       viewMode="list"
-                      onPress={() => onSelectCategoryTab(cat.id)}
+                      onPress={() => onSelectItem(item)}
+                      onAddToCartPress={() => onSelectItem(item)}
+                      isFavorite={favoriteIds.includes(item.id)}
+                      onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
                     />
                   ))}
                 </View>
               )}
             </View>
           )}
+
+          {/* Material Categories to browse (Never dead-end!) */}
+          <View style={{ marginBottom: 20 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: theme.textPrimary }}>
+                {query ? 'All Material Categories' : 'Material Categories'}
+              </Text>
+            </View>
+
+            {viewMode === 'grid' ? (
+              <View style={styles.twoColumnGridRow}>
+                {CATEGORIES.map((cat) => (
+                  <ProductCard
+                    key={cat.id}
+                    title={cat.name}
+                    subtitle={cat.count}
+                    priceLabel={cat.priceLabel}
+                    image={cat.image}
+                    viewMode="grid"
+                    onPress={() => onSelectCategoryTab(cat.id)}
+                  />
+                ))}
+              </View>
+            ) : (
+              <View style={styles.oneColumnListContainer}>
+                {CATEGORIES.map((cat) => (
+                  <ProductCard
+                    key={cat.id}
+                    title={cat.name}
+                    subtitle={cat.count}
+                    priceLabel={cat.priceLabel}
+                    image={cat.image}
+                    viewMode="list"
+                    onPress={() => onSelectCategoryTab(cat.id)}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* Popular Construction Essentials */}
+          <View style={styles.recommendedSection}>
+            <Text style={[styles.recommendedSectionTitle, { color: theme.textPrimary }]}>
+              Popular Construction Essentials
+            </Text>
+            <View style={styles.twoColumnGridRow}>
+              {MATERIAL_ITEMS.filter((m) =>
+                ['mat-cement-1', 'mat-steel-1', 'mat-sand-1', 'mat-bricks-1'].includes(m.id)
+              ).map((recItem) => (
+                <ProductCard
+                  key={recItem.id}
+                  item={recItem}
+                  viewMode="grid"
+                  onPress={() => onSelectItem(recItem)}
+                  onAddToCartPress={() => onSelectItem(recItem)}
+                  isFavorite={favoriteIds.includes(recItem.id)}
+                  onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(recItem.id) : undefined}
+                />
+              ))}
+            </View>
+          </View>
         </View>
       )}
 
       {/* 3. Services Catalog (categoryId === 'services-catalog' || categoryId === 'services') */}
       {(categoryId === 'services-catalog' || categoryId === 'services') && (
         <View style={styles.itemsSectionContainer}>
-          {/* Services List / Grid Layout */}
-          {filteredServices.length === 0 ? (
-            <EmptyState
-              type="no-search"
-              title="No Services Found"
-              description="No trade services matched your search term."
-            />
-          ) : viewMode === 'grid' ? (
-            /* 2-Column Grid View Layout */
-            <View style={styles.twoColumnGridRow}>
-              {filteredServices.map((srv) => {
-                const matchingItem = MATERIAL_ITEMS.find((m) => m.id === `service-${srv.id}`);
-                return (
-                  <ProductCard
-                    key={srv.id}
-                    title={srv.name}
-                    subtitle={srv.subtitle}
-                    priceLabel={srv.rate}
-                    image={srv.image}
-                    item={matchingItem}
-                    viewMode="grid"
-                    onPress={() => {
-                      if (matchingItem) onSelectItem(matchingItem);
-                      else onSelectCategoryTab(srv.id as any);
-                    }}
-                    onAddToCartPress={matchingItem ? () => onSelectItem(matchingItem) : undefined}
-                    isFavorite={matchingItem ? favoriteIds.includes(matchingItem.id) : false}
-                    onToggleFavorite={matchingItem && onToggleFavorite ? () => onToggleFavorite(matchingItem.id) : undefined}
-                  />
-                );
-              })}
+          {query ? (
+            <View style={styles.viewToggleHeaderBar}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap', flex: 1 }}>
+                <Text style={[styles.sectionTitleText, { color: theme.textPrimary }]}>
+                  Services for "{searchQuery}"
+                </Text>
+                {onClearSearch && (
+                  <TouchableOpacity
+                    onPress={onClearSearch}
+                    style={[styles.resetFiltersMiniBtn, { backgroundColor: '#FEE2E2', borderColor: '#FECACA' }]}
+                    activeOpacity={0.7}
+                  >
+                    <X size={11} color="#DC2626" strokeWidth={2.4} />
+                    <Text style={[styles.resetFiltersMiniBtnText, { color: '#DC2626', fontWeight: '700' }]}>Clear Search</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
-          ) : (
-            /* 1-Column Single List View Layout */
-            <View style={styles.oneColumnListContainer}>
-              {filteredServices.map((srv) => {
-                const matchingItem = MATERIAL_ITEMS.find((m) => m.id === `service-${srv.id}`);
-                return (
-                  <ProductCard
-                    key={srv.id}
-                    title={srv.name}
-                    subtitle={srv.subtitle}
-                    priceLabel={srv.rate}
-                    image={srv.image}
-                    item={matchingItem}
-                    viewMode="list"
-                    onPress={() => {
-                      if (matchingItem) onSelectItem(matchingItem);
-                      else onSelectCategoryTab(srv.id as any);
-                    }}
-                    onAddToCartPress={matchingItem ? () => onSelectItem(matchingItem) : undefined}
-                    isFavorite={matchingItem ? favoriteIds.includes(matchingItem.id) : false}
-                    onToggleFavorite={matchingItem && onToggleFavorite ? () => onToggleFavorite(matchingItem.id) : undefined}
-                  />
-                );
-              })}
+          ) : null}
+
+          {/* Matched Trade Services directly on top */}
+          {Boolean(query && directMatchingServices.length > 0) && (
+            <View style={{ marginBottom: 16 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: theme.textPrimary }}>
+                  Matching Trade Services ({directMatchingServices.length})
+                </Text>
+              </View>
+
+              {viewMode === 'grid' ? (
+                <View style={styles.twoColumnGridRow}>
+                  {directMatchingServices.map((srv) => {
+                    const matchingItem = MATERIAL_ITEMS.find((m) => m.id === `service-${srv.id}`);
+                    return (
+                      <ProductCard
+                        key={srv.id}
+                        title={srv.name}
+                        subtitle={srv.subtitle}
+                        priceLabel={srv.rate}
+                        image={srv.image}
+                        item={matchingItem}
+                        viewMode="grid"
+                        onPress={() => {
+                          if (matchingItem) onSelectItem(matchingItem);
+                          else onSelectCategoryTab(srv.id as any);
+                        }}
+                        onAddToCartPress={matchingItem ? () => onSelectItem(matchingItem) : undefined}
+                        isFavorite={matchingItem ? favoriteIds.includes(matchingItem.id) : false}
+                        onToggleFavorite={matchingItem && onToggleFavorite ? () => onToggleFavorite(matchingItem.id) : undefined}
+                      />
+                    );
+                  })}
+                </View>
+              ) : (
+                <View style={styles.oneColumnListContainer}>
+                  {directMatchingServices.map((srv) => {
+                    const matchingItem = MATERIAL_ITEMS.find((m) => m.id === `service-${srv.id}`);
+                    return (
+                      <ProductCard
+                        key={srv.id}
+                        title={srv.name}
+                        subtitle={srv.subtitle}
+                        priceLabel={srv.rate}
+                        image={srv.image}
+                        item={matchingItem}
+                        viewMode="list"
+                        onPress={() => {
+                          if (matchingItem) onSelectItem(matchingItem);
+                          else onSelectCategoryTab(srv.id as any);
+                        }}
+                        onAddToCartPress={matchingItem ? () => onSelectItem(matchingItem) : undefined}
+                        isFavorite={matchingItem ? favoriteIds.includes(matchingItem.id) : false}
+                        onToggleFavorite={matchingItem && onToggleFavorite ? () => onToggleFavorite(matchingItem.id) : undefined}
+                      />
+                    );
+                  })}
+                </View>
+              )}
             </View>
           )}
+
+          {/* If user searched a material while on Services tab, show matching material products on top! */}
+          {Boolean(query && directMatchingMaterials.length > 0) && (
+            <View style={{ marginBottom: 16 }}>
+              <View style={[styles.globalNoticeBanner, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE', marginBottom: 10 }]}>
+                <Text style={styles.globalNoticeText}>
+                  Found <Text style={{ fontWeight: '700' }}>{directMatchingMaterials.length} materials</Text> matching "{searchQuery}"
+                </Text>
+              </View>
+
+              {viewMode === 'grid' ? (
+                <View style={styles.twoColumnGridRow}>
+                  {directMatchingMaterials.map((item) => (
+                    <ProductCard
+                      key={item.id}
+                      item={item}
+                      viewMode="grid"
+                      onPress={() => onSelectItem(item)}
+                      onAddToCartPress={() => onSelectItem(item)}
+                      isFavorite={favoriteIds.includes(item.id)}
+                      onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
+                    />
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.oneColumnListContainer}>
+                  {directMatchingMaterials.map((item) => (
+                    <ProductCard
+                      key={item.id}
+                      item={item}
+                      viewMode="list"
+                      onPress={() => onSelectItem(item)}
+                      onAddToCartPress={() => onSelectItem(item)}
+                      isFavorite={favoriteIds.includes(item.id)}
+                      onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
+                    />
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+
+          {/* All Site Services & Trades (Never dead end!) */}
+          <View style={{ marginBottom: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: theme.textPrimary }}>
+                {query ? 'All Available Site Services' : 'Site Services & Trades'}
+              </Text>
+            </View>
+
+            {viewMode === 'grid' ? (
+              <View style={styles.twoColumnGridRow}>
+                {SERVICES.map((srv) => {
+                  const matchingItem = MATERIAL_ITEMS.find((m) => m.id === `service-${srv.id}`);
+                  return (
+                    <ProductCard
+                      key={srv.id}
+                      title={srv.name}
+                      subtitle={srv.subtitle}
+                      priceLabel={srv.rate}
+                      image={srv.image}
+                      item={matchingItem}
+                      viewMode="grid"
+                      onPress={() => {
+                        if (matchingItem) onSelectItem(matchingItem);
+                        else onSelectCategoryTab(srv.id as any);
+                      }}
+                      onAddToCartPress={matchingItem ? () => onSelectItem(matchingItem) : undefined}
+                      isFavorite={matchingItem ? favoriteIds.includes(matchingItem.id) : false}
+                      onToggleFavorite={matchingItem && onToggleFavorite ? () => onToggleFavorite(matchingItem.id) : undefined}
+                    />
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={styles.oneColumnListContainer}>
+                {SERVICES.map((srv) => {
+                  const matchingItem = MATERIAL_ITEMS.find((m) => m.id === `service-${srv.id}`);
+                  return (
+                    <ProductCard
+                      key={srv.id}
+                      title={srv.name}
+                      subtitle={srv.subtitle}
+                      priceLabel={srv.rate}
+                      image={srv.image}
+                      item={matchingItem}
+                      viewMode="list"
+                      onPress={() => {
+                        if (matchingItem) onSelectItem(matchingItem);
+                        else onSelectCategoryTab(srv.id as any);
+                      }}
+                      onAddToCartPress={matchingItem ? () => onSelectItem(matchingItem) : undefined}
+                      isFavorite={matchingItem ? favoriteIds.includes(matchingItem.id) : false}
+                      onToggleFavorite={matchingItem && onToggleFavorite ? () => onToggleFavorite(matchingItem.id) : undefined}
+                    />
+                  );
+                })}
+              </View>
+            )}
+          </View>
         </View>
       )}
 
-      {/* 3. Subcategory Detailed Item List */}
+      {/* 4. Specific Category Detailed Item List (e.g. cement, steel, bricks, sand) */}
       {!isCatalogMode && (
         <View style={styles.itemsSectionContainer}>
 
-          {/* Typo Correction Banner (Bug #4) */}
+          {/* Typo Correction Banner */}
           {Boolean(query && wasCorrected) && (
             <View style={[styles.correctionBanner, { backgroundColor: '#FEF3C7', borderColor: '#FCD34D' }]}>
               <Sparkles size={14} color="#D97706" strokeWidth={2.2} />
@@ -576,11 +1086,11 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
             </View>
           )}
 
-          {/* Cross-Category Breakout Notice (Bug #2) */}
-          {Boolean(query && isGlobalFallback) && (
-            <View style={[styles.globalNoticeBanner, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
-              <Text style={styles.globalNoticeText}>
-                No items in {activeCategoryObj?.name || 'this category'} matched "{searchQuery}". Showing matches from <Text style={{ fontWeight: '700' }}>All Materials</Text>.
+          {/* Cross-Category Notice when showing cross-category matches */}
+          {Boolean(query && isGlobalFallback && directMatchingMaterials.length > 0) && (
+            <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 }}>
+              <Text style={{ fontSize: 12, color: theme.textSecondary }}>
+                Showing matching results across all categories
               </Text>
             </View>
           )}
@@ -675,7 +1185,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                 Try adjusting your brand, price filters, or search terms.
               </Text>
 
-              {/* Did you mean suggestion (Bug #9) */}
+              {/* Did you mean suggestion */}
               {Boolean(didYouMean) && (
                 <TouchableOpacity
                   onPress={() => onSelectCategoryTab && onSelectCategoryTab('all')}
@@ -726,7 +1236,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
               </View>
             </View>
           ) : viewMode === 'grid' ? (
-            /* 2-Column Grid View Layout (Reference Image 1) */
+            /* 2-Column Grid View Layout */
             <View style={styles.twoColumnGridRow}>
               {items.map((item) => (
                 <ProductCard
@@ -754,6 +1264,28 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                   onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
                 />
               ))}
+            </View>
+          )}
+
+          {/* If there's a search query and we showed items, also show other categories below to keep exploration seamless */}
+          {Boolean(query) && (
+            <View style={{ marginTop: 24, paddingTop: 16, borderTopWidth: 1, borderTopColor: theme.borderLight }}>
+              <Text style={{ fontSize: 15, fontWeight: '700', color: theme.textPrimary, marginBottom: 12 }}>
+                Explore Other Categories
+              </Text>
+              <View style={styles.twoColumnGridRow}>
+                {CATEGORIES.filter((c) => c.id !== categoryId).map((cat) => (
+                  <ProductCard
+                    key={cat.id}
+                    title={cat.name}
+                    subtitle={cat.count}
+                    priceLabel={cat.priceLabel}
+                    image={cat.image}
+                    viewMode="grid"
+                    onPress={() => onSelectCategoryTab(cat.id)}
+                  />
+                ))}
+              </View>
             </View>
           )}
         </View>

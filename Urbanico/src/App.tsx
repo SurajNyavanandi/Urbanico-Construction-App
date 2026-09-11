@@ -43,6 +43,7 @@ import {
 } from './data/materialsData';
 import { resolveSearchCategory } from './services/searchService';
 import { apiService } from './services/apiService';
+import { formatSiteAddress } from './utils/addressHelper';
 
 function MainAppContent() {
   const { theme } = useTheme();
@@ -234,6 +235,7 @@ function MainAppContent() {
             return parsed.map((del: any, idx: number) => ({
               ...del,
               id: del.id || (del.orderNumber ? `order-${del.orderNumber}-${idx}` : `del-${Date.now()}-${idx}`),
+              siteAddress: formatSiteAddress(del.siteAddress),
             }));
           }
         }
@@ -245,8 +247,12 @@ function MainAppContent() {
   });
 
   const handleOrderCreated = (newOrder: ActivityDelivery) => {
+    const sanitizedOrder: ActivityDelivery = {
+      ...newOrder,
+      siteAddress: formatSiteAddress(newOrder.siteAddress),
+    };
     setDeliveries((prev) => {
-      const updated = [newOrder, ...prev];
+      const updated = [sanitizedOrder, ...prev];
       try {
         safeStorage.setItem('urbanico_orders', JSON.stringify(updated));
         if (user && user.phone) {
@@ -713,16 +719,24 @@ function MainAppContent() {
       if (userOrdersRaw) {
         const loadedOrders: ActivityDelivery[] = JSON.parse(userOrdersRaw);
         if (loadedOrders && loadedOrders.length > 0) {
-          setDeliveries(loadedOrders);
-          safeStorage.setItem('urbanico_orders', JSON.stringify(loadedOrders));
+          const sanitized = loadedOrders.map((d) => ({
+            ...d,
+            siteAddress: formatSiteAddress(d.siteAddress),
+          }));
+          setDeliveries(sanitized);
+          safeStorage.setItem('urbanico_orders', JSON.stringify(sanitized));
         }
       } else {
         const generalOrdersRaw = safeStorage.getItem('urbanico_orders');
         if (generalOrdersRaw) {
           const generalOrders: ActivityDelivery[] = JSON.parse(generalOrdersRaw);
           if (generalOrders && generalOrders.length > 0) {
-            setDeliveries(generalOrders);
-            safeStorage.setItem(`urbanico_user_orders_${cleanPhone}`, JSON.stringify(generalOrders));
+            const sanitized = generalOrders.map((d) => ({
+              ...d,
+              siteAddress: formatSiteAddress(d.siteAddress),
+            }));
+            setDeliveries(sanitized);
+            safeStorage.setItem(`urbanico_user_orders_${cleanPhone}`, JSON.stringify(sanitized));
           }
         }
       }

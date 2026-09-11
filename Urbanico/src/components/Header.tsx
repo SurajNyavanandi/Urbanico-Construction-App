@@ -484,14 +484,14 @@ export const Header: React.FC<HeaderProps> = ({
                               {item.name}
                             </Text>
                             <Text style={[styles.productRowSub, { color: theme.textSecondary }]} numberOfLines={1}>
-                              {item.subtitle || `${item.categoryId.toUpperCase()} • Direct Yard`}
+                              {item.subtitle || `${(item?.categoryId || 'MATERIALS').toUpperCase()} • Direct Yard`}
                             </Text>
                             <View style={styles.stockBadgeRow}>
                               <CheckCircle2 size={11} color="#059669" strokeWidth={2.2} />
                               <Text style={styles.stockBadgeText}>In Stock • Ready for Delivery</Text>
                             </View>
                           </View>
-                          {item.defaultPrice && (
+                          {Boolean(item.defaultPrice) && (
                             <View style={styles.productPriceCol}>
                               <Text style={[styles.productPriceText, { color: theme.textPrimary }]}>
                                 ₹{item.defaultPrice.toLocaleString('en-IN')}

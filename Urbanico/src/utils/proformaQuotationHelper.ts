@@ -43,16 +43,14 @@ export function generateProformaQuotationHtml(options: ProformaQuotationOptions)
     year: 'numeric',
   });
 
-  const cgstAmount = Math.round(gstTax / 2);
-  const sgstAmount = gstTax - cgstAmount;
+  const cgstAmount = 0;
+  const sgstAmount = 0;
   const amountInWords = numberToWordsIndian(totalPayable);
 
   const itemsRowsHtml = cartItems
     .map((item, idx) => {
       const itemTotal = item.unitPrice * item.quantity;
-      const taxable = Math.round(itemTotal / 1.18);
-      const cgst = Math.round((itemTotal - taxable) / 2);
-      const sgst = itemTotal - taxable - cgst;
+      const taxable = itemTotal;
       const hsn = getHSNCodeForMaterial(item.itemName);
 
       return `
@@ -64,10 +62,10 @@ export function generateProformaQuotationHtml(options: ProformaQuotationOptions)
           </td>
           <td style="text-align: center; font-family: monospace; font-size: 11px; padding: 8px 6px;">${hsn.code}</td>
           <td style="text-align: center; font-weight: 600; padding: 8px 6px;">${item.quantity} ${item.selectedOptionLabel || 'Units'}</td>
-          <td style="text-align: right; padding: 8px 6px;">₹${Math.round(taxable / (item.quantity || 1)).toLocaleString('en-IN')}</td>
+          <td style="text-align: right; padding: 8px 6px;">₹${item.unitPrice.toLocaleString('en-IN')}</td>
           <td style="text-align: right; font-weight: 600; padding: 8px 6px;">₹${taxable.toLocaleString('en-IN')}</td>
-          <td style="text-align: right; font-size: 11px; padding: 8px 6px;">₹${cgst.toLocaleString('en-IN')} (9%)</td>
-          <td style="text-align: right; font-size: 11px; padding: 8px 6px;">₹${sgst.toLocaleString('en-IN')} (9%)</td>
+          <td style="text-align: right; font-size: 11px; padding: 8px 6px;">₹0 (0%)</td>
+          <td style="text-align: right; font-size: 11px; padding: 8px 6px;">₹0 (0%)</td>
           <td style="text-align: right; font-weight: 700; color: #0f172a; padding: 8px 6px;">₹${itemTotal.toLocaleString('en-IN')}</td>
         </tr>
       `;
@@ -420,16 +418,8 @@ export function generateProformaQuotationHtml(options: ProformaQuotationOptions)
           <div>
             <table class="totals-table">
               <tr>
-                <td style="color: #64748b;">Taxable Supply Value</td>
-                <td style="text-align: right; font-weight: 600;">₹${Math.round(subtotal / 1.18).toLocaleString('en-IN')}</td>
-              </tr>
-              <tr>
-                <td style="color: #64748b;">CGST (Central Tax 9%)</td>
-                <td style="text-align: right;">₹${cgstAmount.toLocaleString('en-IN')}</td>
-              </tr>
-              <tr>
-                <td style="color: #64748b;">SGST (State Tax 9%)</td>
-                <td style="text-align: right;">₹${sgstAmount.toLocaleString('en-IN')}</td>
+                <td style="color: #64748b;">Subtotal Supply Value</td>
+                <td style="text-align: right; font-weight: 600;">₹${subtotal.toLocaleString('en-IN')}</td>
               </tr>
               <tr>
                 <td style="color: #64748b;">Direct Yard Freight Logistics</td>
@@ -447,10 +437,10 @@ export function generateProformaQuotationHtml(options: ProformaQuotationOptions)
           <div>
             <div class="terms-title">Terms & Purchase Order Conditions</div>
             <ol class="terms-list">
-              <li>Prices are inclusive of 18% GST and quarry loading charges.</li>
+              <li>Direct quarry pricing with transparent logistics and yard loading included.</li>
               <li>Rates are guaranteed for 7 calendar days from issue date subject to steel/cement commodity market indexes.</li>
               <li>Delivery will be dispatched within 4 hours of payment confirmation or purchase order receipt.</li>
-              <li>Unloading at the customer site must be arranged by the site supervisor or requested in advance.</li>
+              <li>Unloading at the customer site can be arranged by the site supervisor or requested with order.</li>
               <li>Electronic weighbridge slip and test certificates will accompany the transport vehicle.</li>
             </ol>
           </div>

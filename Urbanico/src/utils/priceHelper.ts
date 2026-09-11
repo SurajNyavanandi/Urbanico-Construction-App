@@ -40,19 +40,19 @@ export function formatInr(amount: number): string {
 }
 
 /**
- * Computes GST calculation (Flat 18% GST for construction goods & supply)
+ * Computes GST calculation (0% GST - direct pricing without added tax)
  */
 export function computeGstBreakdown(taxableAmount: number) {
   const safeTaxable = isNaN(taxableAmount) ? 0 : Math.max(0, taxableAmount);
-  const gst = Math.round(safeTaxable * 0.18);
-  const totalGst = gst;
-  const grandTotal = safeTaxable + totalGst;
+  const gst = 0;
+  const totalGst = 0;
+  const grandTotal = safeTaxable;
 
   return {
     taxableAmount: safeTaxable,
-    gst,
-    totalGst,
+    gst: 0,
+    totalGst: 0,
     grandTotal,
-    gstRate: '18%',
+    gstRate: '0%',
   };
 }

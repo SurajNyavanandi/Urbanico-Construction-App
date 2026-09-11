@@ -732,11 +732,11 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                   <>
                     <View style={styles.thinDivider} />
                     <View style={styles.transactionRow}>
-                      <Text style={styles.transactionLabel}>Security</Text>
+                      <Text style={styles.transactionLabel}>Payment</Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <ShieldCheck size={14} color="#059669" />
-                        <Text style={[styles.transactionValue, { fontWeight: '700', color: '#059669' }]}>
-                          100% Secure Checkout
+                        <Text style={[styles.transactionValue, { fontWeight: '600', color: '#334155' }]}>
+                          Verified Gateway
                         </Text>
                       </View>
                     </View>
@@ -768,7 +768,7 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                 <View style={styles.desktopUpiNotice}>
                   <QrCode size={16} color="#059669" />
                   <Text style={styles.desktopUpiNoticeText}>
-                    Scan the QR code below with {launchedAppName} on your phone, or copy the UPI ID to pay.
+                    Scan QR code or use UPI ID to complete payment.
                   </Text>
                 </View>
               )}
@@ -924,10 +924,10 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                     <ShieldCheck size={18} color="#D97706" />
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 12, fontWeight: '700', color: '#92400E' }}>
-                        Sandbox Test Mode Active
+                        Test Mode
                       </Text>
                       <Text style={{ fontSize: 11, color: '#B45309', marginTop: 2 }}>
-                        Demo sandbox active. Orders are verified with instant simulated settlement.
+                        Simulated test payments enabled.
                       </Text>
                     </View>
                   </View>
@@ -950,9 +950,6 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                     <View style={styles.optionHeaderTextWrap}>
                       <View style={styles.optionTitleRow}>
                         <Text style={styles.optionTitle}>UPI</Text>
-                        <View style={styles.recommendedBadge}>
-                          <Text style={styles.recommendedBadgeText}>INSTANT</Text>
-                        </View>
                       </View>
                       <Text style={styles.optionSubtitle}>
                         Google Pay, PhonePe, Paytm or UPI ID
@@ -963,23 +960,6 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                   {/* Expanded UPI App Choice */}
                   {selectedCategory === 'upi' && (
                     <View style={styles.optionBody}>
-                      {/* Secure UPI Settlement Banner */}
-                      <View style={{ backgroundColor: '#F0FDF4', borderRadius: 8, padding: 10, marginBottom: 12, borderWidth: 1, borderColor: '#DCFCE7' }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <ShieldCheck size={14} color="#16A34A" />
-                          <Text style={{ fontSize: 12, fontWeight: '700', color: '#166534' }}>
-                            Instant UPI Settlement
-                          </Text>
-                        </View>
-                        <Text style={{ fontSize: 11, color: '#15803D', marginTop: 2 }}>
-                          Fast, 100% secure payment with instant verification.
-                        </Text>
-                      </View>
-
-                      <Text style={styles.upiQuickLaunchHeader}>
-                        DIRECT 1-TAP APP LAUNCH
-                      </Text>
-
                       {/* Google Pay */}
                       <TouchableOpacity
                         onPress={() => handleDirectUpiAppClick('gpay')}
@@ -996,11 +976,7 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                           <View style={styles.upiAppInfo}>
                             <View style={styles.upiTitleRow}>
                               <Text style={styles.upiAppName}>Google Pay</Text>
-                              <View style={styles.popularBadge}>
-                                <Text style={styles.popularBadgeText}>POPULAR</Text>
-                              </View>
                             </View>
-                            <Text style={styles.upiAppSub}>Direct 1-tap UPI launch</Text>
                           </View>
                         </View>
                         <View style={styles.payNowBadge}>
@@ -1029,11 +1005,7 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                           <View style={styles.upiAppInfo}>
                             <View style={styles.upiTitleRow}>
                               <Text style={styles.upiAppName}>PhonePe</Text>
-                              <View style={styles.recommendedBadge}>
-                                <Text style={styles.recommendedBadgeText}>RECOMMENDED</Text>
-                              </View>
                             </View>
-                            <Text style={styles.upiAppSub}>Direct 1-tap UPI launch</Text>
                           </View>
                         </View>
                         <View style={styles.payNowBadge}>
@@ -1061,7 +1033,6 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                           </View>
                           <View style={styles.upiAppInfo}>
                             <Text style={styles.upiAppName}>Paytm UPI</Text>
-                            <Text style={styles.upiAppSub}>Pay via Paytm app</Text>
                           </View>
                         </View>
                         <View style={styles.payNowBadge}>
@@ -1089,7 +1060,6 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                           </View>
                           <View style={styles.upiAppInfo}>
                             <Text style={styles.upiAppName}>CRED UPI</Text>
-                            <Text style={styles.upiAppSub}>Rewards & cashback on approval</Text>
                           </View>
                         </View>
                         <View style={styles.payNowBadge}>
@@ -1117,7 +1087,6 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                           </View>
                           <View style={styles.upiAppInfo}>
                             <Text style={styles.upiAppName}>BHIM UPI</Text>
-                            <Text style={styles.upiAppSub}>Govt. of India UPI app</Text>
                           </View>
                         </View>
                         <View style={styles.payNowBadge}>
@@ -1235,7 +1204,7 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                             maxLength={19}
                             style={[styles.androidInput, { flex: 1 }]}
                           />
-                          {cardBrand.component && (
+                          {Boolean(cardBrand.component) && (
                             <View style={styles.inputBrandIcon}>
                               <cardBrand.component size={20} />
                             </View>

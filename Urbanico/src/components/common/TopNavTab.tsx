@@ -8,6 +8,7 @@ interface TopNavTabProps {
   onPress: () => void;
   style?: ViewStyle;
   textStyle?: TextStyle;
+  badgeCount?: number;
 }
 
 export const TopNavTab: React.FC<TopNavTabProps> = ({
@@ -16,6 +17,7 @@ export const TopNavTab: React.FC<TopNavTabProps> = ({
   onPress,
   style,
   textStyle,
+  badgeCount,
 }) => {
   const { theme, typography } = useTheme();
 
@@ -25,19 +27,28 @@ export const TopNavTab: React.FC<TopNavTabProps> = ({
       activeOpacity={0.7}
       style={[styles.tab, style]}
     >
-      <Text
-        style={[
-          styles.text,
-          {
-            color: isActive ? theme.textPrimary : theme.textSecondary,
-            fontFamily: typography.fontFamilyHeading,
-            fontWeight: isActive ? '700' : '500',
-          },
-          textStyle,
-        ]}
-      >
-        {label}
-      </Text>
+      <View style={styles.tabContentRow}>
+        <Text
+          style={[
+            styles.text,
+            {
+              color: isActive ? theme.textPrimary : theme.textSecondary,
+              fontFamily: typography.fontFamilyHeading,
+              fontWeight: isActive ? '700' : '500',
+            },
+            textStyle,
+          ]}
+        >
+          {label}
+        </Text>
+        {typeof badgeCount === 'number' && badgeCount > 0 ? (
+          <View style={[styles.badge, { backgroundColor: isActive ? theme.primary : theme.surfaceSecondary }]}>
+            <Text style={[styles.badgeText, { color: isActive ? '#FFFFFF' : theme.textSecondary }]}>
+              {badgeCount}
+            </Text>
+          </View>
+        ) : null}
+      </View>
       {isActive && (
         <View style={[styles.activeIndicator, { backgroundColor: theme.primary }]} />
       )}
@@ -49,13 +60,30 @@ const styles = StyleSheet.create({
   tab: {
     paddingVertical: 10,
     paddingHorizontal: 2,
-    marginRight: 22,
+    marginRight: 20,
     alignItems: 'center',
     position: 'relative',
+  },
+  tabContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   text: {
     fontSize: 14,
     letterSpacing: -0.2,
+  },
+  badge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 10,
+    minWidth: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
   activeIndicator: {
     position: 'absolute',

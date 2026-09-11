@@ -76,6 +76,7 @@ import {
   lookupCityStateFromPincode,
   validateIndianAddress,
   formatIndianAddressSummary,
+  formatSiteAddress,
 } from '../utils/addressHelper';
 import {
   validateAndSanitizeAddressForm,
@@ -1059,14 +1060,15 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   )}
                 </View>
               ) : (
-                savedLocations.map((loc) => {
-                  const isSelected = selectedLocation === loc;
+                savedLocations.map((loc, locIdx) => {
+                  const locStr = formatSiteAddress(loc);
+                  const isSelected = selectedLocation === locStr || selectedLocation === loc;
                   return (
                     <TouchableOpacity
-                      key={loc}
+                      key={typeof loc === 'string' ? loc : `loc_${locIdx}`}
                       onPress={() => {
-                        setSelectedLocation(loc);
-                        showToast(`Delivery site set to: ${loc}`, 'success');
+                        setSelectedLocation(locStr);
+                        showToast(`Delivery site set to: ${locStr}`, 'success');
                       }}
                       style={[
                         styles.addressItem,
@@ -1081,7 +1083,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                         <MapPin size={16} color={isSelected ? '#111111' : theme.textSecondary} />
                         <View style={{ flex: 1 }}>
                           <Text style={[styles.addressText, { color: theme.textPrimary, fontWeight: isSelected ? '700' : '400' }]}>
-                            {loc}
+                            {locStr}
                           </Text>
                           <Text style={[styles.addressSub, { color: theme.textSecondary }]}>
                             {isSelected ? 'Default Delivery Site' : 'Tap to select as delivery destination'}
@@ -1549,7 +1551,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                       Sign In to Access Payment Methods
                     </Text>
                     <Text style={[styles.guestSecureSub, { color: theme.textSecondary }]}>
-                      Saved UPI IDs and tokenized credit/debit cards are strictly isolated, encrypted, and bound to verified contractor accounts.
+                      Sign in to view and manage saved payment methods.
                     </Text>
                     <TouchableOpacity
                       onPress={() => {
@@ -1655,7 +1657,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                                   <ShieldCheck size={11} color="#059669" strokeWidth={2.5} />
                                   <Text style={styles.verifiedGreenBadgeText}>Verified</Text>
                                 </View>
-                                {method.verifiedAccountName && (
+                                {Boolean(method.verifiedAccountName) && (
                                   <Text style={[styles.verifiedHolderText, { color: theme.textMuted }]} numberOfLines={1}>
                                     • {method.verifiedAccountName}
                                   </Text>
@@ -1771,11 +1773,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                               />
                               {upiError ? (
                                 <Text style={styles.fieldErrorText}>⚠️ {upiError}</Text>
-                              ) : (
-                                <Text style={[styles.fieldHintText, { color: theme.textMuted }]}>
-                                  Verified with NPCI banking network before saving.
-                                </Text>
-                              )}
+                              ) : null}
                             </View>
 
                             <TouchableOpacity
@@ -1793,12 +1791,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                               {isVerifyingUpi ? (
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                                   <ActivityIndicator size="small" color="#FFFFFF" />
-                                  <Text style={styles.verifySubmitBtnText}>Verifying with Bank...</Text>
+                                  <Text style={styles.verifySubmitBtnText}>Saving...</Text>
                                 </View>
                               ) : (
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                  <ShieldCheck size={15} color="#FFFFFF" strokeWidth={2.5} />
-                                  <Text style={styles.verifySubmitBtnText}>Verify & Save UPI</Text>
+                                  <Text style={styles.verifySubmitBtnText}>Save UPI ID</Text>
                                 </View>
                               )}
                             </TouchableOpacity>
@@ -1913,11 +1910,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
                             {cardError ? (
                               <Text style={styles.fieldErrorText}>⚠️ {cardError}</Text>
-                            ) : (
-                              <Text style={[styles.fieldHintText, { color: theme.textMuted }]}>
-                                Secured with RBI card tokenization guidelines. CVV is never stored.
-                              </Text>
-                            )}
+                            ) : null}
 
                             <TouchableOpacity
                               onPress={handleVerifyAndSaveCard}
@@ -1934,12 +1927,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                               {isVerifyingCard ? (
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                                   <ActivityIndicator size="small" color="#FFFFFF" />
-                                  <Text style={styles.verifySubmitBtnText}>Verifying & Tokenizing...</Text>
+                                  <Text style={styles.verifySubmitBtnText}>Saving Card...</Text>
                                 </View>
                               ) : (
                                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                  <ShieldCheck size={15} color="#FFFFFF" strokeWidth={2.5} />
-                                  <Text style={styles.verifySubmitBtnText}>Verify & Save Tokenized Card</Text>
+                                  <Text style={styles.verifySubmitBtnText}>Save Card</Text>
                                 </View>
                               )}
                             </TouchableOpacity>
@@ -1949,13 +1941,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     )}
                   </View>
                 )}
-
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 18, gap: 6 }}>
-                  <ShieldCheck size={13} color="#059669" />
-                  <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '500' }}>
-                    RBI Tokenization Compliant • 256-bit Secure Storage
-                  </Text>
-                </View>
               </ScrollView>
             </View>
           </KeyboardAvoidingView>
@@ -2072,7 +2057,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   <MessageSquare size={18} color="#111111" />
                   <View>
                     <Text style={[styles.helpItemTitle, { color: theme.textPrimary }]}>WhatsApp Dispatch Desk</Text>
-                    <Text style={[styles.helpItemSub, { color: theme.textSecondary }]}>Instant status of tipper & transit mixers</Text>
+                    <Text style={[styles.helpItemSub, { color: theme.textSecondary }]}>Direct chat with dispatch coordinator</Text>
                   </View>
                 </View>
                 <ChevronRight size={16} color={theme.textSecondary} />
@@ -2299,7 +2284,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               ) : null}
 
               {/* Inline OTP Verification Container */}
-              {showEmailOtpBox && (
+              {Boolean(showEmailOtpBox) && (
                 <View style={[styles.emailOtpBox, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
                   <View style={styles.otpHeaderRow}>
                     <Mail size={15} color="#059669" />

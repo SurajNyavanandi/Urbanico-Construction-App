@@ -130,7 +130,7 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
 
                   <View style={styles.cardBody}>
                     <Text style={styles.productTag}>
-                      {item.categoryId.toUpperCase()}
+                      {(item?.categoryId || 'MATERIALS').toUpperCase()}
                     </Text>
                     <Text style={styles.productName} numberOfLines={2}>
                       {item.name}

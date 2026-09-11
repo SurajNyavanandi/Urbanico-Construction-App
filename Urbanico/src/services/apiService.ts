@@ -204,6 +204,7 @@ class ApiService {
     customerPhone: string;
     customerEmail?: string;
     gstin?: string;
+    businessName?: string;
     siteAddress: {
       siteName: string;
       street: string;

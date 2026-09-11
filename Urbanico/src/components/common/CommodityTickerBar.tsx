@@ -71,7 +71,7 @@ export const CommodityTickerBar: React.FC = () => {
       >
         <View style={styles.modalOverlay}>
           <Pressable style={styles.modalBackdrop} onPress={() => setSelectedRate(null)} />
-          {selectedRate && (
+          {Boolean(selectedRate) && (
             <View style={[styles.modalCard, { backgroundColor: theme.surface }]}>
               <View style={styles.modalHeader}>
                 <View style={styles.modalHeaderLeft}>

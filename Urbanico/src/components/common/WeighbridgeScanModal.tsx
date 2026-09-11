@@ -123,7 +123,7 @@ export const WeighbridgeScanModal: React.FC<WeighbridgeScanModalProps> = ({
               </View>
             )}
 
-            {scanState === 'parsed' && extractedData && (
+            {Boolean(scanState === 'parsed' && extractedData) && (
               <View style={styles.parsedContainer}>
                 {/* Status Badge */}
                 <View

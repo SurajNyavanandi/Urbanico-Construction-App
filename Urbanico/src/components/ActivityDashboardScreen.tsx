@@ -52,7 +52,7 @@ const TRACKING_STEPS = [
 ];
 
 export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = ({
-  deliveries,
+  deliveries = [],
   onBack,
   onExploreCatalog,
   onViewInvoice,
@@ -97,11 +97,12 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
     }, 800);
   };
 
-  const activeEnRoute = deliveries.find((d) => d.status === 'En Route') || deliveries[0];
+  const validDeliveries = Array.isArray(deliveries) ? deliveries.filter(Boolean) : [];
+  const activeEnRoute = validDeliveries.find((d) => (d?.status || '').toLowerCase() === 'en route') || validDeliveries[0];
 
-  const totalSpent = deliveries.reduce((acc, d) => acc + (d.totalAmount || 0), 0);
-  const deliveredCount = deliveries.filter((d) => d.status === 'Delivered').length;
-  const successRate = deliveries.length > 0 ? Math.round((deliveredCount / deliveries.length) * 100) : 100;
+  const totalSpent = validDeliveries.reduce((acc, d) => acc + (d?.totalAmount || 0), 0);
+  const deliveredCount = validDeliveries.filter((d) => (d?.status || '').toLowerCase() === 'delivered').length;
+  const successRate = validDeliveries.length > 0 ? Math.round((deliveredCount / validDeliveries.length) * 100) : 100;
 
   const handleCallDriver = () => {
     showToast(`Connecting secure line to ${activeEnRoute?.driverName || 'Assigned Partner'}...`, 'info');
@@ -138,7 +139,7 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
           />
         }
       >
-        {deliveries.length === 0 ? (
+        {validDeliveries.length === 0 ? (
           !isLoggedIn ? (
             <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, alignItems: 'center', padding: 24 }]}>
               <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: theme.surfaceSecondary, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
@@ -284,7 +285,7 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
                     <Text style={styles.actionBtnTextWhite}>Call Driver</Text>
                   </TouchableOpacity>
 
-                  {activeEnRoute?.weighmentSlipId && (
+                  {Boolean(activeEnRoute?.weighmentSlipId) && (
                     <TouchableOpacity
                       onPress={() => setShowWeighbridgeModal(true)}
                       style={[styles.actionBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, borderWidth: 1 }]}
@@ -444,7 +445,7 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
                 <View style={styles.metricItem}>
                   <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Dispatches Cleared</Text>
                   <Text style={[styles.metricValue, { color: theme.textPrimary }]}>
-                    {deliveries.length} Shipments
+                    {validDeliveries.length} Shipments
                   </Text>
                 </View>
               </View>
@@ -457,32 +458,32 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
                   Previous Dispatches
                 </Text>
                 <Text style={[styles.countLabel, { color: theme.textSecondary }]}>
-                  {deliveries.length}
+                  {validDeliveries.length}
                 </Text>
               </View>
 
               <View style={styles.ordersList}>
-                {deliveries.map((del, idx) => (
+                {validDeliveries.map((del, idx) => (
                   <View
-                    key={del.id}
+                    key={del?.id || `del_${idx}`}
                     style={[
                       styles.orderItemRow,
                       idx > 0 && { borderTopWidth: 1, borderTopColor: theme.borderLight },
                     ]}
                   >
                     <View style={styles.orderLeft}>
-                      <Text style={[styles.orderMaterialName, { color: theme.textPrimary }]}>{del.materialName}</Text>
-                      <Text style={[styles.orderTimeText, { color: theme.textSecondary }]}>{del.timestamp} • {del.vehicleNumber}</Text>
-                      {Boolean(del.ewayBillNumber) && (
+                      <Text style={[styles.orderMaterialName, { color: theme.textPrimary }]}>{del?.materialName || 'Material Delivery'}</Text>
+                      <Text style={[styles.orderTimeText, { color: theme.textSecondary }]}>{del?.timestamp || 'Recent'} • {del?.vehicleNumber || 'Standard Logistics'}</Text>
+                      {Boolean(del?.ewayBillNumber) && (
                         <Text style={[styles.ewayText, { color: '#0284C7' }]}>E-Way Bill: {del.ewayBillNumber}</Text>
                       )}
                     </View>
 
                     <View style={styles.orderRight}>
                       <Text style={[styles.orderAmount, { color: theme.textPrimary }]}>
-                        ₹{del.totalAmount.toLocaleString('en-IN')}
+                        ₹{del?.totalAmount ? del.totalAmount.toLocaleString('en-IN') : '0'}
                       </Text>
-                      {onViewInvoice && (
+                      {Boolean(onViewInvoice) && (
                         <TouchableOpacity
                           onPress={() => onViewInvoice(del)}
                           style={styles.invoiceActionBtn}

@@ -258,3 +258,34 @@ export function formatIndianAddressSummary(addr: Partial<IndianDeliveryAddress>)
   return parts.join(', ');
 }
 
+/**
+ * Safely converts any site address value (string, object with siteName/street/city/state/pincode, or partial address)
+ * into a safe, non-object string representation suitable for direct React rendering.
+ */
+export function formatSiteAddress(addr: unknown): string {
+  if (!addr) return 'Registered Site';
+  if (typeof addr === 'string') {
+    const trimmed = addr.trim();
+    return trimmed || 'Registered Site';
+  }
+  if (typeof addr === 'object' && addr !== null) {
+    const anyAddr = addr as Record<string, any>;
+    const parts: string[] = [];
+    if (anyAddr.street) parts.push(String(anyAddr.street));
+    else if (anyAddr.flatBuilding || anyAddr.areaStreet) {
+      if (anyAddr.flatBuilding) parts.push(String(anyAddr.flatBuilding));
+      if (anyAddr.areaStreet) parts.push(String(anyAddr.areaStreet));
+    }
+    if (anyAddr.siteName && !parts.includes(String(anyAddr.siteName))) {
+      parts.unshift(String(anyAddr.siteName));
+    }
+    if (anyAddr.city) parts.push(String(anyAddr.city));
+    if (anyAddr.state) parts.push(String(anyAddr.state));
+    if (anyAddr.pincode) parts.push(String(anyAddr.pincode));
+
+    const result = parts.filter(Boolean).join(', ').trim();
+    if (result) return result;
+  }
+  return String(addr || 'Registered Site');
+}
+

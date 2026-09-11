@@ -15,6 +15,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { parseSanitizedPrice, formatInr } from '../../utils/priceHelper';
 import { useToast } from '../../context/ToastContext';
 import { soundService } from '../../utils/soundHelper';
+import { getHighlightedSegments } from '../../services/searchService';
 
 export interface ProductCardProps {
   item?: MaterialItem;
@@ -32,6 +33,7 @@ export interface ProductCardProps {
   width?: number | string;
   style?: ViewStyle;
   showAddButton?: boolean;
+  searchQuery?: string;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({
@@ -49,6 +51,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   width,
   style,
   showAddButton = true,
+  searchQuery = '',
 }) => {
   const { theme } = useTheme();
   const { showToast } = useToast();
@@ -154,6 +157,39 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const displayImage = image || item?.image || '';
   const displayTag = tag || (item?.categoryId ? item.categoryId : 'MATERIALS');
 
+  // Highlighted Title Segments
+  const titleSegments = searchQuery ? getHighlightedSegments(displayTitle, searchQuery) : [];
+
+  const renderHighlightedTitle = (baseStyle: any, numberOfLines: number) => {
+    if (!searchQuery || titleSegments.length === 0) {
+      return (
+        <Text style={baseStyle} numberOfLines={numberOfLines}>
+          {displayTitle}
+        </Text>
+      );
+    }
+    return (
+      <Text style={baseStyle} numberOfLines={numberOfLines}>
+        {titleSegments.map((segment, idx) => (
+          <Text
+            key={idx}
+            style={
+              segment.isMatch
+                ? {
+                    backgroundColor: '#FEF08A',
+                    color: '#854D0E',
+                    fontWeight: '800',
+                  }
+                : undefined
+            }
+          >
+            {segment.text}
+          </Text>
+        ))}
+      </Text>
+    );
+  };
+
   // Format price safely using sanitized number logic
   let displayPrice = priceLabel;
   if (!displayPrice) {
@@ -203,12 +239,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <View style={styles.listTextWrapper}>
             <View style={styles.tagEtaRow}>
               <Text style={[styles.productTag, { color: theme.textSecondary }]}>
-                {displayTag.toUpperCase()}
+                {(displayTag || 'MATERIALS').toUpperCase()}
               </Text>
             </View>
-            <Text style={[styles.productTitleList, { color: theme.textPrimary }]} numberOfLines={1}>
-              {displayTitle}
-            </Text>
+            {renderHighlightedTitle([styles.productTitleList, { color: theme.textPrimary }], 1)}
             <Text style={[styles.productSubtitle, { color: theme.textSecondary }]} numberOfLines={1}>
               {displaySubtitle}
             </Text>
@@ -220,16 +254,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
         <View style={styles.listActionCol}>
           <View style={styles.actionTopRow}>
-            <TouchableOpacity
-              onPress={handleShareProduct}
-              activeOpacity={0.7}
-              style={[styles.favButtonList, { backgroundColor: theme.surfaceSecondary }]}
-              accessibilityLabel="Share Product"
-            >
-              <Share2 size={13} color={theme.textPrimary} />
-            </TouchableOpacity>
-
-            {onToggleFavorite && (
+            {Boolean(onToggleFavorite) && (
               <TouchableOpacity
                 onPress={handleFavoritePress}
                 activeOpacity={0.7}
@@ -297,30 +322,22 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             />
           ) : null}
 
-          {/* Top Badges: Share / Favorite */}
+          {/* Top Right: Favorite Icon */}
           <View style={styles.gridTopOverlayRow}>
             <View style={{ flex: 1 }} />
 
             <View style={styles.gridRightIcons}>
-              <TouchableOpacity
-                onPress={handleShareProduct}
-                style={[styles.gridMiniBtn, { backgroundColor: 'rgba(0,0,0,0.45)' }]}
-                activeOpacity={0.7}
-              >
-                <Share2 size={12} color="#FFFFFF" />
-              </TouchableOpacity>
-
-              {onToggleFavorite && (
+              {Boolean(onToggleFavorite) && (
                 <TouchableOpacity
                   onPress={handleFavoritePress}
-                  style={[styles.gridMiniBtn, { backgroundColor: 'rgba(0,0,0,0.45)' }]}
+                  style={[styles.gridMiniBtn, { backgroundColor: 'rgba(255,255,255,0.85)' }]}
                   activeOpacity={0.7}
                   accessibilityLabel="Toggle Favorite"
                 >
                   <AnimatedView style={{ transform: [{ scale: favScaleAnim }] }}>
                     <Heart
-                      size={13}
-                      color={isFavorite ? '#E11D48' : '#FFFFFF'}
+                      size={14}
+                      color={isFavorite ? '#E11D48' : '#374151'}
                       fill={isFavorite ? '#E11D48' : 'transparent'}
                     />
                   </AnimatedView>
@@ -332,11 +349,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
         <View style={styles.productInfo}>
           <Text style={[styles.productTag, { color: theme.textSecondary }]}>
-            {displayTag.toUpperCase()}
+            {(displayTag || 'MATERIALS').toUpperCase()}
           </Text>
-          <Text style={[styles.productTitle, { color: theme.textPrimary }]} numberOfLines={2}>
-            {displayTitle}
-          </Text>
+          {renderHighlightedTitle([styles.productTitle, { color: theme.textPrimary }], 2)}
           <Text style={[styles.productSubtitle, { color: theme.textSecondary }]} numberOfLines={1}>
             {displaySubtitle}
           </Text>

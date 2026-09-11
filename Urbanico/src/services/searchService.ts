@@ -30,14 +30,20 @@ export const CONTRACTOR_SYNONYMS: Record<string, string> = {
   cemet: 'cement',
   cemen: 'cement',
   cemnt: 'cement',
+  sment: 'cement',
   senment: 'cement',
   semant: 'cement',
+  simint: 'cement',
+  simant: 'cement',
+  sement: 'cement',
   // Steel & Rebar regional slang
   saria: 'tmt iron_bars rebar',
   sariya: 'tmt iron_bars rebar',
   sariyah: 'tmt iron_bars rebar',
   loha: 'tmt steel iron_bars',
   rebar: 'iron_bars tmt',
+  tmtt: 'tmt',
+  steell: 'steel',
   rod: 'iron_bars',
   // Sand terms
   reti: 'sand',
@@ -45,6 +51,7 @@ export const CONTRACTOR_SYNONYMS: Record<string, string> = {
   badarpur: 'sand',
   bajri: 'sand',
   ret: 'sand',
+  sannd: 'sand',
   // Bricks & Blocks
   eet: 'bricks',
   it: 'bricks',
@@ -52,6 +59,8 @@ export const CONTRACTOR_SYNONYMS: Record<string, string> = {
   bhatta: 'bricks',
   mitti: 'clay bricks',
   aac: 'aac blocks bricks',
+  brik: 'bricks',
+  brics: 'bricks',
   // Stone & Aggregates
   rodi: 'stone aggregates',
   gitti: 'stone aggregates',
@@ -63,6 +72,13 @@ export const CONTRACTOR_SYNONYMS: Record<string, string> = {
   chabutra: 'tiles',
   floor: 'tiles',
   tile: 'tiles',
+  tils: 'tiles',
+  til: 'tiles',
+  // Centring & Formwork
+  shuttering: 'centring formwork',
+  centering: 'centring formwork',
+  plywood: 'centring formwork',
+  balli: 'centring props',
   // Skilled Trades
   mistri: 'mason',
   karigar: 'mason',
@@ -86,9 +102,13 @@ export const BRAND_NORMALIZATION: Record<string, string> = {
   ambujaa: 'Ambuja',
   ambuja: 'Ambuja',
   ambja: 'Ambuja',
+  ambujha: 'Ambuja',
   ultratech: 'UltraTech',
   ultrateck: 'UltraTech',
+  ultratec: 'UltraTech',
   'ultra tech': 'UltraTech',
+  'ultra tec': 'UltraTech',
+  ultracem: 'UltraTech',
   ultra: 'UltraTech',
   tatatiscon: 'Tata Tiscon',
   tiscon: 'Tata Tiscon',
@@ -108,6 +128,7 @@ export const BRAND_NORMALIZATION: Record<string, string> = {
   maha: 'Maha Cement',
   orient: 'Orient',
   kcp: 'KCP Cement',
+  penna: 'Penna Cement',
 };
 
 /**

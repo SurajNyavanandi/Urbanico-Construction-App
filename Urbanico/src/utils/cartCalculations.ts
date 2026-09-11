@@ -85,8 +85,8 @@ export function calculateCartTotals(
 
   const subtotal = servicesSubtotal + materialsSubtotal;
 
-  // GST (18%) applies only to physical materials; trade services carry 0% GST
-  const gstTax = isServicesOnly ? 0 : Math.round(materialsSubtotal * 0.18);
+  // GST calculation removed - no 18% tax added to physical materials or services
+  const gstTax = 0;
 
   // Delivery charge applies only if there are physical materials to transport; services carry 0 delivery charge
   const deliveryCharge =

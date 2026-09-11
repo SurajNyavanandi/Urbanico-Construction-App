@@ -36,6 +36,7 @@ import { useToast } from '../context/ToastContext';
 import { LiveDispatcherChatModal } from './common/LiveDispatcherChatModal';
 import { WeighbridgeScanModal } from './common/WeighbridgeScanModal';
 import { SupervisorHandoffModal } from './common/SupervisorHandoffModal';
+import { formatSiteAddress } from '../utils/addressHelper';
 
 interface OrdersActivityModalProps {
   visible: boolean;
@@ -59,7 +60,7 @@ const TRACKING_STEPS = [
 export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
   visible,
   onClose,
-  deliveries,
+  deliveries = [],
   onExploreCatalog,
   onViewInvoice,
   onReorderMaterial,
@@ -104,9 +105,10 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
     }, 800);
   };
 
-  const activeEnRoute = deliveries.find((d) => d.status === 'En Route') || deliveries[0];
-  const totalSpent = deliveries.reduce((acc, d) => acc + (d.totalAmount || 0), 0);
-  const deliveredCount = deliveries.filter((d) => d.status === 'Delivered').length;
+  const validDeliveries = Array.isArray(deliveries) ? deliveries.filter(Boolean) : [];
+  const activeEnRoute = validDeliveries.find((d) => (d?.status || '').toLowerCase() === 'en route') || validDeliveries[0];
+  const totalSpent = validDeliveries.reduce((acc, d) => acc + (d?.totalAmount || 0), 0);
+  const deliveredCount = validDeliveries.filter((d) => (d?.status || '').toLowerCase() === 'delivered').length;
 
   const handleCallDriver = () => {
     showToast(`Connecting secure line to ${activeEnRoute?.driverName || 'Assigned Partner'}...`, 'info');
@@ -161,7 +163,7 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
               />
             }
           >
-            {deliveries.length === 0 ? (
+            {validDeliveries.length === 0 ? (
               !isLoggedIn ? (
                 <View style={[styles.card, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, alignItems: 'center', padding: 24 }]}>
                   <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: theme.surface, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
@@ -213,10 +215,10 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
                     <View style={[styles.cardHeader, { borderBottomColor: theme.border }]}>
                       <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
                         <Text style={[styles.orderNumberTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]} numberOfLines={1}>
-                          Order #{activeEnRoute.orderNumber}
+                          Order #{activeEnRoute.orderNumber || '1001'}
                         </Text>
                         <Text style={[styles.materialSub, { color: theme.textSecondary }]} numberOfLines={1}>
-                          {activeEnRoute.materialName} ({activeEnRoute.quantity})
+                          {activeEnRoute.materialName || 'Material Delivery'} ({activeEnRoute.quantity || '1 Load'})
                         </Text>
                       </View>
                       <View style={[styles.etaPill, { backgroundColor: '#DCFCE7' }]}>
@@ -272,7 +274,7 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
                           {activeEnRoute.driverName || 'Assigned Delivery Partner'}
                         </Text>
                         <Text style={[styles.driverMetaText, { color: theme.textSecondary }]}>
-                          {activeEnRoute.vehicleNumber} • {activeEnRoute.vehicleType || 'Commercial Logistics'}
+                          {activeEnRoute.vehicleNumber || 'AP 28 TE 4920'} • {activeEnRoute.vehicleType || 'Commercial Logistics'}
                         </Text>
                       </View>
                       <View style={styles.driverActionButtons}>
@@ -359,80 +361,84 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
                 {/* 2. All Orders & Delivery Ledger List */}
                 <View style={styles.allOrdersHeaderRow}>
                   <Text style={[styles.allOrdersHeading, { color: theme.textPrimary }]}>
-                    All Site Deliveries ({deliveries.length})
+                    All Site Deliveries ({validDeliveries.length})
                   </Text>
                   <Text style={[styles.allOrdersSub, { color: theme.textMuted }]}>
                     Total Value: ₹{totalSpent.toLocaleString('en-IN')}
                   </Text>
                 </View>
 
-                {deliveries.map((del) => (
-                  <View
-                    key={del.id}
-                    style={[styles.orderItemCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
-                  >
-                    <View style={styles.orderItemCardTop}>
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <View style={styles.orderItemBadgeRow}>
-                          <Text style={[styles.orderItemNumber, { color: theme.textPrimary }]} numberOfLines={1}>
-                            #{del.orderNumber}
-                          </Text>
-                          <View
-                            style={[
-                              styles.statusBadgePill,
-                              del.status === 'Delivered'
-                                ? { backgroundColor: '#DCFCE7' }
-                                : { backgroundColor: '#FEF3C7' },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.statusBadgeText,
-                                del.status === 'Delivered' ? { color: '#15803D' } : { color: '#B45309' },
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {del.status.toUpperCase()}
+                {validDeliveries.map((del, dIdx) => {
+                  const statusStr = (del?.status || 'Processing');
+                  const isDelivered = statusStr.toLowerCase() === 'delivered';
+                  return (
+                    <View
+                      key={del?.id || `del_${dIdx}`}
+                      style={[styles.orderItemCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
+                    >
+                      <View style={styles.orderItemCardTop}>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <View style={styles.orderItemBadgeRow}>
+                            <Text style={[styles.orderItemNumber, { color: theme.textPrimary }]} numberOfLines={1}>
+                              #{del?.orderNumber || `100${dIdx + 1}`}
                             </Text>
+                            <View
+                              style={[
+                                styles.statusBadgePill,
+                                isDelivered
+                                  ? { backgroundColor: '#DCFCE7' }
+                                  : { backgroundColor: '#FEF3C7' },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.statusBadgeText,
+                                  isDelivered ? { color: '#15803D' } : { color: '#B45309' },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {statusStr.toUpperCase()}
+                              </Text>
+                            </View>
                           </View>
+                          <Text style={[styles.orderItemName, { color: theme.textPrimary }]} numberOfLines={1}>
+                            {del?.materialName || 'Construction Material'}
+                          </Text>
+                          <Text style={[styles.orderItemMeta, { color: theme.textSecondary }]} numberOfLines={1}>
+                            {del?.quantity || '1 Load'} • ₹{del?.totalAmount ? del.totalAmount.toLocaleString('en-IN') : '0'} • {formatSiteAddress(del?.siteAddress)}
+                          </Text>
                         </View>
-                        <Text style={[styles.orderItemName, { color: theme.textPrimary }]} numberOfLines={1}>
-                          {del.materialName}
-                        </Text>
-                        <Text style={[styles.orderItemMeta, { color: theme.textSecondary }]} numberOfLines={1}>
-                          {del.quantity} • ₹{del.totalAmount?.toLocaleString('en-IN')} • {del.siteAddress || 'Registered Site'}
-                        </Text>
+                      </View>
+
+                      <View style={[styles.orderItemActionsRow, { borderTopColor: theme.border }]}>
+                        {Boolean(onViewInvoice) && (
+                          <TouchableOpacity
+                            onPress={() => onViewInvoice(del)}
+                            style={[styles.invoiceBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                            activeOpacity={0.75}
+                          >
+                            <FileText size={13} color="#64748B" />
+                            <Text style={[styles.invoiceBtnText, { color: theme.textSecondary }]}>Invoice (PDF)</Text>
+                          </TouchableOpacity>
+                        )}
+
+                        {Boolean(onReorderMaterial && del?.materialName) && (
+                          <TouchableOpacity
+                            onPress={() => {
+                              onClose();
+                              onReorderMaterial(del.materialName);
+                            }}
+                            style={styles.reorderBtn}
+                            activeOpacity={0.8}
+                          >
+                            <Repeat size={13} color="#FFFFFF" />
+                            <Text style={styles.reorderBtnText}>Buy Again</Text>
+                          </TouchableOpacity>
+                        )}
                       </View>
                     </View>
-
-                    <View style={[styles.orderItemActionsRow, { borderTopColor: theme.border }]}>
-                      {onViewInvoice && (
-                        <TouchableOpacity
-                          onPress={() => onViewInvoice(del)}
-                          style={[styles.invoiceBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                          activeOpacity={0.75}
-                        >
-                          <FileText size={13} color="#111111" />
-                          <Text style={[styles.invoiceBtnText, { color: theme.textPrimary }]}>GST Tax Invoice</Text>
-                        </TouchableOpacity>
-                      )}
-
-                      {onReorderMaterial && (
-                        <TouchableOpacity
-                          onPress={() => {
-                            onClose();
-                            onReorderMaterial(del.materialName);
-                          }}
-                          style={styles.reorderBtn}
-                          activeOpacity={0.8}
-                        >
-                          <Repeat size={13} color="#FFFFFF" />
-                          <Text style={styles.reorderBtnText}>Re-order</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  </View>
-                ))}
+                  );
+                })}
               </>
             )}
           </ScrollView>
