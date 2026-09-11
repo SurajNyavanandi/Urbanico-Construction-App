@@ -32,31 +32,36 @@ interface LocationContextType {
 
 const LocationContext = createContext<LocationContextType | undefined>(undefined);
 
+const isDummyAddress = (loc: string) =>
+  typeof loc === 'string' && (
+    loc.includes('Miyapur Site, Phase 2') ||
+    loc.includes('Gachibowli Site 4') ||
+    loc.includes('Hitech City Commercial Tower')
+  );
+
 export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [savedLocations, setSavedLocations] = useState<string[]>(() => {
     try {
       const authSaved = safeStorage.getItem('urbanico_auth_session');
       const phone = authSaved ? JSON.parse(authSaved).phone : null;
-      const key = phone ? `urbanico_saved_locations_${phone.replace(/\D/g, '')}` : 'urbanico_saved_locations_guest';
-      const stored = safeStorage.getItem(key);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      }
-      // Check universal fallback
-      const universalStored = safeStorage.getItem('urbanico_universal_saved_locations');
-      if (universalStored) {
-        const parsed = JSON.parse(universalStored);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (phone) {
+        const key = `urbanico_saved_locations_${phone.replace(/\D/g, '')}`;
+        const stored = safeStorage.getItem(key);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) return parsed.filter((l) => !isDummyAddress(l));
+        }
+      } else {
+        const guestStored = safeStorage.getItem('urbanico_saved_locations_guest');
+        if (guestStored) {
+          const parsed = JSON.parse(guestStored);
+          if (Array.isArray(parsed)) return parsed.filter((l) => !isDummyAddress(l));
+        }
       }
     } catch {
       // ignore
     }
-    return [
-      'Miyapur Site, Phase 2, Hyderabad - 500049',
-      'Gachibowli Site 4, Financial District, Hyderabad - 500032',
-      'Hitech City Commercial Tower, Madhapur, Hyderabad - 500081',
-    ];
+    return [];
   });
 
   const [selectedLocation, setSelectedLocationState] = useState<string>(() => {
@@ -85,13 +90,7 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
   });
 
   const resetLocationsToDefault = () => {
-    // Retain default construction sites rather than completely blanking
-    const defaults = [
-      'Miyapur Site, Phase 2, Hyderabad - 500049',
-      'Gachibowli Site 4, Financial District, Hyderabad - 500032',
-      'Hitech City Commercial Tower, Madhapur, Hyderabad - 500081',
-    ];
-    setSavedLocations(defaults);
+    setSavedLocations([]);
     setSelectedLocationState(DEFAULT_FALLBACK_LOCATION);
   };
 
@@ -112,7 +111,8 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
       const guestList: string[] = guestStored ? JSON.parse(guestStored) : [];
       let userList: string[] = stored ? JSON.parse(stored) : [];
 
-      const merged = Array.from(new Set([...userList, ...guestList, ...savedLocations])).filter(Boolean);
+      const merged = Array.from(new Set([...userList, ...guestList, ...savedLocations]))
+        .filter((l) => Boolean(l) && !isDummyAddress(l));
       setSavedLocations(merged);
       safeStorage.setItem(key, JSON.stringify(merged));
       safeStorage.setItem('urbanico_universal_saved_locations', JSON.stringify(merged));

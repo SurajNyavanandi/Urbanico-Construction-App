@@ -91,7 +91,7 @@ export const Header: React.FC<HeaderProps> = ({
   const { theme, typography } = useTheme();
   const { t } = useLanguage();
   const { selectedLocation: globalLocation } = useLocation();
-  const activeLocation = globalLocation || propLocation || 'Miyapur Site, Phase 2, Hyderabad';
+  const activeLocation = globalLocation || propLocation || 'Hyderabad (Telangana)';
   
   // Nike/Adidas Style Full Search Overlay State
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -727,6 +727,7 @@ const styles = StyleSheet.create({
     color: '#0F172A',
     letterSpacing: -0.2,
     lineHeight: 16,
+    flexShrink: 1,
   },
 
   /* Search Trigger Bar (Nike/Adidas look) */

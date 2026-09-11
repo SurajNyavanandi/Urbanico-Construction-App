@@ -212,7 +212,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             <Text style={[styles.productSubtitle, { color: theme.textSecondary }]} numberOfLines={1}>
               {displaySubtitle}
             </Text>
-            <Text style={[styles.productPrice, { color: theme.textPrimary }]}>
+            <Text style={[styles.productPrice, { color: theme.textPrimary }]} numberOfLines={1}>
               {displayPrice}
             </Text>
           </View>
@@ -342,7 +342,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </Text>
 
           <View style={[styles.cardFooter, { borderTopColor: theme.borderLight }]}>
-            <Text style={[styles.productPrice, { color: theme.textPrimary }]}>
+            <Text style={[styles.productPrice, { color: theme.textPrimary }]} numberOfLines={1}>
               {displayPrice}
             </Text>
             {showAddButton && (
@@ -446,6 +446,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 6,
     marginTop: 6,
     paddingTop: 6,
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -453,6 +454,9 @@ const styles = StyleSheet.create({
   productPrice: {
     fontSize: 13.5,
     fontWeight: '700',
+    flex: 1,
+    minWidth: 0,
+    marginRight: 4,
   },
   addPill: {
     flexDirection: 'row',
@@ -461,6 +465,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 999,
+    flexShrink: 0,
   },
   addPillText: {
     color: '#FFFFFF',
@@ -498,6 +503,8 @@ const styles = StyleSheet.create({
   },
   listTextWrapper: {
     flex: 1,
+    minWidth: 0,
+    marginRight: 6,
     justifyContent: 'center',
     gap: 2,
   },
@@ -525,6 +532,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     justifyContent: 'space-between',
     paddingVertical: 2,
+    flexShrink: 0,
   },
   actionTopRow: {
     flexDirection: 'row',

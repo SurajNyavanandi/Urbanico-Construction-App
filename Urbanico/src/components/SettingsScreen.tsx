@@ -9,13 +9,11 @@ import {
 } from 'react-native';
 import {
   Palette,
-  Bell,
   Languages,
   ChevronRight,
   Sun,
   Grid2X2,
   ArrowLeft,
-  Sparkles,
 } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -35,16 +33,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
   viewMode = 'grid',
   onViewModeChange,
 }) => {
-  const { themeMode, setThemeMode, isAppleDesign, setAppleDesign } = useTheme();
+  const { themeMode, setThemeMode } = useTheme();
   const { languageOptions, currentLanguageOption, t } = useLanguage();
   const { showToast } = useToast();
 
   const [isLangModalOpen, setIsLangModalOpen] = useState(false);
-
-  // Notification Toggles State
-  const [enableNotifications, setEnableNotifications] = useState(true);
-  const [dispatchAlerts, setDispatchAlerts] = useState(true);
-  const [whatsappReceipts, setWhatsappReceipts] = useState(true);
 
   return (
     <View style={{ flex: 1, backgroundColor: '#FAFAFA' }}>
@@ -129,39 +122,11 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
             />
           </View>
 
-          {/* Apple Design System Switch (Testing Toggle in existing menu) */}
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleRowLeft}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={styles.menuTitleText}>Apple Design System</Text>
-                {isAppleDesign && (
-                  <View style={{ backgroundColor: '#007AFF', paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: 999 }}>
-                    <Text style={{ color: '#FFFFFF', fontSize: 9.5, fontWeight: '700' }}>Active</Text>
-                  </View>
-                )}
-              </View>
-              <Text style={styles.menuSubText}>
-                {isAppleDesign
-                  ? 'Pure white canvas, SF Pro hierarchy & Apple accents'
-                  : 'Apple-inspired minimalist UI'}
-              </Text>
-            </View>
-            <Switch
-              value={isAppleDesign}
-              onValueChange={(val) => {
-                setAppleDesign(val);
-                showToast(val ? 'Apple Design System active' : 'Default design restored', 'info');
-              }}
-              trackColor={{ false: '#E5E7EB', true: '#007AFF' }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-
           <View style={styles.toggleRowLast}>
             <View style={styles.toggleRowLeft}>
               <Text style={styles.menuTitleText}>Grid Layout (2-Column)</Text>
               <Text style={styles.menuSubText}>
-                {viewMode === 'grid' ? 'Compact 2-column catalog' : 'Single column list view'}
+                {viewMode === 'grid' ? 'Compact 2-column catalog (Default)' : 'Single column list view'}
               </Text>
             </View>
             <Switch
@@ -170,69 +135,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
                 const nextMode = val ? 'grid' : 'list';
                 if (onViewModeChange) onViewModeChange(nextMode);
                 showToast(val ? '2-Column Grid Active' : 'List View Active', 'info');
-              }}
-              trackColor={{ false: '#E5E7EB', true: '#111111' }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-        </View>
-
-        {/* SECTION 2: Notification Controls */}
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionHeaderRow}>
-            <Bell size={18} color="#111111" strokeWidth={2} />
-            <Text style={styles.sectionHeaderTitle}>Notifications</Text>
-          </View>
-
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleRowLeft}>
-              <Text style={styles.menuTitleText}>Push Notifications</Text>
-              <Text style={styles.menuSubText}>
-                Order status and dispatch updates
-              </Text>
-            </View>
-            <Switch
-              value={enableNotifications}
-              onValueChange={(val) => {
-                setEnableNotifications(val);
-                showToast(val ? 'Push Notifications enabled' : 'Push Notifications muted', 'info');
-              }}
-              trackColor={{ false: '#E5E7EB', true: '#111111' }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-
-          <View style={styles.toggleRow}>
-            <View style={styles.toggleRowLeft}>
-              <Text style={styles.menuTitleText}>Vehicle Dispatch Alerts</Text>
-              <Text style={styles.menuSubText}>
-                Real-time delivery proximity alerts
-              </Text>
-            </View>
-            <Switch
-              value={dispatchAlerts}
-              onValueChange={(val) => {
-                setDispatchAlerts(val);
-                showToast(val ? 'Dispatch alerts ON' : 'Dispatch alerts OFF', 'info');
-              }}
-              disabled={!enableNotifications}
-              trackColor={{ false: '#E5E7EB', true: '#111111' }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-
-          <View style={styles.toggleRowLast}>
-            <View style={styles.toggleRowLeft}>
-              <Text style={styles.menuTitleText}>WhatsApp Invoices</Text>
-              <Text style={styles.menuSubText}>
-                Delivery slips directly on WhatsApp
-              </Text>
-            </View>
-            <Switch
-              value={whatsappReceipts}
-              onValueChange={(val) => {
-                setWhatsappReceipts(val);
-                showToast(val ? 'WhatsApp updates ON' : 'WhatsApp updates OFF', 'info');
               }}
               trackColor={{ false: '#E5E7EB', true: '#111111' }}
               thumbColor="#FFFFFF"

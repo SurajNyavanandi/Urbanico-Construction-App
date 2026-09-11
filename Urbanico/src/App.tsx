@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
@@ -15,6 +15,8 @@ import { AuthScreen } from './components/AuthScreen';
 import { BasketScreen } from './components/BasketScreen';
 import { FavoritesScreen } from './components/FavoritesScreen';
 import { ShopScreen } from './components/ShopScreen';
+import { UserProfileScreen } from './components/UserProfileScreen';
+import { ActivityDashboardScreen } from './components/ActivityDashboardScreen';
 import { NikeAuthModal } from './components/NikeAuthModal';
 import { LocationModal } from './components/LocationModal';
 import { InvoiceModal } from './components/InvoiceModal';
@@ -22,20 +24,6 @@ import { LanguagePromptModal } from './components/LanguagePromptModal';
 import { preloadImages } from './utils/imageOptimization';
 import { safeStorage } from './utils/safeStorage';
 import { BRAND_LOGO_URL } from './constants';
-
-// Lazy load heavy screens to optimize bundle size and app startup time
-const UserProfileScreen = lazy(() => import('./components/UserProfileScreen'));
-const ActivityDashboardScreen = lazy(() => import('./components/ActivityDashboardScreen'));
-
-function ScreenLoadingFallback() {
-  const { theme } = useTheme();
-  return (
-    <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
-      <ActivityIndicator size="large" color={theme.primary} />
-    </View>
-  );
-}
-
 import {
   ScreenType,
   CategoryId,
@@ -800,9 +788,8 @@ function MainAppContent() {
     <SafeAreaView style={[styles.appContainer, { backgroundColor: theme.background }]} edges={['top']}>
       <ExpoStatusBar style={theme.statusBarStyle} />
 
-      {/* Main View Router with Suspense for Lazy Loaded Screens */}
+      {/* Main View Router */}
       <View style={[styles.mainContent, { backgroundColor: theme.background }]}>
-        <Suspense fallback={<ScreenLoadingFallback />}>
           {(currentScreen === 'shop' || currentScreen === 'category') && (
             <ShopScreen
               selectedCategoryId={selectedCategoryId}
@@ -974,7 +961,6 @@ function MainAppContent() {
               }}
             />
           )}
-        </Suspense>
       </View>
 
       {/* Nike Auth Modal (Login/Signup Bottom Sheet matching n1.jpeg, n2.jpeg) */}

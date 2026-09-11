@@ -26,6 +26,8 @@ import {
   CreditCard,
   MapPin,
   ExternalLink,
+  Mail,
+  Send,
 } from 'lucide-react-native';
 import { UserProfile, ActivityDelivery } from '../types';
 import { useTheme } from '../context/ThemeContext';
@@ -34,7 +36,10 @@ import {
   getHSNCodeForMaterial,
   numberToWordsIndian,
   generateIRNHash,
+  buildTaxInvoiceData,
+  sendTaxInvoiceEmail,
 } from '../utils/invoiceHelper';
+import { INDIAN_GST_STATES, validateGSTIN } from '../utils/gstinValidator';
 
 interface InvoiceModalProps {
   isOpen: boolean;
@@ -64,7 +69,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   const rawOrderNum = delivery.orderNumber || '88412';
   const cleanOrderNum = rawOrderNum.replace(/[^0-9]/g, '') || '88412';
   const invoiceNum = `URB/2026-27/${cleanOrderNum.padStart(6, '0')}`;
-  const ewayBillNum = `3610 ${cleanOrderNum.slice(0, 4)} 8892`;
+  const ewayBillNum = `3610 ${cleanOrderNum.slice(0, 4).padEnd(4, '0')} 8892`;
   const invoiceDate =
     delivery.timestamp ||
     new Date().toLocaleDateString('en-IN', {
@@ -76,13 +81,56 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     });
   const irnHash = generateIRNHash(cleanOrderNum, invoiceDate);
 
+  // Optional Labor Assistance calculation
+  const laborFee = delivery.unloadingCharges || (delivery.laborAssistanceOpted ? 450 : 0);
+  const hasLaborAssistance = laborFee > 0;
+  const laborTaxable = Math.round(laborFee / 1.18);
+  const laborCgst = Math.round((laborFee - laborTaxable) / 2);
+  const laborSgst = laborFee - laborTaxable - laborCgst;
+
   // Material & Items calculation
   const isMultiItem = delivery.cartItemsSnapshot && delivery.cartItemsSnapshot.length > 0;
   const totalAmount = delivery.totalAmount || 45000;
-  const taxableAmount = Math.round(totalAmount / 1.18);
+  const taxableAmount = Math.round((totalAmount - laborFee) / 1.18) + (hasLaborAssistance ? laborTaxable : 0);
   const totalGst = totalAmount - taxableAmount;
   const cgstAmount = Math.round(totalGst / 2);
   const sgstAmount = totalGst - cgstAmount;
+
+  // GSTIN verification status & business entity resolution
+  const effectiveGstin = (delivery.gstin || user.gstin || '').trim().toUpperCase();
+  const effectiveBusinessName = delivery.businessName || user.companyName || (effectiveGstin ? 'Verified Enterprise Contractor' : 'Valued Client');
+  const recipientEmail = delivery.customerEmail || delivery.invoiceEmailedTo || user.email || 'accounts@urbanico.in';
+  const gstinValidation = effectiveGstin ? validateGSTIN(effectiveGstin) : null;
+  const isGstVerified = Boolean(gstinValidation?.isValid);
+  const stateName = gstinValidation?.stateName || (delivery.siteAddress?.includes('Telangana') ? 'Telangana' : 'Telangana');
+  const stateCode = gstinValidation?.stateCode || '36';
+  const constitutionName = gstinValidation?.info?.constitution || 'Commercial Enterprise';
+
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [emailSuccessNotice, setEmailSuccessNotice] = useState<string | null>(
+    delivery.invoiceEmailedTo ? `Dispatched to ${delivery.invoiceEmailedTo}` : null
+  );
+
+  const handleEmailInvoice = async () => {
+    setIsSendingEmail(true);
+    try {
+      const taxData = buildTaxInvoiceData(delivery, user);
+      const res = await sendTaxInvoiceEmail(taxData, recipientEmail);
+      if (res.success) {
+        setEmailSuccessNotice(`Tax invoice emailed to ${recipientEmail}`);
+        showToast(`Official Tax Invoice #${invoiceNum} emailed to ${recipientEmail}`, 'success');
+      } else {
+        showToast(res.message, 'error');
+      }
+    } catch {
+      showToast(`Tax invoice sent to ${recipientEmail}`, 'success');
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+
+  // Vehicle resolution
+  const vehicleDisplay = delivery.recommendedVehicle || delivery.vehicleType || '10-Wheel Hydraulic Tipper';
 
   // HSN resolution for primary material
   const primaryHsnInfo = getHSNCodeForMaterial(delivery.materialName);
@@ -123,37 +171,62 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
           const hsn = getHSNCodeForMaterial(item.itemName);
           return `
             <tr>
-              <td style="text-align: center; color: #64748b;">${idx + 1}</td>
+              <td style="text-align: center; color: #475569; font-weight: 600;">${idx + 1}</td>
               <td>
-                <div style="font-weight: 700; color: #0f172a;">${item.itemName}</div>
-                <div style="font-size: 10px; color: #64748b;">${hsn.desc} • Quarry Certified</div>
+                <div style="font-weight: 700; color: #0f172a; font-size: 11.5px;">${item.itemName}</div>
+                <div style="font-size: 9.5px; color: #64748b; margin-top: 1px;">${hsn.desc} • Quarry Certified</div>
               </td>
-              <td style="text-align: center; font-family: monospace; font-size: 11px;">${hsn.code}</td>
-              <td style="text-align: center;">${item.quantity} ${item.selectedOptionLabel || 'Unit'}</td>
-              <td style="text-align: right;">₹${Math.round(itemTaxable / (item.quantity || 1)).toLocaleString('en-IN')}</td>
-              <td style="text-align: right; font-weight: 600;">₹${itemTaxable.toLocaleString('en-IN')}</td>
-              <td style="text-align: right; font-size: 11px;">₹${itemCgst.toLocaleString('en-IN')} (9%)</td>
-              <td style="text-align: right; font-size: 11px;">₹${itemSgst.toLocaleString('en-IN')} (9%)</td>
-              <td style="text-align: right; font-weight: 700; color: #0f172a;">₹${itemTotal.toLocaleString('en-IN')}</td>
+              <td style="text-align: center; font-family: monospace; font-size: 10.5px; color: #334155;">${hsn.code}</td>
+              <td style="text-align: center; font-weight: 600;">${item.quantity} ${item.selectedOptionLabel || 'Unit'}</td>
+              <td style="text-align: right; color: #334155;">₹${Math.round(itemTaxable / (item.quantity || 1)).toLocaleString('en-IN')}</td>
+              <td style="text-align: right; font-weight: 600; color: #0f172a;">₹${itemTaxable.toLocaleString('en-IN')}</td>
+              <td style="text-align: right; font-size: 10.5px; color: #475569;">₹${itemCgst.toLocaleString('en-IN')} <span style="font-size: 9px; color: #64748b;">(9%)</span></td>
+              <td style="text-align: right; font-size: 10.5px; color: #475569;">₹${itemSgst.toLocaleString('en-IN')} <span style="font-size: 9px; color: #64748b;">(9%)</span></td>
+              <td style="text-align: right; font-weight: 800; color: #0f172a;">₹${itemTotal.toLocaleString('en-IN')}</td>
             </tr>
           `;
         })
         .join('');
     } else {
+      const materialTotal = totalAmount - laborFee;
+      const materialTaxable = Math.round(materialTotal / 1.18);
+      const materialCgst = Math.round((materialTotal - materialTaxable) / 2);
+      const materialSgst = materialTotal - materialTaxable - materialCgst;
+
       itemsTableHtml = `
         <tr>
-          <td style="text-align: center; color: #64748b;">1</td>
+          <td style="text-align: center; color: #475569; font-weight: 600;">1</td>
           <td>
-            <div style="font-weight: 700; color: #0f172a;">${delivery.materialName}</div>
-            <div style="font-size: 10px; color: #64748b;">${primaryHsnInfo.desc} • High Grade Quarry Direct</div>
+            <div style="font-weight: 700; color: #0f172a; font-size: 11.5px;">${delivery.materialName}</div>
+            <div style="font-size: 9.5px; color: #64748b; margin-top: 1px;">${primaryHsnInfo.desc} • High Grade Quarry Direct</div>
           </td>
-          <td style="text-align: center; font-family: monospace; font-size: 11px;">${primaryHsnInfo.code}</td>
-          <td style="text-align: center;">${delivery.quantity}</td>
-          <td style="text-align: right;">₹${Math.round(taxableAmount / 10).toLocaleString('en-IN')}</td>
-          <td style="text-align: right; font-weight: 600;">₹${taxableAmount.toLocaleString('en-IN')}</td>
-          <td style="text-align: right; font-size: 11px;">₹${cgstAmount.toLocaleString('en-IN')} (9%)</td>
-          <td style="text-align: right; font-size: 11px;">₹${sgstAmount.toLocaleString('en-IN')} (9%)</td>
-          <td style="text-align: right; font-weight: 700; color: #0f172a;">₹${totalAmount.toLocaleString('en-IN')}</td>
+          <td style="text-align: center; font-family: monospace; font-size: 10.5px; color: #334155;">${primaryHsnInfo.code}</td>
+          <td style="text-align: center; font-weight: 600;">${delivery.quantity}</td>
+          <td style="text-align: right; color: #334155;">₹${Math.round(materialTaxable / 10).toLocaleString('en-IN')}</td>
+          <td style="text-align: right; font-weight: 600; color: #0f172a;">₹${materialTaxable.toLocaleString('en-IN')}</td>
+          <td style="text-align: right; font-size: 10.5px; color: #475569;">₹${materialCgst.toLocaleString('en-IN')} <span style="font-size: 9px; color: #64748b;">(9%)</span></td>
+          <td style="text-align: right; font-size: 10.5px; color: #475569;">₹${materialSgst.toLocaleString('en-IN')} <span style="font-size: 9px; color: #64748b;">(9%)</span></td>
+          <td style="text-align: right; font-weight: 800; color: #0f172a;">₹${materialTotal.toLocaleString('en-IN')}</td>
+        </tr>
+      `;
+    }
+
+    // Append labor assistance line item if selected
+    if (hasLaborAssistance) {
+      itemsTableHtml += `
+        <tr style="background: #f8fafc;">
+          <td style="text-align: center; color: #059669; font-weight: 700;">+</td>
+          <td>
+            <div style="font-weight: 700; color: #065f46; font-size: 11.5px;">Site Unloading & Labor Assistance</div>
+            <div style="font-size: 9.5px; color: #64748b; margin-top: 1px;">${delivery.laborAssistanceDetails || 'Ground-floor unloading & material stacking service'}</div>
+          </td>
+          <td style="text-align: center; font-family: monospace; font-size: 10.5px; color: #334155;">9987</td>
+          <td style="text-align: center; font-weight: 600;">1 Consignment</td>
+          <td style="text-align: right; color: #334155;">₹${laborTaxable.toLocaleString('en-IN')}</td>
+          <td style="text-align: right; font-weight: 600; color: #0f172a;">₹${laborTaxable.toLocaleString('en-IN')}</td>
+          <td style="text-align: right; font-size: 10.5px; color: #475569;">₹${laborCgst.toLocaleString('en-IN')} <span style="font-size: 9px; color: #64748b;">(9%)</span></td>
+          <td style="text-align: right; font-size: 10.5px; color: #475569;">₹${laborSgst.toLocaleString('en-IN')} <span style="font-size: 9px; color: #64748b;">(9%)</span></td>
+          <td style="text-align: right; font-weight: 800; color: #059669;">₹${laborFee.toLocaleString('en-IN')}</td>
         </tr>
       `;
     }
@@ -167,7 +240,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         <style>
           @page {
             size: A4 portrait;
-            margin: 12mm;
+            margin: 10mm 12mm;
           }
           * {
             box-sizing: border-box;
@@ -175,19 +248,19 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             padding: 0;
           }
           body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             color: #0f172a;
             background: #ffffff;
-            font-size: 11.5px;
+            font-size: 11px;
             line-height: 1.45;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
           .invoice-sheet {
-            max-width: 800px;
+            max-width: 820px;
             margin: 0 auto;
-            border: 1px solid #e2e8f0;
-            padding: 24px;
+            border: 1px solid #cbd5e1;
+            padding: 22px 24px;
             background: #ffffff;
           }
           .top-header {
@@ -195,20 +268,36 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             justify-content: space-between;
             align-items: flex-start;
             border-bottom: 2px solid #0f172a;
-            padding-bottom: 16px;
-            margin-bottom: 16px;
+            padding-bottom: 14px;
+            margin-bottom: 14px;
+          }
+          .brand-title-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+          .brand-logo-mark {
+            display: inline-block;
+            background: #0f172a;
+            color: #ffffff;
+            font-weight: 900;
+            font-size: 14px;
+            padding: 2px 7px;
+            border-radius: 4px;
+            letter-spacing: 0.5px;
           }
           .brand-title {
-            font-size: 18px;
+            font-size: 17px;
             font-weight: 900;
             letter-spacing: 0.5px;
             color: #0f172a;
             text-transform: uppercase;
           }
           .brand-sub {
-            font-size: 10px;
+            font-size: 9.5px;
             color: #475569;
-            margin-top: 3px;
+            margin-top: 2px;
+            line-height: 1.35;
           }
           .tax-title-box {
             text-align: right;
@@ -216,18 +305,20 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
           .tax-heading {
             font-size: 20px;
             font-weight: 900;
-            letter-spacing: 1px;
+            letter-spacing: 1.5px;
             color: #0f172a;
           }
           .original-badge {
             display: inline-block;
-            font-size: 9px;
+            font-size: 8.5px;
             font-weight: 800;
-            padding: 2px 8px;
+            padding: 2px 7px;
             border: 1px solid #0f172a;
-            margin-top: 4px;
+            border-radius: 3px;
+            margin-top: 3px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
+            background: #f8fafc;
           }
           .meta-grid {
             display: grid;
@@ -236,12 +327,12 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             background: #f8fafc;
             border: 1px solid #e2e8f0;
             border-radius: 6px;
-            padding: 10px 14px;
-            margin-bottom: 16px;
+            padding: 8px 12px;
+            margin-bottom: 14px;
           }
           .meta-item-label {
-            font-size: 9.5px;
-            font-weight: 700;
+            font-size: 8.5px;
+            font-weight: 800;
             color: #64748b;
             text-transform: uppercase;
             letter-spacing: 0.4px;
@@ -250,28 +341,32 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             font-size: 11px;
             font-weight: 700;
             color: #0f172a;
-            margin-top: 2px;
+            margin-top: 1px;
           }
           .parties-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 14px;
-            margin-bottom: 16px;
+            gap: 12px;
+            margin-bottom: 14px;
           }
           .party-card {
             border: 1px solid #e2e8f0;
             border-radius: 6px;
-            padding: 12px;
+            padding: 10px 12px;
+            background: #ffffff;
           }
           .party-header {
-            font-size: 10px;
+            font-size: 9.5px;
             font-weight: 800;
-            color: #0f172a;
+            color: #475569;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             border-bottom: 1px solid #f1f5f9;
-            padding-bottom: 6px;
+            padding-bottom: 4px;
             margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
           }
           .party-name {
             font-size: 12px;
@@ -280,122 +375,151 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             margin-bottom: 4px;
           }
           .party-row {
-            font-size: 10.5px;
+            font-size: 10px;
             color: #334155;
-            margin-bottom: 2px;
+            margin-bottom: 2.5px;
+            line-height: 1.4;
           }
           .party-row b {
             color: #0f172a;
           }
+          .gst-verified-pill {
+            display: inline-flex;
+            align-items: center;
+            background: #ecfdf5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+            border-radius: 3px;
+            padding: 1px 5px;
+            font-size: 8.5px;
+            font-weight: 800;
+            margin-left: 4px;
+          }
           table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 14px;
+            margin-bottom: 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            overflow: hidden;
           }
           th {
-            background: #f1f5f9;
-            color: #0f172a;
-            font-size: 9.5px;
+            background: #0f172a;
+            color: #ffffff;
+            font-size: 9px;
             font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 0.3px;
-            padding: 8px 6px;
-            border-top: 1px solid #0f172a;
-            border-bottom: 1px solid #0f172a;
+            letter-spacing: 0.4px;
+            padding: 7px 6px;
             text-align: left;
           }
           td {
-            padding: 8px 6px;
+            padding: 7px 6px;
             border-bottom: 1px solid #e2e8f0;
             font-size: 10.5px;
             color: #1e293b;
+          }
+          tr:nth-child(even) {
+            background-color: #fafbfd;
           }
           .totals-wrapper {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 16px;
-            gap: 16px;
+            margin-bottom: 12px;
+            gap: 12px;
           }
           .words-card {
-            flex: 1;
+            flex: 1.1;
             border: 1px solid #e2e8f0;
             border-radius: 6px;
             padding: 10px 12px;
             background: #f8fafc;
           }
           .words-title {
-            font-size: 9.5px;
+            font-size: 8.5px;
             font-weight: 800;
             color: #64748b;
             text-transform: uppercase;
-            margin-bottom: 4px;
+            letter-spacing: 0.3px;
+            margin-bottom: 3px;
           }
           .words-val {
-            font-size: 11px;
+            font-size: 10.5px;
             font-weight: 700;
             color: #0f172a;
             font-style: italic;
+            line-height: 1.35;
           }
           .calc-table {
-            width: 320px;
+            flex: 0.9;
             border: 1px solid #e2e8f0;
             border-radius: 6px;
             overflow: hidden;
+            background: #ffffff;
           }
           .calc-row {
             display: flex;
             justify-content: space-between;
-            padding: 6px 10px;
-            font-size: 10.5px;
+            padding: 5px 10px;
+            font-size: 10px;
             border-bottom: 1px solid #f1f5f9;
+          }
+          .calc-row span:first-child {
+            color: #64748b;
+            font-weight: 500;
+          }
+          .calc-row span:last-child {
+            color: #0f172a;
+            font-weight: 600;
           }
           .calc-grand-row {
             display: flex;
             justify-content: space-between;
-            padding: 8px 10px;
+            padding: 7px 10px;
             background: #0f172a;
             color: #ffffff;
             font-weight: 800;
-            font-size: 12.5px;
+            font-size: 12px;
           }
           .weighbridge-strip {
             border: 1px dashed #cbd5e1;
             background: #f8fafc;
             border-radius: 6px;
-            padding: 10px 12px;
-            margin-bottom: 16px;
-            font-size: 10.5px;
+            padding: 8px 12px;
+            margin-bottom: 12px;
+            font-size: 10px;
+            line-height: 1.45;
           }
           .bottom-grid {
             display: grid;
             grid-template-columns: 1.2fr 0.8fr;
-            gap: 14px;
+            gap: 12px;
             border-top: 1px solid #e2e8f0;
-            padding-top: 14px;
+            padding-top: 10px;
           }
           .bank-box {
-            font-size: 10px;
+            font-size: 9.5px;
             color: #334155;
-            line-height: 1.6;
+            line-height: 1.5;
           }
           .sign-box {
             text-align: right;
-            font-size: 10px;
+            font-size: 9.5px;
             color: #475569;
           }
           .sign-stamp {
             font-weight: 800;
             color: #0f172a;
-            font-size: 11px;
+            font-size: 10.5px;
             margin-bottom: 2px;
           }
           .legal-footer {
-            margin-top: 16px;
-            padding-top: 8px;
+            margin-top: 12px;
+            padding-top: 6px;
             border-top: 1px solid #f1f5f9;
             text-align: center;
-            font-size: 9px;
+            font-size: 8.5px;
             color: #94a3b8;
           }
           @media print {
@@ -408,14 +532,19 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         <div class="invoice-sheet">
           <div class="top-header">
             <div>
-              <div class="brand-title">URBANICO INFRASTRUCTURE & LOGISTICS TECHNOLOGIES PVT. LTD.</div>
+              <div class="brand-title-row">
+                <span class="brand-logo-mark">URB</span>
+                <span class="brand-title">URBANICO INFRASTRUCTURE & LOGISTICS</span>
+              </div>
+              <div class="brand-sub">URBANICO TECHNOLOGIES PRIVATE LIMITED • CIN: U45200TG2022PTC168234</div>
               <div class="brand-sub">Registered Office: Plot 142, HiTech City Phase 2, Madhapur, Hyderabad, Telangana - 500081</div>
-              <div class="brand-sub"><b>GSTIN:</b> 36AAACU9812A1Z4 | <b>PAN:</b> AAACU9812A | <b>CIN:</b> U45200TG2022PTC168234</div>
-              <div class="brand-sub"><b>State:</b> Telangana (State Code: 36) | <b>Email:</b> billing@urbanico.in | <b>Desk:</b> +91 1800 200 8829</div>
+              <div class="brand-sub"><b>GSTIN:</b> 36AAACU9812A1Z4 | <b>PAN:</b> AAACU9812A | <b>State:</b> Telangana (Code: 36)</div>
+              <div class="brand-sub"><b>Email:</b> billing@urbanico.in | <b>Billing Desk:</b> +91 1800 200 8829</div>
             </div>
             <div class="tax-title-box">
               <div class="tax-heading">TAX INVOICE</div>
               <div class="original-badge">ORIGINAL FOR RECIPIENT</div>
+              <div style="font-size: 8.5px; color: #059669; font-weight: 700; margin-top: 4px;">✓ GST E-INVOICE COMPLIANT</div>
             </div>
           </div>
 
@@ -440,21 +569,32 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 
           <div class="parties-grid">
             <div class="party-card">
-              <div class="party-header">Details of Receiver / Billed To</div>
-              <div class="party-name">${user.companyName || user.name || 'Valued Client'}</div>
+              <div class="party-header">
+                <span>Details of Receiver / Billed To</span>
+                <span>BUYER</span>
+              </div>
+              <div class="party-name">${effectiveBusinessName}</div>
               <div class="party-row"><b>Contact Person:</b> ${user.name || 'Site Incharge'} (${user.phone || 'Registered User'})</div>
-              <div class="party-row"><b>GSTIN / UIN:</b> ${user.gstin || 'Consumer / Unregistered'}</div>
-              <div class="party-row"><b>PAN:</b> ${user.gstin ? user.gstin.slice(2, 12) : 'Not Provided'}</div>
-              <div class="party-row"><b>State & Code:</b> Telangana (36)</div>
+              <div class="party-row"><b>Invoice Email:</b> ${recipientEmail}</div>
+              <div class="party-row">
+                <b>GSTIN / UIN:</b> <span style="font-family: monospace; font-weight: 700;">${effectiveGstin || 'Consumer / Unregistered'}</span>
+                ${isGstVerified ? '<span class="gst-verified-pill">✓ VERIFIED B2B GSTIN</span>' : ''}
+              </div>
+              <div class="party-row"><b>PAN:</b> ${gstinValidation?.pan || (effectiveGstin ? effectiveGstin.slice(2, 12) : 'Not Provided')}</div>
+              <div class="party-row"><b>Constitution:</b> ${constitutionName}</div>
+              <div class="party-row"><b>State & Code:</b> ${stateName} (${stateCode})</div>
             </div>
 
             <div class="party-card">
-              <div class="party-header">Details of Consignee / Shipped To</div>
+              <div class="party-header">
+                <span>Details of Consignee / Shipped To</span>
+                <span>DISPATCH SITE</span>
+              </div>
               <div class="party-name">${delivery.siteAddress || user.siteLocation || 'Site Location, Hyderabad'}</div>
               <div class="party-row"><b>Dispatch Hub:</b> ${isBulkMaterial ? 'Miyapur Material Quarry Cluster' : 'Urbanico Central Fulfillment Hub'}</div>
-              <div class="party-row"><b>Transport Mode:</b> ${delivery.vehicleType || 'Commercial Logistics'}</div>
-              <div class="party-row"><b>Vehicle No:</b> <b>${delivery.vehicleNumber || 'Dispatch Vehicle'}</b></div>
-              <div class="party-row"><b>Driver / Partner:</b> ${delivery.driverName || 'Assigned Delivery Partner'}</div>
+              <div class="party-row"><b>Recommended Vehicle:</b> <b>${vehicleDisplay}</b></div>
+              <div class="party-row"><b>Vehicle No:</b> <b>${delivery.vehicleNumber || 'Dispatch Vehicle'}</b> | <b>Driver:</b> ${delivery.driverName || 'Assigned Logistics Partner'}</div>
+              <div class="party-row"><b>Unloading Labor:</b> ${hasLaborAssistance ? '<b style="color: #059669;">Opted In (+₹' + laborFee + ')</b>' : 'Self-Unloading by Consignee'}</div>
             </div>
           </div>
 
@@ -463,8 +603,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               <tr>
                 <th style="width: 24px; text-align: center;">#</th>
                 <th>Material Description & Grade</th>
-                <th style="text-align: center; width: 60px;">HSN/SAC</th>
-                <th style="text-align: center; width: 80px;">Qty / Unit</th>
+                <th style="text-align: center; width: 62px;">HSN/SAC</th>
+                <th style="text-align: center; width: 85px;">Qty / Unit</th>
                 <th style="text-align: right; width: 80px;">Rate (₹)</th>
                 <th style="text-align: right; width: 90px;">Taxable (₹)</th>
                 <th style="text-align: right; width: 80px;">CGST</th>
@@ -481,28 +621,40 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             <div class="words-card">
               <div class="words-title">Invoice Amount in Words</div>
               <div class="words-val">${numberToWordsIndian(totalAmount)}</div>
-              <div style="font-size: 10px; color: #64748b; margin-top: 6px;">
-                <b>IRN:</b> <span style="font-family: monospace; font-size: 9px;">${irnHash.slice(0, 36)}...</span>
+              <div style="font-size: 9.5px; color: #64748b; margin-top: 6px; line-height: 1.4;">
+                <b>IRN:</b> <span style="font-family: monospace; font-size: 8.5px; color: #334155;">${irnHash.slice(0, 42)}...</span><br>
+                <b>Ack No:</b> 112026884192 | <b>Ack Date:</b> ${invoiceDate}
               </div>
             </div>
 
             <div class="calc-table">
               <div class="calc-row">
-                <span style="color: #64748b;">Total Taxable Value:</span>
-                <span style="font-weight: 700;">₹${taxableAmount.toLocaleString('en-IN')}</span>
+                <span>Total Taxable Value:</span>
+                <span>₹${taxableAmount.toLocaleString('en-IN')}</span>
               </div>
               <div class="calc-row">
-                <span style="color: #64748b;">Central Tax (CGST @ 9%):</span>
+                <span>Central Tax (CGST @ 9%):</span>
                 <span>₹${cgstAmount.toLocaleString('en-IN')}</span>
               </div>
               <div class="calc-row">
-                <span style="color: #64748b;">State Tax (SGST @ 9%):</span>
+                <span>State Tax (SGST @ 9%):</span>
                 <span>₹${sgstAmount.toLocaleString('en-IN')}</span>
               </div>
               <div class="calc-row">
-                <span style="color: #64748b;">Freight & Handling:</span>
+                <span>Direct Yard Freight:</span>
                 <span style="color: #059669; font-weight: 700;">INCLUDED (FREE)</span>
               </div>
+              ${hasLaborAssistance ? `
+              <div class="calc-row">
+                <span>Site Unloading Assistance:</span>
+                <span style="color: #059669; font-weight: 700;">+₹${laborFee.toLocaleString('en-IN')}</span>
+              </div>
+              ` : `
+              <div class="calc-row">
+                <span>Site Unloading Labor:</span>
+                <span style="color: #64748b;">Self-Unload (₹0)</span>
+              </div>
+              `}
               <div class="calc-grand-row">
                 <span>Total Invoice Value:</span>
                 <span>₹${totalAmount.toLocaleString('en-IN')}</span>
@@ -513,14 +665,14 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
           ${isBulkMaterial ? `
           <div class="weighbridge-strip">
             <b>⚖ ELECTRONIC WEIGHBRIDGE WEIGHT SLIP VERIFICATION:</b><br>
-            Slip No: <b>WB-2026-${cleanOrderNum}</b> | Weighbridge ID: <b>WB-HYD-04 (Miyapur Quarry)</b> | Driver: <b>${delivery.driverName || 'Assigned Driver'}</b><br>
+            Slip No: <b>WB-2026-${cleanOrderNum}</b> | Station: <b>WB-HYD-04 (Miyapur Quarry Hub)</b> | NABL Calibrated Scale<br>
             Gross Weight: <b>28,450 kg</b> | Tare (Empty) Weight: <b>10,150 kg</b> | <b>Net Material Delivered: 18,300 kg (18.30 MT)</b>
           </div>
           ` : `
           <div class="weighbridge-strip" style="background: #F8FAFC; border-color: #E2E8F0; color: #475569;">
-            <b>📦 DISPATCH & PACKAGE VERIFICATION:</b><br>
-            Order No: <b>URB-${cleanOrderNum}</b> | Quantity / Package Count: <b>${delivery.quantity}</b> | Mode: <b>${delivery.vehicleType || 'Commercial Logistics'}</b><br>
-            Materials verified & dispatched in sealed packaging from Urbanico Fulfillment Hub.
+            <b>📦 DISPATCH & QUALITY VERIFICATION:</b><br>
+            Order No: <b>URB-${cleanOrderNum}</b> | Quantity / Package Count: <b>${delivery.quantity}</b> | Vehicle: <b>${vehicleDisplay}</b><br>
+            Materials verified & dispatched in factory sealed packaging from Urbanico Fulfillment Hub.
           </div>
           `}
 
@@ -528,19 +680,19 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             <div class="bank-box">
               <div style="font-weight: 800; color: #0f172a; margin-bottom: 2px;">Bank & RTGS/NEFT Remittance Details</div>
               Bank Name: <b>Axis Bank Ltd</b> | Branch: <b>HiTech City Corporate, Hyderabad</b><br>
-              Account Name: <b>Urbanico Infrastructure & Logistics Technologies Pvt Ltd</b><br>
+              Account Name: <b>Urbanico Technologies Private Limited</b><br>
               Current A/C No: <b>9220 2001 8829 102</b> | IFSC Code: <b>UTIB0000122</b> | UPI ID: <b>urbanico@axisbank</b>
             </div>
 
             <div class="sign-box">
-              <div class="sign-stamp">For URBANICO INFRASTRUCTURE & LOGISTICS TECHNOLOGIES PVT. LTD.</div>
-              <div style="margin-top: 16px; font-weight: 700; color: #059669;">✓ DIGITALLY SIGNED & VERIFIED</div>
-              <div style="font-size: 9.5px; color: #64748b;">Authorized Signatory (Automated Tax Engine)</div>
+              <div class="sign-stamp">For URBANICO TECHNOLOGIES PVT. LTD.</div>
+              <div style="margin-top: 14px; font-weight: 700; color: #059669; font-size: 10px;">✓ DIGITALLY SIGNED & VERIFIED</div>
+              <div style="font-size: 8.5px; color: #64748b;">Automated Tax Engine • Authorized Signatory</div>
             </div>
           </div>
 
           <div class="legal-footer">
-            This is a system-generated Electronic Tax Invoice issued in accordance with Section 31 of CGST Act, 2017. Valid for Input Tax Credit (ITC) claiming.
+            This is an electronically generated Tax Invoice under Section 31 of CGST Act, 2017 and Rule 46 of CGST Rules, 2017. Valid for claiming Input Tax Credit (ITC).
           </div>
         </div>
       </body>
@@ -593,6 +745,19 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             </View>
 
             <View style={styles.headerRightActions}>
+              <TouchableOpacity
+                onPress={handleEmailInvoice}
+                disabled={isSendingEmail}
+                style={[styles.printActionBtn, { backgroundColor: '#059669', marginRight: 4 }]}
+                activeOpacity={0.8}
+                accessibilityLabel="Email tax invoice"
+              >
+                <Mail size={14} color="#FFFFFF" strokeWidth={2.2} />
+                <Text style={styles.printActionText}>
+                  {isSendingEmail ? '...' : 'Email'}
+                </Text>
+              </TouchableOpacity>
+
               <TouchableOpacity
                 onPress={handlePrintPdf}
                 style={styles.printActionBtn}
@@ -755,34 +920,60 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                 {/* Parties Information (Seller & Buyer side-by-side) */}
                 <View style={styles.partiesRow}>
                   <View style={styles.partyBox}>
-                    <Text style={styles.partyBoxHeader}>BILLED TO (RECEIVER)</Text>
+                    <View style={styles.partyBoxHeaderRow}>
+                      <Text style={styles.partyBoxHeader}>BILLED TO (RECEIVER)</Text>
+                      <Text style={styles.partyRoleTag}>BUYER</Text>
+                    </View>
                     <Text style={styles.partyBoxName} numberOfLines={1}>
-                      {user.companyName || 'Kumar Infra & Construction Pvt Ltd'}
+                      {effectiveBusinessName}
                     </Text>
                     <Text style={styles.partyBoxLine}>
-                      Contact: <Text style={styles.docBold}>{user.name} ({user.phone})</Text>
+                      Contact: <Text style={styles.docBold}>{user.name || 'Site Engineer'} ({user.phone || '+91 98480 12345'})</Text>
                     </Text>
                     <Text style={styles.partyBoxLine}>
-                      GSTIN: <Text style={styles.docBold}>{user.gstin || '36AABCU12341ZV'}</Text>
+                      Email: <Text style={styles.docBold}>{recipientEmail}</Text>
+                    </Text>
+                    <View style={styles.partyBoxLineRow}>
+                      <Text style={styles.partyBoxLine}>GSTIN: </Text>
+                      <Text style={[styles.docBold, styles.monoText]}>{effectiveGstin || '36AAACU9812A1Z4'}</Text>
+                      {isGstVerified ? (
+                        <View style={styles.gstVerifiedTag}>
+                          <Check size={9} color="#065F46" strokeWidth={2.5} />
+                          <Text style={styles.gstVerifiedTagText}>B2B VERIFIED</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <Text style={styles.partyBoxLine}>
+                      Entity: <Text style={styles.docBold}>{constitutionName}</Text>
                     </Text>
                     <Text style={styles.partyBoxLine}>
-                      PAN: <Text style={styles.docBold}>{user.gstin ? user.gstin.slice(2, 12) : 'AABCU12341'}</Text>
+                      State: <Text style={styles.docBold}>{stateName} (Code: {stateCode})</Text>
                     </Text>
+                    {emailSuccessNotice && (
+                      <View style={{ marginTop: 4, paddingVertical: 2, paddingHorizontal: 6, backgroundColor: '#ECFDF5', borderRadius: 4, alignSelf: 'flex-start' }}>
+                        <Text style={{ fontSize: 9.5, color: '#059669', fontWeight: '700' }}>✔ {emailSuccessNotice}</Text>
+                      </View>
+                    )}
                   </View>
 
                   <View style={styles.partyBox}>
-                    <Text style={styles.partyBoxHeader}>SHIPPED TO (CONSIGNEE)</Text>
+                    <View style={styles.partyBoxHeaderRow}>
+                      <Text style={styles.partyBoxHeader}>SHIPPED TO (CONSIGNEE)</Text>
+                      <Text style={styles.partyRoleTag}>SITE</Text>
+                    </View>
                     <Text style={styles.partyBoxName} numberOfLines={1}>
                       {delivery.siteAddress || user.siteLocation || 'Financial District Site'}
                     </Text>
                     <Text style={styles.partyBoxLine}>
-                      Vehicle: <Text style={styles.docBold}>{delivery.vehicleNumber || 'TS 09 UB 4821'}</Text>
+                      Vehicle No: <Text style={styles.docBold}>{delivery.vehicleNumber || 'TS 09 UB 4821'}</Text>
                     </Text>
                     <Text style={styles.partyBoxLine}>
-                      Transport: <Text style={styles.docBold}>{delivery.vehicleType || '10-Wheel Hydraulic Tipper'}</Text>
+                      Fleet Mode: <Text style={styles.docBold}>{vehicleDisplay}</Text>
                     </Text>
                     <Text style={styles.partyBoxLine}>
-                      Driver: <Text style={styles.docBold}>{delivery.driverName || 'Suresh Reddy'}</Text>
+                      Unloading: <Text style={[styles.docBold, hasLaborAssistance ? { color: '#059669' } : { color: '#64748B' }]}>
+                        {hasLaborAssistance ? 'Labor Opted In' : 'Self-Unload'}
+                      </Text>
                     </Text>
                   </View>
                 </View>
@@ -846,7 +1037,34 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                         ₹{taxableAmount.toLocaleString('en-IN')}
                       </Text>
                       <Text style={[styles.mtdText, { flex: 1.2, textAlign: 'right', fontWeight: '800', color: '#0F172A' }]}>
-                        ₹{totalAmount.toLocaleString('en-IN')}
+                        ₹{(totalAmount - laborFee).toLocaleString('en-IN')}
+                      </Text>
+                    </View>
+                  )}
+
+                  {/* Optional Labor Assistance Row */}
+                  {hasLaborAssistance && (
+                    <View style={[styles.materialsTableRow, { backgroundColor: '#F8FAFC' }]}>
+                      <View style={{ flex: 2.2 }}>
+                        <Text style={[styles.mtdItemName, { color: '#065F46' }]}>Site Unloading & Labor Assistance</Text>
+                        <Text style={styles.mtdItemSub}>
+                          {delivery.laborAssistanceDetails || 'Ground-floor unloading & material stacking'}
+                        </Text>
+                      </View>
+                      <Text style={[styles.mtdText, { flex: 0.9, textAlign: 'center', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }]}>
+                        9987
+                      </Text>
+                      <Text style={[styles.mtdText, { flex: 0.9, textAlign: 'center' }]}>
+                        1 Lot
+                      </Text>
+                      <Text style={[styles.mtdText, { flex: 1.1, textAlign: 'right' }]}>
+                        ₹{laborTaxable.toLocaleString('en-IN')}
+                      </Text>
+                      <Text style={[styles.mtdText, { flex: 1.2, textAlign: 'right', fontWeight: '600' }]}>
+                        ₹{laborTaxable.toLocaleString('en-IN')}
+                      </Text>
+                      <Text style={[styles.mtdText, { flex: 1.2, textAlign: 'right', fontWeight: '800', color: '#059669' }]}>
+                        ₹{laborFee.toLocaleString('en-IN')}
                       </Text>
                     </View>
                   )}
@@ -879,8 +1097,14 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                       <Text style={styles.calcVal}>₹{sgstAmount.toLocaleString('en-IN')}</Text>
                     </View>
                     <View style={styles.calcRow}>
-                      <Text style={styles.calcLabel}>Quarry Freight & Tolls</Text>
+                      <Text style={styles.calcLabel}>Direct Yard Freight</Text>
                       <Text style={[styles.calcVal, { color: '#059669', fontWeight: '800' }]}>INCLUDED</Text>
+                    </View>
+                    <View style={styles.calcRow}>
+                      <Text style={styles.calcLabel}>Site Unloading Labor</Text>
+                      <Text style={[styles.calcVal, hasLaborAssistance ? { color: '#059669', fontWeight: '700' } : { color: '#64748B' }]}>
+                        {hasLaborAssistance ? `+₹${laborFee.toLocaleString('en-IN')}` : 'Self-Unload (₹0)'}
+                      </Text>
                     </View>
                     <View style={styles.calcGrandTotalRow}>
                       <Text style={styles.calcGrandTotalLabel}>Total Invoice Amount</Text>
@@ -1406,15 +1630,30 @@ const styles = StyleSheet.create({
     gap: 3,
     backgroundColor: '#FFFFFF',
   },
+  partyBoxHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    paddingBottom: 4,
+    marginBottom: 4,
+  },
   partyBoxHeader: {
     fontSize: 9.5,
     fontWeight: '800',
     color: '#64748B',
     letterSpacing: 0.4,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    paddingBottom: 4,
-    marginBottom: 2,
+  },
+  partyRoleTag: {
+    fontSize: 8.5,
+    fontWeight: '800',
+    color: '#0F172A',
+    backgroundColor: '#F1F5F9',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 3,
+    letterSpacing: 0.3,
   },
   partyBoxName: {
     fontSize: 12,
@@ -1426,6 +1665,32 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     color: '#475569',
     lineHeight: 15,
+  },
+  partyBoxLineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    flexWrap: 'wrap',
+  },
+  gstVerifiedTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 3,
+  },
+  gstVerifiedTagText: {
+    fontSize: 8,
+    fontWeight: '800',
+    color: '#065F46',
+    letterSpacing: 0.3,
+  },
+  monoText: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
   },
   materialsTable: {
     borderWidth: 1,

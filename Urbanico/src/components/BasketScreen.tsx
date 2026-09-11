@@ -41,6 +41,10 @@ import {
   Briefcase,
   FileSpreadsheet,
   Download,
+  Users,
+  Mail,
+  CheckCircle2,
+  FileText,
 } from 'lucide-react-native';
 import { CartItem, ScreenType, ActivityDelivery } from '../types';
 import { INITIAL_DELIVERIES } from '../data/materialsData';
@@ -62,9 +66,11 @@ import {
   estimateTotalWeightTons,
   calculateDynamicFreight,
   recommendVehicle,
+  evaluateSmartVehicleRecommendation,
   PINCODE_REGISTRY,
 } from '../utils/freightCalculator';
-import { validateGSTIN } from '../utils/gstinValidator';
+import { validateGSTIN, GstinValidationResult, SAMPLE_VALID_GSTINS } from '../utils/gstinValidator';
+import { buildTaxInvoiceData, sendTaxInvoiceEmail } from '../utils/invoiceHelper';
 import { openProformaQuotationPrint } from '../utils/proformaQuotationHelper';
 import { LiveDispatcherChatModal } from './common/LiveDispatcherChatModal';
 import { WeighbridgeScanModal } from './common/WeighbridgeScanModal';
@@ -121,6 +127,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [selectedCheckoutAddress, setSelectedCheckoutAddress] = useState<string>(activeLocation);
   const [isAddingNewAddress, setIsAddingNewAddress] = useState(false);
+  const [isChangingAddress, setIsChangingAddress] = useState(false);
 
   // New Address Form State
   const [newAddrName, setNewAddrName] = useState(user?.name || '');
@@ -209,9 +216,14 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   const detectedPincodeMatch = currentAddressStr.match(/\b(50[0-9]{4})\b/);
   const activePincode = detectedPincodeMatch ? detectedPincodeMatch[1] : '500081';
 
-  // Dynamic Freight from Central Hub with smart vehicle tiering
+  // Dynamic Freight from Central Hub with smart vehicle tiering & recommendation
   const totalWeightTons = estimateTotalWeightTons(cartItems);
   const freightInfo = calculateDynamicFreight(activePincode, totalWeightTons);
+  const smartRecommendation = evaluateSmartVehicleRecommendation(cartItems, totalWeightTons);
+
+  // Optional Labor Assistance for Unloading Materials
+  const [optInLaborAssistance, setOptInLaborAssistance] = useState(false);
+  const unloadingLaborFee = optInLaborAssistance ? smartRecommendation.unloadingAssistance.fee : 0;
 
   // Razorpay Payment States
   const [showRazorpayModal, setShowRazorpayModal] = useState(false);
@@ -220,8 +232,302 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
   // B2B GSTIN input for Tax Invoicing & 18% Input Tax Credit
+  const [isB2BOpted, setIsB2BOpted] = useState(Boolean(user?.gstin));
   const [checkoutGstin, setCheckoutGstin] = useState(user?.gstin || '');
+  const [checkoutBusinessName, setCheckoutBusinessName] = useState(user?.companyName || '');
+  const [checkoutInvoiceEmail, setCheckoutInvoiceEmail] = useState(user?.email || '');
+  const [gstinValidation, setGstinValidation] = useState<GstinValidationResult | null>(() => {
+    return user?.gstin ? validateGSTIN(user.gstin) : null;
+  });
   const [gstinError, setGstinError] = useState<string | null>(null);
+
+  const handleGstinInputChange = (text: string) => {
+    const clean = text.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15);
+    setCheckoutGstin(clean);
+    if (clean.length === 15) {
+      const res = validateGSTIN(clean);
+      setGstinValidation(res);
+      if (res.isValid) {
+        setGstinError(null);
+        if (res.info?.tradeName && !checkoutBusinessName) {
+          setCheckoutBusinessName(res.info.tradeName);
+        }
+      } else {
+        setGstinError(res.errorMessage || 'Invalid GST number');
+      }
+    } else {
+      setGstinValidation(null);
+      if (clean.length > 0) {
+        setGstinError(`${15 - clean.length} characters remaining`);
+      } else {
+        setGstinError(null);
+      }
+    }
+  };
+
+  const handleSelectSampleGstin = (sample: (typeof SAMPLE_VALID_GSTINS)[0]) => {
+    setCheckoutGstin(sample.gstin);
+    setCheckoutBusinessName(sample.tradeName);
+    const res = validateGSTIN(sample.gstin);
+    setGstinValidation(res);
+    setGstinError(null);
+    showToast(`Applied ${sample.tradeName} GSTIN (${sample.state})`, 'success');
+  };
+
+  const renderB2BGstinCard = (isModalView: boolean = false) => {
+    return (
+      <View
+        style={[
+          styles.b2bCardContainer,
+          {
+            backgroundColor: isB2BOpted
+              ? (theme.mode === 'dark' ? '#0F172A' : '#F8FAFC')
+              : theme.surface,
+            borderColor: isB2BOpted
+              ? (gstinValidation?.isValid ? '#10B981' : gstinError ? '#EF4444' : theme.primary)
+              : theme.border,
+            marginTop: isModalView ? 12 : 8,
+            marginBottom: isModalView ? 8 : 10,
+          },
+        ]}
+      >
+        {/* Header Toggle */}
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => {
+            soundService.playTap();
+            setIsB2BOpted(!isB2BOpted);
+          }}
+          style={styles.b2bHeaderRow}
+        >
+          <View style={styles.b2bHeaderLeft}>
+            <View
+              style={[
+                styles.b2bIconBadge,
+                { backgroundColor: isB2BOpted ? '#DCFCE7' : theme.surfaceSecondary },
+              ]}
+            >
+              <FileCheck2 size={16} color={isB2BOpted ? '#15803D' : theme.textSecondary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={[styles.b2bTitle, { color: theme.textPrimary }]}>
+                  B2B Tax Invoice & GSTIN
+                </Text>
+                <View
+                  style={[
+                    styles.itcBadge,
+                    { backgroundColor: isB2BOpted ? '#10B981' : theme.surfaceSecondary },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.itcBadgeText,
+                      { color: isB2BOpted ? '#FFFFFF' : theme.textMuted },
+                    ]}
+                  >
+                    18% ITC
+                  </Text>
+                </View>
+              </View>
+              <Text style={[styles.b2bSubtitle, { color: theme.textSecondary }]}>
+                {isB2BOpted
+                  ? 'Input Tax Credit claimable • Auto-emailed on order'
+                  : 'Tap to enter GSTIN for input tax credit & emailed tax invoice'}
+              </Text>
+            </View>
+          </View>
+
+          <View
+            style={[
+              styles.b2bCheckbox,
+              {
+                backgroundColor: isB2BOpted ? '#10B981' : 'transparent',
+                borderColor: isB2BOpted ? '#10B981' : theme.textMuted,
+              },
+            ]}
+          >
+            {isB2BOpted && <Check size={13} color="#FFFFFF" strokeWidth={3} />}
+          </View>
+        </TouchableOpacity>
+
+        {isB2BOpted && (
+          <View style={styles.b2bBody}>
+            {/* GST Number Field */}
+            <View style={styles.b2bFieldGroup}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <Text style={[styles.formLabel, { color: theme.textSecondary, marginBottom: 0 }]}>
+                  GST Number (15 Alphanumeric Characters)
+                </Text>
+                {checkoutGstin.length > 0 && (
+                  <Text
+                    style={{
+                      fontSize: 10.5,
+                      fontWeight: '600',
+                      color: gstinValidation?.isValid ? '#10B981' : '#EF4444',
+                    }}
+                  >
+                    {gstinValidation?.isValid ? '✔ VALID' : `${checkoutGstin.length}/15`}
+                  </Text>
+                )}
+              </View>
+
+              <TextInput
+                value={checkoutGstin}
+                onChangeText={handleGstinInputChange}
+                placeholder="e.g. 36AAACU9812A1Z4"
+                placeholderTextColor={theme.textMuted}
+                maxLength={15}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                style={[
+                  styles.formTextInput,
+                  {
+                    backgroundColor: theme.surface,
+                    borderColor: gstinError
+                      ? '#EF4444'
+                      : gstinValidation?.isValid
+                      ? '#10B981'
+                      : theme.border,
+                    color: theme.textPrimary,
+                    fontFamily: typography.fontFamilyMono || 'monospace',
+                    letterSpacing: 1.2,
+                    fontWeight: '700',
+                    fontSize: 13,
+                  },
+                ]}
+              />
+
+              {gstinError ? (
+                <View style={styles.b2bErrorBox}>
+                  <AlertTriangle size={12} color="#EF4444" />
+                  <Text style={styles.b2bErrorText}>{gstinError}</Text>
+                </View>
+              ) : null}
+            </View>
+
+            {/* Extracted Enterprise Intelligence Box */}
+            {gstinValidation?.isValid && (
+              <View style={styles.b2bVerifiedBox}>
+                <View style={styles.b2bVerifiedHeaderRow}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                    <CheckCircle2 size={14} color="#059669" />
+                    <Text style={styles.b2bVerifiedTitle}>Verified Active GST Taxpayer</Text>
+                  </View>
+                  <View style={styles.b2bVerifiedTag}>
+                    <Text style={styles.b2bVerifiedTagText}>ITC ELIGIBLE</Text>
+                  </View>
+                </View>
+
+                <View style={styles.b2bVerifiedGrid}>
+                  <View style={styles.b2bVerifiedCol}>
+                    <Text style={styles.b2bVerifiedLabel}>STATE</Text>
+                    <Text style={styles.b2bVerifiedVal}>
+                      {gstinValidation.stateName} ({gstinValidation.stateCode})
+                    </Text>
+                  </View>
+                  <View style={styles.b2bVerifiedCol}>
+                    <Text style={styles.b2bVerifiedLabel}>PAN NUMBER</Text>
+                    <Text style={styles.b2bVerifiedVal}>{gstinValidation.pan}</Text>
+                  </View>
+                  <View style={styles.b2bVerifiedCol}>
+                    <Text style={styles.b2bVerifiedLabel}>CONSTITUTION</Text>
+                    <Text style={styles.b2bVerifiedVal} numberOfLines={1}>
+                      {gstinValidation.info?.constitution || 'Enterprise'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            )}
+
+            {/* Business / Legal Trade Name */}
+            <View style={styles.b2bFieldGroup}>
+              <Text style={[styles.formLabel, { color: theme.textSecondary }]}>
+                Billing Entity / Company Legal Name
+              </Text>
+              <TextInput
+                value={checkoutBusinessName}
+                onChangeText={setCheckoutBusinessName}
+                placeholder="e.g. Hyderabad Infrastructure Pvt Ltd"
+                placeholderTextColor={theme.textMuted}
+                style={[
+                  styles.formTextInput,
+                  {
+                    backgroundColor: theme.surface,
+                    borderColor: theme.border,
+                    color: theme.textPrimary,
+                    fontSize: 12.5,
+                  },
+                ]}
+              />
+            </View>
+
+            {/* Invoice Delivery Email */}
+            <View style={styles.b2bFieldGroup}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 4 }}>
+                <Mail size={12} color={theme.textSecondary} />
+                <Text style={[styles.formLabel, { color: theme.textSecondary, marginBottom: 0 }]}>
+                  Invoice Recipient Email (PDF Dispatched on Payment)
+                </Text>
+              </View>
+              <TextInput
+                value={checkoutInvoiceEmail}
+                onChangeText={setCheckoutInvoiceEmail}
+                placeholder="e.g. accounts@contractor.in"
+                placeholderTextColor={theme.textMuted}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                style={[
+                  styles.formTextInput,
+                  {
+                    backgroundColor: theme.surface,
+                    borderColor: theme.border,
+                    color: theme.textPrimary,
+                    fontSize: 12.5,
+                  },
+                ]}
+              />
+              <Text style={{ fontSize: 10.5, color: '#059669', marginTop: 3 }}>
+                ✔ Official Tax Invoice with HSN code breakdown & IRN will be dispatched automatically to this email.
+              </Text>
+            </View>
+
+            {/* Sample GSTIN Quick Chips for Corporate Testing */}
+            <View style={{ marginTop: 2 }}>
+              <Text style={{ fontSize: 10.5, color: theme.textMuted, marginBottom: 4 }}>
+                Quick Test with Verified Sample GSTINs:
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                {SAMPLE_VALID_GSTINS.map((s) => (
+                  <TouchableOpacity
+                    key={s.gstin}
+                    onPress={() => handleSelectSampleGstin(s)}
+                    style={[
+                      styles.sampleGstinChip,
+                      {
+                        backgroundColor: checkoutGstin === s.gstin ? '#DCFCE7' : theme.surface,
+                        borderColor: checkoutGstin === s.gstin ? '#10B981' : theme.border,
+                      },
+                    ]}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.sampleGstinChipText,
+                        { color: checkoutGstin === s.gstin ? '#065F46' : theme.textSecondary },
+                      ]}
+                    >
+                      {s.name} ({s.state})
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        )}
+      </View>
+    );
+  };
 
   // Order Cancellation Guard & Status State
   const [cancelledOrderIds, setCancelledOrderIds] = useState<string[]>([]);
@@ -241,12 +547,14 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     subtotal,
     gstTax,
     deliveryCharge,
+    unloadingCharge,
     grandTotal,
   } = calculateCartTotals(
     cartItems,
     couponDiscount,
     deliveryDistanceKm,
-    freightInfo.deliveryCharge
+    freightInfo.deliveryCharge,
+    unloadingLaborFee
   );
 
   const payableAmount = grandTotal;
@@ -300,11 +608,8 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   const availableAddresses: string[] = Array.from(
     new Set([
       activeLocation,
-      ...savedLocations,
-      'Miyapur Site, Phase 2, Hyderabad - 500049',
-      'Gachibowli Site 4, Financial District, Hyderabad - 500032',
-      'Hitech City Commercial Tower, Madhapur, Hyderabad - 500081',
-    ].filter(Boolean))
+      ...(isLoggedIn ? savedLocations : []),
+    ].filter((l) => Boolean(l) && !l.includes('Miyapur Site, Phase 2') && !l.includes('Gachibowli Site 4') && !l.includes('Hitech City Commercial Tower')))
   );
 
   const handlePincodeChange = (pin: string) => {
@@ -366,6 +671,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     setSelectedCheckoutAddress(fullFormatted);
     setSelectedLocation(fullFormatted);
     setIsAddingNewAddress(false);
+    setIsChangingAddress(false);
     setAddrFormError(null);
     showToast('New delivery address added and selected!', 'success');
   };
@@ -392,11 +698,31 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     setPaymentError(null);
     setSelectedCheckoutAddress(activeLocation);
     setIsAddingNewAddress(false);
+    setIsChangingAddress(false);
     setAddrFormError(null);
     setShowCheckoutModal(true);
   };
 
   const handleConfirmAddressAndProceedToPay = () => {
+    if (isB2BOpted) {
+      if (!checkoutGstin.trim()) {
+        setGstinError('Please enter a 15-character GSTIN or uncheck B2B mode');
+        showToast('Please enter your 15-character GSTIN or turn off B2B mode', 'error');
+        return;
+      }
+      const validation = validateGSTIN(checkoutGstin);
+      if (!validation.isValid) {
+        setGstinError(validation.errorMessage || 'Invalid GST number');
+        showToast(validation.errorMessage || 'Only valid GST numbers are accepted for tax invoices', 'error');
+        return;
+      }
+      const email = checkoutInvoiceEmail.trim() || user?.email || '';
+      if (!email || !email.includes('@')) {
+        showToast('Please provide a valid email address to receive your tax invoice', 'error');
+        return;
+      }
+    }
+
     const chosenAddress = selectedCheckoutAddress || activeLocation;
     setSelectedLocation(chosenAddress);
     setShowCheckoutModal(false);
@@ -495,35 +821,35 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     const finalVehicleType = isServicesOnly
       ? 'Service Inspection Vehicle'
       : isMixedCart
-      ? `${freightInfo.vehicle.name} & Trade Service Unit`
-      : freightInfo.vehicle.name;
+      ? `${smartRecommendation.vehicle.shortName} & Trade Unit`
+      : smartRecommendation.vehicle.name;
 
     const isHeavyBulk = totalWeightTons >= 3.5;
-    const isMediumLoad = totalWeightTons > 0.15 && totalWeightTons < 3.5;
-    const isSmallLoad = !isServicesOnly && totalWeightTons <= 0.15;
+    const isMediumLoad = totalWeightTons > 0.25 && totalWeightTons < 3.5;
+    const isSmallLoad = !isServicesOnly && totalWeightTons <= 0.25;
 
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
     const finalVehicleNum = isServicesOnly
       ? 'Field Service Unit'
       : isMixedCart
-      ? `TS 09 UB ${randomSuffix} (Cargo) & Service Unit`
-      : isSmallLoad
-      ? `TS 09 UB ${randomSuffix} (Cargo Tempo)`
-      : isMediumLoad
-      ? `TS 09 UB ${randomSuffix} (Light Commercial)`
-      : `TS 08 UB ${randomSuffix} (Heavy Transport)`;
+      ? `TS 09 UB ${randomSuffix} (${smartRecommendation.vehicle.shortName})`
+      : `TS 09 UB ${randomSuffix} (${smartRecommendation.vehicle.shortName})`;
 
     const finalDriverName = isServicesOnly
       ? 'Assigned Trade Specialist'
       : isMixedCart
       ? 'Assigned Fleet Partner & Trade Specialist'
       : isSmallLoad
-      ? 'Assigned Courier Partner'
-      : 'Assigned Fleet Driver';
+      ? 'Assigned Auto Courier Partner'
+      : 'Assigned Heavy Fleet Driver';
 
     const assignedDriverPhone = 'Central Dispatch Desk';
     const deliveryDestination = selectedCheckoutAddress || activeLocation;
-    const effectiveGstin = checkoutGstin.trim() || user?.gstin || undefined;
+    const effectiveGstin = (isB2BOpted && checkoutGstin.trim()) ? checkoutGstin.trim().toUpperCase() : (user?.gstin || undefined);
+    const effectiveBusinessName = (isB2BOpted && checkoutBusinessName.trim())
+      ? checkoutBusinessName.trim()
+      : (gstinValidation?.info?.tradeName || user?.companyName || undefined);
+    const effectiveInvoiceEmail = (checkoutInvoiceEmail.trim() || user?.email || 'accounts@urbanico.in');
 
     const newOrder: ActivityDelivery = {
       id: `del-${Date.now()}`,
@@ -550,17 +876,41 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       deliveryOtp: String(Math.floor(1000 + Math.random() * 9000)),
       ewayBillNumber: `EWB-TS-2026-${Math.floor(10000000 + Math.random() * 90000000)}`,
       weighmentSlipId: isHeavyBulk ? `WB-HYD-${Math.floor(1000 + Math.random() * 9000)}` : undefined,
+      unloadingCharges: optInLaborAssistance ? unloadingLaborFee : 0,
+      laborAssistanceOpted: optInLaborAssistance,
+      laborAssistanceDetails: optInLaborAssistance ? smartRecommendation.unloadingAssistance.label : undefined,
+      recommendedVehicle: smartRecommendation.vehicle.shortName,
+      cartItemsSnapshot: [...cartItems],
+      gstin: effectiveGstin,
+      businessName: effectiveBusinessName,
+      customerEmail: effectiveInvoiceEmail,
+      invoiceEmailStatus: 'sent',
+      invoiceEmailedTo: effectiveInvoiceEmail,
+      invoiceEmailedAt: new Date().toISOString(),
     };
 
     createdOrderRef.current = newOrder;
 
+    // Auto-generate and email professional GST Tax Invoice immediately after order success
+    try {
+      const taxInvoiceData = buildTaxInvoiceData(newOrder, user);
+      sendTaxInvoiceEmail(taxInvoiceData, effectiveInvoiceEmail).then((res) => {
+        if (res.success) {
+          showToast(`Tax invoice emailed to ${effectiveInvoiceEmail}`, 'success');
+        }
+      }).catch((e) => console.warn('Invoice email dispatch log:', e));
+    } catch (e) {
+      console.warn('Tax invoice construction log:', e);
+    }
+
     // Send real order data to the backend API with customer profile
     apiService.createOrder({
       orderNumber: generatedOrderNum,
-      customerName: user?.name || 'Customer',
+      customerName: effectiveBusinessName || user?.name || 'Customer',
       customerPhone: user?.phone ? (user.phone.startsWith('+91') ? user.phone : `+91 ${user.phone}`) : '',
-      customerEmail: user?.email || '',
+      customerEmail: effectiveInvoiceEmail,
       gstin: effectiveGstin,
+      businessName: effectiveBusinessName,
       siteAddress: {
         siteName: 'Site Delivery Location',
         street: deliveryDestination,
@@ -580,7 +930,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       subtotal,
       taxAmount: gstTax,
       deliveryCharges: deliveryCharge,
-      unloadingCharges: 0,
+      unloadingCharges: optInLaborAssistance ? unloadingLaborFee : 0,
       totalAmount: grandTotal,
       paymentMethod: result.method || 'Razorpay Gateway',
       paymentStatus: 'paid',
@@ -671,6 +1021,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                   fontWeight: activeTab === 'cart' ? '700' : '500',
                 },
               ]}
+              numberOfLines={1}
             >
               Cart {totalUnitQuantity > 0 ? `(${totalUnitQuantity})` : ''}
             </Text>
@@ -696,8 +1047,9 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                   fontWeight: activeTab === 'history' ? '700' : '500',
                 },
               ]}
+              numberOfLines={1}
             >
-              Live Tracking & Orders
+              Tracking & Orders
             </Text>
           </TouchableOpacity>
         </View>
@@ -745,14 +1097,16 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                           <Text style={[styles.itemName, { color: theme.textPrimary }]} numberOfLines={1}>
                             {item.itemName}
                           </Text>
-                          <Text style={[styles.itemOptionLabel, { color: theme.textSecondary }]}>
+                          <Text style={[styles.itemOptionLabel, { color: theme.textSecondary }]} numberOfLines={1}>
                             {item.selectedOptionLabel}
                           </Text>
-                          <Text style={[styles.itemUnitPrice, { color: theme.textPrimary, fontWeight: '700' }]}>
-                            ₹{(item.unitPrice * item.quantity).toLocaleString('en-IN')}{' '}
-                            <Text style={{ fontSize: 11, fontWeight: '400', color: theme.textSecondary }}>
-                              (₹{item.unitPrice.toLocaleString('en-IN')} × {item.quantity})
-                            </Text>
+                          <Text style={[styles.itemUnitPrice, { color: theme.textPrimary, fontWeight: '700' }]} numberOfLines={1}>
+                            ₹{(item.unitPrice * item.quantity).toLocaleString('en-IN')}
+                            {item.quantity > 1 ? (
+                              <Text style={{ fontSize: 11, fontWeight: '400', color: theme.textSecondary }}>
+                                {' '}(₹{item.unitPrice.toLocaleString('en-IN')} × {item.quantity})
+                              </Text>
+                            ) : null}
                           </Text>
                           <TouchableOpacity
                             onPress={() => handleSaveForLater(item)}
@@ -765,7 +1119,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                         </View>
 
                         {/* Stepper + Delete (Locked to 1 for Services) */}
-                        {item.categoryId === 'services' || item.unitPrice === 99 || (item.selectedOptionLabel && item.selectedOptionLabel.toLowerCase().includes('demo')) ? (
+                        {(item as any).categoryId === 'services' || item.unitPrice === 99 || (item.selectedOptionLabel && item.selectedOptionLabel.toLowerCase().includes('demo')) ? (
                           <View style={styles.stepperActionRow}>
                             <View style={[styles.serviceFixedPill, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
                               <ShieldCheck size={13} color="#059669" strokeWidth={2.4} />
@@ -855,7 +1209,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                       >
                         <View style={styles.openCouponLeft}>
                           <Tag size={15} color="#0284C7" />
-                          <Text style={[styles.openCouponText, { color: theme.textPrimary }]}>
+                          <Text style={[styles.openCouponText, { color: theme.textPrimary }]} numberOfLines={1}>
                             Apply Contractor Promo / Coupon Code
                           </Text>
                         </View>
@@ -864,6 +1218,111 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                     )}
                   </View>
                 )}
+
+                {/* Minimalist Fleet Transit Recommendation */}
+                {materialItems.length > 0 && (
+                  <View style={[styles.vehicleRecCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                    <View style={styles.vehicleRecHeaderRow}>
+                      <View style={styles.vehicleRecTitleGroup}>
+                        <Truck size={13} color={theme.textPrimary} strokeWidth={2} />
+                        <Text style={[styles.vehicleRecHeading, { color: theme.textPrimary }]} numberOfLines={1}>
+                          Transit: {smartRecommendation.vehicle.shortName || smartRecommendation.vehicle.name.split('(')[0].trim()}
+                        </Text>
+                      </View>
+                      <View style={[styles.vehicleRecBadge, { backgroundColor: theme.surface, borderColor: theme.borderLight }]}>
+                        <Text style={[styles.vehicleBadgePillText, { color: theme.textSecondary }]} numberOfLines={1}>
+                          {smartRecommendation.vehicle.maxTons} MT • ₹{smartRecommendation.vehicle.ratePerKm}/km
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.vehicleRecReason, { color: theme.textMuted }]} numberOfLines={1}>
+                      {smartRecommendation.reason}
+                    </Text>
+                  </View>
+                )}
+
+                {/* Selectable Labor Assistance for Material Unloading (Optional) */}
+                {materialItems.length > 0 && (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      soundService.playTap();
+                      setOptInLaborAssistance(!optInLaborAssistance);
+                    }}
+                    style={[
+                      styles.laborAssistanceCard,
+                      {
+                        backgroundColor: optInLaborAssistance ? (theme.mode === 'dark' ? '#064E3B' : '#ECFDF5') : theme.surface,
+                        borderColor: optInLaborAssistance ? '#10B981' : theme.border,
+                      },
+                    ]}
+                  >
+                    <View style={styles.laborAssistanceTopRow}>
+                      <View style={styles.laborAssistanceLeft}>
+                        <View
+                          style={[
+                            styles.laborCheckboxCircle,
+                            {
+                              backgroundColor: optInLaborAssistance ? '#10B981' : 'transparent',
+                              borderColor: optInLaborAssistance ? '#10B981' : theme.textMuted,
+                            },
+                          ]}
+                        >
+                          {optInLaborAssistance ? <Check size={13} color="#FFFFFF" strokeWidth={3} /> : null}
+                        </View>
+                        <View style={{ flex: 1, minWidth: 0, marginRight: 6 }}>
+                          <View style={styles.laborTitleWithBadgeRow}>
+                            <Text style={[styles.laborAssistanceTitle, { color: theme.textPrimary }]} numberOfLines={1}>
+                              Site Unloading Labor
+                            </Text>
+                            <View
+                              style={[
+                                styles.laborBadgePill,
+                                { backgroundColor: optInLaborAssistance ? '#D1FAE5' : '#F1F5F9' },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.laborBadgePillText,
+                                  { color: optInLaborAssistance ? '#065F46' : '#475569' },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                Optional
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={[styles.laborAssistanceSub, { color: theme.textSecondary }]} numberOfLines={1}>
+                            {smartRecommendation.unloadingAssistance.label} • {smartRecommendation.unloadingAssistance.description}
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.laborPriceBox}>
+                        <Text
+                          style={[
+                            styles.laborPriceText,
+                            { color: optInLaborAssistance ? '#059669' : theme.textPrimary },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          +₹{smartRecommendation.unloadingAssistance.fee}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.laborStatusTag,
+                            { color: optInLaborAssistance ? '#059669' : theme.textMuted },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {optInLaborAssistance ? 'Included' : 'Tap to Add'}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                )}
+
+                {/* B2B Tax Invoice & GSTIN Section */}
+                {cartItems.length > 0 && renderB2BGstinCard(false)}
 
                 {/* Price Summary Breakdown */}
                 {cartItems.length > 0 && (
@@ -910,6 +1369,27 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                       </View>
                     )}
 
+                    {materialItems.length > 0 && (
+                      <View style={styles.summaryRow}>
+                        <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>
+                          Site Unloading Labor
+                        </Text>
+                        <Text
+                          style={[
+                            styles.summaryValue,
+                            {
+                              color: optInLaborAssistance ? '#059669' : theme.textMuted,
+                              fontWeight: optInLaborAssistance ? '700' : '500',
+                            },
+                          ]}
+                        >
+                          {optInLaborAssistance
+                            ? `+₹${unloadingLaborFee.toLocaleString('en-IN')}`
+                            : 'Self-Unloading (₹0)'}
+                        </Text>
+                      </View>
+                    )}
+
                     {couponDiscount > 0 && (
                       <View style={styles.summaryRow}>
                         <Text style={[styles.summaryLabel, { color: '#16A34A' }]}>Contractor Discount ({appliedCoupon})</Text>
@@ -947,17 +1427,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                           : `Place Order • ₹${payableAmount.toLocaleString('en-IN')}`}
                       </Text>
                       <ArrowRight size={16} color="#FFFFFF" strokeWidth={2.2} />
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      onPress={handleDownloadProformaQuotation}
-                      style={[styles.proformaQuoteBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                      activeOpacity={0.8}
-                    >
-                      <FileSpreadsheet size={15} color={theme.textPrimary} strokeWidth={2} />
-                      <Text style={[styles.proformaQuoteBtnText, { color: theme.textPrimary }]}>
-                        Export Proforma Quotation (PDF)
-                      </Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -1335,144 +1804,240 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                 keyboardShouldPersistTaps="handled"
                 contentContainerStyle={{ paddingBottom: 160 }}
               >
-                {/* Saved Addresses Section */}
+                {/* Saved Addresses Section - Only default address shown with single Change option */}
                 <View style={styles.checkoutSection}>
-                  <View style={styles.sectionHeaderRow}>
-                    <MapPin size={16} color={theme.primary} />
-                    <Text style={[styles.checkoutSectionTitle, { color: theme.textPrimary }]}>
-                      Saved Site Addresses
-                    </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <MapPin size={16} color={theme.primary} />
+                      <Text style={[styles.checkoutSectionTitle, { color: theme.textPrimary, marginBottom: 0 }]}>
+                        Delivery Address
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => {
+                        soundService.playTap();
+                        setIsChangingAddress(!isChangingAddress);
+                      }}
+                      activeOpacity={0.7}
+                      style={{
+                        paddingVertical: 4,
+                        paddingHorizontal: 10,
+                        borderRadius: 6,
+                        backgroundColor: isChangingAddress ? theme.primary : theme.surfaceSecondary,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          fontWeight: '700',
+                          color: isChangingAddress ? '#FFFFFF' : theme.primary,
+                        }}
+                      >
+                        {isChangingAddress ? 'Done' : 'Change'}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
 
-                  <View style={styles.addressesListContainer}>
-                    {availableAddresses.map((addr, idx) => {
-                      const isSelected = selectedCheckoutAddress === addr;
-                      const parts = addr.split(',');
-                      const primaryLine = parts[0]?.trim() || 'Site Location';
-                      const secondaryLine = parts.slice(1).join(',').trim();
+                  {/* Single Default Address Display */}
+                  {(() => {
+                    const currentAddr = selectedCheckoutAddress || availableAddresses[0] || activeLocation;
+                    const parts = currentAddr.split(',');
+                    const primaryLine = parts[0]?.trim() || 'Site Location';
+                    const secondaryLine = parts.slice(1).join(',').trim();
 
-                      return (
-                        <TouchableOpacity
-                          key={`checkout-addr-${idx}`}
-                          activeOpacity={0.8}
-                          onPress={() => {
-                            setSelectedCheckoutAddress(addr);
-                            soundService.playTap();
-                          }}
-                          style={[
-                            styles.addressSelectCard,
-                            {
-                              backgroundColor: isSelected
-                                ? (theme.mode === 'dark' ? '#1E293B' : '#F0F9FF')
-                                : theme.surfaceSecondary,
-                              borderColor: isSelected ? theme.primary : theme.border,
-                            },
-                          ]}
-                        >
-                          <View style={styles.addressCardRadioRow}>
-                            <View
+                    return (
+                      <View
+                        style={[
+                          styles.addressSelectCard,
+                          {
+                            backgroundColor: theme.mode === 'dark' ? '#1E293B' : '#F0F9FF',
+                            borderColor: theme.primary,
+                            marginBottom: isChangingAddress ? 12 : 0,
+                          },
+                        ]}
+                      >
+                        <View style={styles.addressCardRadioRow}>
+                          <View style={styles.addressInfoCol}>
+                            <View style={styles.addressNameTagRow}>
+                              <Text
+                                style={[
+                                  styles.addressPrimaryName,
+                                  { color: theme.textPrimary },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {primaryLine}
+                              </Text>
+                              <View
+                                style={[
+                                  styles.addressTypeBadge,
+                                  { backgroundColor: theme.primary },
+                                ]}
+                              >
+                                <Text
+                                  style={[
+                                    styles.addressTypeBadgeText,
+                                    { color: '#FFFFFF' },
+                                  ]}
+                                >
+                                  DEFAULT ADDRESS
+                                </Text>
+                              </View>
+                            </View>
+
+                            {secondaryLine ? (
+                              <Text
+                                style={[styles.addressSecondaryText, { color: theme.textSecondary }]}
+                                numberOfLines={2}
+                              >
+                                {secondaryLine}
+                              </Text>
+                            ) : null}
+
+                            <View style={styles.contactDetailsRow}>
+                              <Text style={[styles.contactName, { color: theme.textSecondary }]}>
+                                Recipient: <Text style={{ color: theme.textPrimary, fontWeight: '600' }}>{user?.name || 'Site Incharge'}</Text>
+                              </Text>
+                              <Text style={[styles.contactDot, { color: theme.textMuted }]}>•</Text>
+                              <Text style={[styles.contactPhone, { color: theme.textSecondary }]}>
+                                +91 {user?.phone?.replace(/\D/g, '') || '98480 12345'}
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  })()}
+
+                  {/* Alternate addresses list shown only when user taps Change */}
+                  {isChangingAddress && (
+                    <View style={{ marginTop: 6 }}>
+                      <Text style={{ fontSize: 12, fontWeight: '700', color: theme.textMuted, marginBottom: 8, letterSpacing: 0.5 }}>
+                        SELECT AN ALTERNATE ADDRESS
+                      </Text>
+                      <View style={styles.addressesListContainer}>
+                        {availableAddresses.map((addr, idx) => {
+                          const isSelected = selectedCheckoutAddress === addr;
+                          const parts = addr.split(',');
+                          const primaryLine = parts[0]?.trim() || 'Site Location';
+                          const secondaryLine = parts.slice(1).join(',').trim();
+
+                          return (
+                            <TouchableOpacity
+                              key={`checkout-addr-${idx}`}
+                              activeOpacity={0.8}
+                              onPress={() => {
+                                setSelectedCheckoutAddress(addr);
+                                setIsChangingAddress(false);
+                                soundService.playTap();
+                              }}
                               style={[
-                                styles.radioCircle,
+                                styles.addressSelectCard,
                                 {
-                                  borderColor: isSelected ? theme.primary : theme.textMuted,
+                                  backgroundColor: isSelected
+                                    ? (theme.mode === 'dark' ? '#1E293B' : '#F0F9FF')
+                                    : theme.surfaceSecondary,
+                                  borderColor: isSelected ? theme.primary : theme.border,
                                 },
                               ]}
                             >
-                              {isSelected && (
+                              <View style={styles.addressCardRadioRow}>
                                 <View
                                   style={[
-                                    styles.radioCircleInner,
-                                    { backgroundColor: theme.primary },
-                                  ]}
-                                />
-                              )}
-                            </View>
-
-                            <View style={styles.addressInfoCol}>
-                              <View style={styles.addressNameTagRow}>
-                                <Text
-                                  style={[
-                                    styles.addressPrimaryName,
-                                    { color: theme.textPrimary },
-                                  ]}
-                                  numberOfLines={1}
-                                >
-                                  {primaryLine}
-                                </Text>
-                                <View
-                                  style={[
-                                    styles.addressTypeBadge,
+                                    styles.radioCircle,
                                     {
-                                      backgroundColor: isSelected
-                                        ? theme.primary
-                                        : (theme.mode === 'dark' ? '#334155' : '#E2E8F0'),
+                                      borderColor: isSelected ? theme.primary : theme.textMuted,
                                     },
                                   ]}
                                 >
-                                  <Text
-                                    style={[
-                                      styles.addressTypeBadgeText,
-                                      {
-                                        color: isSelected ? '#FFFFFF' : theme.textSecondary,
-                                      },
-                                    ]}
-                                  >
-                                    {idx === 0 ? 'DEFAULT SITE' : 'CONSTRUCTION SITE'}
-                                  </Text>
+                                  {isSelected && (
+                                    <View
+                                      style={[
+                                        styles.radioCircleInner,
+                                        { backgroundColor: theme.primary },
+                                      ]}
+                                    />
+                                  )}
+                                </View>
+
+                                <View style={styles.addressInfoCol}>
+                                  <View style={styles.addressNameTagRow}>
+                                    <Text
+                                      style={[
+                                        styles.addressPrimaryName,
+                                        { color: theme.textPrimary },
+                                      ]}
+                                      numberOfLines={1}
+                                    >
+                                      {primaryLine}
+                                    </Text>
+                                    <View
+                                      style={[
+                                        styles.addressTypeBadge,
+                                        {
+                                          backgroundColor: isSelected
+                                            ? theme.primary
+                                            : (theme.mode === 'dark' ? '#334155' : '#E2E8F0'),
+                                        },
+                                      ]}
+                                    >
+                                      <Text
+                                        style={[
+                                          styles.addressTypeBadgeText,
+                                          {
+                                            color: isSelected ? '#FFFFFF' : theme.textSecondary,
+                                          },
+                                        ]}
+                                      >
+                                        {idx === 0 ? 'DEFAULT SITE' : 'CONSTRUCTION SITE'}
+                                      </Text>
+                                    </View>
+                                  </View>
+
+                                  {secondaryLine ? (
+                                    <Text
+                                      style={[styles.addressSecondaryText, { color: theme.textSecondary }]}
+                                      numberOfLines={2}
+                                    >
+                                      {secondaryLine}
+                                    </Text>
+                                  ) : null}
                                 </View>
                               </View>
-
-                              {secondaryLine ? (
-                                <Text
-                                  style={[styles.addressSecondaryText, { color: theme.textSecondary }]}
-                                  numberOfLines={2}
-                                >
-                                  {secondaryLine}
-                                </Text>
-                              ) : null}
-
-                              <View style={styles.contactDetailsRow}>
-                                <Text style={[styles.contactName, { color: theme.textSecondary }]}>
-                                  Recipient: <Text style={{ color: theme.textPrimary, fontWeight: '600' }}>{user?.name || 'Site Incharge'}</Text>
-                                </Text>
-                                <Text style={[styles.contactDot, { color: theme.textMuted }]}>•</Text>
-                                <Text style={[styles.contactPhone, { color: theme.textSecondary }]}>
-                                  +91 {user?.phone?.replace(/\D/g, '') || '98480 12345'}
-                                </Text>
-                              </View>
-                            </View>
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  )}
                 </View>
 
-                {/* Add New Delivery Address Toggle & Form */}
-                <View style={styles.checkoutSection}>
-                  <TouchableOpacity
-                    activeOpacity={0.75}
-                    onPress={() => setIsAddingNewAddress(!isAddingNewAddress)}
-                    style={[
-                      styles.addNewAddressToggleBtn,
-                      {
-                        backgroundColor: theme.surfaceSecondary,
-                        borderColor: isAddingNewAddress ? theme.primary : theme.border,
-                      },
-                    ]}
-                  >
-                    <View style={styles.addNewAddressToggleLeft}>
-                      <Plus size={16} color={theme.primary} strokeWidth={2.5} />
-                      <Text style={[styles.addNewAddressToggleText, { color: theme.primary }]}>
-                        Add New Delivery Address
-                      </Text>
-                    </View>
-                    {isAddingNewAddress ? (
-                      <ChevronUp size={18} color={theme.primary} />
-                    ) : (
-                      <ChevronDown size={18} color={theme.textSecondary} />
-                    )}
-                  </TouchableOpacity>
+                {/* Add New Delivery Address Toggle & Form (only when user has chosen to Change) */}
+                {isChangingAddress && (
+                  <View style={styles.checkoutSection}>
+                    <TouchableOpacity
+                      activeOpacity={0.75}
+                      onPress={() => setIsAddingNewAddress(!isAddingNewAddress)}
+                      style={[
+                        styles.addNewAddressToggleBtn,
+                        {
+                          backgroundColor: theme.surfaceSecondary,
+                          borderColor: isAddingNewAddress ? theme.primary : theme.border,
+                        },
+                      ]}
+                    >
+                      <View style={styles.addNewAddressToggleLeft}>
+                        <Plus size={16} color={theme.primary} strokeWidth={2.5} />
+                        <Text style={[styles.addNewAddressToggleText, { color: theme.primary }]}>
+                          Add New Delivery Address
+                        </Text>
+                      </View>
+                      {isAddingNewAddress ? (
+                        <ChevronUp size={18} color={theme.primary} />
+                      ) : (
+                        <ChevronDown size={18} color={theme.textSecondary} />
+                      )}
+                    </TouchableOpacity>
 
                   {isAddingNewAddress && (
                     <View style={[styles.newAddressFormBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -1668,77 +2233,89 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                     </View>
                   )}
                 </View>
+              )}
 
                 {/* B2B GSTIN Input for Input Tax Credit (ITC) */}
-                <View style={[styles.checkoutSection, { marginTop: 12 }]}>
-                  <View style={styles.sectionHeaderRow}>
-                    <FileCheck2 size={16} color={theme.primary} />
-                    <Text style={[styles.checkoutSectionTitle, { color: theme.textPrimary }]}>
-                      B2B GSTIN / Input Tax Credit (Optional)
-                    </Text>
-                  </View>
-                  <View
+                {renderB2BGstinCard(true)}
+
+                {/* Selectable Labor Assistance inside Checkout */}
+                {materialItems.length > 0 && (
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      soundService.playTap();
+                      setOptInLaborAssistance(!optInLaborAssistance);
+                    }}
                     style={[
-                      styles.newAddressFormBox,
+                      styles.laborAssistanceCard,
                       {
-                        backgroundColor: theme.surfaceSecondary,
-                        borderColor: gstinError ? '#EF4444' : checkoutGstin.length === 15 ? '#10B981' : theme.border,
+                        backgroundColor: optInLaborAssistance ? (theme.mode === 'dark' ? '#064E3B' : '#ECFDF5') : theme.surfaceSecondary,
+                        borderColor: optInLaborAssistance ? '#10B981' : theme.border,
                         marginTop: 4,
+                        marginBottom: 10,
                       },
                     ]}
                   >
-                    <Text style={[styles.formLabel, { color: theme.textSecondary }]}>
-                      Company GSTIN (15 Characters)
-                    </Text>
-                    <TextInput
-                      value={checkoutGstin}
-                      onChangeText={(t) => {
-                        const val = t.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15);
-                        setCheckoutGstin(val);
-                        if (val.length === 15) {
-                          const res = validateGSTIN(val);
-                          if (!res.isValid) {
-                            setGstinError(res.errorMessage || 'Invalid Telangana GSTIN format');
-                          } else {
-                            setGstinError(null);
-                          }
-                        } else if (val.length > 0) {
-                          setGstinError('GSTIN must be 15 characters (e.g. 36AAACU9812A1Z4)');
-                        } else {
-                          setGstinError(null);
-                        }
-                      }}
-                      placeholder="e.g. 36AAACU9812A1Z4"
-                      placeholderTextColor={theme.textMuted}
-                      maxLength={15}
-                      autoCapitalize="characters"
-                      style={[
-                        styles.formTextInput,
-                        {
-                          backgroundColor: theme.surface,
-                          borderColor: gstinError ? '#EF4444' : checkoutGstin.length === 15 ? '#10B981' : theme.border,
-                          color: theme.textPrimary,
-                          fontFamily: typography.fontFamilyMono || 'monospace',
-                          letterSpacing: 1,
-                        },
-                      ]}
-                    />
-                    {gstinError ? (
-                      <Text style={{ fontSize: 11, color: '#EF4444', marginTop: 4 }}>{gstinError}</Text>
-                    ) : checkoutGstin.length === 15 ? (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                        <Check size={12} color="#10B981" strokeWidth={2.5} />
-                        <Text style={{ fontSize: 11.5, color: '#10B981', fontWeight: '600' }}>
-                          Verified Telangana GSTIN (18% ITC Eligible on Tax Invoice)
+                    <View style={styles.laborAssistanceTopRow}>
+                      <View style={styles.laborAssistanceLeft}>
+                        <View
+                          style={[
+                            styles.laborCheckboxCircle,
+                            {
+                              backgroundColor: optInLaborAssistance ? '#10B981' : 'transparent',
+                              borderColor: optInLaborAssistance ? '#10B981' : theme.textMuted,
+                            },
+                          ]}
+                        >
+                          {optInLaborAssistance ? <Check size={13} color="#FFFFFF" strokeWidth={3} /> : null}
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <View style={styles.laborTitleWithBadgeRow}>
+                            <Text style={[styles.laborAssistanceTitle, { color: theme.textPrimary }]}>
+                              Unloading Labor Assistance
+                            </Text>
+                            <View
+                              style={[
+                                styles.laborBadgePill,
+                                { backgroundColor: optInLaborAssistance ? '#D1FAE5' : '#F1F5F9' },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.laborBadgePillText,
+                                  { color: optInLaborAssistance ? '#065F46' : '#475569' },
+                                ]}
+                              >
+                                Optional
+                              </Text>
+                            </View>
+                          </View>
+                          <Text style={[styles.laborAssistanceSub, { color: theme.textSecondary }]}>
+                            {smartRecommendation.unloadingAssistance.label} ({smartRecommendation.unloadingAssistance.description})
+                          </Text>
+                        </View>
+                      </View>
+                      <View style={styles.laborPriceBox}>
+                        <Text
+                          style={[
+                            styles.laborPriceText,
+                            { color: optInLaborAssistance ? '#059669' : theme.textPrimary },
+                          ]}
+                        >
+                          +₹{smartRecommendation.unloadingAssistance.fee}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.laborStatusTag,
+                            { color: optInLaborAssistance ? '#059669' : theme.textMuted },
+                          ]}
+                        >
+                          {optInLaborAssistance ? 'Included' : 'Tap to Add'}
                         </Text>
                       </View>
-                    ) : (
-                      <Text style={{ fontSize: 11, color: theme.textMuted, marginTop: 4 }}>
-                        Enter GSTIN to receive an official B2B GST tax invoice with full ITC credit.
-                      </Text>
-                    )}
-                  </View>
-                </View>
+                    </View>
+                  </TouchableOpacity>
+                )}
 
                 {/* Order Summary Preview (Flipkart / Amazon Style) */}
                 <View
@@ -1774,6 +2351,27 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                     </Text>
                   </View>
 
+                  {materialItems.length > 0 && (
+                    <View style={styles.checkoutSummaryRow}>
+                      <Text style={[styles.checkoutSummaryLabel, { color: theme.textSecondary }]}>
+                        Site Unloading Labor
+                      </Text>
+                      <Text
+                        style={[
+                          styles.checkoutSummaryVal,
+                          {
+                            color: optInLaborAssistance ? '#059669' : theme.textMuted,
+                            fontWeight: optInLaborAssistance ? '700' : '500',
+                          },
+                        ]}
+                      >
+                        {optInLaborAssistance
+                          ? `+₹${unloadingLaborFee.toLocaleString('en-IN')}`
+                          : 'Self-Unloading (₹0)'}
+                      </Text>
+                    </View>
+                  )}
+
                   {couponDiscount > 0 && (
                     <View style={styles.checkoutSummaryRow}>
                       <Text style={[styles.checkoutSummaryLabel, { color: '#10B981' }]}>
@@ -1802,22 +2400,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                       ₹{payableAmount.toLocaleString('en-IN')}
                     </Text>
                   </View>
-
-                  {/* Proforma Quotation PDF Export Option */}
-                  <TouchableOpacity
-                    onPress={handleDownloadProformaQuotation}
-                    style={[
-                      styles.checkoutProformaBtn,
-                      { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
-                    ]}
-                    activeOpacity={0.8}
-                  >
-                    <FileSpreadsheet size={14} color={theme.textPrimary} strokeWidth={2} />
-                    <Text style={[styles.checkoutProformaBtnText, { color: theme.textPrimary }]}>
-                      Export Formal Proforma Quotation (PDF)
-                    </Text>
-                    <Download size={13} color={theme.textSecondary} />
-                  </TouchableOpacity>
 
                   <View style={styles.trustBadgeRow}>
                     <ShieldCheck size={14} color="#10B981" />
@@ -1887,7 +2469,9 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
           <PaymentSuccessModal
             visible={showSuccessModal}
             paymentResult={latestPaymentResult}
-            selectedLocation={activeLocation}
+            selectedLocation={selectedCheckoutAddress || activeLocation}
+            delivery={createdOrderRef.current || deliveries[0]}
+            user={user}
             onClose={() => {
               setShowSuccessModal(false);
               setActiveTab('history');
@@ -2028,6 +2612,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     flex: 1,
+    minWidth: 0,
+    marginRight: 6,
   },
   locationIconBox: {
     width: 32,
@@ -2035,9 +2621,11 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   locationTextContainer: {
     flex: 1,
+    minWidth: 0,
   },
   locationLabel: {
     fontSize: 11,
@@ -2115,6 +2703,8 @@ const styles = StyleSheet.create({
   },
   itemMainInfo: {
     flex: 1,
+    minWidth: 0,
+    marginRight: 6,
   },
   itemName: {
     fontSize: 14,
@@ -2274,10 +2864,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    flex: 1,
+    minWidth: 0,
+    marginRight: 6,
   },
   openCouponText: {
     fontSize: 13,
     fontWeight: '600',
+    flex: 1,
   },
   splitCard: {
     borderRadius: 12,
@@ -2322,6 +2916,113 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 15,
   },
+  vehicleRecCard: {
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 3,
+  },
+  vehicleRecHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  vehicleRecTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flex: 1,
+    minWidth: 0,
+  },
+  vehicleRecHeading: {
+    fontSize: 12,
+    fontWeight: '700',
+    flex: 1,
+  },
+  vehicleRecBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 5,
+    borderWidth: 1,
+    flexShrink: 0,
+  },
+  vehicleBadgePillText: {
+    fontSize: 10.5,
+    fontWeight: '600',
+  },
+  vehicleRecReason: {
+    fontSize: 11,
+    lineHeight: 14,
+  },
+  laborAssistanceCard: {
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 12,
+  },
+  laborAssistanceTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  laborAssistanceLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    minWidth: 0,
+    marginRight: 6,
+  },
+  laborCheckboxCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  laborTitleWithBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  laborAssistanceTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    flexShrink: 1,
+  },
+  laborBadgePill: {
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 6,
+    flexShrink: 0,
+  },
+  laborBadgePillText: {
+    fontSize: 9.5,
+    fontWeight: '700',
+  },
+  laborAssistanceSub: {
+    fontSize: 11,
+    marginTop: 2,
+    lineHeight: 14,
+  },
+  laborPriceBox: {
+    alignItems: 'flex-end',
+    flexShrink: 0,
+  },
+  laborPriceText: {
+    fontSize: 13.5,
+    fontWeight: '800',
+  },
+  laborStatusTag: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    marginTop: 1,
+  },
   summaryCard: {
     borderRadius: 14,
     padding: 14,
@@ -2337,13 +3038,18 @@ const styles = StyleSheet.create({
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
   },
   summaryLabel: {
     fontSize: 12.5,
+    flex: 1,
+    minWidth: 0,
   },
   summaryValue: {
     fontSize: 12.5,
     fontWeight: '600',
+    flexShrink: 0,
   },
   grandTotalRow: {
     paddingTop: 8,
@@ -3257,5 +3963,141 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '700',
+  },
+  b2bCardContainer: {
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 12,
+    gap: 10,
+  },
+  b2bHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  b2bHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    minWidth: 0,
+  },
+  b2bIconBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  b2bTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: -0.1,
+  },
+  itcBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  itcBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  b2bSubtitle: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  b2bCheckbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  b2bBody: {
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    gap: 10,
+  },
+  b2bFieldGroup: {
+    gap: 3,
+  },
+  b2bErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  b2bErrorText: {
+    color: '#EF4444',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  b2bVerifiedBox: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    borderRadius: 10,
+    padding: 10,
+    gap: 6,
+  },
+  b2bVerifiedHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  b2bVerifiedTitle: {
+    color: '#065F46',
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  b2bVerifiedTag: {
+    backgroundColor: '#059669',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  b2bVerifiedTagText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  b2bVerifiedGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  b2bVerifiedCol: {
+    flex: 1,
+    minWidth: 90,
+  },
+  b2bVerifiedLabel: {
+    fontSize: 9,
+    color: '#047857',
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  b2bVerifiedVal: {
+    fontSize: 11,
+    color: '#064E3B',
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  sampleGstinChip: {
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  sampleGstinChipText: {
+    fontSize: 10.5,
+    fontWeight: '600',
   },
 });

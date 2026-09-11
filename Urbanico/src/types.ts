@@ -118,6 +118,18 @@ export interface ActivityDelivery {
   };
   cancelReason?: string;
   cartItemsSnapshot?: CartItem[];
+  unloadingCharges?: number;
+  laborAssistanceOpted?: boolean;
+  laborAssistanceDetails?: string;
+  recommendedVehicle?: string;
+  gstin?: string;
+  businessName?: string;
+  customerName?: string;
+  customerPhone?: string;
+  customerEmail?: string;
+  invoiceEmailStatus?: 'sent' | 'pending' | 'failed';
+  invoiceEmailedTo?: string;
+  invoiceEmailedAt?: string;
 }
 
 export interface IndianDeliveryAddress {
@@ -143,8 +155,12 @@ export interface SavedPaymentMethod {
   subtitle: string;
   details?: string;
   isDefault?: boolean;
+  isVerified?: boolean;
+  verifiedAccountName?: string;
   upiApp?: 'gpay' | 'phonepe' | 'paytm' | 'cred' | 'bhim' | 'custom';
   cardLast4?: string;
   cardExpiry?: string;
+  cardHolder?: string;
+  cardBrand?: 'visa' | 'mastercard' | 'rupay' | 'card';
   bankName?: string;
 }

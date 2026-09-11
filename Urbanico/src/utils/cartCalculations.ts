@@ -46,19 +46,21 @@ export interface CartTotals {
   subtotal: number;
   gstTax: number;
   deliveryCharge: number;
+  unloadingCharge: number;
   couponDiscount: number;
   grandTotal: number;
 }
 
 /**
  * Centralized cart calculation engine.
- * Computes subtotal, taxes, delivery fee, and grand total dynamically without hardcoded constants.
+ * Computes subtotal, taxes, delivery fee, optional unloading assistance, and grand total dynamically without hardcoded constants.
  */
 export function calculateCartTotals(
   cartItems: CartItem[],
   couponDiscount: number = 0,
   deliveryDistanceKm: number = 10,
-  customDeliveryCharge?: number
+  customDeliveryCharge?: number,
+  unloadingCharge: number = 0
 ): CartTotals {
   const serviceItems = cartItems.filter(isCartItemService);
   const materialItems = cartItems.filter((i) => !isCartItemService(i));
@@ -94,7 +96,8 @@ export function calculateCartTotals(
       ? customDeliveryCharge
       : Math.max(50, Math.round(deliveryDistanceKm * 5));
 
-  const taxableTotal = subtotal + gstTax + deliveryCharge - (couponDiscount || 0);
+  const effectiveUnloading = isServicesOnly || materialItems.length === 0 ? 0 : (unloadingCharge || 0);
+  const taxableTotal = subtotal + gstTax + deliveryCharge + effectiveUnloading - (couponDiscount || 0);
   const grandTotal = Math.max(0, taxableTotal);
 
   return {
@@ -109,6 +112,7 @@ export function calculateCartTotals(
     subtotal,
     gstTax,
     deliveryCharge,
+    unloadingCharge: effectiveUnloading,
     couponDiscount,
     grandTotal,
   };

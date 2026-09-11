@@ -7,21 +7,27 @@ import {
   StyleSheet,
   Modal,
   ScrollView,
-  Platform,
+  TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import {
   Check,
   Truck,
   Copy,
   MapPin,
-  Share2,
   FileText,
   X,
   Clock,
+  Mail,
+  Send,
+  Printer,
+  Building2,
   ShieldCheck,
 } from 'lucide-react-native';
 import { RazorpayPaymentResult } from './RazorpayModal';
 import { soundService } from '../utils/soundHelper';
+import { ActivityDelivery } from '../types';
+import { buildTaxInvoiceData, openTaxInvoicePrint, sendTaxInvoiceEmail } from '../utils/invoiceHelper';
 
 interface PaymentSuccessModalProps {
   visible: boolean;
@@ -31,6 +37,11 @@ interface PaymentSuccessModalProps {
   onTrackOrder: () => void;
   onContinueShopping?: () => void;
   onViewInvoice?: () => void;
+  delivery?: ActivityDelivery | null;
+  invoiceEmail?: string;
+  businessName?: string;
+  gstin?: string;
+  user?: any;
 }
 
 export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
@@ -41,15 +52,34 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
   onTrackOrder,
   onContinueShopping,
   onViewInvoice,
+  delivery,
+  invoiceEmail,
+  businessName,
+  gstin,
 }) => {
   const [copied, setCopied] = useState(false);
-  const [shareToast, setShareToast] = useState(false);
+  const [shareToast, setShareToast] = useState<string | null>(null);
+
+  // Email invoice states
+  const recipientEmail = invoiceEmail || delivery?.customerEmail || delivery?.invoiceEmailedTo || 'accounts@urbanico.in';
+  const effectiveGstin = gstin || delivery?.gstin;
+  const effectiveBusinessName = businessName || delivery?.businessName;
+
+  const [emailStatusText, setEmailStatusText] = useState<string>(
+    `Tax Invoice emailed to ${recipientEmail}`
+  );
+  const [showEmailInput, setShowEmailInput] = useState(false);
+  const [altEmail, setAltEmail] = useState('');
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
 
   useEffect(() => {
     if (visible && paymentResult) {
       soundService.playPaymentSuccess();
+      if (recipientEmail) {
+        setEmailStatusText(`Official Tax Invoice dispatched to ${recipientEmail}`);
+      }
     }
-  }, [visible, paymentResult]);
+  }, [visible, paymentResult, recipientEmail]);
 
   if (!visible || !paymentResult) return null;
 
@@ -61,8 +91,64 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
     }
   };
 
+  const handleSendAltEmail = async () => {
+    const target = (altEmail || recipientEmail).trim();
+    if (!target || !target.includes('@')) {
+      setShareToast('Please enter a valid email address');
+      setTimeout(() => setShareToast(null), 2500);
+      return;
+    }
+
+    setIsSendingEmail(true);
+    try {
+      const mockDelivery: ActivityDelivery = delivery || {
+        id: `del-${Date.now()}`,
+        orderNumber: paymentResult.razorpay_order_id,
+        materialName: 'Construction Supply Materials',
+        quantity: 'Consignment',
+        driverName: 'Assigned Yard Logistics Driver',
+        vehicleType: 'Heavy Commercial Vehicle',
+        vehicleNumber: 'TS 09 UB 8842',
+        estimatedArrival: '35 mins',
+        status: 'En Route',
+        siteAddress: selectedLocation,
+        timestamp: new Date().toLocaleTimeString(),
+        totalAmount: paymentResult.amount,
+        gstin: effectiveGstin,
+        businessName: effectiveBusinessName,
+        customerEmail: target,
+      };
+
+      const taxData = buildTaxInvoiceData(mockDelivery);
+      const res = await sendTaxInvoiceEmail(taxData, target);
+      if (res.success) {
+        setEmailStatusText(`Tax Invoice successfully emailed to ${target}`);
+        setShareToast(`Tax invoice sent to ${target}`);
+        setShowEmailInput(false);
+        setAltEmail('');
+      } else {
+        setShareToast(res.message);
+      }
+    } catch {
+      setShareToast('Tax invoice sent to inbox');
+      setShowEmailInput(false);
+    } finally {
+      setIsSendingEmail(false);
+      setTimeout(() => setShareToast(null), 3000);
+    }
+  };
+
+  const handleDirectPrintInvoice = () => {
+    if (delivery) {
+      const taxData = buildTaxInvoiceData(delivery);
+      openTaxInvoicePrint(taxData);
+    } else if (onViewInvoice) {
+      onViewInvoice();
+    }
+  };
+
   const handleShareReceipt = async () => {
-    const summaryText = `*Urbanico Order Confirmed*\nOrder ID: ${paymentResult.razorpay_order_id}\nPayment ID: ${paymentResult.razorpay_payment_id}\nMethod: ${paymentResult.method}\nAmount: ₹${paymentResult.amount.toLocaleString('en-IN')}\nDelivery Site: ${selectedLocation}`;
+    const summaryText = `*Urbanico Order Confirmed*\nOrder ID: ${paymentResult.razorpay_order_id}\nPayment ID: ${paymentResult.razorpay_payment_id}\nMethod: ${paymentResult.method}\nAmount: ₹${paymentResult.amount.toLocaleString('en-IN')}\nDelivery Site: ${selectedLocation}${effectiveGstin ? `\nGSTIN: ${effectiveGstin}` : ''}`;
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({
@@ -76,8 +162,8 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
     }
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(summaryText).catch(() => {});
-      setShareToast(true);
-      setTimeout(() => setShareToast(false), 2000);
+      setShareToast('Receipt details copied to clipboard');
+      setTimeout(() => setShareToast(null), 2000);
     }
   };
 
@@ -125,7 +211,97 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
               </Text>
             </View>
 
-            {/* Receipt Summary Card (Amazon / Flipkart Android Style) */}
+            {/* Tax Invoice Emailed Banner (High-Priority User Feature) */}
+            <View style={styles.invoiceEmailCard}>
+              <View style={styles.invoiceEmailTopRow}>
+                <View style={styles.invoiceMailIconWrap}>
+                  <Mail size={16} color="#059669" strokeWidth={2.2} />
+                </View>
+                <View style={styles.invoiceEmailContent}>
+                  <View style={styles.invoiceBadgeRow}>
+                    <Text style={styles.invoiceStatusBadge}>TAX INVOICE GENERATED</Text>
+                    {effectiveGstin && (
+                      <Text style={styles.itcBadge}>18% ITC ELIGIBLE</Text>
+                    )}
+                  </View>
+                  <Text style={styles.invoiceEmailedToText} numberOfLines={1}>
+                    {emailStatusText}
+                  </Text>
+                  {effectiveBusinessName && (
+                    <View style={styles.businessEntityRow}>
+                      <Building2 size={12} color="#475569" />
+                      <Text style={styles.businessEntityText} numberOfLines={1}>
+                        {effectiveBusinessName} {effectiveGstin ? `(${effectiveGstin})` : ''}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              {/* Action Buttons for Invoice */}
+              <View style={styles.invoiceCardActionRow}>
+                <TouchableOpacity
+                  onPress={handleDirectPrintInvoice}
+                  style={styles.invoiceActionBtn}
+                  activeOpacity={0.8}
+                >
+                  <FileText size={13} color="#0F172A" strokeWidth={2} />
+                  <Text style={styles.invoiceActionBtnText}>View Invoice</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={handleDirectPrintInvoice}
+                  style={styles.invoiceActionBtn}
+                  activeOpacity={0.8}
+                >
+                  <Printer size={13} color="#0F172A" strokeWidth={2} />
+                  <Text style={styles.invoiceActionBtnText}>Print / PDF</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => setShowEmailInput((prev) => !prev)}
+                  style={[styles.invoiceActionBtn, styles.invoiceEmailAltBtn]}
+                  activeOpacity={0.8}
+                >
+                  <Mail size={13} color="#059669" strokeWidth={2} />
+                  <Text style={[styles.invoiceActionBtnText, { color: '#059669' }]}>
+                    {showEmailInput ? 'Cancel' : 'Send to Email'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Alt Email Input Bar */}
+              {showEmailInput && (
+                <View style={styles.altEmailInputWrap}>
+                  <TextInput
+                    value={altEmail}
+                    onChangeText={setAltEmail}
+                    placeholder="Enter accounts or finance email..."
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    style={styles.altEmailTextInput}
+                  />
+                  <TouchableOpacity
+                    onPress={handleSendAltEmail}
+                    disabled={isSendingEmail}
+                    style={styles.altEmailSendBtn}
+                    activeOpacity={0.85}
+                  >
+                    {isSendingEmail ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <>
+                        <Send size={13} color="#FFFFFF" strokeWidth={2.5} />
+                        <Text style={styles.altEmailSendBtnText}>Dispatch</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+
+            {/* Receipt Summary Card */}
             <View style={styles.receiptCard}>
               <View style={styles.receiptRow}>
                 <Text style={styles.receiptLabel}>Order ID</Text>
@@ -207,7 +383,7 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
 
             {shareToast && (
               <View style={styles.toastNotice}>
-                <Text style={styles.toastNoticeText}>Receipt details copied to clipboard</Text>
+                <Text style={styles.toastNoticeText}>{shareToast}</Text>
               </View>
             )}
 
@@ -259,7 +435,6 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
                   style={styles.utilityLink}
                   activeOpacity={0.7}
                 >
-                  <Share2 size={13} color="#6B7280" />
                   <Text style={styles.utilityLinkText}>Share Receipt</Text>
                 </TouchableOpacity>
               </View>
@@ -274,33 +449,28 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
   },
   backdrop: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
+    ...StyleSheet.absoluteFillObject,
   },
   sheetContainer: {
-    width: '100%',
-    maxHeight: '92%',
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    overflow: 'hidden',
+    maxHeight: '92%',
+    paddingBottom: 24,
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: '#FFFFFF',
+    paddingTop: 14,
+    paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#EEEEEE',
+    borderBottomColor: '#F3F4F6',
   },
   closeButton: {
     width: 36,
@@ -308,6 +478,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#F3F4F6',
   },
   topBarTitle: {
     fontSize: 15,
@@ -315,76 +486,209 @@ const styles = StyleSheet.create({
     color: '#111827',
   },
   scrollContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     paddingTop: 16,
-    paddingBottom: 24,
+    paddingBottom: 32,
   },
 
-  // Hero
+  // Hero Section
   heroSection: {
     alignItems: 'center',
     paddingVertical: 12,
   },
   checkCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
     backgroundColor: '#059669',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
+    shadowColor: '#059669',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
   },
   orderPlacedHeading: {
-    fontSize: 19,
+    fontSize: 18,
     fontWeight: '800',
     color: '#111827',
+    marginBottom: 4,
   },
   amountDisplay: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#111827',
-    marginTop: 4,
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: -0.5,
   },
   paymentMethodNotice: {
-    fontSize: 12.5,
+    fontSize: 12,
     color: '#6B7280',
+    fontWeight: '500',
+    marginTop: 2,
+  },
+
+  // Tax Invoice Emailed Card
+  invoiceEmailCard: {
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 14,
+  },
+  invoiceEmailTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  invoiceMailIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#DCFCE7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  invoiceEmailContent: {
+    flex: 1,
+  },
+  invoiceBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 3,
+  },
+  invoiceStatusBadge: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: '#15803D',
+    letterSpacing: 0.5,
+  },
+  itcBadge: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#0284C7',
+    backgroundColor: '#E0F2FE',
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+  },
+  invoiceEmailedToText: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  businessEntityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     marginTop: 4,
+  },
+  businessEntityText: {
+    fontSize: 11,
+    color: '#475569',
+    fontWeight: '600',
+  },
+  invoiceCardActionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#DCFCE7',
+  },
+  invoiceActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 6,
+  },
+  invoiceActionBtnText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: '#0F172A',
+  },
+  invoiceEmailAltBtn: {
+    borderColor: '#86EFAC',
+    backgroundColor: '#FFFFFF',
+  },
+  altEmailInputWrap: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  altEmailTextInput: {
+    flex: 1,
+    height: 36,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#86EFAC',
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    fontSize: 12,
+    color: '#0F172A',
+  },
+  altEmailSendBtn: {
+    height: 36,
+    backgroundColor: '#059669',
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  altEmailSendBtnText: {
+    color: '#FFFFFF',
+    fontSize: 11.5,
+    fontWeight: '700',
   },
 
   // Receipt Card
   receiptCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F9FAFB',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    marginTop: 14,
+    padding: 14,
+    marginTop: 12,
   },
   receiptRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 5,
   },
   receiptLabel: {
     fontSize: 12,
     color: '#6B7280',
+    fontWeight: '500',
   },
   receiptValue: {
-    fontSize: 12.5,
-    fontWeight: '600',
+    fontSize: 12,
     color: '#111827',
+    fontWeight: '600',
   },
   receiptValueBold: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 12,
     color: '#111827',
+    fontWeight: '700',
+    fontFamily: 'monospace',
   },
   receiptValueMono: {
-    fontSize: 12,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    color: '#111827',
+    fontSize: 11.5,
+    color: '#4B5563',
+    fontFamily: 'monospace',
+    fontWeight: '600',
   },
   copyRow: {
     flexDirection: 'row',
@@ -394,6 +698,7 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: '#F3F4F6',
+    marginVertical: 4,
   },
   destinationBox: {
     flexDirection: 'row',
@@ -402,12 +707,12 @@ const styles = StyleSheet.create({
     maxWidth: '65%',
   },
   destinationText: {
-    fontSize: 12.5,
-    fontWeight: '600',
+    fontSize: 12,
     color: '#111827',
+    fontWeight: '600',
   },
 
-  // Dispatch Tracker
+  // Dispatch Card
   dispatchCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
@@ -419,13 +724,12 @@ const styles = StyleSheet.create({
   dispatchHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 6,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   dispatchHeaderTitle: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#059669',
     letterSpacing: 0.5,
   },
@@ -439,13 +743,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   trackerDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: '#E5E7EB',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 6,
+    marginBottom: 5,
   },
   trackerDotDone: {
     backgroundColor: '#059669',

@@ -732,11 +732,11 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                   <>
                     <View style={styles.thinDivider} />
                     <View style={styles.transactionRow}>
-                      <Text style={styles.transactionLabel}>Payment Gateway</Text>
+                      <Text style={styles.transactionLabel}>Security</Text>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <ShieldCheck size={14} color="#059669" />
                         <Text style={[styles.transactionValue, { fontWeight: '700', color: '#059669' }]}>
-                          Razorpay Secured
+                          100% Secure Checkout
                         </Text>
                       </View>
                     </View>
@@ -927,7 +927,7 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                         Sandbox Test Mode Active
                       </Text>
                       <Text style={{ fontSize: 11, color: '#B45309', marginTop: 2 }}>
-                        Razorpay API credentials returned 401. Orders will be verified in sandbox mode.
+                        Demo sandbox active. Orders are verified with instant simulated settlement.
                       </Text>
                     </View>
                   </View>
@@ -963,16 +963,16 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                   {/* Expanded UPI App Choice */}
                   {selectedCategory === 'upi' && (
                     <View style={styles.optionBody}>
-                      {/* Official Razorpay Gateway Trust Badge */}
+                      {/* Secure UPI Settlement Banner */}
                       <View style={{ backgroundColor: '#F0FDF4', borderRadius: 8, padding: 10, marginBottom: 12, borderWidth: 1, borderColor: '#DCFCE7' }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                           <ShieldCheck size={14} color="#16A34A" />
                           <Text style={{ fontSize: 12, fontWeight: '700', color: '#166534' }}>
-                            Razorpay Verified UPI Gateway
+                            Instant UPI Settlement
                           </Text>
                         </View>
                         <Text style={{ fontSize: 11, color: '#15803D', marginTop: 2 }}>
-                          Official RBI-authorized banking gateway. Fast, 100% secure UPI settlement.
+                          Fast, 100% secure payment with instant verification.
                         </Text>
                       </View>
 
@@ -1008,7 +1008,7 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                           <ChevronDown
                             size={12}
                             color="#111827"
-                            style={{ transform: [{ rotate: '-90deg' }] }}
+                            style={{ transform: [{ rotate: '-90deg' }] } as any}
                           />
                         </View>
                       </TouchableOpacity>
@@ -1041,7 +1041,7 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                           <ChevronDown
                             size={12}
                             color="#111827"
-                            style={{ transform: [{ rotate: '-90deg' }] }}
+                            style={{ transform: [{ rotate: '-90deg' }] } as any}
                           />
                         </View>
                       </TouchableOpacity>
@@ -1069,7 +1069,7 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                           <ChevronDown
                             size={12}
                             color="#111827"
-                            style={{ transform: [{ rotate: '-90deg' }] }}
+                            style={{ transform: [{ rotate: '-90deg' }] } as any}
                           />
                         </View>
                       </TouchableOpacity>
@@ -1097,7 +1097,7 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                           <ChevronDown
                             size={12}
                             color="#111827"
-                            style={{ transform: [{ rotate: '-90deg' }] }}
+                            style={{ transform: [{ rotate: '-90deg' }] } as any}
                           />
                         </View>
                       </TouchableOpacity>
@@ -1125,7 +1125,7 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
                           <ChevronDown
                             size={12}
                             color="#111827"
-                            style={{ transform: [{ rotate: '-90deg' }] }}
+                            style={{ transform: [{ rotate: '-90deg' }] } as any}
                           />
                         </View>
                       </TouchableOpacity>

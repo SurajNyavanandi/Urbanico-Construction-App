@@ -41,53 +41,81 @@ export const PINCODE_REGISTRY: Record<string, PincodeDistanceInfo> = {
 export interface VehicleCapacity {
   type: string;
   name: string;
+  shortName: string;
   maxTons: number;
   baseFee: number;
   ratePerKm: number;
+  unloadingMechanism: string;
+  iconKey: 'auto' | 'mini_truck' | 'maxi_truck' | 'tipper_6w' | 'tipper_10w' | 'trailer';
+  recommendedFor: string;
 }
 
 export const VEHICLE_FLEET: Record<string, VehicleCapacity> = {
   micro_cargo: {
     type: 'micro_cargo',
-    name: 'Compact Delivery Van / Cargo Tempo (Up to 150 kg)',
-    maxTons: 0.15,
+    name: '3-Wheeler Cargo Auto / Compact Tempo (Up to 250 kg)',
+    shortName: 'Cargo Auto (3-Wheeler)',
+    maxTons: 0.25,
     baseFee: 49,
     ratePerKm: 3,
+    unloadingMechanism: 'Hand Offloading / Tailgate Access',
+    iconKey: 'auto',
+    recommendedFor: 'Small quantities, retail bags, fittings & tools',
   },
   small_pickup: {
     type: 'small_pickup',
-    name: 'Tata Ace / 3-Wheeler Cargo (Up to 1.5 Tons)',
+    name: 'Tata Ace / 1.5 Ton Mini Truck (Up to 1.5 Tons)',
+    shortName: 'Tata Ace Mini Truck',
     maxTons: 1.5,
     baseFee: 149,
     ratePerKm: 5,
+    unloadingMechanism: 'Manual Offloading / Pallet Stacking',
+    iconKey: 'mini_truck',
+    recommendedFor: 'Cement bags (up to 30), tiles, paints & plumbing supplies',
   },
   medium_pickup: {
     type: 'medium_pickup',
     name: 'Mahindra Bolero Maxi Truck (1.5 - 3.5 Tons)',
+    shortName: 'Bolero Maxi Truck',
     maxTons: 3.5,
     baseFee: 349,
     ratePerKm: 8,
+    unloadingMechanism: 'Extended Deck Offloading / Forklift Compatible',
+    iconKey: 'maxi_truck',
+    recommendedFor: 'Structural steel bars, AAC blocks, brick crates & intermediate loads',
   },
   single_axle: {
     type: 'single_axle',
     name: '6-Wheeler Medium Tipper / 407 (3.5 - 10 Tons)',
+    shortName: '6-Wheeler Tipper Dumper',
     maxTons: 10,
     baseFee: 699,
     ratePerKm: 12,
+    unloadingMechanism: 'Hydraulic Bed Tipping / Direct Chute Discharge',
+    iconKey: 'tipper_6w',
+    recommendedFor: 'Medium bulk sand, 10mm/20mm gravel & crushed stone for residential sites',
   },
   multi_axle: {
     type: 'multi_axle',
-    name: '10-Wheeler Heavy Tipper (10 - 25 Tons)',
+    name: '10-Wheeler Heavy Hydraulic Tipper (10 - 25 Tons)',
+    shortName: '10-Wheeler Heavy Tipper',
     maxTons: 25,
     baseFee: 1299,
     ratePerKm: 16,
+    unloadingMechanism: 'High-Angle Hydraulic Dumper (Fast Chute Ejection)',
+    iconKey: 'tipper_10w',
+    recommendedFor: 'Bulk River Sand, Robo Sand, coarse aggregates & large pour concrete jobs',
   },
   trailer: {
     type: 'trailer',
     name: '14-Wheeler Heavy Industrial Trailer (25 - 45 Tons)',
+    shortName: '14-Wheeler Trailer',
     maxTons: 45,
     baseFee: 2199,
     ratePerKm: 22,
+    unloadingMechanism: 'Crane / Heavy Equipment Rigging Offload',
+    iconKey: 'trailer',
+    recommendedFor: 'Full commercial infrastructure orders, wholesale steel coils & large project tonnage',
   },
 };
 
@@ -153,12 +181,200 @@ export function estimateTotalWeightTons(cartItems: { itemName: string; selectedO
 }
 
 export function recommendVehicle(totalTons: number): VehicleCapacity {
-  if (totalTons <= 0.15) return VEHICLE_FLEET.micro_cargo;
+  if (totalTons <= 0.25) return VEHICLE_FLEET.micro_cargo;
   if (totalTons <= 1.5) return VEHICLE_FLEET.small_pickup;
   if (totalTons <= 3.5) return VEHICLE_FLEET.medium_pickup;
   if (totalTons <= 10) return VEHICLE_FLEET.single_axle;
   if (totalTons <= 25) return VEHICLE_FLEET.multi_axle;
   return VEHICLE_FLEET.trailer;
+}
+
+export interface SmartVehicleRecommendation {
+  vehicle: VehicleCapacity;
+  badge: string;
+  reason: string;
+  materialTypeClassification: 'bulk_aggregates' | 'heavy_structural' | 'packaged_bags' | 'lightweight_retail';
+  isBulkSandOrGravel: boolean;
+  totalWeightTons: number;
+  totalWeightKg: number;
+  unloadingAssistance: {
+    fee: number;
+    laborCount: number;
+    label: string;
+    description: string;
+  };
+}
+
+/**
+ * Smart recommendation engine evaluating BOTH material quantity AND material type.
+ * Examples:
+ * - Small orders (< 250 kg) -> 3-Wheeler Cargo Auto for narrow streets & low cost
+ * - Bulk Sand / Robo Sand / Gravel -> 10-Wheeler or 6-Wheeler Hydraulic Tipper for automated chute dumping
+ * - Palletized Cement Bags -> Tata Ace Mini Truck for low-height offloading
+ * - Steel Bundles / Bricks -> Bolero Maxi Truck with 9ft extended cargo bed
+ */
+export function evaluateSmartVehicleRecommendation(
+  cartItems: { itemName: string; selectedOptionLabel: string; quantity: number }[],
+  totalWeightTons: number
+): SmartVehicleRecommendation {
+  const totalWeightKg = Math.round(totalWeightTons * 1000);
+
+  let hasSandOrAggregates = false;
+  let hasCementBags = false;
+  let hasSteelOrBricks = false;
+  let totalUnits = 0;
+
+  for (const item of cartItems) {
+    const text = `${item.itemName} ${item.selectedOptionLabel}`.toLowerCase();
+    totalUnits += item.quantity || 1;
+    if (
+      text.includes('sand') ||
+      text.includes('robo') ||
+      text.includes('gravel') ||
+      text.includes('aggregate') ||
+      text.includes('crusher') ||
+      text.includes('stone') ||
+      text.includes('grit') ||
+      text.includes('ballast')
+    ) {
+      hasSandOrAggregates = true;
+    }
+    if (text.includes('cement') || text.includes('putty') || text.includes('bag')) {
+      hasCementBags = true;
+    }
+    if (
+      text.includes('steel') ||
+      text.includes('tmt') ||
+      text.includes('rebar') ||
+      text.includes('brick') ||
+      text.includes('block')
+    ) {
+      hasSteelOrBricks = true;
+    }
+  }
+
+  let chosenVehicle: VehicleCapacity;
+  let badge = 'Smart Vehicle Match';
+  let reason = '';
+  let classification: SmartVehicleRecommendation['materialTypeClassification'] = 'packaged_bags';
+
+  // Rule 1: Bulk Sand & Aggregates
+  if (hasSandOrAggregates && totalWeightTons >= 0.5) {
+    classification = 'bulk_aggregates';
+    if (totalWeightTons >= 8.0) {
+      chosenVehicle = VEHICLE_FLEET.multi_axle;
+      badge = '10-Wheeler Tipper';
+      reason = `Hydraulic tipper for direct site chute dumping (${totalWeightTons} MT).`;
+    } else if (totalWeightTons >= 2.5) {
+      chosenVehicle = VEHICLE_FLEET.single_axle;
+      badge = '6-Wheeler Tipper';
+      reason = `Hydraulic tipper for fast unloading and colony access (${totalWeightTons} MT).`;
+    } else {
+      chosenVehicle = VEHICLE_FLEET.medium_pickup;
+      badge = 'Maxi Truck';
+      reason = `Covered cargo bed for secure aggregate transport (${totalWeightTons} MT).`;
+    }
+  }
+  // Rule 2: Small Retail / Light Orders
+  else if (totalWeightTons <= 0.25 || (totalUnits <= 3 && totalWeightTons <= 0.35)) {
+    classification = 'lightweight_retail';
+    chosenVehicle = VEHICLE_FLEET.micro_cargo;
+    badge = '3-Wheeler Auto';
+    reason = `Compact cargo auto for quick local dispatch (${totalWeightKg > 0 ? totalWeightKg : 60} kg).`;
+  }
+  // Rule 3: Heavy Structural Steel or Masonry Blocks
+  else if (hasSteelOrBricks && totalWeightTons > 1.5) {
+    classification = 'heavy_structural';
+    if (totalWeightTons > 10) {
+      chosenVehicle = VEHICLE_FLEET.multi_axle;
+      badge = 'Multi-Axle Truck';
+      reason = `Multi-axle transport for heavy structural loads (${totalWeightTons} MT).`;
+    } else if (totalWeightTons > 3.5) {
+      chosenVehicle = VEHICLE_FLEET.single_axle;
+      badge = '6-Wheeler Truck';
+      reason = `Commercial flatbed for rebar and masonry blocks (${totalWeightTons} MT).`;
+    } else {
+      chosenVehicle = VEHICLE_FLEET.medium_pickup;
+      badge = 'Maxi Truck';
+      reason = `Extended deck for steel bundles and masonry (${totalWeightTons} MT).`;
+    }
+  }
+  // Rule 4: Packaged Cement Bags & Medium Batches
+  else if (totalWeightTons <= 1.5) {
+    classification = 'packaged_bags';
+    chosenVehicle = VEHICLE_FLEET.small_pickup;
+    badge = 'Mini Truck';
+    reason = `Low bed height for easy ground unloading (${totalWeightTons} MT).`;
+  } else if (totalWeightTons <= 3.5) {
+    classification = 'packaged_bags';
+    chosenVehicle = VEHICLE_FLEET.medium_pickup;
+    badge = 'Maxi Truck';
+    reason = `Stable transport for bagged materials and tiles (${totalWeightTons} MT).`;
+  } else if (totalWeightTons <= 10) {
+    classification = 'heavy_structural';
+    chosenVehicle = VEHICLE_FLEET.single_axle;
+    badge = '6-Wheeler Tipper';
+    reason = `Commercial tipper for site delivery (${totalWeightTons} MT).`;
+  } else if (totalWeightTons <= 25) {
+    classification = 'heavy_structural';
+    chosenVehicle = VEHICLE_FLEET.multi_axle;
+    badge = '10-Wheeler Tipper';
+    reason = `Heavy tipper for bulk delivery (${totalWeightTons} MT).`;
+  } else {
+    classification = 'heavy_structural';
+    chosenVehicle = VEHICLE_FLEET.trailer;
+    badge = 'Industrial Trailer';
+    reason = `Heavy trailer for industrial volume (${totalWeightTons} MT).`;
+  }
+
+  // Labor Assistance calculation
+  let fee = 0;
+  let laborCount = 0;
+  let label = 'Self-Unloading / Site Team';
+  let description = 'Customer site team will handle manual offloading.';
+
+  if (hasSandOrAggregates && (chosenVehicle.type === 'single_axle' || chosenVehicle.type === 'multi_axle')) {
+    fee = 199;
+    laborCount = 1;
+    label = '1 Chute Spotter';
+    description = 'Guides hydraulic dumper chute and levels material pile.';
+  } else if (totalWeightTons <= 0.25) {
+    fee = 149;
+    laborCount = 1;
+    label = '1 Delivery Porter';
+    description = 'Direct doorstep and ground-floor offloading.';
+  } else if (totalWeightTons <= 1.5) {
+    fee = 349;
+    laborCount = 2;
+    label = '2 Site Loaders';
+    description = 'Ground-floor offloading and neat stacking.';
+  } else if (totalWeightTons <= 5.0) {
+    fee = 649;
+    laborCount = 3;
+    label = '3 Stacking Loaders';
+    description = 'Offloading and stacking of heavy materials.';
+  } else {
+    fee = 999;
+    laborCount = 4;
+    label = '4-Person Labor Crew';
+    description = 'Offloading and organized stacking crew.';
+  }
+
+  return {
+    vehicle: chosenVehicle,
+    badge,
+    reason,
+    materialTypeClassification: classification,
+    isBulkSandOrGravel: hasSandOrAggregates,
+    totalWeightTons,
+    totalWeightKg,
+    unloadingAssistance: {
+      fee,
+      laborCount,
+      label,
+      description,
+    },
+  };
 }
 
 export function isServiceablePincode(pincode: string): boolean {

@@ -11,17 +11,14 @@ import {
 } from 'react-native';
 import {
   Palette,
-  Bell,
   Languages,
   ChevronRight,
   X,
-  Smartphone,
   ShieldCheck,
   Moon,
   LayoutGrid,
   ArrowLeft,
   Check,
-  Sparkles,
 } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage, LanguageCode } from '../context/LanguageContext';
@@ -41,16 +38,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   viewMode = 'grid',
   onViewModeChange,
 }) => {
-  const { theme, themeMode, setThemeMode, isAppleDesign, setAppleDesign } = useTheme();
+  const { theme, themeMode, setThemeMode } = useTheme();
   const { language, setLanguage, languageOptions, currentLanguageOption, t } = useLanguage();
   const { showToast } = useToast();
 
   const [activeSubView, setActiveSubView] = useState<'main' | 'language'>('main');
-
-  // Notification Toggles State
-  const [enableNotifications, setEnableNotifications] = useState(true);
-  const [dispatchAlerts, setDispatchAlerts] = useState(true);
-  const [whatsappReceipts, setWhatsappReceipts] = useState(true);
 
   const handleSelectLanguage = (code: LanguageCode) => {
     setLanguage(code);
@@ -228,41 +220,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   />
                 </View>
 
-                <View style={[styles.innerDivider, { backgroundColor: theme.border }]} />
-
-                {/* Apple Design System Switch (Testing Toggle in existing menu) */}
-                <View style={styles.switchRow}>
-                  <View style={styles.switchRowLeft}>
-                    <Sparkles size={16} color={isAppleDesign ? '#007AFF' : theme.textPrimary} strokeWidth={2} />
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Apple Design System</Text>
-                        {isAppleDesign && (
-                          <View style={{ backgroundColor: '#007AFF', paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: 999 }}>
-                            <Text style={{ color: '#FFFFFF', fontSize: 9.5, fontWeight: '700' }}>Active</Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
-                        {isAppleDesign
-                          ? 'Pure White canvas, SF Pro hierarchy & Apple Blue accents'
-                          : 'Apple-inspired minimalist UI (test mode)'}
-                      </Text>
-                    </View>
-                  </View>
-                  <Switch
-                    value={isAppleDesign}
-                    onValueChange={(val) => {
-                      setAppleDesign(val);
-                      showToast(val ? 'Apple Design System active' : 'Default design restored', 'info');
-                    }}
-                    trackColor={{ false: '#E4E4E7', true: '#007AFF' }}
-                    thumbColor="#FFFFFF"
-                  />
-                </View>
-
-                <View style={[styles.innerDivider, { backgroundColor: theme.border }]} />
-
                 {/* Grid Mode Switch */}
                 <View style={styles.switchRow}>
                   <View style={styles.switchRowLeft}>
@@ -270,7 +227,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>2-Column Grid Layout</Text>
                       <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
-                        {viewMode === 'grid' ? 'Compact two-column catalog' : 'Single-column list layout'}
+                        {viewMode === 'grid' ? 'Compact two-column catalog (Default)' : 'Single-column list layout'}
                       </Text>
                     </View>
                   </View>
@@ -280,55 +237,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       const nextMode = val ? 'grid' : 'list';
                       if (onViewModeChange) onViewModeChange(nextMode);
                       showToast(val ? '2-Column Grid layout active' : 'List view active', 'info');
-                    }}
-                    trackColor={{ false: '#E4E4E7', true: '#111111' }}
-                    thumbColor="#FFFFFF"
-                  />
-                </View>
-              </View>
-
-              {/* 3. Notification Controls */}
-              <Text style={[styles.sectionHeaderLabel, { color: theme.textMuted }]}>ALERTS & NOTIFICATIONS</Text>
-
-              <View style={[styles.settingsGroupCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-                <View style={styles.switchRow}>
-                  <View style={styles.switchRowLeft}>
-                    <Bell size={16} color={theme.textPrimary} strokeWidth={2} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Order & Dispatch Push Alerts</Text>
-                      <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
-                        Instant weighbridge tare weight & gate dispatch notifications
-                      </Text>
-                    </View>
-                  </View>
-                  <Switch
-                    value={enableNotifications}
-                    onValueChange={(val) => {
-                      setEnableNotifications(val);
-                      showToast(val ? 'Order alerts enabled' : 'Order alerts muted', 'info');
-                    }}
-                    trackColor={{ false: '#E4E4E7', true: '#111111' }}
-                    thumbColor="#FFFFFF"
-                  />
-                </View>
-
-                <View style={[styles.innerDivider, { backgroundColor: theme.border }]} />
-
-                <View style={styles.switchRow}>
-                  <View style={styles.switchRowLeft}>
-                    <Smartphone size={16} color={theme.textPrimary} strokeWidth={2} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>WhatsApp Invoices & E-Way Bills</Text>
-                      <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
-                        Receive signed PDF receipts directly upon delivery sign-off
-                      </Text>
-                    </View>
-                  </View>
-                  <Switch
-                    value={whatsappReceipts}
-                    onValueChange={(val) => {
-                      setWhatsappReceipts(val);
-                      showToast(val ? 'WhatsApp delivery receipts enabled' : 'WhatsApp receipts paused', 'info');
                     }}
                     trackColor={{ false: '#E4E4E7', true: '#111111' }}
                     thumbColor="#FFFFFF"

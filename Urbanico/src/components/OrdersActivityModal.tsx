@@ -211,17 +211,17 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
                   <View style={[styles.card, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
                     {/* Header */}
                     <View style={[styles.cardHeader, { borderBottomColor: theme.border }]}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.orderNumberTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
+                      <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
+                        <Text style={[styles.orderNumberTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]} numberOfLines={1}>
                           Order #{activeEnRoute.orderNumber}
                         </Text>
-                        <Text style={[styles.materialSub, { color: theme.textSecondary }]}>
+                        <Text style={[styles.materialSub, { color: theme.textSecondary }]} numberOfLines={1}>
                           {activeEnRoute.materialName} ({activeEnRoute.quantity})
                         </Text>
                       </View>
                       <View style={[styles.etaPill, { backgroundColor: '#DCFCE7' }]}>
-                        <Text style={[styles.etaPillText, { color: '#15803D' }]}>
-                          {etaRemainingMins} mins ({distanceKm} km away)
+                        <Text style={[styles.etaPillText, { color: '#15803D' }]} numberOfLines={1}>
+                          {etaRemainingMins}m • {distanceKm}km
                         </Text>
                       </View>
                     </View>
@@ -372,9 +372,9 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
                     style={[styles.orderItemCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
                   >
                     <View style={styles.orderItemCardTop}>
-                      <View style={{ flex: 1 }}>
+                      <View style={{ flex: 1, minWidth: 0 }}>
                         <View style={styles.orderItemBadgeRow}>
-                          <Text style={[styles.orderItemNumber, { color: theme.textPrimary }]}>
+                          <Text style={[styles.orderItemNumber, { color: theme.textPrimary }]} numberOfLines={1}>
                             #{del.orderNumber}
                           </Text>
                           <View
@@ -390,15 +390,16 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
                                 styles.statusBadgeText,
                                 del.status === 'Delivered' ? { color: '#15803D' } : { color: '#B45309' },
                               ]}
+                              numberOfLines={1}
                             >
                               {del.status.toUpperCase()}
                             </Text>
                           </View>
                         </View>
-                        <Text style={[styles.orderItemName, { color: theme.textPrimary }]}>
+                        <Text style={[styles.orderItemName, { color: theme.textPrimary }]} numberOfLines={1}>
                           {del.materialName}
                         </Text>
-                        <Text style={[styles.orderItemMeta, { color: theme.textSecondary }]}>
+                        <Text style={[styles.orderItemMeta, { color: theme.textSecondary }]} numberOfLines={1}>
                           {del.quantity} • ₹{del.totalAmount?.toLocaleString('en-IN')} • {del.siteAddress || 'Registered Site'}
                         </Text>
                       </View>

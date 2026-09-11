@@ -12,6 +12,9 @@ if (dns && typeof dns.setServers === 'function') {
 
 let isConnected = false;
 
+// CRITICAL: fail fast, don't hang if MongoDB Atlas is offline or credentials unconfigured
+mongoose.set('bufferCommands', false);
+
 export async function connectDB(): Promise<typeof mongoose | null> {
   const uri = process.env.MONGODB_URI;
 
