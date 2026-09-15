@@ -34,7 +34,6 @@ import { useTheme } from '../context/ThemeContext';
 import { EmptyState } from './common/EmptyState';
 import { useToast } from '../context/ToastContext';
 import { LiveDispatcherChatModal } from './common/LiveDispatcherChatModal';
-import { WeighbridgeScanModal } from './common/WeighbridgeScanModal';
 import { SupervisorHandoffModal } from './common/SupervisorHandoffModal';
 import { formatSiteAddress } from '../utils/addressHelper';
 
@@ -50,11 +49,11 @@ interface OrdersActivityModalProps {
 }
 
 const TRACKING_STEPS = [
-  { id: 'confirmed', title: 'Order Confirmed', description: 'Order received & verified at quarry hub', status: 'completed' },
-  { id: 'processing', title: 'Batching & Loading', description: 'Hydraulic tipper loaded & tare weighed', status: 'completed' },
+  { id: 'confirmed', title: 'Order Confirmed', description: 'Order received & materials reserved', status: 'completed' },
+  { id: 'processing', title: 'Batching & Loading', description: 'Materials loaded & dispatched from hub', status: 'completed' },
   { id: 'dispatched', title: 'Dispatched with E-Way Bill', description: 'Government E-Way bill #EWB-TS-2026 issued', status: 'completed' },
   { id: 'out_for_delivery', title: 'Live GPS En Route', description: 'Transit via Outer Ring Road (ORR Exit 3)', status: 'active' },
-  { id: 'delivered', title: 'Site Weighbridge Verification', description: 'Digital OTP sign-off & physical gate handover', status: 'pending' },
+  { id: 'delivered', title: 'Site Delivery & Handover', description: 'Digital OTP sign-off & physical gate delivery', status: 'pending' },
 ];
 
 export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
@@ -90,28 +89,40 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
 
   // Sub Modals inside Activity
   const [showChatModal, setShowChatModal] = useState(false);
-  const [showWeighbridgeModal, setShowWeighbridgeModal] = useState(false);
   const [showSupervisorModal, setShowSupervisorModal] = useState(false);
-  const [supervisorData, setSupervisorData] = useState({
-    name: 'Anand Verma (Site Engineer)',
-    phone: '9876543210',
-  });
+  const [supervisorData, setSupervisorData] = useState(() => ({
+    name: deliveries[0]?.driverName ? `${deliveries[0].driverName} (Site Contact)` : '',
+    phone: deliveries[0]?.driverPhone || '',
+  }));
 
   const handleRefresh = () => {
     setRefreshing(true);
     setTimeout(() => {
       setRefreshing(false);
-      showToast('Live telemetry & order status updated', 'info');
-    }, 800);
+    }, 600);
   };
 
+  const [cancelledIds, setCancelledIds] = useState<string[]>([]);
+
   const validDeliveries = Array.isArray(deliveries) ? deliveries.filter(Boolean) : [];
-  const activeEnRoute = validDeliveries.find((d) => (d?.status || '').toLowerCase() === 'en route') || validDeliveries[0];
+  const activeEnRoute = validDeliveries.find((d) => {
+    const isCancelled = cancelledIds.includes(d?.id) || (d?.status || '').toLowerCase() === 'cancelled';
+    return !isCancelled && (d?.status || '').toLowerCase() === 'en route';
+  }) || validDeliveries.find((d) => !cancelledIds.includes(d?.id) && (d?.status || '').toLowerCase() !== 'cancelled') || validDeliveries[0];
+
   const totalSpent = validDeliveries.reduce((acc, d) => acc + (d?.totalAmount || 0), 0);
   const deliveredCount = validDeliveries.filter((d) => (d?.status || '').toLowerCase() === 'delivered').length;
 
   const handleCallDriver = () => {
-    showToast(`Connecting secure line to ${activeEnRoute?.driverName || 'Assigned Partner'}...`, 'info');
+    // Direct call action
+  };
+
+  const handleCancelOrder = (orderId?: string) => {
+    const targetId = orderId || activeEnRoute?.id || activeEnRoute?.orderNumber;
+    if (targetId) {
+      setCancelledIds((prev) => [...prev, targetId]);
+      showToast('Dispatch cancelled. Refund initiated.', 'info');
+    }
   };
 
   return (
@@ -136,7 +147,7 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
                   My Orders & Live Dispatches
                 </Text>
                 <Text style={[styles.modalSubtitle, { color: theme.textSecondary }]}>
-                  Live GPS tracking, Weighbridge slips & GST Invoices
+                  Live GPS tracking, real-time dispatch & GST Invoices
                 </Text>
               </View>
             </View>
@@ -208,7 +219,7 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
               )
             ) : (
               <>
-                {/* 1. Live Shipments Vertical Tracking Section & Simulated Map */}
+                {/* 1. Live Shipments Vertical Tracking Section & Minimalist Route Tracker */}
                 {activeEnRoute && (
                   <View style={[styles.card, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
                     {/* Header */}
@@ -221,46 +232,64 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
                           {activeEnRoute.materialName || 'Material Delivery'} ({activeEnRoute.quantity || '1 Load'})
                         </Text>
                       </View>
-                      <View style={[styles.etaPill, { backgroundColor: '#DCFCE7' }]}>
-                        <Text style={[styles.etaPillText, { color: '#15803D' }]} numberOfLines={1}>
-                          {etaRemainingMins}m • {distanceKm}km
-                        </Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <View style={[styles.etaPill, { backgroundColor: '#DCFCE7' }]}>
+                          <Text style={[styles.etaPillText, { color: '#15803D' }]} numberOfLines={1}>
+                            {etaRemainingMins}m • {distanceKm}km
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => handleCancelOrder(activeEnRoute.id || activeEnRoute.orderNumber)}
+                          style={[styles.headerCancelIconBtn, { backgroundColor: theme.mode === 'dark' ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2', borderColor: theme.mode === 'dark' ? 'rgba(239, 68, 68, 0.3)' : '#FCA5A5' }]}
+                          activeOpacity={0.75}
+                          accessibilityLabel="Cancel dispatch"
+                        >
+                          <X size={13} color="#DC2626" strokeWidth={2.4} />
+                        </TouchableOpacity>
                       </View>
                     </View>
 
-                    {/* Simulated Live GPS Map View */}
-                    <View style={styles.liveMapStage}>
-                      <View style={styles.mapGridLines} />
-                      <View style={styles.routePathLine} />
-
-                      {/* Quarry Pin */}
-                      <View style={styles.quarryPin}>
-                        <Text style={styles.pinLabel}>Miyapur Yard</Text>
-                      </View>
-
-                      {/* Active Vehicle Marker */}
-                      <View style={[styles.movingVehicleMarker, { left: `${gpsProgress}%` }]}>
-                        <View style={styles.vehiclePulseCircle} />
-                        <View style={styles.vehicleIconCircle}>
-                          <Truck size={14} color="#FFFFFF" />
+                    {/* Minimalist Non-Overlapping Route Telemetry Track */}
+                    <View style={[styles.modernRouteCard, { backgroundColor: theme.mode === 'dark' ? '#0F172A' : '#F1F5F9', borderColor: theme.border }]}>
+                      <View style={styles.routePointsRow}>
+                        <View style={styles.routePointItem}>
+                          <View style={[styles.routePointDot, { backgroundColor: '#0284C7' }]} />
+                          <Text style={[styles.routePointLabel, { color: theme.textSecondary }]} numberOfLines={1}>
+                            Miyapur Hub
+                          </Text>
+                        </View>
+                        <View style={[styles.routePointItem, { justifyContent: 'flex-end' }]}>
+                          <MapPin size={12} color="#DC2626" />
+                          <Text style={[styles.routePointLabel, { color: theme.textSecondary }]} numberOfLines={1}>
+                            Site Gate 2
+                          </Text>
                         </View>
                       </View>
 
-                      {/* Site Pin */}
-                      <View style={styles.sitePin}>
-                        <Text style={styles.pinLabel}>Site Gate 2</Text>
+                      <View style={styles.routeTrackContainer}>
+                        <View style={[styles.routeTrackBase, { backgroundColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.1)' : '#CBD5E1' }]}>
+                          <View style={[styles.routeTrackFill, { width: `${Math.min(94, Math.max(8, gpsProgress))}%`, backgroundColor: '#059669' }]} />
+                        </View>
+                        <View style={[styles.movingVehicleIconWrapper, { left: `${Math.min(90, Math.max(5, gpsProgress))}%` }]}>
+                          <View style={styles.vehiclePulseGlow} />
+                          <View style={styles.vehiclePuck}>
+                            <Truck size={11} color="#FFFFFF" />
+                          </View>
+                        </View>
                       </View>
 
-                      {/* Map Overlay Telemetry Info */}
-                      <View style={styles.mapTelemetryOverlay}>
-                        <View style={styles.telemetryItem}>
-                          <Navigation size={12} color="#15803D" />
-                          <Text style={styles.telemetryText}>Speed: {gpsSpeed} km/h</Text>
-                        </View>
-                        <View style={styles.telemetryItem}>
-                          <Clock size={12} color="#15803D" />
-                          <Text style={styles.telemetryText}>ETA: {activeEnRoute.estimatedArrival || '30 mins'}</Text>
-                        </View>
+                      <View style={styles.telemetryStrip}>
+                        <Text style={[styles.telemetryStripText, { color: theme.textSecondary }]}>
+                          Speed: <Text style={{ fontWeight: '700', color: theme.textPrimary }}>{gpsSpeed} km/h</Text>
+                        </Text>
+                        <Text style={[styles.telemetryDotDivider, { color: theme.textMuted }]}>•</Text>
+                        <Text style={[styles.telemetryStripText, { color: theme.textSecondary }]}>
+                          ETA: <Text style={{ fontWeight: '700', color: '#059669' }}>{etaRemainingMins}m</Text>
+                        </Text>
+                        <Text style={[styles.telemetryDotDivider, { color: theme.textMuted }]}>•</Text>
+                        <Text style={[styles.telemetryStripText, { color: theme.textSecondary }]}>
+                          <Text style={{ fontWeight: '700', color: theme.textPrimary }}>{distanceKm}km</Text> remaining
+                        </Text>
                       </View>
                     </View>
 
@@ -269,11 +298,11 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
                       <View style={styles.driverAvatar}>
                         <UserCheck size={18} color="#111111" />
                       </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.driverNameText, { color: theme.textPrimary }]}>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={[styles.driverNameText, { color: theme.textPrimary }]} numberOfLines={1}>
                           {activeEnRoute.driverName || 'Assigned Delivery Partner'}
                         </Text>
-                        <Text style={[styles.driverMetaText, { color: theme.textSecondary }]}>
+                        <Text style={[styles.driverMetaText, { color: theme.textSecondary }]} numberOfLines={1}>
                           {activeEnRoute.vehicleNumber || 'AP 28 TE 4920'} • {activeEnRoute.vehicleType || 'Commercial Logistics'}
                         </Text>
                       </View>
@@ -338,12 +367,12 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
                     {/* Fast Action Quick Buttons */}
                     <View style={styles.actionGridRow}>
                       <TouchableOpacity
-                        onPress={() => setShowWeighbridgeModal(true)}
+                        onPress={() => setShowChatModal(true)}
                         style={[styles.quickActionBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
                         activeOpacity={0.75}
                       >
-                        <Camera size={15} color="#111111" />
-                        <Text style={[styles.quickActionBtnText, { color: theme.textPrimary }]}>Weighbridge Slip</Text>
+                        <MessageSquare size={14} color="#111111" />
+                        <Text style={[styles.quickActionBtnText, { color: theme.textPrimary }]}>Live Dispatch</Text>
                       </TouchableOpacity>
 
                       <TouchableOpacity
@@ -351,8 +380,18 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
                         style={[styles.quickActionBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
                         activeOpacity={0.75}
                       >
-                        <ShieldCheck size={15} color="#059669" />
-                        <Text style={[styles.quickActionBtnText, { color: theme.textPrimary }]}>Gate Supervisor</Text>
+                        <ShieldCheck size={14} color="#059669" />
+                        <Text style={[styles.quickActionBtnText, { color: theme.textPrimary }]}>Supervisor</Text>
+                      </TouchableOpacity>
+
+                      {/* Cancel Button - Icon Only! */}
+                      <TouchableOpacity
+                        onPress={() => handleCancelOrder(activeEnRoute.id || activeEnRoute.orderNumber)}
+                        style={[styles.cancelQuickBtn, { backgroundColor: theme.mode === 'dark' ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2', borderColor: theme.mode === 'dark' ? 'rgba(239, 68, 68, 0.3)' : '#FCA5A5' }]}
+                        activeOpacity={0.75}
+                        accessibilityLabel="Cancel dispatch"
+                      >
+                        <X size={15} color="#DC2626" strokeWidth={2.4} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -364,12 +403,13 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
                     All Site Deliveries ({validDeliveries.length})
                   </Text>
                   <Text style={[styles.allOrdersSub, { color: theme.textMuted }]}>
-                    Total Value: ₹{totalSpent.toLocaleString('en-IN')}
+                    Total: ₹{totalSpent.toLocaleString('en-IN')}
                   </Text>
                 </View>
 
                 {validDeliveries.map((del, dIdx) => {
-                  const statusStr = (del?.status || 'Processing');
+                  const isCancelled = cancelledIds.includes(del?.id) || (del?.status || '').toLowerCase() === 'cancelled';
+                  const statusStr = isCancelled ? 'Cancelled' : (del?.status || 'Processing');
                   const isDelivered = statusStr.toLowerCase() === 'delivered';
                   return (
                     <View
@@ -385,7 +425,9 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
                             <View
                               style={[
                                 styles.statusBadgePill,
-                                isDelivered
+                                isCancelled
+                                  ? { backgroundColor: '#FEE2E2' }
+                                  : isDelivered
                                   ? { backgroundColor: '#DCFCE7' }
                                   : { backgroundColor: '#FEF3C7' },
                               ]}
@@ -393,7 +435,11 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
                               <Text
                                 style={[
                                   styles.statusBadgeText,
-                                  isDelivered ? { color: '#15803D' } : { color: '#B45309' },
+                                  isCancelled
+                                    ? { color: '#DC2626' }
+                                    : isDelivered
+                                    ? { color: '#15803D' }
+                                    : { color: '#B45309' },
                                 ]}
                                 numberOfLines={1}
                               >
@@ -405,7 +451,7 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
                             {del?.materialName || 'Construction Material'}
                           </Text>
                           <Text style={[styles.orderItemMeta, { color: theme.textSecondary }]} numberOfLines={1}>
-                            {del?.quantity || '1 Load'} • ₹{del?.totalAmount ? del.totalAmount.toLocaleString('en-IN') : '0'} • {formatSiteAddress(del?.siteAddress)}
+                            {del?.quantity || '1 Load'} • <Text style={{ textDecorationLine: isCancelled ? 'line-through' : 'none', fontWeight: '700' }}>₹{del?.totalAmount ? del.totalAmount.toLocaleString('en-IN') : '0'}</Text> • {formatSiteAddress(del?.siteAddress)}
                           </Text>
                         </View>
                       </View>
@@ -459,12 +505,6 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
         orderNumber={activeEnRoute?.orderNumber}
         driverName={activeEnRoute?.driverName}
       />
-      <WeighbridgeScanModal
-        visible={showWeighbridgeModal}
-        onClose={() => setShowWeighbridgeModal(false)}
-        orderNumber={activeEnRoute?.orderNumber}
-        expectedTons={10.0}
-      />
       <SupervisorHandoffModal
         visible={showSupervisorModal}
         onClose={() => setShowSupervisorModal(false)}
@@ -474,7 +514,6 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
         onSaveSupervisor={(name, phone) => {
           setSupervisorData({ name, phone });
           setShowSupervisorModal(false);
-          showToast('Site supervisor handoff updated', 'success');
         }}
       />
     </Modal>
@@ -584,91 +623,93 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
-  liveMapStage: {
-    height: 120,
-    backgroundColor: '#E2E8F0',
-    position: 'relative',
-    overflow: 'hidden',
-    justifyContent: 'center',
-  },
-  mapGridLines: {
-    ...StyleSheet.absoluteFill,
-    opacity: 0.15,
-    backgroundColor: '#94A3B8',
-  },
-  routePathLine: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    height: 4,
-    backgroundColor: '#059669',
-    borderRadius: 2,
-  },
-  quarryPin: {
-    position: 'absolute',
-    left: 10,
-    top: 15,
-    backgroundColor: '#1E293B',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  sitePin: {
-    position: 'absolute',
-    right: 10,
-    bottom: 15,
-    backgroundColor: '#0F172A',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  pinLabel: {
-    fontSize: 9,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  movingVehicleMarker: {
-    position: 'absolute',
-    top: '50%',
-    marginTop: -16,
+  headerCancelIconBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 6,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  vehiclePulseCircle: {
-    position: 'absolute',
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(5, 150, 105, 0.3)',
-  },
-  vehicleIconCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#059669',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  mapTelemetryOverlay: {
-    position: 'absolute',
-    bottom: 6,
-    left: 8,
-    flexDirection: 'row',
+  modernRouteCard: {
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 12,
+    margin: 10,
+    marginBottom: 4,
     gap: 8,
   },
-  telemetryItem: {
+  routePointsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  routePointItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    flex: 1,
   },
-  telemetryText: {
-    fontSize: 9.5,
-    fontWeight: '700',
-    color: '#065F46',
+  routePointDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  routePointLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  routeTrackContainer: {
+    height: 22,
+    justifyContent: 'center',
+    position: 'relative',
+    marginVertical: 2,
+  },
+  routeTrackBase: {
+    height: 4,
+    borderRadius: 2,
+    width: '100%',
+    overflow: 'hidden',
+  },
+  routeTrackFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  movingVehicleIconWrapper: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -11,
+    marginLeft: -11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  vehiclePulseGlow: {
+    position: 'absolute',
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(5, 150, 105, 0.25)',
+  },
+  vehiclePuck: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#059669',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  telemetryStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingTop: 2,
+  },
+  telemetryStripText: {
+    fontSize: 10.5,
+  },
+  telemetryDotDivider: {
+    fontSize: 9,
   },
   driverDetailRow: {
     flexDirection: 'row',
@@ -798,6 +839,14 @@ const styles = StyleSheet.create({
   quickActionBtnText: {
     fontSize: 11.5,
     fontWeight: '700',
+  },
+  cancelQuickBtn: {
+    width: 38,
+    height: 34,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   allOrdersHeaderRow: {
     flexDirection: 'row',

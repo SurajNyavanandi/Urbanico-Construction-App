@@ -13,19 +13,17 @@ import {
   Truck,
   CheckCircle2,
   Tag,
-  Scale,
   X,
   Sparkles,
   Clock,
   Trash2,
 } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
-import { useToast } from '../context/ToastContext';
 import { soundService } from '../utils/soundHelper';
 
 export interface SiteNotification {
   id: string;
-  type: 'dispatch' | 'weighment' | 'combo' | 'rate';
+  type: 'dispatch' | 'delivery' | 'combo' | 'rate';
   title: string;
   message: string;
   time: string;
@@ -65,7 +63,6 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   onNavigateScreen,
 }) => {
   const { theme, typography } = useTheme();
-  const { showToast } = useToast();
   const [notifications, setNotifications] = useState<SiteNotification[]>(INITIAL_NOTIFICATIONS);
 
   const unreadCount = notifications.filter((n) => n.isUnread).length;
@@ -78,12 +75,10 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
 
   const handleMarkAllAsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, isUnread: false })));
-    showToast('All notifications marked as read', 'info');
   };
 
   const handleClearAll = () => {
     setNotifications([]);
-    showToast('Notifications cleared', 'info');
   };
 
   const handleItemPress = (notif: SiteNotification) => {
@@ -92,7 +87,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
     );
     if (!onNavigateScreen) return;
     onClose();
-    if (notif.type === 'dispatch' || notif.type === 'weighment') {
+    if (notif.type === 'dispatch' || notif.type === 'delivery') {
       onNavigateScreen('activity');
     } else if (notif.type === 'combo' || notif.type === 'rate') {
       onNavigateScreen('shop');
@@ -105,8 +100,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
     switch (type) {
       case 'dispatch':
         return <Truck size={18} color="#0284C7" strokeWidth={2.2} />;
-      case 'weighment':
-        return <Scale size={18} color="#059669" strokeWidth={2.2} />;
+      case 'delivery':
+        return <CheckCircle2 size={18} color="#059669" strokeWidth={2.2} />;
       case 'combo':
         return <Sparkles size={18} color="#D97706" strokeWidth={2.2} />;
       case 'rate':
@@ -182,7 +177,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
                   No New Notifications
                 </Text>
                 <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
-                  You'll receive live alerts here when your materials are dispatched or weighed.
+                  You'll receive live alerts here when your materials are dispatched or out for delivery.
                 </Text>
               </View>
             ) : (

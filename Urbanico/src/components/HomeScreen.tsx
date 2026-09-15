@@ -27,7 +27,6 @@ import { CategoryId, MaterialItem } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { ProductCard } from './common/ProductCard';
 import { ShimmerImage } from './common/ShimmerImage';
-import { Toast } from './common/Toast';
 import { PromotionalVideoPlayer } from './common/PromotionalVideoPlayer';
 import { AmbujaVideoAd } from './common/AmbujaVideoAd';
 import { preloadImages } from '../utils/imageOptimization';
@@ -46,6 +45,10 @@ interface HomeScreenProps {
   favoriteIds?: string[];
   onToggleFavorite?: (id: string) => void;
   onAddBundleToCartAndNavigate?: (bundle: ProjectBundle) => void;
+  materials?: MaterialItem[];
+  categories?: any[];
+  services?: any[];
+  bundles?: any[];
 }
 
 const HERO_CARD_IMAGE_URL = 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1788333084/herocard_hwvlhi.jpg';
@@ -328,10 +331,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   favoriteIds = [],
   onToggleFavorite,
   onAddBundleToCartAndNavigate,
+  materials,
+  categories,
+  services,
+  bundles,
 }) => {
   const { theme, typography } = useTheme();
   const [refreshing, setRefreshing] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const activeMaterials = (materials && materials.length > 0) ? materials : MATERIAL_ITEMS;
+  const activeCategories = (categories && categories.length > 0) ? categories : CATEGORIES;
+  const activeServices = (services && services.length > 0) ? services : SERVICES;
+  const activeBundles = (bundles && bundles.length > 0) ? bundles : PROJECT_BUNDLES;
 
   const { width: windowWidth } = useWindowDimensions();
   // Card width for horizontal scroll: gives comfortable width matching Shop section aesthetics
@@ -342,8 +353,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     setRefreshing(true);
     setTimeout(() => {
       setRefreshing(false);
-      setToastMessage('Catalog rates refreshed');
-    }, 1000);
+    }, 600);
   };
 
   // Preload critical above-the-fold assets in the background
@@ -352,19 +362,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       { url: HERO_CARD_IMAGE_URL, preset: 'hero' as const },
       ...MATERIAL_CHILD_PILLS.map((p) => ({ url: p.image, preset: 'pill' as const })),
       ...SERVICE_CHILD_PILLS.map((p) => ({ url: p.image, preset: 'pill' as const })),
-      ...SERVICES.map((s) => ({ url: s.image, preset: 'card' as const })),
-      ...CATEGORIES.map((c) => ({ url: c.image, preset: 'card' as const })),
+      ...activeServices.map((s) => ({ url: s.image, preset: 'card' as const })),
+      ...activeCategories.map((c) => ({ url: c.image, preset: 'card' as const })),
     ]);
-  }, []);
+  }, [activeServices, activeCategories]);
 
   return (
     <View style={{ flex: 1 }}>
-      <Toast
-        visible={Boolean(toastMessage)}
-        message={toastMessage || ''}
-        type="info"
-        onDismiss={() => setToastMessage(null)}
-      />
       <ScrollView
         style={[styles.container, { backgroundColor: theme.background }]}
         contentContainerStyle={styles.scrollContent}
@@ -386,7 +390,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         ) : (
           <>
             {/* ========================================================================= */}
-            {/* 1. 4:3 RATIO HERO CARD (Replaced Carousel) */}
+            {/* 1. MODERN MINIMALIST HERO CARD */}
             {/* ========================================================================= */}
             <View style={styles.heroSectionWrapper}>
               <TouchableOpacity
@@ -399,7 +403,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     onSelectCategory('services-catalog');
                   }
                 }}
-                style={styles.heroCardContainer}
+                style={[
+                  styles.heroCardContainer,
+                  {
+                    backgroundColor: theme.mode === 'dark' ? '#1E293B' : '#F8FAFC',
+                    borderColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.08)' : '#E2E8F0',
+                  },
+                ]}
               >
                 <ShimmerImage
                   source={{ uri: HERO_CARD_IMAGE_URL }}
@@ -407,7 +417,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   resizeMode="cover"
                   preset="hero"
                   priority="high"
-                  borderRadius={20}
+                  borderRadius={16}
                 />
               </TouchableOpacity>
             </View>
@@ -419,7 +429,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           {/* Row 1: Materials Navigation Pills */}
           <View style={styles.childNavRowWrapper}>
             <View style={styles.childNavHeader}>
-              <Text style={styles.childNavSectionTitle}>Materials</Text>
+              <Text style={[styles.childNavSectionTitle, { color: theme.textPrimary }]}>Materials</Text>
             </View>
             <ScrollView
               horizontal
@@ -429,20 +439,31 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               {MATERIAL_CHILD_PILLS.map((item) => (
                 <TouchableOpacity
                   key={item.id}
-                  onPress={() => onSelectCategory(item.categoryId || (item.id as CategoryId))}
-                  activeOpacity={0.75}
-                  style={styles.childPillCard}
+                  onPress={() => {
+                    soundService.playTap();
+                    onSelectCategory(item.categoryId || (item.id as CategoryId));
+                  }}
+                  activeOpacity={0.7}
+                  style={styles.childPillItem}
                 >
-                  <View style={styles.childPillIconBox}>
+                  <View
+                    style={[
+                      styles.childPillAvatarBox,
+                      {
+                        backgroundColor: theme.mode === 'dark' ? '#1E293B' : '#F8FAFC',
+                        borderColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.08)' : '#E2E8F0',
+                      },
+                    ]}
+                  >
                     <ShimmerImage
                       source={{ uri: item.image }}
-                      style={styles.childPillImage}
+                      style={styles.childPillAvatarImage}
                       resizeMode="cover"
                       preset="pill"
-                      borderRadius={10}
+                      borderRadius={18}
                     />
                   </View>
-                  <Text style={styles.childPillLabel} numberOfLines={1}>
+                  <Text style={[styles.childPillLabel, { color: theme.textPrimary }]} numberOfLines={1}>
                     {item.label}
                   </Text>
                 </TouchableOpacity>
@@ -453,7 +474,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           {/* Row 2: Services Navigation Pills */}
           <View style={styles.childNavRowWrapper}>
             <View style={styles.childNavHeader}>
-              <Text style={styles.childNavSectionTitle}>Trade Services</Text>
+              <Text style={[styles.childNavSectionTitle, { color: theme.textPrimary }]}>Trade Services</Text>
             </View>
             <ScrollView
               horizontal
@@ -461,11 +482,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               contentContainerStyle={styles.childNavScroll}
             >
               {SERVICE_CHILD_PILLS.map((item) => {
-                const matchingItem = MATERIAL_ITEMS.find((m) => m.id === `service-${item.id}`);
+                const matchingItem = activeMaterials.find((m) => m.id === `service-${item.id}`);
                 return (
                   <TouchableOpacity
                     key={item.id}
                     onPress={() => {
+                      soundService.playTap();
                       if (matchingItem && onSelectItem) {
                         onSelectItem(matchingItem);
                       } else if (onNavigateAllServices) {
@@ -474,19 +496,27 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                         onSelectCategory('services-catalog');
                       }
                     }}
-                    activeOpacity={0.75}
-                    style={styles.childPillCard}
+                    activeOpacity={0.7}
+                    style={styles.childPillItem}
                   >
-                    <View style={styles.childPillIconBox}>
+                    <View
+                      style={[
+                        styles.childPillAvatarBox,
+                        {
+                          backgroundColor: theme.mode === 'dark' ? '#1E293B' : '#F8FAFC',
+                          borderColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.08)' : '#E2E8F0',
+                        },
+                      ]}
+                    >
                       <ShimmerImage
                         source={{ uri: item.image }}
-                        style={styles.childPillImage}
+                        style={styles.childPillAvatarImage}
                         resizeMode="cover"
                         preset="pill"
-                        borderRadius={10}
+                        borderRadius={18}
                       />
                     </View>
-                    <Text style={styles.childPillLabel} numberOfLines={1}>
+                    <Text style={[styles.childPillLabel, { color: theme.textPrimary }]} numberOfLines={1}>
                       {item.label}
                     </Text>
                   </TouchableOpacity>
@@ -524,7 +554,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.horizontalScrollContent}
             >
-              {CATEGORIES.map((cat) => (
+              {activeCategories.map((cat) => (
                 <ProductCard
                   key={cat.id}
                   title={cat.name}
@@ -579,8 +609,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.horizontalScrollContent}
             >
-              {SERVICES.map((srv) => {
-                const matchingItem = MATERIAL_ITEMS.find((m) => m.id === `service-${srv.id}`);
+              {activeServices.map((srv) => {
+                const matchingItem = activeMaterials.find((m) => m.id === `service-${srv.id}`);
                 return (
                   <ProductCard
                     key={srv.id}
@@ -635,7 +665,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.horizontalScrollContent}
           >
-            {PROJECT_BUNDLES.map((bundle) => (
+            {activeBundles.map((bundle) => (
               <TouchableOpacity
                 key={bundle.id}
                 activeOpacity={0.9}
@@ -738,7 +768,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F4F5F7',
   },
   scrollContent: {
     paddingTop: 10,
@@ -746,97 +776,87 @@ const styles = StyleSheet.create({
     gap: 22,
   },
 
-  /* ---------------- HERO CARD (4:3 RATIO) STYLES ---------------- */
+  /* ---------------- HERO CARD (MODERN MINIMALIST) ---------------- */
   heroSectionWrapper: {
     paddingHorizontal: 16,
   },
   heroCardContainer: {
     width: '100%',
     aspectRatio: 4 / 3,
-    borderRadius: 20,
+    borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E2E8F0',
     ...Platform.select({
       web: {
-        boxShadow: '0 6px 14px rgba(0, 0, 0, 0.1)',
+        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.04)',
       },
       default: {
         shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.1,
-        shadowRadius: 14,
-        elevation: 4,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.04,
+        shadowRadius: 10,
+        elevation: 2,
       },
     }),
   },
   heroCardImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 20,
+    borderRadius: 16,
   },
 
-  /* ---------------- CHILD NAVIGATION PILLS ---------------- */
+  /* ---------------- CHILD NAVIGATION PILLS (MODERN MINIMALIST) ---------------- */
   childNavSection: {
     paddingTop: 0,
     paddingBottom: 2,
-    gap: 14,
+    gap: 16,
   },
   childNavRowWrapper: {
-    gap: 8,
+    gap: 10,
   },
   childNavHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
   },
   childNavSectionTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#111111',
+    color: '#0F172A',
     letterSpacing: -0.2,
-  },
-  childNavViewAll: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#707072',
   },
   childNavScroll: {
     paddingHorizontal: 16,
-    gap: 10,
+    gap: 14,
   },
-  childPillCard: {
-    width: 68,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    borderRadius: 14,
-    backgroundColor: '#FAFAFA',
-    borderWidth: 1,
-    borderColor: '#EEEEEE',
+  childPillItem: {
     alignItems: 'center',
-    justifyContent: 'center',
+    width: 64,
     gap: 6,
   },
-  childPillIconBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 10,
+  childPillAvatarBox: {
+    width: 54,
+    height: 54,
+    borderRadius: 18,
     overflow: 'hidden',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#EEEEEE',
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  childPillImage: {
+  childPillAvatarImage: {
     width: '100%',
     height: '100%',
   },
   childPillLabel: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: '600',
-    color: '#111111',
+    color: '#1E293B',
     textAlign: 'center',
+    letterSpacing: -0.1,
   },
 
   /* ---------------- SECTION HEADINGS & CONTAINERS ---------------- */
@@ -935,33 +955,33 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   bundleCard: {
-    borderRadius: 16,
+    borderRadius: 22,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E5E7EB',
     overflow: 'hidden',
-    padding: 12,
-    gap: 10,
+    padding: 14,
+    gap: 12,
     ...Platform.select({
       web: {
-        boxShadow: '0 2px 6px rgba(0, 0, 0, 0.04)',
+        boxShadow: '0 6px 20px rgba(0, 0, 0, 0.07), 0 2px 6px rgba(0, 0, 0, 0.04)',
       },
       default: {
         shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.04,
-        shadowRadius: 6,
-        elevation: 2,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.06,
+        shadowRadius: 20,
+        elevation: 3,
       },
     }),
   },
   bundleImageWrapper: {
     width: '100%',
-    height: 120,
-    borderRadius: 12,
+    height: 130,
+    borderRadius: 16,
     overflow: 'hidden',
     position: 'relative',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#F3F4F6',
   },
   bundleImage: {
     width: '100%',
@@ -1087,9 +1107,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     backgroundColor: '#111111',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    borderRadius: 999,
   },
   bundleExploreBtnText: {
     fontSize: 12,

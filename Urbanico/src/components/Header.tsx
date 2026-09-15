@@ -35,6 +35,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useLocation } from '../context/LocationContext';
 import { useLanguage } from '../context/LanguageContext';
 import { BrandLogo } from './common/BrandLogo';
+import { ShimmerImage } from './common/ShimmerImage';
 import { NotificationsModal } from './NotificationsModal';
 import { soundService } from '../utils/soundHelper';
 import {
@@ -58,6 +59,9 @@ interface HeaderProps {
   onRemoveRecentSearch: (query: string) => void;
   onSelectItemModal?: (item: MaterialItem) => void;
   onNavigateScreen?: (screen: ScreenType) => void;
+  materials?: MaterialItem[];
+  categories?: any[];
+  services?: any[];
 }
 
 const POPULAR_SEARCH_PILLS = [
@@ -87,12 +91,19 @@ export const Header: React.FC<HeaderProps> = ({
   onRemoveRecentSearch,
   onSelectItemModal,
   onNavigateScreen,
+  materials,
+  categories,
+  services,
 }) => {
   const { theme, typography } = useTheme();
   const { t } = useLanguage();
   const { selectedLocation: globalLocation } = useLocation();
   const activeLocation = globalLocation || propLocation || 'Hyderabad (Telangana)';
   
+  const activeMaterials = (materials && materials.length > 0) ? materials : MATERIAL_ITEMS;
+  const activeCategories = (categories && categories.length > 0) ? categories : CATEGORIES;
+  const activeServices = (services && services.length > 0) ? services : SERVICES;
+
   // Nike/Adidas Style Full Search Overlay State
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchInputText, setSearchInputText] = useState(searchQuery);
@@ -121,12 +132,27 @@ export const Header: React.FC<HeaderProps> = ({
 
   // Ranked matching materials using tokenized multi-word search
   const matchingItems = queryLower
-    ? searchAndRankMaterials(MATERIAL_ITEMS, searchInputText).slice(0, 6)
+    ? searchAndRankMaterials(activeMaterials, searchInputText).slice(0, 6)
+    : [];
+
+  // Identify the primary matched category from the user's top result (e.g., 'cement' when searching 'ultra tech cement53')
+  const primaryMatchedCategoryId = matchingItems.length > 0 ? matchingItems[0].categoryId : null;
+  const primaryMatchedCategoryObj = primaryMatchedCategoryId
+    ? activeCategories.find((c) => c.id === primaryMatchedCategoryId)
+    : null;
+
+  // Other items from the same category to provide seamless exploration (e.g. all other cement bags)
+  const relatedCategoryItems = primaryMatchedCategoryId && queryLower
+    ? activeMaterials.filter(
+        (m) =>
+          m.categoryId === primaryMatchedCategoryId &&
+          !matchingItems.some((match) => match.id === m.id)
+      ).slice(0, 5)
     : [];
 
   // Filter matching services
   const matchingServices = queryLower
-    ? SERVICES.filter(
+    ? activeServices.filter(
         (s) =>
           s.name.toLowerCase().includes(queryLower) ||
           s.name.toLowerCase().includes(normalizedQuery) ||
@@ -136,7 +162,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   // Filter matching categories
   const matchingCategories = queryLower
-    ? CATEGORIES.filter(
+    ? activeCategories.filter(
         (c) =>
           c.name.toLowerCase().includes(queryLower) ||
           c.name.toLowerCase().includes(normalizedQuery) ||
@@ -187,62 +213,95 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const handleSelectCategoryPill = (catId: string) => {
-    const cat = CATEGORIES.find((c) => c.id === catId);
+    const cat = activeCategories.find((c) => c.id === catId);
     if (cat) {
       handleExecuteSearch(cat.name);
     }
   };
 
   return (
-    <View style={styles.headerContainer}>
-      {/* 1. Location Bar & Brand Identity (Home screen exclusive) */}
-      <View style={styles.locationRow}>
-        <TouchableOpacity
-          onPress={() => onNavigateScreen && onNavigateScreen('home')}
-          activeOpacity={0.8}
-          style={styles.brandContainer}
-        >
-          <BrandLogo size={36} borderRadius={10} />
-        </TouchableOpacity>
+    <View style={[styles.headerContainer, { backgroundColor: theme.surface, borderBottomColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.08)' : '#F1F5F9' }]}>
+      {/* 1. Brand Identity & Delivery Location Top Bar */}
+      <View style={styles.topRow}>
+        <View style={styles.brandLocationGroup}>
+          <TouchableOpacity
+            onPress={() => {
+              soundService.playTap();
+              if (onNavigateScreen) onNavigateScreen('home');
+            }}
+            activeOpacity={0.8}
+            style={styles.brandLogoTouch}
+          >
+            <BrandLogo size={38} borderRadius={10} />
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={onOpenLocationModal}
-          activeOpacity={0.75}
-          style={styles.locationButton}
-        >
-          <View style={styles.locationPinBox}>
-            <MapPin color="#111111" size={14} strokeWidth={2.4} />
-          </View>
-          <View style={styles.locationTextWrapper}>
-            <Text style={styles.locationDeliverLabel}>DELIVER TO</Text>
-            <View style={styles.locationNameRow}>
-              <Text style={styles.locationText} numberOfLines={1}>
+          <TouchableOpacity
+            onPress={() => {
+              soundService.playTap();
+              onOpenLocationModal();
+            }}
+            activeOpacity={0.7}
+            style={styles.locationInfoGroup}
+          >
+            <View style={styles.brandRow}>
+              <Text style={[styles.brandTitle, { color: theme.textPrimary }]}>URBANICO</Text>
+            </View>
+            <View style={styles.locationAddressRow}>
+              <MapPin color={theme.primary || '#059669'} size={12} strokeWidth={2.4} />
+              <Text style={[styles.locationDeliverLabel, { color: theme.textMuted }]}>
+                DELIVER TO
+              </Text>
+              <Text style={[styles.locationAddressText, { color: theme.textPrimary }]} numberOfLines={1}>
                 {locationName}
               </Text>
-              <ChevronDown color="#111111" size={13} strokeWidth={2.4} />
+              <ChevronDown color={theme.textSecondary} size={12} strokeWidth={2.4} />
             </View>
-          </View>
-        </TouchableOpacity>
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity
-          onPress={() => setIsNotificationsOpen(true)}
-          activeOpacity={0.7}
-          style={styles.notificationButton}
+          onPress={() => {
+            soundService.playTap();
+            setIsNotificationsOpen(true);
+          }}
+          activeOpacity={0.75}
+          style={[
+            styles.notificationButton,
+            {
+              backgroundColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.05)' : '#F8FAFC',
+              borderColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.08)' : '#E2E8F0',
+            },
+          ]}
         >
-          <Bell color="#111111" size={16} strokeWidth={2.2} />
-          <View style={styles.notificationDot} />
+          <Bell color={theme.textPrimary} size={18} strokeWidth={1.9} />
+          <View style={[styles.notificationDot, { borderColor: theme.surface }]} />
         </TouchableOpacity>
       </View>
 
-      {/* 2. Nike-style Search Bar Trigger on Home screen */}
+      {/* 2. Modern Minimalist Search Bar Trigger on Home screen */}
       <TouchableOpacity
         onPress={handleOpenSearch}
         activeOpacity={0.85}
-        style={styles.searchBarTrigger}
+        style={[
+          styles.searchBarTrigger,
+          {
+            backgroundColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.05)' : '#F1F5F9',
+            borderColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.08)' : '#E2E8F0',
+          },
+        ]}
       >
-        <Search color="#111111" size={17} strokeWidth={2.2} />
-        <Text style={styles.searchPlaceholderText} numberOfLines={1}>
-          {searchQuery ? searchQuery : t.searchPlaceholder || 'Search cement, sand, TMT steel, tools...'}
+        <Search color={theme.textSecondary} size={16} strokeWidth={2.2} />
+        <Text
+          style={[
+            styles.searchPlaceholderText,
+            {
+              color: searchQuery ? theme.textPrimary : theme.textMuted,
+              fontWeight: searchQuery ? '600' : '400',
+            },
+          ]}
+          numberOfLines={1}
+        >
+          {searchQuery ? searchQuery : (t.searchPlaceholder || 'Search cement, sand, TMT steel, tools...')}
         </Text>
         {searchQuery ? (
           <TouchableOpacity
@@ -253,7 +312,7 @@ export const Header: React.FC<HeaderProps> = ({
             style={styles.triggerClearBtn}
             activeOpacity={0.7}
           >
-            <X color="#707072" size={14} strokeWidth={2.2} />
+            <X color={theme.textMuted} size={14} strokeWidth={2.2} />
           </TouchableOpacity>
         ) : null}
       </TouchableOpacity>
@@ -397,7 +456,7 @@ export const Header: React.FC<HeaderProps> = ({
                   </View>
 
                   <View style={styles.categoryChipsGrid}>
-                    {CATEGORIES.map((cat) => (
+                    {activeCategories.map((cat) => (
                       <TouchableOpacity
                         key={cat.id}
                         onPress={() => handleSelectCategoryPill(cat.id)}
@@ -418,20 +477,7 @@ export const Header: React.FC<HeaderProps> = ({
             {/* ------------------------------------------------------------- */}
             {Boolean(queryLower) && (
               <View style={styles.searchSectionGap}>
-                {/* A. Typo / Contractor Normalization Notice */}
-                {wasCorrected && (
-                  <View style={[styles.correctionBanner, { backgroundColor: '#FEF3C7', borderColor: '#FCD34D' }]}>
-                    <Sparkles size={14} color="#D97706" strokeWidth={2.2} />
-                    <Text style={styles.correctionBannerText}>
-                      Showing results for <Text style={{ fontWeight: '700', color: '#92400E' }}>"{normalizedQuery}"</Text>
-                      {cleanQuery.toLowerCase() !== normalizedQuery && (
-                        <Text style={{ color: '#B45309', fontSize: 11 }}> (searched "{cleanQuery}")</Text>
-                      )}
-                    </Text>
-                  </View>
-                )}
-
-                {/* B. Predictive Autocompletions (Flipkart/Amazon style text completion chips) */}
+                {/* Autocompletions (clean query suggestions) */}
                 {autocompletions.length > 0 && (
                   <View style={styles.searchBlock}>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.autocompletionsRow}>
@@ -474,9 +520,11 @@ export const Header: React.FC<HeaderProps> = ({
                           style={[styles.productSearchRow, { borderBottomColor: theme.borderLight }]}
                           activeOpacity={0.7}
                         >
-                          <Image
+                          <ShimmerImage
                             source={{ uri: item.image }}
                             style={styles.productThumb}
+                            preset="thumbnail"
+                            borderRadius={8}
                             resizeMode="cover"
                           />
                           <View style={styles.productInfoCol}>
@@ -485,6 +533,59 @@ export const Header: React.FC<HeaderProps> = ({
                             </Text>
                             <Text style={[styles.productRowSub, { color: theme.textSecondary }]} numberOfLines={1}>
                               {item.subtitle || `${(item?.categoryId || 'MATERIALS').toUpperCase()} • Direct Yard`}
+                            </Text>
+                            <View style={styles.stockBadgeRow}>
+                              <CheckCircle2 size={11} color="#059669" strokeWidth={2.2} />
+                              <Text style={styles.stockBadgeText}>In Stock • Ready for Delivery</Text>
+                            </View>
+                          </View>
+                          {Boolean(item.defaultPrice) && (
+                            <View style={styles.productPriceCol}>
+                              <Text style={[styles.productPriceText, { color: theme.textPrimary }]}>
+                                ₹{item.defaultPrice.toLocaleString('en-IN')}
+                              </Text>
+                              <Text style={[styles.productPriceUnit, { color: theme.textSecondary }]}>
+                                {item.options[0]?.label || 'Base Unit'}
+                              </Text>
+                            </View>
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {/* C2. Other Items from the Same Category (e.g. All other cement bags when searching UltraTech) */}
+                {relatedCategoryItems.length > 0 && (
+                  <View style={styles.searchBlock}>
+                    <View style={styles.sectionTitleRow}>
+                      <Tag size={15} color="#111111" strokeWidth={2.2} />
+                      <Text style={styles.searchSectionTitle}>
+                        All Other {primaryMatchedCategoryObj?.name || 'Category'} Bags & Options ({relatedCategoryItems.length})
+                      </Text>
+                    </View>
+
+                    <View style={[styles.productListContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                      {relatedCategoryItems.map((item) => (
+                        <TouchableOpacity
+                          key={item.id}
+                          onPress={() => handleSelectProductItem(item)}
+                          style={[styles.productSearchRow, { borderBottomColor: theme.borderLight }]}
+                          activeOpacity={0.7}
+                        >
+                          <ShimmerImage
+                            source={{ uri: item.image }}
+                            style={styles.productThumb}
+                            preset="thumbnail"
+                            borderRadius={8}
+                            resizeMode="cover"
+                          />
+                          <View style={styles.productInfoCol}>
+                            <Text style={[styles.productRowTitle, { color: theme.textPrimary }]} numberOfLines={1}>
+                              {item.name}
+                            </Text>
+                            <Text style={[styles.productRowSub, { color: theme.textSecondary }]} numberOfLines={1}>
+                              {item.subtitle || `${(item?.categoryId || 'MATERIALS').toUpperCase()} • Same Category`}
                             </Text>
                             <View style={styles.stockBadgeRow}>
                               <CheckCircle2 size={11} color="#059669" strokeWidth={2.2} />
@@ -522,7 +623,7 @@ export const Header: React.FC<HeaderProps> = ({
                         <TouchableOpacity
                           key={srv.id}
                           onPress={() => {
-                            const serviceMat = MATERIAL_ITEMS.find((m) => m.id === `service-${srv.id}`);
+                            const serviceMat = activeMaterials.find((m) => m.id === `service-${srv.id}`);
                             if (serviceMat && onSelectItemModal) {
                               handleCloseSearch();
                               onSelectItemModal(serviceMat);
@@ -636,18 +737,75 @@ export const Header: React.FC<HeaderProps> = ({
 const styles = StyleSheet.create({
   headerContainer: {
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 10,
     paddingBottom: 10,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: '#F1F5F9',
   },
-  locationRow: {
+  topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 10,
-    gap: 8,
+    marginBottom: 8,
+    gap: 10,
+  },
+  brandLocationGroup: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  brandLogoTouch: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  locationInfoGroup: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  brandTitle: {
+    fontSize: 13.5,
+    fontWeight: '900',
+    color: '#0F172A',
+    letterSpacing: 0.5,
+  },
+  expressBadge: {
+    backgroundColor: 'rgba(5, 150, 105, 0.1)',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  expressBadgeText: {
+    fontSize: 8.5,
+    fontWeight: '800',
+    color: '#059669',
+    letterSpacing: 0.5,
+  },
+  locationAddressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 1,
+  },
+  locationDeliverLabel: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#94A3B8',
+    letterSpacing: 0.4,
+    lineHeight: 12,
+  },
+  locationAddressText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0F172A',
+    letterSpacing: -0.2,
+    flexShrink: 1,
   },
   topRightActions: {
     flexDirection: 'row',
@@ -657,12 +815,12 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   notificationButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F4F4F5',
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -670,81 +828,33 @@ const styles = StyleSheet.create({
   notificationDot: {
     position: 'absolute',
     top: 7,
-    right: 8,
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: '#0284C7',
+    right: 7,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#EF4444',
     borderWidth: 1.5,
     borderColor: '#FFFFFF',
   },
-  brandContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  locationButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
-    minHeight: 38,
-    marginHorizontal: 4,
-  },
-  locationPinBox: {
-    width: 26,
-    height: 26,
-    borderRadius: 8,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  locationTextWrapper: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  locationDeliverLabel: {
-    fontSize: 8.5,
-    fontWeight: '800',
-    color: '#64748B',
-    letterSpacing: 0.6,
-    lineHeight: 11,
-    textTransform: 'uppercase',
-  },
-  locationNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  locationText: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#0F172A',
-    letterSpacing: -0.2,
-    lineHeight: 16,
-    flexShrink: 1,
-  },
 
-  /* Search Trigger Bar (Nike/Adidas look) */
+  /* Search Trigger Bar (Modern Minimalist Pill) */
   searchBarTrigger: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#F4F4F5',
-    borderRadius: 999,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 9,
+    minHeight: 40,
   },
   searchPlaceholderText: {
     flex: 1,
     fontSize: 13,
-    color: '#707072',
-    fontWeight: '500',
+    color: '#94A3B8',
+    fontWeight: '400',
   },
   triggerClearBtn: {
     padding: 2,

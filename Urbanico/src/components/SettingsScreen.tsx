@@ -17,7 +17,6 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage } from '../context/LanguageContext';
-import { useToast } from '../context/ToastContext';
 import { LanguagePromptModal } from './LanguagePromptModal';
 
 interface SettingsScreenProps {
@@ -35,7 +34,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
 }) => {
   const { themeMode, setThemeMode } = useTheme();
   const { languageOptions, currentLanguageOption, t } = useLanguage();
-  const { showToast } = useToast();
 
   const [isLangModalOpen, setIsLangModalOpen] = useState(false);
 
@@ -65,8 +63,7 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
           isOpen={isLangModalOpen}
           onClose={() => setIsLangModalOpen(false)}
           onConfirm={(langCode) => {
-            const opt = languageOptions.find((l) => l.code === langCode);
-            if (opt) showToast(`Language changed to ${opt.nativeName}`, 'info');
+            // Language updated directly by context
           }}
         />
 
@@ -115,7 +112,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               onValueChange={(val) => {
                 const nextMode = val ? 'dark' : 'light';
                 setThemeMode(nextMode);
-                showToast(val ? 'Dark Mode Active' : 'Light Mode Active', 'info');
               }}
               trackColor={{ false: '#E5E7EB', true: '#111111' }}
               thumbColor="#FFFFFF"
@@ -134,7 +130,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({
               onValueChange={(val) => {
                 const nextMode = val ? 'grid' : 'list';
                 if (onViewModeChange) onViewModeChange(nextMode);
-                showToast(val ? '2-Column Grid Active' : 'List View Active', 'info');
               }}
               trackColor={{ false: '#E5E7EB', true: '#111111' }}
               thumbColor="#FFFFFF"

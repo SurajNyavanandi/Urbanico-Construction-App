@@ -22,7 +22,6 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage, LanguageCode } from '../context/LanguageContext';
-import { useToast } from '../context/ToastContext';
 
 interface SettingsModalProps {
   visible: boolean;
@@ -40,14 +39,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 }) => {
   const { theme, themeMode, setThemeMode } = useTheme();
   const { language, setLanguage, languageOptions, currentLanguageOption, t } = useLanguage();
-  const { showToast } = useToast();
 
   const [activeSubView, setActiveSubView] = useState<'main' | 'language'>('main');
 
   const handleSelectLanguage = (code: LanguageCode) => {
     setLanguage(code);
-    const opt = languageOptions.find((l) => l.code === code);
-    if (opt) showToast(`Language changed to ${opt.nativeName}`, 'info');
     setActiveSubView('main');
   };
 
@@ -213,7 +209,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onValueChange={(val) => {
                       const nextMode = val ? 'dark' : 'light';
                       setThemeMode(nextMode);
-                      showToast(val ? 'Dark mode enabled' : 'Light mode enabled', 'info');
                     }}
                     trackColor={{ false: '#E4E4E7', true: '#111111' }}
                     thumbColor="#FFFFFF"
@@ -236,7 +231,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     onValueChange={(val) => {
                       const nextMode = val ? 'grid' : 'list';
                       if (onViewModeChange) onViewModeChange(nextMode);
-                      showToast(val ? '2-Column Grid layout active' : 'List view active', 'info');
                     }}
                     trackColor={{ false: '#E4E4E7', true: '#111111' }}
                     thumbColor="#FFFFFF"

@@ -13,6 +13,9 @@ export interface ShopScreenProps {
   viewMode?: 'list' | 'grid';
   onViewModeChange?: (mode: 'list' | 'grid') => void;
   onBack?: () => void;
+  materials?: MaterialItem[];
+  categories?: any[];
+  services?: any[];
 }
 
 export const ShopScreen: React.FC<ShopScreenProps> = ({
@@ -26,6 +29,9 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({
   viewMode = 'grid',
   onViewModeChange,
   onBack,
+  materials,
+  categories,
+  services,
 }) => {
   return (
     <CategoryDetailScreen
@@ -43,6 +49,9 @@ export const ShopScreen: React.FC<ShopScreenProps> = ({
       viewMode={viewMode}
       onViewModeChange={onViewModeChange}
       onBack={onBack}
+      materials={materials}
+      categories={categories}
+      services={services}
     />
   );
 };

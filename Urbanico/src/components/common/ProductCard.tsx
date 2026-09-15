@@ -13,9 +13,9 @@ import { MaterialItem } from '../../types';
 import { ShimmerImage } from './ShimmerImage';
 import { useTheme } from '../../context/ThemeContext';
 import { parseSanitizedPrice, formatInr } from '../../utils/priceHelper';
-import { useToast } from '../../context/ToastContext';
 import { soundService } from '../../utils/soundHelper';
 import { getHighlightedSegments } from '../../services/searchService';
+import { useClipboard } from '../../hooks';
 
 export interface ProductCardProps {
   item?: MaterialItem;
@@ -54,7 +54,6 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   searchQuery = '',
 }) => {
   const { theme } = useTheme();
-  const { showToast } = useToast();
   const lastClickTimeRef = React.useRef<number>(0);
 
   // Micro-interaction animation references (Animations 1, 2, 4)
@@ -140,15 +139,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     }
   };
 
-  const handleShareProduct = (e: any) => {
+  const { copy } = useClipboard();
+
+  const handleShareProduct = async (e: any) => {
     e.stopPropagation?.();
     const itemName = title || item?.name || 'Urbanico Material';
     const shareText = `Check out ${itemName} on Urbanico Direct Yard Supplies: High-Grade Tested Construction Materials.`;
     if (typeof navigator !== 'undefined' && navigator.share) {
       navigator.share({ title: itemName, text: shareText }).catch(() => {});
-    } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(shareText).catch(() => {});
-      showToast('Product details copied for sharing', 'info');
+    } else {
+      await copy(shareText);
     }
   };
 
@@ -246,7 +246,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             <Text style={[styles.productSubtitle, { color: theme.textSecondary }]} numberOfLines={1}>
               {displaySubtitle}
             </Text>
-            <Text style={[styles.productPrice, { color: theme.textPrimary }]} numberOfLines={1}>
+            <Text style={[styles.productPriceList, { color: theme.textPrimary }]} numberOfLines={1}>
               {displayPrice}
             </Text>
           </View>
@@ -357,9 +357,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </Text>
 
           <View style={[styles.cardFooter, { borderTopColor: theme.borderLight }]}>
-            <Text style={[styles.productPrice, { color: theme.textPrimary }]} numberOfLines={1}>
-              {displayPrice}
-            </Text>
+            <View style={styles.priceContainer}>
+              <Text style={[styles.productPrice, { color: theme.textPrimary }]} numberOfLines={1}>
+                {displayPrice}
+              </Text>
+            </View>
             {showAddButton && (
               <TouchableOpacity
                 onPress={handleAddPress}
@@ -386,11 +388,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     overflow: 'hidden',
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.03)',
+      },
+      default: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        elevation: 3,
+      },
+    }),
   },
   defaultGridWidth: {
     width: '48%',
@@ -466,12 +475,19 @@ const styles = StyleSheet.create({
     paddingTop: 6,
     borderTopWidth: StyleSheet.hairlineWidth,
   },
+  priceContainer: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
+  },
   productPrice: {
     fontSize: 13.5,
     fontWeight: '700',
-    flex: 1,
-    minWidth: 0,
-    marginRight: 4,
+  },
+  productPriceList: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 3,
   },
   addPill: {
     flexDirection: 'row',
@@ -494,11 +510,18 @@ const styles = StyleSheet.create({
     padding: 8,
     marginBottom: 10,
     gap: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 1,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03)',
+      },
+      default: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 6,
+        elevation: 2,
+      },
+    }),
   },
   listInnerPressable: {
     flex: 1,

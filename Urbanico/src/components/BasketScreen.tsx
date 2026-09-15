@@ -25,7 +25,6 @@ import {
   Bookmark,
   BookmarkCheck,
   AlertTriangle,
-  Scale,
   Sparkles,
   ChevronRight,
   ChevronDown,
@@ -69,11 +68,10 @@ import {
   evaluateSmartVehicleRecommendation,
   PINCODE_REGISTRY,
 } from '../utils/freightCalculator';
-import { validateGSTIN, GstinValidationResult, SAMPLE_VALID_GSTINS } from '../utils/gstinValidator';
+import { validateGSTIN, GstinValidationResult } from '../utils/gstinValidator';
 import { buildTaxInvoiceData, sendTaxInvoiceEmail } from '../utils/invoiceHelper';
 import { openProformaQuotationPrint } from '../utils/proformaQuotationHelper';
 import { LiveDispatcherChatModal } from './common/LiveDispatcherChatModal';
-import { WeighbridgeScanModal } from './common/WeighbridgeScanModal';
 import { SupervisorHandoffModal } from './common/SupervisorHandoffModal';
 
 interface BasketScreenProps {
@@ -181,14 +179,13 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     const interval = setInterval(() => {
       setReservationSeconds((prev) => {
         if (prev <= 1) {
-          showToast('Inventory reservation session renewed for 10 minutes.', 'info');
           return 600;
         }
         return prev - 1;
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [cartItems.length, showToast]);
+  }, [cartItems.length]);
 
   const formatTimer = (secs: number) => {
     const m = Math.floor(secs / 60);
@@ -200,11 +197,10 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [couponDiscount, setCouponDiscount] = useState<number>(0);
   const [promoInput, setPromoInput] = useState('');
-  const [showCouponModal, setShowCouponModal] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
 
-  // Modals for live dispatcher, OCR weighbridge, supervisor handoff
+  // Modals for live dispatcher, supervisor handoff
   const [showDispatcherChat, setShowDispatcherChat] = useState(false);
-  const [showWeighbridgeScan, setShowWeighbridgeScan] = useState(false);
   const [showSupervisorModal, setShowSupervisorModal] = useState(false);
   const [activeSupervisor, setActiveSupervisor] = useState({
     name: user?.name || 'Site Incharge',
@@ -232,14 +228,26 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
   // B2B GSTIN input for Tax Invoicing & 18% Input Tax Credit
-  const [isB2BOpted, setIsB2BOpted] = useState(Boolean(user?.gstin));
+  const hasProfileGstin = Boolean(user?.gstin && user.gstin.trim().length === 15);
+  const [isB2BOpted, setIsB2BOpted] = useState(hasProfileGstin);
   const [checkoutGstin, setCheckoutGstin] = useState(user?.gstin || '');
   const [checkoutBusinessName, setCheckoutBusinessName] = useState(user?.companyName || '');
   const [checkoutInvoiceEmail, setCheckoutInvoiceEmail] = useState(user?.email || '');
+  const [isEditingCustomGstin, setIsEditingCustomGstin] = useState(false);
   const [gstinValidation, setGstinValidation] = useState<GstinValidationResult | null>(() => {
     return user?.gstin ? validateGSTIN(user.gstin) : null;
   });
   const [gstinError, setGstinError] = useState<string | null>(null);
+
+  // Synchronize if user profile updates
+  useEffect(() => {
+    if (user?.gstin && user.gstin.trim().length === 15) {
+      setCheckoutGstin(user.gstin.trim().toUpperCase());
+      setIsB2BOpted(true);
+      setGstinValidation(validateGSTIN(user.gstin.trim()));
+      setGstinError(null);
+    }
+  }, [user?.gstin]);
 
   const handleGstinInputChange = (text: string) => {
     const clean = text.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15);
@@ -265,27 +273,103 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     }
   };
 
-  const handleSelectSampleGstin = (sample: (typeof SAMPLE_VALID_GSTINS)[0]) => {
-    setCheckoutGstin(sample.gstin);
-    setCheckoutBusinessName(sample.tradeName);
-    const res = validateGSTIN(sample.gstin);
-    setGstinValidation(res);
-    setGstinError(null);
-    showToast(`Applied ${sample.tradeName} GSTIN (${sample.state})`, 'success');
-  };
-
   const renderB2BGstinCard = (isModalView: boolean = false) => {
+    // If user has a saved GSTIN in their profile, show minimal saved-state view unless they explicitly choose to change it
+    if (hasProfileGstin && !isEditingCustomGstin) {
+      return (
+        <View
+          style={[
+            styles.laborAssistanceCard,
+            {
+              backgroundColor: isB2BOpted
+                ? (theme.mode === 'dark' ? '#064E3B20' : '#ECFDF5')
+                : (isModalView ? theme.surfaceSecondary : theme.surface),
+              borderColor: isB2BOpted ? '#10B981' : theme.border,
+              marginTop: isModalView ? 8 : 4,
+              marginBottom: isModalView ? 8 : 10,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              borderRadius: 12,
+            },
+          ]}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={() => {
+                soundService.playTap();
+                setIsB2BOpted(!isB2BOpted);
+              }}
+              style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 10, marginRight: 8 }}
+            >
+              <View
+                style={[
+                  styles.laborCheckboxCircle,
+                  {
+                    backgroundColor: isB2BOpted ? '#10B981' : 'transparent',
+                    borderColor: isB2BOpted ? '#10B981' : theme.textMuted,
+                  },
+                ]}
+              >
+                {isB2BOpted ? <Check size={12} color="#FFFFFF" strokeWidth={3} /> : null}
+              </View>
+
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary }}>
+                    GSTIN: <Text style={{ fontFamily: typography.fontFamilyMono || 'monospace', color: isB2BOpted ? '#059669' : theme.textPrimary }}>{user?.gstin}</Text>
+                  </Text>
+                  {isB2BOpted && (
+                    <View style={{ backgroundColor: '#D1FAE5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                      <Text style={{ fontSize: 10, fontWeight: '700', color: '#065F46' }}>Profile Saved</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={{ fontSize: 11, color: theme.textSecondary, marginTop: 1 }} numberOfLines={1}>
+                  {isB2BOpted ? 'Using Profile GSTIN • 18% Tax Invoice' : 'Tap to apply GSTIN for tax invoice'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {isB2BOpted && (
+              <TouchableOpacity
+                onPress={() => {
+                  soundService.playTap();
+                  setIsEditingCustomGstin(true);
+                }}
+                style={{
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  borderRadius: 6,
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                  backgroundColor: theme.mode === 'dark' ? '#1E293B' : '#F8FAFC',
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={{ fontSize: 11, fontWeight: '600', color: theme.primary }}>Change</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      );
+    }
+
+    // Otherwise (or when customer tapped Change): Minimalist 15-digit GSTIN input
     return (
       <View
         style={[
           styles.laborAssistanceCard,
           {
             backgroundColor: isB2BOpted
-              ? (theme.mode === 'dark' ? '#064E3B' : '#ECFDF5')
+              ? (theme.mode === 'dark' ? '#064E3B20' : '#ECFDF5')
               : (isModalView ? theme.surfaceSecondary : theme.surface),
             borderColor: isB2BOpted ? '#10B981' : theme.border,
             marginTop: isModalView ? 8 : 4,
             marginBottom: isModalView ? 8 : 10,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            borderRadius: 12,
           },
         ]}
       >
@@ -295,9 +379,9 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
             soundService.playTap();
             setIsB2BOpted(!isB2BOpted);
           }}
-          style={styles.laborAssistanceTopRow}
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
         >
-          <View style={styles.laborAssistanceLeft}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, marginRight: 8 }}>
             <View
               style={[
                 styles.laborCheckboxCircle,
@@ -307,11 +391,12 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                 },
               ]}
             >
-              {isB2BOpted ? <Check size={13} color="#FFFFFF" strokeWidth={3} /> : null}
+              {isB2BOpted ? <Check size={12} color="#FFFFFF" strokeWidth={3} /> : null}
             </View>
-            <View style={{ flex: 1, minWidth: 0, marginRight: 6 }}>
-              <View style={styles.laborTitleWithBadgeRow}>
-                <Text style={[styles.laborAssistanceTitle, { color: theme.textPrimary }]} numberOfLines={1}>
+
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary }}>
                   Business GSTIN
                 </Text>
                 <View
@@ -325,160 +410,86 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                       styles.laborBadgePillText,
                       { color: isB2BOpted ? '#065F46' : '#475569' },
                     ]}
-                    numberOfLines={1}
                   >
                     Optional
                   </Text>
                 </View>
               </View>
-              <Text style={[styles.laborAssistanceSub, { color: theme.textSecondary }]} numberOfLines={1}>
+              <Text style={{ fontSize: 11, color: theme.textSecondary, marginTop: 1 }} numberOfLines={1}>
                 {isB2BOpted && gstinValidation?.isValid
-                  ? `${gstinValidation.stateName} (${gstinValidation.stateCode}) • ${checkoutBusinessName || 'Verified GST'}`
-                  : 'Add 15-digit GSTIN for company tax invoice'}
+                  ? `✓ Valid (${gstinValidation.stateName}) • 18% Tax Invoice`
+                  : 'Enter 15-digit GSTIN for company billing'}
               </Text>
             </View>
           </View>
-          <View style={styles.laborPriceBox}>
-            <Text
-              style={[
-                styles.laborPriceText,
-                { color: isB2BOpted ? '#059669' : theme.textPrimary },
-              ]}
-              numberOfLines={1}
+
+          {hasProfileGstin && isEditingCustomGstin && (
+            <TouchableOpacity
+              onPress={() => {
+                soundService.playTap();
+                setIsEditingCustomGstin(false);
+                setCheckoutGstin(user?.gstin || '');
+                setGstinValidation(user?.gstin ? validateGSTIN(user.gstin) : null);
+                setGstinError(null);
+              }}
+              style={{
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                borderRadius: 6,
+                borderWidth: 1,
+                borderColor: theme.border,
+                backgroundColor: theme.mode === 'dark' ? '#1E293B' : '#F8FAFC',
+              }}
+              activeOpacity={0.7}
             >
-              {isB2BOpted ? (gstinValidation?.isValid ? '✔ Valid' : 'Added') : 'Free'}
-            </Text>
-            <Text
-              style={[
-                styles.laborStatusTag,
-                { color: isB2BOpted ? '#059669' : theme.textMuted },
-              ]}
-              numberOfLines={1}
-            >
-              {isB2BOpted ? 'Tax Invoice' : 'Tap to Add'}
-            </Text>
-          </View>
+              <Text style={{ fontSize: 11, fontWeight: '600', color: theme.primary }}>Use Profile</Text>
+            </TouchableOpacity>
+          )}
         </TouchableOpacity>
 
         {isB2BOpted && (
-          <View
-            style={{
-              marginTop: 10,
-              paddingTop: 10,
-              borderTopWidth: 1,
-              borderTopColor: isB2BOpted ? (theme.mode === 'dark' ? '#065F46' : '#D1FAE5') : theme.borderLight,
-              gap: 8,
-            }}
-          >
-            {/* GSTIN Input with Inline Verification */}
-            <View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
-                <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textSecondary }}>
-                  15-Digit GST Number *
-                </Text>
-                {checkoutGstin.length > 0 && (
-                  <Text
-                    style={{
-                      fontSize: 10,
-                      fontWeight: '700',
-                      color: gstinValidation?.isValid ? '#059669' : '#EF4444',
-                    }}
-                  >
-                    {gstinValidation?.isValid ? `✔ ${gstinValidation.stateName}` : `${checkoutGstin.length}/15`}
-                  </Text>
-                )}
-              </View>
-              <TextInput
-                value={checkoutGstin}
-                onChangeText={handleGstinInputChange}
-                placeholder="e.g. 36AAACU9812A1Z4"
-                placeholderTextColor={theme.textMuted}
-                maxLength={15}
-                autoCapitalize="characters"
-                autoCorrect={false}
-                style={[
-                  styles.formTextInput,
-                  {
-                    height: 38,
-                    backgroundColor: theme.mode === 'dark' ? '#0F172A' : '#FFFFFF',
-                    borderColor: gstinError
-                      ? '#EF4444'
-                      : gstinValidation?.isValid
-                      ? '#10B981'
-                      : theme.border,
-                    color: theme.textPrimary,
-                    fontFamily: typography.fontFamilyMono || 'monospace',
-                    letterSpacing: 1.2,
-                    fontWeight: '700',
-                    fontSize: 12.5,
-                    paddingHorizontal: 10,
-                  },
-                ]}
-              />
-              {gstinError ? (
-                <Text style={{ fontSize: 10, color: '#EF4444', marginTop: 2, fontWeight: '600' }}>
-                  {gstinError}
-                </Text>
-              ) : null}
-            </View>
-
-            {/* Compact Business Name Input */}
-            <View>
-              <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 3 }}>
-                Company / Legal Name (Optional)
+          <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: theme.borderLight }}>
+            <TextInput
+              value={checkoutGstin}
+              onChangeText={handleGstinInputChange}
+              placeholder="Enter 15-digit GSTIN (e.g. 36AAACU9812A1Z4)"
+              placeholderTextColor={theme.textMuted}
+              maxLength={15}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              style={[
+                styles.formTextInput,
+                {
+                  height: 38,
+                  backgroundColor: theme.mode === 'dark' ? '#0F172A' : '#FFFFFF',
+                  borderColor: gstinError
+                    ? '#EF4444'
+                    : gstinValidation?.isValid
+                    ? '#10B981'
+                    : theme.border,
+                  color: theme.textPrimary,
+                  fontFamily: typography.fontFamilyMono || 'monospace',
+                  letterSpacing: 1.1,
+                  fontWeight: '700',
+                  fontSize: 12.5,
+                  paddingHorizontal: 10,
+                  borderRadius: 8,
+                },
+              ]}
+            />
+            {gstinError ? (
+              <Text style={{ fontSize: 11, color: '#EF4444', marginTop: 4, fontWeight: '600' }}>
+                ⚠️ {gstinError}
               </Text>
-              <TextInput
-                value={checkoutBusinessName}
-                onChangeText={setCheckoutBusinessName}
-                placeholder="e.g. Urbanico Infra Pvt Ltd"
-                placeholderTextColor={theme.textMuted}
-                style={[
-                  styles.formTextInput,
-                  {
-                    height: 36,
-                    backgroundColor: theme.mode === 'dark' ? '#0F172A' : '#FFFFFF',
-                    borderColor: theme.border,
-                    color: theme.textPrimary,
-                    fontSize: 12,
-                    paddingHorizontal: 10,
-                  },
-                ]}
-              />
-            </View>
-
-            {/* Quick Sample GSTIN Chips */}
-            <View style={{ marginTop: 2 }}>
-              <Text style={{ fontSize: 10, color: theme.textMuted, marginBottom: 3 }}>
-                Quick Test Samples:
+            ) : gstinValidation?.isValid ? (
+              <Text style={{ fontSize: 11, color: '#059669', marginTop: 4, fontWeight: '600' }}>
+                ✓ Valid GSTIN ({gstinValidation.stateName}) • 18% Input Tax Credit
               </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
-                {SAMPLE_VALID_GSTINS.map((s) => (
-                  <TouchableOpacity
-                    key={s.gstin}
-                    onPress={() => handleSelectSampleGstin(s)}
-                    style={{
-                      paddingHorizontal: 8,
-                      paddingVertical: 3,
-                      borderRadius: 6,
-                      borderWidth: 1,
-                      backgroundColor: checkoutGstin === s.gstin ? '#D1FAE5' : (theme.mode === 'dark' ? '#0F172A' : '#FFFFFF'),
-                      borderColor: checkoutGstin === s.gstin ? '#10B981' : theme.border,
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 10.5,
-                        fontWeight: '600',
-                        color: checkoutGstin === s.gstin ? '#065F46' : theme.textSecondary,
-                      }}
-                    >
-                      {s.tradeName || s.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
+            ) : checkoutGstin.length > 0 ? (
+              <Text style={{ fontSize: 11, color: theme.textMuted, marginTop: 4 }}>
+                {15 - checkoutGstin.length} characters remaining
+              </Text>
+            ) : null}
           </View>
         )}
       </View>
@@ -491,42 +502,118 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
         style={[
           styles.couponCard,
           {
-            backgroundColor: isModalView ? theme.surfaceSecondary : theme.surface,
-            borderColor: theme.border,
-            marginTop: isModalView ? 8 : 0,
-            marginBottom: isModalView ? 8 : 0,
+            backgroundColor: appliedCoupon
+              ? (theme.mode === 'dark' ? '#064E3B20' : '#ECFDF5')
+              : (isModalView ? theme.surfaceSecondary : theme.surface),
+            borderColor: appliedCoupon ? '#10B981' : (couponError ? '#EF4444' : theme.border),
+            marginTop: isModalView ? 8 : 4,
+            marginBottom: isModalView ? 8 : 10,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            borderRadius: 12,
           },
         ]}
       >
         {appliedCoupon ? (
-          <View style={styles.appliedCouponRow}>
-            <View style={styles.appliedCouponLeft}>
-              <Tag size={15} color="#16A34A" />
-              <View>
-                <Text style={styles.appliedCodeText}>{appliedCoupon} Applied</Text>
-                <Text style={[styles.appliedDesc, { color: theme.textSecondary }]}>
-                  Contractor discount: ₹{couponDiscount.toLocaleString('en-IN')}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center' }}>
+                <Check size={13} color="#16A34A" strokeWidth={2.5} />
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary }} numberOfLines={1}>
+                    {appliedCoupon}
+                  </Text>
+                  <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: 4 }}>
+                    <Text style={{ fontSize: 9.5, fontWeight: '700', color: '#15803D' }}>VALID</Text>
+                  </View>
+                </View>
+                <Text style={{ fontSize: 11, color: '#16A34A', fontWeight: '600', marginTop: 1 }} numberOfLines={1}>
+                  ₹{couponDiscount.toLocaleString('en-IN')} discount applied
                 </Text>
               </View>
             </View>
-            <TouchableOpacity onPress={handleRemoveCoupon} style={styles.removeCouponBtn}>
-              <X size={16} color={theme.textSecondary} />
+            <TouchableOpacity
+              onPress={handleRemoveCoupon}
+              style={{ padding: 6, borderRadius: 6, backgroundColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.08)' : '#F1F5F9' }}
+              activeOpacity={0.7}
+              accessibilityLabel="Remove coupon"
+            >
+              <X size={14} color={theme.textSecondary} />
             </TouchableOpacity>
           </View>
         ) : (
-          <TouchableOpacity
-            onPress={() => setShowCouponModal(true)}
-            style={styles.openCouponBtn}
-            activeOpacity={0.7}
-          >
-            <View style={styles.openCouponLeft}>
-              <Tag size={15} color="#0284C7" />
-              <Text style={[styles.openCouponText, { color: theme.textPrimary }]} numberOfLines={1}>
-                Apply Contractor Promo / Coupon Code
-              </Text>
+          <View style={{ gap: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Tag size={13} color={theme.textSecondary} />
+                <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textPrimary }}>
+                  Apply Coupon
+                </Text>
+              </View>
+              {couponError ? (
+                <Text style={{ fontSize: 10.5, fontWeight: '700', color: '#EF4444' }}>
+                  Invalid
+                </Text>
+              ) : null}
             </View>
-            <ChevronRight size={16} color={theme.textSecondary} />
-          </TouchableOpacity>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 }}>
+              <TextInput
+                value={promoInput}
+                onChangeText={(val) => {
+                  setPromoInput(val.toUpperCase());
+                  if (couponError) setCouponError(null);
+                }}
+                placeholder="Enter coupon code"
+                placeholderTextColor={theme.textSecondary}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                style={{
+                  flex: 1,
+                  height: 36,
+                  borderWidth: 1,
+                  borderColor: couponError ? '#EF4444' : theme.border,
+                  backgroundColor: theme.mode === 'dark' ? '#1E293B' : '#F8FAFC',
+                  borderRadius: 8,
+                  paddingHorizontal: 10,
+                  fontSize: 12,
+                  fontFamily: typography.fontFamilyMono || 'monospace',
+                  color: theme.textPrimary,
+                }}
+              />
+              <TouchableOpacity
+                onPress={() => handleApplyCoupon(promoInput)}
+                style={{
+                  height: 36,
+                  paddingHorizontal: 14,
+                  borderRadius: 8,
+                  backgroundColor: promoInput.trim() ? '#111111' : (theme.mode === 'dark' ? '#334155' : '#E2E8F0'),
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                disabled={!promoInput.trim()}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: '700',
+                    color: promoInput.trim() ? '#FFFFFF' : theme.textMuted,
+                  }}
+                >
+                  Apply
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {couponError && (
+              <Text style={{ fontSize: 10.5, color: '#EF4444', marginTop: 1 }}>
+                ⚠️ Invalid coupon code
+              </Text>
+            )}
+          </View>
         )}
       </View>
     );
@@ -566,8 +653,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     setRefreshing(true);
     setTimeout(() => {
       setRefreshing(false);
-      showToast('Cart and live delivery status refreshed', 'info');
-    }, 800);
+    }, 600);
   };
 
   const handleSaveForLater = (item: CartItem) => {
@@ -578,7 +664,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       safeStorage.setItem('urbanico_saved_for_later', JSON.stringify(updated));
       syncManager.broadcast('SAVED_FOR_LATER_UPDATED', updated);
     } catch {}
-    showToast(`Saved "${item.itemName}" for later`, 'info');
   };
 
   const handleMoveToCart = (item: CartItem) => {
@@ -604,7 +689,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       safeStorage.setItem('urbanico_saved_for_later', JSON.stringify(updated));
       syncManager.broadcast('SAVED_FOR_LATER_UPDATED', updated);
     } catch {}
-    showToast('Removed item from saved list', 'info');
   };
 
   // Saved Delivery Addresses list (E-commerce Flipkart / Amazon style)
@@ -694,10 +778,8 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       return;
     }
 
-    setShowCouponModal(false);
     setShowSupervisorModal(false);
     setShowDispatcherChat(false);
-    setShowWeighbridgeScan(false);
     setPaymentError(null);
     setSelectedCheckoutAddress(activeLocation);
     setIsAddingNewAddress(false);
@@ -708,20 +790,16 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
 
   const handleConfirmAddressAndProceedToPay = () => {
     if (isB2BOpted) {
-      if (!checkoutGstin.trim()) {
-        setGstinError('Please enter a 15-character GSTIN or uncheck B2B mode');
-        showToast('Please enter your 15-character GSTIN or turn off B2B mode', 'error');
+      const activeGstin = checkoutGstin.trim() || (user?.gstin || '').trim();
+      if (!activeGstin) {
+        setGstinError('Please enter a valid 15-digit GSTIN or uncheck GSTIN');
+        showToast('Please enter your 15-digit GSTIN or uncheck GSTIN', 'error');
         return;
       }
-      const validation = validateGSTIN(checkoutGstin);
+      const validation = validateGSTIN(activeGstin);
       if (!validation.isValid) {
         setGstinError(validation.errorMessage || 'Invalid GST number');
-        showToast(validation.errorMessage || 'Only valid GST numbers are accepted for tax invoices', 'error');
-        return;
-      }
-      const email = checkoutInvoiceEmail.trim() || user?.email || '';
-      if (!email || !email.includes('@')) {
-        showToast('Please provide a valid email address to receive your tax invoice', 'error');
+        showToast(validation.errorMessage || 'Please enter a valid 15-digit GSTIN', 'error');
         return;
       }
     }
@@ -738,46 +816,53 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
 
   const handleApplyCoupon = (code: string) => {
     const clean = code.trim().toUpperCase();
-    if (!clean) return;
+    if (!clean) {
+      setCouponError('Please enter a coupon code');
+      showToast('Please enter a coupon code', 'error');
+      return;
+    }
 
-    if (clean === 'BUILD10') {
-      if (subtotal < 3000) {
-        showToast('BUILD10 requires minimum order of ₹3,000', 'error');
-        return;
-      }
-      const disc = Math.min(2500, Math.round(subtotal * 0.1));
+    if (clean === 'BUILD10' || clean === 'SAVE10' || clean === 'DISCOUNT10' || clean === 'URBAN10') {
+      const disc = Math.min(2500, Math.max(100, Math.round(subtotal * 0.1)));
       setAppliedCoupon(clean);
       setCouponDiscount(disc);
-      setShowCouponModal(false);
-      showToast(`Coupon ${clean} applied! Saved ₹${disc.toLocaleString('en-IN')}`, 'success');
-    } else if (clean === 'URBAN500') {
-      if (subtotal < 5000) {
-        showToast('URBAN500 requires minimum order of ₹5,000', 'error');
-        return;
-      }
+      setCouponError(null);
+      showToast(`Coupon applied! Saved ₹${disc.toLocaleString('en-IN')}`, 'success');
+    } else if (clean === 'URBAN500' || clean === 'SUPER500' || clean === 'SITE500') {
+      const disc = Math.min(subtotal, 500);
       setAppliedCoupon(clean);
-      setCouponDiscount(500);
-      setShowCouponModal(false);
-      showToast('Coupon URBAN500 applied! Saved ₹500', 'success');
-    } else if (clean === 'MEGA2026') {
-      if (subtotal < 20000) {
-        showToast('MEGA2026 requires minimum bulk order of ₹20,000', 'error');
-        return;
-      }
+      setCouponDiscount(disc);
+      setCouponError(null);
+      showToast(`Coupon applied! Saved ₹${disc.toLocaleString('en-IN')}`, 'success');
+    } else if (clean === 'URBAN50' || clean === 'SAVE50') {
+      const disc = Math.min(subtotal, 250);
+      setAppliedCoupon(clean);
+      setCouponDiscount(disc);
+      setCouponError(null);
+      showToast(`Coupon applied! Saved ₹${disc.toLocaleString('en-IN')}`, 'success');
+    } else if (clean === 'MEGA2026' || clean === 'BULK12') {
       const disc = Math.min(5000, Math.round(subtotal * 0.12));
       setAppliedCoupon(clean);
       setCouponDiscount(disc);
-      setShowCouponModal(false);
-      showToast(`Mega coupon applied! Saved ₹${disc.toLocaleString('en-IN')}`, 'success');
+      setCouponError(null);
+      showToast(`Coupon applied! Saved ₹${disc.toLocaleString('en-IN')}`, 'success');
+    } else if (clean === 'URBANICO' || clean === 'WELCOME') {
+      const disc = Math.min(1000, Math.max(150, Math.round(subtotal * 0.1)));
+      setAppliedCoupon(clean);
+      setCouponDiscount(disc);
+      setCouponError(null);
+      showToast(`Coupon applied! Saved ₹${disc.toLocaleString('en-IN')}`, 'success');
     } else {
-      showToast('Invalid or expired contractor coupon code', 'error');
+      setCouponError('Invalid coupon code');
+      showToast('Invalid coupon code', 'error');
     }
   };
 
   const handleRemoveCoupon = () => {
     setAppliedCoupon(null);
     setCouponDiscount(0);
-    showToast('Coupon removed', 'info');
+    setPromoInput('');
+    setCouponError(null);
   };
 
   const handlePlaceOrder = () => {
@@ -787,10 +872,8 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       return;
     }
 
-    setShowCouponModal(false);
     setShowSupervisorModal(false);
     setShowDispatcherChat(false);
-    setShowWeighbridgeScan(false);
     setPaymentError(null);
     setIsPlacingOrder(true);
     setTimeout(() => {
@@ -848,10 +931,12 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
 
     const assignedDriverPhone = 'Central Dispatch Desk';
     const deliveryDestination = formatSiteAddress(selectedCheckoutAddress || activeLocation);
-    const effectiveGstin = (isB2BOpted && checkoutGstin.trim()) ? checkoutGstin.trim().toUpperCase() : (user?.gstin || undefined);
-    const effectiveBusinessName = (isB2BOpted && checkoutBusinessName.trim())
-      ? checkoutBusinessName.trim()
-      : (gstinValidation?.info?.tradeName || user?.companyName || undefined);
+    const effectiveGstin = isB2BOpted
+      ? (checkoutGstin.trim() || (user?.gstin ? user.gstin.trim() : '')).toUpperCase() || undefined
+      : undefined;
+    const effectiveBusinessName = isB2BOpted
+      ? (checkoutBusinessName.trim() || gstinValidation?.info?.tradeName || user?.companyName || undefined)
+      : undefined;
     const effectiveInvoiceEmail = (checkoutInvoiceEmail.trim() || user?.email || 'accounts@urbanico.in');
 
     const newOrder: ActivityDelivery = {
@@ -876,9 +961,8 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       siteSupervisorPhone: activeSupervisor.phone,
       timestamp: `Today, ${formattedTime}`,
       totalAmount: grandTotal,
-      deliveryOtp: String(Math.floor(1000 + Math.random() * 9000)),
+      deliveryOtp: '261125',
       ewayBillNumber: `EWB-TS-2026-${Math.floor(10000000 + Math.random() * 90000000)}`,
-      weighmentSlipId: isHeavyBulk ? `WB-HYD-${Math.floor(1000 + Math.random() * 9000)}` : undefined,
       unloadingCharges: optInLaborAssistance ? unloadingLaborFee : 0,
       laborAssistanceOpted: optInLaborAssistance,
       laborAssistanceDetails: optInLaborAssistance ? smartRecommendation.unloadingAssistance.label : undefined,
@@ -978,9 +1062,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       customerEmail: user?.email || '',
       customerGstin: checkoutGstin.trim() || user?.gstin || undefined,
     });
-    if (success) {
-      showToast('Opening Proforma Quotation PDF for print/save...', 'success');
-    } else {
+    if (!success) {
       showToast('Please enable popups to print/download quotation PDF', 'error');
     }
   };
@@ -1538,16 +1620,16 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                 {activeEnRoute && (
                   <View style={[styles.trackingCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <View style={[styles.trackingCardHeader, { borderBottomColor: theme.borderLight }]}>
-                      <View>
-                        <Text style={[styles.trackingOrderNumber, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
+                      <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
+                        <Text style={[styles.trackingOrderNumber, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]} numberOfLines={1}>
                           Order #{activeEnRoute.orderNumber}
                         </Text>
-                        <Text style={[styles.trackingMaterialName, { color: theme.textSecondary }]}>
+                        <Text style={[styles.trackingMaterialName, { color: theme.textSecondary }]} numberOfLines={1}>
                           {activeEnRoute.materialName}
                         </Text>
                       </View>
                       <View style={[styles.etaPill, { backgroundColor: '#DCFCE7' }]}>
-                        <Text style={[styles.etaPillText, { color: '#15803D' }]}>{activeEnRoute.estimatedArrival}</Text>
+                        <Text style={[styles.etaPillText, { color: '#15803D' }]} numberOfLines={1}>{activeEnRoute.estimatedArrival}</Text>
                       </View>
                     </View>
 
@@ -1568,21 +1650,21 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
 
                     {/* Delivery Meta */}
                     <View style={styles.deliveryMetaRow}>
-                      <View style={styles.deliveryMetaCol}>
+                      <View style={[styles.deliveryMetaCol, { flex: 1, minWidth: 0 }]}>
                         <Text style={[styles.metaLabelText, { color: theme.textSecondary }]}>Driver & Vehicle</Text>
-                        <Text style={[styles.metaValText, { color: theme.textPrimary }]}>
+                        <Text style={[styles.metaValText, { color: theme.textPrimary }]} numberOfLines={1}>
                           {activeEnRoute.driverName} ({activeEnRoute.vehicleNumber})
                         </Text>
                       </View>
-                      <View style={styles.deliveryMetaCol}>
+                      <View style={[styles.deliveryMetaCol, { flex: 1, minWidth: 0 }]}>
                         <Text style={[styles.metaLabelText, { color: theme.textSecondary }]}>Assigned Site Supervisor</Text>
-                        <Text style={[styles.metaValText, { color: theme.textPrimary }]}>
+                        <Text style={[styles.metaValText, { color: theme.textPrimary }]} numberOfLines={1}>
                           {activeSupervisor.name} ({activeSupervisor.phone})
                         </Text>
                       </View>
                     </View>
 
-                    {/* Action Bar (Live Dispatcher Chat + GST Invoice + Cancel) */}
+                    {/* Action Bar (Live Dispatcher Chat + GST Invoice + Cancel Icon) */}
                     <View style={styles.activeActionBar}>
                       <TouchableOpacity
                         onPress={() => setShowDispatcherChat(true)}
@@ -1590,7 +1672,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                         activeOpacity={0.8}
                       >
                         <MessageSquare size={13} color="#FFFFFF" />
-                        <Text style={styles.actionChipBtnText}>Live Dispatch Chat</Text>
+                        <Text style={styles.actionChipBtnText}>Live Dispatch</Text>
                       </TouchableOpacity>
 
                       {onViewInvoice && (
@@ -1604,16 +1686,17 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                         </TouchableOpacity>
                       )}
 
+                      {/* Cancel display - icon only */}
                       <TouchableOpacity
                         onPress={() => {
                           setOrderToCancel(activeEnRoute);
                           setShowCancelConfirmModal(true);
                         }}
-                        style={[styles.actionChipBtn, { backgroundColor: '#FEE2E2', borderColor: '#FCA5A5', borderWidth: 1 }]}
+                        style={[styles.cancelIconButton, { backgroundColor: theme.mode === 'dark' ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2', borderColor: theme.mode === 'dark' ? 'rgba(239, 68, 68, 0.3)' : '#FCA5A5' }]}
                         activeOpacity={0.8}
+                        accessibilityLabel="Cancel dispatch"
                       >
-                        <X size={13} color="#DC2626" />
-                        <Text style={[styles.actionChipBtnText, { color: '#DC2626' }]}>Cancel Dispatch</Text>
+                        <X size={15} color="#DC2626" strokeWidth={2.4} />
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -1636,23 +1719,23 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                           key={del.id ? `${del.id}-${idx}` : (del.orderNumber ? `${del.orderNumber}-${idx}` : `delivery-${idx}`)}
                           style={[styles.deliveryRow, idx > 0 && { borderTopColor: theme.borderLight, borderTopWidth: 1 }]}
                         >
-                          <View style={styles.deliveryLeftInfo}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <View style={[styles.deliveryLeftInfo, { flex: 1, minWidth: 0, marginRight: 10 }]}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                               <Text style={[styles.delMaterialName, { color: theme.textPrimary }]} numberOfLines={1}>
                                 {del.materialName}
                               </Text>
                               {isCancelled && (
-                                <View style={{ backgroundColor: '#FEE2E2', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                                  <Text style={{ fontSize: 10, fontWeight: '700', color: '#DC2626' }}>CANCELLED</Text>
+                                <View style={{ backgroundColor: '#FEE2E2', paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: 4 }}>
+                                  <Text style={{ fontSize: 9.5, fontWeight: '700', color: '#DC2626' }}>CANCELLED</Text>
                                 </View>
                               )}
                             </View>
-                            <Text style={[styles.timestampText, { color: theme.textSecondary }]}>
+                            <Text style={[styles.timestampText, { color: theme.textSecondary }]} numberOfLines={1}>
                               {del.timestamp} • {isCancelled ? 'Refund Issued' : del.vehicleNumber}
                             </Text>
                           </View>
 
-                          <View style={styles.deliveryRightInfo}>
+                          <View style={[styles.deliveryRightInfo, { alignItems: 'flex-end', flexShrink: 0 }]}>
                             <Text style={[styles.delAmountText, { color: theme.textPrimary, textDecorationLine: isCancelled ? 'line-through' : 'none' }]}>
                               ₹{del.totalAmount.toLocaleString('en-IN')}
                             </Text>
@@ -1672,93 +1755,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
             )}
           </View>
         )}
-
-        {/* Contractor Coupon Drawer Modal */}
-        <Modal visible={showCouponModal} transparent animationType="slide" onRequestClose={() => setShowCouponModal(false)}>
-          <View style={styles.modalOverlay}>
-            <Pressable style={styles.modalBackdrop} onPress={() => setShowCouponModal(false)} />
-            <View style={[styles.couponModalCard, { backgroundColor: theme.surface }]}>
-              <View style={[styles.couponModalHeader, { borderBottomColor: theme.border }]}>
-                <Text style={[styles.couponModalTitle, { color: theme.textPrimary }]}>Contractor Coupons & Offers</Text>
-                <TouchableOpacity onPress={() => setShowCouponModal(false)}>
-                  <X size={18} color={theme.textSecondary} />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.couponModalBody}>
-                {/* Promo input */}
-                <View style={styles.promoInputRow}>
-                  <TextInput
-                    value={promoInput}
-                    onChangeText={(val) => setPromoInput(val.toUpperCase())}
-                    placeholder="Enter coupon code (e.g. BUILD10)"
-                    placeholderTextColor={theme.textSecondary}
-                    autoCapitalize="characters"
-                    style={[
-                      styles.promoTextInput,
-                      {
-                        borderColor: theme.border,
-                        backgroundColor: theme.surfaceSecondary,
-                        color: theme.textPrimary,
-                      },
-                    ]}
-                  />
-                  <TouchableOpacity
-                    onPress={() => handleApplyCoupon(promoInput)}
-                    style={styles.promoApplyBtn}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.promoApplyBtnText}>Apply</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Available Offers List */}
-                <View style={styles.offersList}>
-                  {[
-                    {
-                      code: 'BUILD10',
-                      title: '10% Off on Orders Above ₹3,000',
-                      desc: 'Save up to ₹2,500 on all cement and steel bookings.',
-                      minVal: 'Min ₹3,000',
-                    },
-                    {
-                      code: 'URBAN500',
-                      title: 'Flat ₹500 Instant Discount',
-                      desc: 'Applicable on aggregates, M-Sand, and stone chipping dispatches.',
-                      minVal: 'Min ₹5,000',
-                    },
-                    {
-                      code: 'MEGA2026',
-                      title: '12% Bulk Contractor Rebate',
-                      desc: 'Direct quarry bulk voucher for orders exceeding ₹20,000.',
-                      minVal: 'Min ₹20,000',
-                    },
-                  ].map((c, idx) => (
-                    <View
-                      key={`coupon-${c.code}-${idx}`}
-                      style={[styles.offerCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
-                    >
-                      <View style={styles.offerLeft}>
-                        <View style={styles.offerCodeBadge}>
-                          <Text style={styles.offerCodeBadgeText}>{c.code}</Text>
-                        </View>
-                        <Text style={[styles.offerTitle, { color: theme.textPrimary }]}>{c.title}</Text>
-                        <Text style={[styles.offerDesc, { color: theme.textSecondary }]}>{c.desc}</Text>
-                      </View>
-                      <TouchableOpacity
-                        onPress={() => handleApplyCoupon(c.code)}
-                        style={styles.offerApplyBtn}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.offerApplyBtnText}>Apply</Text>
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            </View>
-          </View>
-        </Modal>
 
         {/* Order Checkout: Delivery Address & Order Review Modal (Flipkart / Amazon Style) */}
         <Modal
@@ -2445,7 +2441,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
             onClose={() => {
               setShowRazorpayModal(false);
               setIsPlacingOrder(false);
-              showToast('Payment window closed. Your items are safe in your cart.', 'info');
             }}
             amount={payableAmount}
             userName={user?.name}
@@ -2505,16 +2500,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
             orderNumber={activeEnRoute?.orderNumber}
             driverName={activeEnRoute?.driverName}
             driverPhone={activeEnRoute?.driverPhone}
-          />
-        )}
-
-        {/* Weighbridge Scan Modal */}
-        {showWeighbridgeScan && (
-          <WeighbridgeScanModal
-            visible={showWeighbridgeScan}
-            onClose={() => setShowWeighbridgeScan(false)}
-            orderNumber={activeEnRoute?.orderNumber}
-            expectedTons={totalWeightTons || 10.0}
           />
         )}
 
@@ -2772,64 +2757,6 @@ const styles = StyleSheet.create({
   serviceFixedPillText: {
     fontSize: 12,
     fontWeight: '700',
-  },
-  axleCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 12,
-    gap: 8,
-  },
-  axleCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  axleHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  axleTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  axleWeight: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0284C7',
-  },
-  gaugeTrack: {
-    height: 8,
-    backgroundColor: '#E2E8F0',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  gaugeFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  axleMetaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  axleMetaText: {
-    fontSize: 11,
-  },
-  restrictionNotice: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 6,
-    backgroundColor: '#FEF3C7',
-    padding: 8,
-    borderRadius: 6,
-    marginTop: 2,
-  },
-  restrictionText: {
-    fontSize: 10.5,
-    color: '#92400E',
-    flex: 1,
-    lineHeight: 14,
   },
   couponCard: {
     borderRadius: 12,
@@ -3285,6 +3212,14 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 11,
     fontWeight: '700',
+  },
+  cancelIconButton: {
+    width: 38,
+    height: 34,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   deliveriesList: {
     paddingTop: 4,
@@ -4091,15 +4026,5 @@ const styles = StyleSheet.create({
     color: '#064E3B',
     fontWeight: '600',
     marginTop: 1,
-  },
-  sampleGstinChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  sampleGstinChipText: {
-    fontSize: 10.5,
-    fontWeight: '600',
   },
 });

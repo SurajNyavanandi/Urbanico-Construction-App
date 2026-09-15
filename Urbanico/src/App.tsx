@@ -8,7 +8,7 @@ import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { ToastProvider, useToast } from './context/ToastContext';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
-import { HomeScreen, ProjectBundle } from './components/HomeScreen';
+import { HomeScreen, ProjectBundle, PROJECT_BUNDLES } from './components/HomeScreen';
 import { ItemQuantityModal } from './components/ItemQuantityModal';
 import { SettingsScreen } from './components/SettingsScreen';
 import { AuthScreen } from './components/AuthScreen';
@@ -98,18 +98,15 @@ function MainAppContent() {
   const handleAddLocation = (newLoc: string) => {
     if (!newLoc.trim()) return;
     addLocation(newLoc.trim());
-    showToast(`Saved new delivery address: ${newLoc.trim()}`, 'success');
   };
 
   const handleEditLocation = (oldLoc: string, newLoc: string) => {
     if (!newLoc.trim()) return;
     editLocation(oldLoc, newLoc.trim());
-    showToast('Delivery address updated', 'success');
   };
 
   const handleDeleteLocation = (locToDelete: string) => {
     deleteLocation(locToDelete);
-    showToast('Address removed', 'info');
   };
 
   // Warm up material and catalog images in the background after main thread settles
@@ -268,6 +265,12 @@ function MainAppContent() {
     });
   };
 
+  // Dynamic backend catalogue states
+  const [materials, setMaterials] = useState<MaterialItem[]>(MATERIAL_ITEMS);
+  const [categories, setCategories] = useState<any[]>(CATEGORIES);
+  const [services, setServices] = useState<any[]>(SERVICES);
+  const [bundles, setBundles] = useState<ProjectBundle[]>(PROJECT_BUNDLES);
+
   // Favorites State (persisted per user or guest session)
   const [favoriteIds, setFavoriteIds] = useState<string[]>(() => {
     try {
@@ -277,7 +280,6 @@ function MainAppContent() {
       const key = isAuth && phone ? `urbanico_favorite_ids_${phone}` : 'urbanico_favorite_ids_guest';
       const favSaved = safeStorage.getItem(key) || safeStorage.getItem('urbanico_favorite_ids');
       if (favSaved) return JSON.parse(favSaved);
-      if (isAuth) return ['plastering-sand', 'stone-20mm'];
     } catch {
       // ignore
     }
@@ -344,7 +346,6 @@ function MainAppContent() {
     try {
       safeStorage.removeItem('urbanico_recent_searches');
     } catch {}
-    showToast('Recent searches cleared', 'info');
   };
 
   const handleRemoveRecentSearch = (queryStr: string) => {
@@ -355,8 +356,45 @@ function MainAppContent() {
       } catch {}
       return updated;
     });
-    showToast(`Removed "${queryStr}" from search history`, 'info');
   };
+
+  // Sync dynamic catalog data from backend on mount
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadCatalogData() {
+      try {
+        const [mats, cats, servs, bunds] = await Promise.all([
+          apiService.getMaterials().catch(() => []),
+          apiService.getCategories().catch(() => []),
+          apiService.getServices().catch(() => []),
+          apiService.getBundles().catch(() => []),
+        ]);
+
+        if (!isMounted) return;
+
+        if (Array.isArray(mats) && mats.length > 0) {
+          setMaterials(mats);
+        }
+        if (Array.isArray(cats) && cats.length > 0) {
+          setCategories(cats);
+        }
+        if (Array.isArray(servs) && servs.length > 0) {
+          setServices(servs);
+        }
+        if (Array.isArray(bunds) && bunds.length > 0) {
+          setBundles(bunds);
+        }
+      } catch (e) {
+        console.warn('Failed to sync backend catalog:', e);
+      }
+    }
+
+    loadCatalogData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Sync with backend on mount and auth changes
   useEffect(() => {
@@ -388,18 +426,8 @@ function MainAppContent() {
                   day: 'numeric',
                 }),
                 totalAmount: bo.totalAmount || 0,
-                deliveryOtp: bo.deliveryOtp || '8842',
+                deliveryOtp: bo.deliveryOtp || '261125',
                 ewayBillNumber: bo.eWayBillNo || `EWB-TS-2026-${Math.floor(10000000 + Math.random() * 90000000)}`,
-                weighmentSlipId:
-                  bo.weighmentSlipId ||
-                  (bo.items?.some(
-                    (i: any) =>
-                      (i.name || '').toLowerCase().includes('sand') ||
-                      (i.name || '').toLowerCase().includes('aggregate') ||
-                      (i.name || '').toLowerCase().includes('gravel')
-                  )
-                    ? `WB-MYP-${Math.floor(1000 + Math.random() * 9000)}`
-                    : undefined),
               }));
               const existingNums = new Set(prev.map((d) => d.orderNumber));
               const newOnes = backendMapped.filter((d) => !existingNums.has(d.orderNumber));
@@ -453,7 +481,6 @@ function MainAppContent() {
   const handleSelectLocation = (loc: string) => {
     setSelectedLocation(loc);
     setUser((prev) => ({ ...prev, siteLocation: loc }));
-    showToast(`Delivery location set to ${loc}`, 'info');
   };
 
   // Navigation Handlers
@@ -622,15 +649,11 @@ function MainAppContent() {
   };
 
   const handleRemoveCartItem = (cartId: string) => {
-    const itemToRemove = cartItems.find((ci) => ci.id === cartId);
-    const itemName = itemToRemove ? itemToRemove.itemName : 'Item';
     setCartItems((prev) => prev.filter((item) => item.id !== cartId));
-    showToast(`Removed ${itemName} from Cart`, 'info');
   };
 
   const handleClearCart = () => {
     setCartItems([]);
-    showToast('Cart cleared', 'info');
   };
 
   const handleAddToCartItem = (item: CartItem) => {
@@ -652,7 +675,8 @@ function MainAppContent() {
 
   const handleAuthSuccess = (phoneNum: string) => {
     setIsLoggedIn(true);
-    const validPhone = phoneNum || '9876543210';
+    const validPhone = (phoneNum || '').trim();
+    const cleanPhone = validPhone.replace(/[^0-9]/g, '');
 
     // 1. Restore or initialize user profile
     let loadedProfile = { ...INITIAL_USER, phone: validPhone, isVerified: true };
@@ -665,6 +689,62 @@ function MainAppContent() {
       // ignore
     }
     setUser(loadedProfile);
+
+    // Dynamic backend user sync
+    if (cleanPhone) {
+      apiService
+        .getUserProfile(cleanPhone)
+        .then((serverUser) => {
+          if (serverUser) {
+            setUser((prev) => ({
+              ...prev,
+              name: serverUser.name || prev.name,
+              email: serverUser.email || prev.email,
+              companyName: serverUser.companyName || prev.companyName,
+              gstin: serverUser.gstin || prev.gstin,
+              siteLocation: serverUser.siteLocation || prev.siteLocation,
+            }));
+          }
+        })
+        .catch(() => {});
+
+      apiService
+        .getOrders({ phone: cleanPhone })
+        .then((backendOrders) => {
+          if (backendOrders && backendOrders.length > 0) {
+            setDeliveries((prev) => {
+              const backendMapped: ActivityDelivery[] = backendOrders.map((bo: any) => ({
+                id: bo._id || `del-${bo.orderNumber}`,
+                orderNumber: bo.orderNumber,
+                materialName:
+                  bo.items?.map((i: any) => `${i.name} (${i.unit || 'unit'})`).join(', ') ||
+                  'Direct Yard Supply Order',
+                quantity: `${bo.items?.reduce((s: number, i: any) => s + (i.quantity || 1), 0) || 1} Items`,
+                driverName: bo.driverName || 'Assigned Delivery Partner',
+                driverPhone: bo.driverPhone || 'Dispatch Support Desk',
+                vehicleType: bo.vehicleType || (bo.isService ? 'Field Service Unit' : 'Commercial Transport'),
+                vehicleNumber: bo.vehicleNumber || 'TS 09 UB 5120',
+                estimatedArrival: bo.estimatedArrival || '35 mins away',
+                status: bo.orderStatus === 'delivered' ? 'Delivered' : 'En Route',
+                siteAddress: bo.siteAddress?.street || bo.siteAddress?.siteName || 'Site Location, Hyderabad',
+                siteSupervisorName: bo.customerName || 'Site Supervisor',
+                siteSupervisorPhone: bo.customerPhone || validPhone,
+                timestamp: new Date(bo.createdAt || Date.now()).toLocaleDateString('en-IN', {
+                  month: 'short',
+                  day: 'numeric',
+                }),
+                totalAmount: bo.totalAmount || 0,
+                deliveryOtp: bo.deliveryOtp || '261125',
+                ewayBillNumber: bo.eWayBillNo || `EWB-TS-2026-${Math.floor(10000000 + Math.random() * 90000000)}`,
+              }));
+              const existingNums = new Set(prev.map((d) => d.orderNumber));
+              const newOnes = backendMapped.filter((d) => !existingNums.has(d.orderNumber));
+              return [...newOnes, ...prev];
+            });
+          }
+        })
+        .catch(() => {});
+    }
 
     // 2. Load user addresses
     loadUserLocations(validPhone);
@@ -706,9 +786,7 @@ function MainAppContent() {
 
       // Merge favorites
       const userSavedFavsRaw = safeStorage.getItem(`urbanico_favorite_ids_${validPhone}`);
-      const userSavedFavs: string[] = userSavedFavsRaw
-        ? JSON.parse(userSavedFavsRaw)
-        : ['plastering-sand', 'stone-20mm'];
+      const userSavedFavs: string[] = userSavedFavsRaw ? JSON.parse(userSavedFavsRaw) : [];
       const mergedFavs = Array.from(new Set([...userSavedFavs, ...favoriteIds]));
       setFavoriteIds(mergedFavs);
       safeStorage.setItem(`urbanico_favorite_ids_${validPhone}`, JSON.stringify(mergedFavs));
@@ -773,6 +851,12 @@ function MainAppContent() {
     setCartItems([]);
     setFavoriteIds([]);
     resetLocationsToDefault();
+    setIsAuthModalOpen(false);
+    setIsLocationModalOpen(false);
+    setIsLanguageModalOpen(false);
+    setSelectedItemForModal(null);
+    setSelectedInvoiceDelivery(null);
+    setOpenProfileAddresses(false);
     try {
       safeStorage.removeItem('urbanico_auth_session');
       safeStorage.removeItem('urbanico_orders');
@@ -781,7 +865,6 @@ function MainAppContent() {
     } catch {
       // ignore
     }
-    showToast('Logged out of Urbanico account', 'info');
   };
 
   // Determine current screen title for header
@@ -816,6 +899,9 @@ function MainAppContent() {
               viewMode={globalViewMode}
               onViewModeChange={setGlobalViewMode}
               onBack={() => setCurrentScreen('home')}
+              materials={materials}
+              categories={categories}
+              services={services}
             />
           )}
 
@@ -836,6 +922,9 @@ function MainAppContent() {
                   onRemoveRecentSearch={handleRemoveRecentSearch}
                   onSelectItemModal={handleOpenItemModal}
                   onNavigateScreen={setCurrentScreen}
+                  materials={materials}
+                  categories={categories}
+                  services={services}
                 />
               }
               onSelectCategory={handleSelectCategory}
@@ -852,6 +941,10 @@ function MainAppContent() {
               favoriteIds={favoriteIds}
               onToggleFavorite={handleToggleFavorite}
               onAddBundleToCartAndNavigate={handleAddBundleToCartAndNavigate}
+              materials={materials}
+              categories={categories}
+              services={services}
+              bundles={bundles}
             />
           )}
 
@@ -879,6 +972,7 @@ function MainAppContent() {
 
           {currentScreen === 'favorites' && (
             <FavoritesScreen
+              items={materials}
               onSelectItemModal={handleOpenItemModal}
               onNavigateHome={() => setCurrentScreen('home')}
               onExploreCatalog={() => {
@@ -919,7 +1013,9 @@ function MainAppContent() {
                 setCurrentScreen('shop');
               }}
               onReorderMaterial={(matName) => {
-                const matchedItem = MATERIAL_ITEMS.find((m) =>
+                const matchedItem = materials.find((m) =>
+                  m.name.toLowerCase().includes(matName.toLowerCase()) || matName.toLowerCase().includes(m.name.toLowerCase())
+                ) || MATERIAL_ITEMS.find((m) =>
                   m.name.toLowerCase().includes(matName.toLowerCase()) || matName.toLowerCase().includes(m.name.toLowerCase())
                 );
                 if (matchedItem) {
@@ -953,7 +1049,9 @@ function MainAppContent() {
               }}
               onViewInvoice={handleOpenInvoiceModal}
               onReorderMaterial={(matName) => {
-                const matchedItem = MATERIAL_ITEMS.find((m) =>
+                const matchedItem = materials.find((m) =>
+                  m.name.toLowerCase().includes(matName.toLowerCase()) || matName.toLowerCase().includes(m.name.toLowerCase())
+                ) || MATERIAL_ITEMS.find((m) =>
                   m.name.toLowerCase().includes(matName.toLowerCase()) || matName.toLowerCase().includes(m.name.toLowerCase())
                 );
                 if (matchedItem) {
@@ -1018,14 +1116,6 @@ function MainAppContent() {
         <LocationModal
           isOpen={isLocationModalOpen}
           onClose={() => setIsLocationModalOpen(false)}
-        />
-      )}
-
-      {/* Post-Login Preferred Language Selection Modal Prompt */}
-      {isLanguageModalOpen && (
-        <LanguagePromptModal
-          isOpen={isLanguageModalOpen}
-          onClose={() => setIsLanguageModalOpen(false)}
         />
       )}
 

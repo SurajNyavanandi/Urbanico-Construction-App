@@ -89,6 +89,7 @@ import {
 } from '../utils/sanitizationHelper';
 import { IndianDeliveryAddress } from '../types';
 import { getCurrentDeviceLocation } from '../utils/locationHelper';
+import { useClipboard } from '../hooks';
 
 interface UserProfileScreenProps {
   user: UserProfile;
@@ -340,13 +341,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const handleSetDefaultPayment = (id: string) => {
     const updated = setDefaultSavedPaymentMethod(id, user?.phone);
     setSavedPaymentMethods(updated);
-    showToast('Default payment method updated', 'success');
   };
 
   const handleDeletePayment = (id: string) => {
     const updated = deleteSavedPaymentMethod(id, user?.phone);
     setSavedPaymentMethods(updated);
-    showToast('Payment method removed', 'info');
   };
 
   // Indian E-Commerce Standard Address input state
@@ -390,7 +389,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
   const handleDetectGpsForForm = async () => {
     setIsDetectingGps(true);
-    showToast('Acquiring GPS coordinates & resolving address...', 'info');
 
     try {
       const loc = await getCurrentDeviceLocation();
@@ -401,7 +399,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       if (loc.state) setAddressState(loc.state);
 
       setIsDetectingGps(false);
-      showToast(`Location detected: ${loc.city || 'GPS Location Acquired'}`, 'success');
     } catch (err: any) {
       console.warn('GPS location error:', err);
       setAddressAreaStreet('Miyapur Main Road, Phase 2, Hyderabad');
@@ -409,7 +406,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       setAddressCity('Hyderabad');
       setAddressState('Telangana');
       setIsDetectingGps(false);
-      showToast('GPS coordinates acquired! Site address updated.', 'info');
     }
   };
 
@@ -532,15 +528,10 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     }
   };
 
-  const handleCopyReferralCode = () => {
-    try {
-      if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        navigator.clipboard.writeText(referralCode);
-      }
-      showToast(`Referral code ${referralCode} copied to clipboard!`, 'success');
-    } catch {
-      showToast(`Referral code: ${referralCode}`, 'info');
-    }
+  const { copy: copyToClipboard } = useClipboard();
+
+  const handleCopyReferralCode = async () => {
+    await copyToClipboard(referralCode);
   };
 
   const handleShareReferral = async () => {
@@ -662,14 +653,12 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                       {user.name || 'Civil Contractor'}
                     </Text>
                     {user.isEmailVerified ? (
-                      <TouchableOpacity
-                        activeOpacity={0.7}
-                        onPress={() => showToast('Verified Contractor Account • Identity & Email Confirmed', 'success')}
+                      <View
                         style={styles.nameVerifiedIconBadge}
                         accessibilityLabel="Verified Contractor Account"
                       >
                         <BadgeCheck size={20} color="#FFFFFF" fill="#0284C7" strokeWidth={2.4} />
-                      </TouchableOpacity>
+                      </View>
                     ) : null}
                   </View>
                   <Text style={[styles.welcomeSubtitle, { color: theme.textSecondary }]}>
@@ -681,15 +670,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                       <Text style={[styles.gstinSubText, { color: theme.textSecondary }]}>
                         GSTIN: <Text style={{ fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontWeight: '700', color: theme.textPrimary }}>{user.gstin}</Text>
                       </Text>
-                      <TouchableOpacity
-                        activeOpacity={0.7}
-                        onPress={() => showToast('GSTIN Verified • 18% Input Tax Credit Enabled', 'success')}
+                      <View
                         style={styles.gstVerifiedBadge}
                         accessibilityLabel="Verified GSTIN"
                       >
                         <BadgeCheck size={13} color="#FFFFFF" fill="#059669" strokeWidth={2.4} />
                         <Text style={styles.gstVerifiedBadgeText}>Verified</Text>
-                      </TouchableOpacity>
+                      </View>
                       <View style={styles.gstItcPill}>
                         <Text style={styles.gstItcPillText}>18% ITC</Text>
                       </View>
@@ -710,9 +697,15 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           </>
         )}
 
-        {/* 2. Order Management: My Orders & Dispatches (Popup Modal) */}
+        {/* 2. Order Management: My Orders & Dispatches */}
         <TouchableOpacity
-          onPress={() => openSingleModal('orders')}
+          onPress={() => {
+            if (!isLoggedIn) {
+              if (onOpenLoginModal) onOpenLoginModal();
+              return;
+            }
+            openSingleModal('orders');
+          }}
           style={styles.menuRow}
           activeOpacity={0.7}
         >
@@ -741,9 +734,15 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
         <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
 
-        {/* 3. Address Management: Saved Addresses (Popup Modal) */}
+        {/* 3. Address Management: Saved Addresses */}
         <TouchableOpacity
-          onPress={() => openSingleModal('addresses')}
+          onPress={() => {
+            if (!isLoggedIn) {
+              if (onOpenLoginModal) onOpenLoginModal();
+              return;
+            }
+            openSingleModal('addresses');
+          }}
           style={styles.menuRow}
           activeOpacity={0.7}
         >
@@ -772,9 +771,15 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
         <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
 
-        {/* 4. Payment Methods & Ledger (Popup Modal) */}
+        {/* 4. Payment Methods & Ledger */}
         <TouchableOpacity
-          onPress={() => openSingleModal('payment')}
+          onPress={() => {
+            if (!isLoggedIn) {
+              if (onOpenLoginModal) onOpenLoginModal();
+              return;
+            }
+            openSingleModal('payment');
+          }}
           style={styles.menuRow}
           activeOpacity={0.7}
         >
@@ -1068,7 +1073,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                       key={typeof loc === 'string' ? loc : `loc_${locIdx}`}
                       onPress={() => {
                         setSelectedLocation(locStr);
-                        showToast(`Delivery site set to: ${locStr}`, 'success');
                       }}
                       style={[
                         styles.addressItem,
@@ -1101,7 +1105,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                             onPress={(e) => {
                               e.stopPropagation();
                               deleteLocation(loc);
-                              showToast('Site address removed', 'info');
                             }}
                             style={{ padding: 4 }}
                             activeOpacity={0.7}
@@ -2014,7 +2017,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
               <TouchableOpacity
                 onPress={() => {
-                  showToast('Calling Central Dispatch Yard: +91 1800 200 8829', 'info');
+                  if (typeof window !== 'undefined') {
+                    window.open('tel:+9118002008829', '_self');
+                  }
                 }}
                 style={[styles.helpItemRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
                 activeOpacity={0.75}
@@ -2023,7 +2028,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   <Phone size={18} color="#111111" />
                   <View>
                     <Text style={[styles.helpItemTitle, { color: theme.textPrimary }]}>Customer Support</Text>
-                    <Text style={[styles.helpItemSub, { color: theme.textSecondary }]}>Direct helpline assistance</Text>
+                    <Text style={[styles.helpItemSub, { color: theme.textSecondary }]}>Direct helpline: 1800 200 8829</Text>
                   </View>
                 </View>
                 <ChevronRight size={16} color={theme.textSecondary} />
@@ -2031,7 +2036,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
               <TouchableOpacity
                 onPress={() => {
-                  showToast('Opening support email composer...', 'info');
+                  if (typeof window !== 'undefined') {
+                    window.open('mailto:billing@urbanico.in', '_self');
+                  }
                 }}
                 style={[styles.helpItemRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, marginTop: 8 }]}
                 activeOpacity={0.75}
@@ -2048,7 +2055,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
               <TouchableOpacity
                 onPress={() => {
-                  showToast('Connecting to dispatch coordinator...', 'info');
+                  if (typeof window !== 'undefined') {
+                    window.open('https://wa.me/919876543210', '_blank');
+                  }
                 }}
                 style={[styles.helpItemRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, marginTop: 8 }]}
                 activeOpacity={0.75}
@@ -2368,11 +2377,18 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 3,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.03)',
+      },
+      default: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        elevation: 3,
+      },
+    }),
   },
   authHeaderSection: {
     padding: 20,

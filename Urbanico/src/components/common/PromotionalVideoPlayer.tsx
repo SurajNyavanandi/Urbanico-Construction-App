@@ -15,16 +15,22 @@ import {
 } from 'lucide-react-native';
 
 interface PromotionalVideoPlayerProps {
+  videoUrl?: string;
+  posterUrl?: string;
   onExploreCatalog?: () => void;
 }
 
 export const PROMO_VIDEO_URL =
-  'https://res.cloudinary.com/dfr0zghtc/video/upload/v1787295899/Now_generate_video_irfssp.mp4';
+  'https://res.cloudinary.com/dfr0zghtc/video/upload/v1789123565/now_generate_video_ratio_vvcmc2.mp4';
 const POSTER_IMAGE =
   'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614394/ironbars2_t1ktel.jpg';
 const DEFAULT_PROMO_DURATION = 15;
 
-export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = () => {
+export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = ({
+  videoUrl = PROMO_VIDEO_URL,
+  posterUrl = POSTER_IMAGE,
+  onExploreCatalog,
+}) => {
   const [isPlaying, setIsPlaying] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
   const [currentTime, setCurrentTime] = useState(0);
@@ -32,6 +38,9 @@ export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = () 
   const [hasStarted, setHasStarted] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const webViewRef = useRef<any>(null);
+
+  const activeVideoUrl = videoUrl || PROMO_VIDEO_URL;
+  const activePosterUrl = posterUrl || POSTER_IMAGE;
 
   // Sync time & duration on Web DOM video element
   useEffect(() => {
@@ -184,8 +193,8 @@ export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = () 
     <body>
       <video
         id="promoVid"
-        src="${PROMO_VIDEO_URL}"
-        poster="${POSTER_IMAGE}"
+        src="${activeVideoUrl}"
+        poster="${activePosterUrl}"
         autoplay
         loop
         muted
@@ -223,11 +232,17 @@ export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = () 
     <View style={styles.container}>
       {/* Minimalist Section Header */}
       <View style={styles.headerRow}>
-        <Text style={styles.headingTitle}>Yard Operations</Text>
-        <Text style={styles.liveTag}>LIVE DISPATCH</Text>
+        <View style={styles.headerLeftGroup}>
+          <Text style={styles.headingTitle}>Yard Operations</Text>
+          <Text style={styles.subHeadingTitle}>Dispatch & verification footage</Text>
+        </View>
+        <View style={styles.liveTagBadge}>
+          <View style={styles.liveTagDot} />
+          <Text style={styles.liveTag}>LIVE DISPATCH</Text>
+        </View>
       </View>
 
-      {/* Sleek Minimalist Player Card */}
+      {/* Sleek Minimalist Player Card (9:16 Aspect Ratio) */}
       <View style={styles.playerCard}>
         <View style={styles.videoWrapper}>
           {/* HTML5 Video element on web */}
@@ -244,8 +259,8 @@ export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = () 
                   }
                 }
               }}
-              src={PROMO_VIDEO_URL}
-              poster={POSTER_IMAGE}
+              src={activeVideoUrl}
+              poster={activePosterUrl}
               preload="auto"
               autoPlay
               muted={isMuted}
@@ -260,7 +275,7 @@ export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = () 
                 left: 0,
                 right: 0,
                 bottom: 0,
-                borderRadius: 14,
+                borderRadius: 18,
               }}
             />
           ) : (
@@ -294,7 +309,7 @@ export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = () 
           >
             {!isPlaying && (
               <View style={styles.centerPlayCircle}>
-                <Play size={20} color="#FFFFFF" fill="#FFFFFF" />
+                <Play size={24} color="#FFFFFF" fill="#FFFFFF" />
               </View>
             )}
           </TouchableOpacity>
@@ -352,38 +367,81 @@ export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = () 
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
-    gap: 8,
-    marginTop: 4,
-    marginBottom: 4,
+    gap: 12,
+    marginTop: 8,
+    marginBottom: 16,
+    alignItems: 'center',
   },
   headerRow: {
+    width: '100%',
+    maxWidth: 390,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 2,
   },
+  headerLeftGroup: {
+    gap: 2,
+  },
   headingTitle: {
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '800',
     color: '#0F172A',
     letterSpacing: -0.2,
   },
+  subHeadingTitle: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#8C827A',
+    letterSpacing: -0.1,
+  },
+  liveTagBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  liveTagDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#16A34A',
+  },
   liveTag: {
     fontSize: 10,
-    fontWeight: '700',
-    color: '#64748B',
+    fontWeight: '800',
+    color: '#15803D',
     letterSpacing: 0.5,
   },
   playerCard: {
+    width: '100%',
+    maxWidth: 390,
     backgroundColor: '#0F172A',
-    borderRadius: 14,
+    borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E5E7EB',
+    ...Platform.select({
+      web: {
+        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.08)',
+      },
+      default: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        elevation: 4,
+      },
+    }),
   },
   videoWrapper: {
     width: '100%',
-    height: 190,
+    aspectRatio: 9 / 16,
     position: 'relative',
     backgroundColor: '#000000',
   },
@@ -411,15 +469,15 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   centerPlayCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: 'rgba(15, 23, 42, 0.75)',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.4)',
-    paddingLeft: 2,
+    paddingLeft: 3,
   },
   bottomControlsBar: {
     position: 'absolute',
@@ -427,17 +485,17 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     paddingHorizontal: 12,
-    paddingBottom: 8,
-    paddingTop: 6,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
-    gap: 6,
+    paddingBottom: 10,
+    paddingTop: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    gap: 8,
     zIndex: 3,
   },
   progressBarTrack: {
     width: '100%',
-    height: 2,
+    height: 3,
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    borderRadius: 1,
+    borderRadius: 1.5,
     overflow: 'hidden',
   },
   progressBarFill: {
@@ -453,19 +511,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   controlPillText: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: '600',
     color: '#FFFFFF',
   },
   controlIconBtn: {
-    padding: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderRadius: 6,
+    padding: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    borderRadius: 8,
   },
 });

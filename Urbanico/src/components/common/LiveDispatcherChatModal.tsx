@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Modal, Pressable, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { Send, PhoneCall, Bot, User, CheckCheck, X, Truck, ShieldAlert, Sparkles, MapPin } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { useToast } from '../../context/ToastContext';
 
 interface Message {
   id: string;
@@ -35,7 +34,6 @@ export const LiveDispatcherChatModal: React.FC<LiveDispatcherChatModalProps> = (
   const activeDriverName = driverName || delivery?.driverName || 'Assigned Delivery Partner';
   const activeDriverPhone = driverPhone || delivery?.driverPhone || 'Central Dispatch';
   const { theme } = useTheme();
-  const { showToast } = useToast();
 
   const isServiceOrder = Boolean(
     delivery?.vehicleType?.toLowerCase().includes('service') ||
@@ -88,7 +86,7 @@ export const LiveDispatcherChatModal: React.FC<LiveDispatcherChatModalProps> = (
         reply = isServiceOrder
           ? `Trade specialists arrive with standard professional equipment. Please ensure site work areas are accessible.`
           : `Please ensure your site access and unloading bay are cleared for safe offloading.`;
-      } else if (currentQuery.includes('bill') || currentQuery.includes('slip') || currentQuery.includes('invoice') || currentQuery.includes('weight')) {
+      } else if (currentQuery.includes('bill') || currentQuery.includes('receipt') || currentQuery.includes('invoice') || currentQuery.includes('manifest')) {
         reply = `Your digital GST tax invoice and delivery manifest are always accessible in the Orders & Activity section.`;
       }
 
@@ -103,7 +101,7 @@ export const LiveDispatcherChatModal: React.FC<LiveDispatcherChatModalProps> = (
   };
 
   const handleMaskedCall = () => {
-    showToast(`Connecting secure line to ${activeDriverName}...`, 'info');
+    // Direct call action
   };
 
   return (
@@ -114,32 +112,43 @@ export const LiveDispatcherChatModal: React.FC<LiveDispatcherChatModalProps> = (
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={styles.keyboardAvoidingModalWrapper}
         >
-          <View style={[styles.modalCard, { backgroundColor: theme.surface }]}>
-            {/* Header */}
-            <View style={[styles.header, { backgroundColor: '#111111' }]}>
+          <View style={[styles.modalCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+            {/* Top Drag Indicator */}
+            <View style={styles.dragHandleContainer}>
+              <View style={[styles.dragHandle, { backgroundColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.2)' : '#CBD5E1' }]} />
+            </View>
+
+            {/* Clean Minimalist Header */}
+            <View style={[styles.header, { borderBottomColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.08)' : '#F1F5F9' }]}>
               <View style={styles.headerLeft}>
-                <View style={styles.dispatcherAvatar}>
-                  <Truck size={16} color="#FFFFFF" />
+                <View style={[styles.dispatcherAvatar, { backgroundColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.08)' : '#F1F5F9' }]}>
+                  <Truck size={17} color={theme.primary || '#059669'} />
+                  <View style={styles.onlineDot} />
                 </View>
-                <View>
-                  <View style={styles.titleWithLiveRow}>
-                    <Text style={styles.headerTitle}>Yard Dispatch Control</Text>
-                    <View style={styles.onlineBadge}>
-                      <View style={styles.onlineDot} />
-                      <Text style={styles.onlineText}>LIVE</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.headerSub}>Order #{orderNumber} • Driver: {driverName}</Text>
+                <View style={{ gap: 2 }}>
+                  <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Live Yard Dispatch</Text>
+                  <Text style={[styles.headerSub, { color: theme.textSecondary }]} numberOfLines={1}>
+                    Order #{activeOrderNum} • {activeDriverName}
+                  </Text>
                 </View>
               </View>
 
               <View style={styles.headerActions}>
-                <TouchableOpacity onPress={handleMaskedCall} style={styles.callBtn} activeOpacity={0.8}>
-                  <PhoneCall size={14} color="#FFFFFF" />
-                  <Text style={styles.callBtnText}>Call</Text>
+                <TouchableOpacity
+                  onPress={handleMaskedCall}
+                  style={[styles.headerActionBtn, { backgroundColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.06)' : '#F8FAFC', borderColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.08)' : '#E2E8F0' }]}
+                  activeOpacity={0.75}
+                  accessibilityLabel="Call driver"
+                >
+                  <PhoneCall size={15} color={theme.textPrimary} />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
-                  <X size={18} color="#FFFFFF" />
+                <TouchableOpacity
+                  onPress={onClose}
+                  style={[styles.headerActionBtn, { backgroundColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.06)' : '#F8FAFC', borderColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.08)' : '#E2E8F0' }]}
+                  activeOpacity={0.75}
+                  accessibilityLabel="Close chat"
+                >
+                  <X size={16} color={theme.textPrimary} />
                 </TouchableOpacity>
               </View>
             </View>
@@ -153,115 +162,127 @@ export const LiveDispatcherChatModal: React.FC<LiveDispatcherChatModalProps> = (
               automaticallyAdjustKeyboardInsets={true}
               onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
             >
-            {messages.map((m) => {
-              if (m.sender === 'system') {
-                return (
-                  <View key={m.id} style={styles.systemMsgBox}>
-                    <Text style={styles.systemMsgText}>{m.text}</Text>
-                  </View>
-                );
-              }
-
-              const isMe = m.sender === 'user';
-              return (
-                <View
-                  key={m.id}
-                  style={[
-                    styles.msgRow,
-                    isMe ? styles.msgRowRight : styles.msgRowLeft,
-                  ]}
-                >
-                  {!isMe && (
-                    <View style={styles.avatarMini}>
-                      <Bot size={12} color="#111111" />
+              {messages.map((m) => {
+                if (m.sender === 'system') {
+                  return (
+                    <View key={m.id} style={[styles.systemMsgBox, { backgroundColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.05)' : '#F8FAFC', borderColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.08)' : '#E2E8F0' }]}>
+                      <Text style={[styles.systemMsgText, { color: theme.textMuted }]}>{m.text}</Text>
                     </View>
-                  )}
+                  );
+                }
+
+                const isMe = m.sender === 'user';
+                return (
                   <View
+                    key={m.id}
                     style={[
-                      styles.msgBubble,
-                      isMe
-                        ? { backgroundColor: '#111111', borderBottomRightRadius: 2 }
-                        : { backgroundColor: theme.surfaceSecondary, borderBottomLeftRadius: 2, borderColor: theme.border, borderWidth: 1 },
+                      styles.msgRow,
+                      isMe ? styles.msgRowRight : styles.msgRowLeft,
                     ]}
                   >
-                    <Text
+                    <View
                       style={[
-                        styles.msgText,
-                        { color: isMe ? '#FFFFFF' : theme.textPrimary },
+                        styles.msgBubble,
+                        isMe
+                          ? { backgroundColor: theme.mode === 'dark' ? '#334155' : '#0F172A', borderBottomRightRadius: 4 }
+                          : { backgroundColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.06)' : '#F1F5F9', borderBottomLeftRadius: 4 },
                       ]}
                     >
-                      {m.text}
-                    </Text>
-                    <View style={styles.msgFooterRow}>
                       <Text
                         style={[
-                          styles.msgTime,
-                          { color: isMe ? 'rgba(255,255,255,0.7)' : theme.textSecondary },
+                          styles.msgText,
+                          { color: isMe ? '#FFFFFF' : theme.textPrimary },
                         ]}
                       >
-                        {m.time}
+                        {m.text}
                       </Text>
-                      {isMe && <CheckCheck size={12} color="#38BDF8" />}
+                      <View style={styles.msgFooterRow}>
+                        <Text
+                          style={[
+                            styles.msgTime,
+                            { color: isMe ? 'rgba(255,255,255,0.65)' : theme.textMuted },
+                          ]}
+                        >
+                          {m.time}
+                        </Text>
+                        {isMe && <CheckCheck size={12} color="#38BDF8" />}
+                      </View>
                     </View>
                   </View>
+                );
+              })}
+
+              {isTyping && (
+                <View style={styles.typingRow}>
+                  <View style={[styles.typingDot, { backgroundColor: theme.primary || '#059669' }]} />
+                  <Text style={[styles.typingText, { color: theme.textSecondary }]}>Dispatcher is replying...</Text>
                 </View>
-              );
-            })}
+              )}
+            </ScrollView>
 
-            {isTyping && (
-              <View style={styles.typingRow}>
-                <Text style={[styles.typingText, { color: theme.textSecondary }]}>Dispatcher is typing...</Text>
-              </View>
-            )}
-          </ScrollView>
-
-          {/* Quick Reply Chips */}
-          <View style={styles.quickChipsRow}>
-            {['Where is truck now?', 'Confirm unloader labor', 'Need weighbridge slip'].map((chip, idx) => (
-              <TouchableOpacity
-                key={idx}
-                onPress={() => {
-                  setInputVal(chip);
-                }}
-                style={[styles.quickChip, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
-                activeOpacity={0.7}
+            {/* Quick Suggestions Horizontal Scroll */}
+            <View style={styles.quickChipsWrapper}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.quickChipsContent}
               >
-                <Text style={[styles.quickChipText, { color: theme.textPrimary }]}>{chip}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+                {['Where is truck now?', 'Confirm unloader labor', 'Need delivery challan', 'Check site entrance'].map((chip, idx) => (
+                  <TouchableOpacity
+                    key={idx}
+                    onPress={() => {
+                      setInputVal(chip);
+                    }}
+                    style={[
+                      styles.quickChip,
+                      {
+                        backgroundColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.06)' : '#F8FAFC',
+                        borderColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.1)' : '#E2E8F0',
+                      },
+                    ]}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.quickChipText, { color: theme.textSecondary }]}>{chip}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
 
-          {/* Input Bar */}
-          <View style={[styles.inputBar, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
-            <TextInput
-              value={inputVal}
-              onChangeText={setInputVal}
-              onSubmitEditing={handleSend}
-              returnKeyType="send"
-              placeholder="Ask dispatch or request delivery update..."
-              placeholderTextColor={theme.textSecondary}
-              style={[
-                styles.nativeChatInput,
-                {
-                  borderColor: theme.border,
-                  backgroundColor: theme.surfaceSecondary,
-                  color: theme.textPrimary,
-                },
-              ]}
-            />
-            <TouchableOpacity
-              onPress={handleSend}
-              style={[
-                styles.sendBtn,
-                { backgroundColor: inputVal.trim() ? '#111111' : '#A1A1AA' },
-              ]}
-              disabled={!inputVal.trim()}
-              activeOpacity={0.8}
-            >
-              <Send size={15} color="#FFFFFF" />
-            </TouchableOpacity>
+            {/* Modern Minimalist Input Bar */}
+            <View style={[styles.inputBar, { backgroundColor: theme.surface, borderTopColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.08)' : '#F1F5F9' }]}>
+              <TextInput
+                value={inputVal}
+                onChangeText={setInputVal}
+                onSubmitEditing={handleSend}
+                returnKeyType="send"
+                placeholder="Ask dispatch coordinator..."
+                placeholderTextColor={theme.textMuted}
+                style={[
+                  styles.nativeChatInput,
+                  {
+                    borderColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.12)' : '#E2E8F0',
+                    backgroundColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.05)' : '#F8FAFC',
+                    color: theme.textPrimary,
+                  },
+                ]}
+              />
+              <TouchableOpacity
+                onPress={handleSend}
+                style={[
+                  styles.sendBtn,
+                  {
+                    backgroundColor: inputVal.trim()
+                      ? (theme.primary || '#059669')
+                      : (theme.mode === 'dark' ? 'rgba(255,255,255,0.08)' : '#E2E8F0'),
+                  },
+                ]}
+                disabled={!inputVal.trim()}
+                activeOpacity={0.8}
+              >
+                <Send size={15} color={inputVal.trim() ? '#FFFFFF' : theme.textMuted} />
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
         </KeyboardAvoidingView>
       </View>
     </Modal>
@@ -271,7 +292,7 @@ export const LiveDispatcherChatModal: React.FC<LiveDispatcherChatModalProps> = (
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
   keyboardAvoidingModalWrapper: {
@@ -282,12 +303,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalCard: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '85%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '82%',
     height: 520,
     width: '100%',
     overflow: 'hidden',
+    borderTopWidth: 1,
+  },
+  dragHandleContainer: {
+    alignItems: 'center',
+    paddingTop: 10,
+    paddingBottom: 4,
+  },
+  dragHandle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
   },
   header: {
     paddingHorizontal: 16,
@@ -295,99 +327,79 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderBottomWidth: 1,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flex: 1,
   },
   dispatcherAvatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  titleWithLiveRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  headerTitle: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  onlineBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(34, 197, 94, 0.2)',
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    borderRadius: 4,
+    position: 'relative',
   },
   onlineDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: '#22C55E',
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
   },
-  onlineText: {
-    color: '#22C55E',
-    fontSize: 9,
-    fontWeight: '800',
+  headerTitle: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
   headerSub: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 11,
+    fontSize: 11.5,
+    letterSpacing: -0.1,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  callBtn: {
-    flexDirection: 'row',
+  headerActionBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    borderWidth: 1,
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#059669',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-    borderRadius: 6,
-  },
-  callBtnText: {
-    color: '#FFFFFF',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  closeBtn: {
-    padding: 4,
+    justifyContent: 'center',
   },
   messagesScroll: {
     flex: 1,
   },
   messagesContent: {
-    padding: 14,
-    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    gap: 12,
   },
   systemMsgBox: {
-    backgroundColor: '#F4F4F5',
-    padding: 8,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
     alignItems: 'center',
   },
   systemMsgText: {
     fontSize: 11,
-    color: '#71717A',
     textAlign: 'center',
+    lineHeight: 16,
   },
   msgRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 6,
-    maxWidth: '85%',
+    maxWidth: '82%',
   },
   msgRowLeft: {
     alignSelf: 'flex-start',
@@ -395,77 +407,77 @@ const styles = StyleSheet.create({
   msgRowRight: {
     alignSelf: 'flex-end',
   },
-  avatarMini: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#E4E4E7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   msgBubble: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
   },
   msgText: {
-    fontSize: 12.5,
-    lineHeight: 17,
+    fontSize: 13,
+    lineHeight: 18,
   },
   msgFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
     gap: 4,
-    marginTop: 3,
+    marginTop: 4,
   },
   msgTime: {
     fontSize: 9.5,
   },
   typingRow: {
-    paddingHorizontal: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 4,
+  },
+  typingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   typingText: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontStyle: 'italic',
   },
-  quickChipsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    gap: 6,
-    overflow: 'scroll',
+  quickChipsWrapper: {
+    paddingVertical: 8,
+  },
+  quickChipsContent: {
+    paddingHorizontal: 16,
+    gap: 8,
   },
   quickChip: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
     borderWidth: 1,
   },
   quickChipText: {
-    fontSize: 10.5,
-    fontWeight: '600',
+    fontSize: 11.5,
+    fontWeight: '500',
   },
   inputBar: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     paddingVertical: 10,
     borderTopWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
   nativeChatInput: {
     flex: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
     fontSize: 13,
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 999,
   },
   sendBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
   },

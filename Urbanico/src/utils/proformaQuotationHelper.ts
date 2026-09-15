@@ -370,7 +370,7 @@ export function generateProformaQuotationHtml(options: ProformaQuotationOptions)
             <div class="party-detail">Bollaram Industrial Zone, Hyderabad - 502325</div>
             <div class="party-detail">State: Telangana (Code: 36)</div>
             <div class="party-detail">GSTIN: 36AAACU9812A1Z4</div>
-            <div class="party-detail">Certified Electronic Weighbridge: TS-WB-9821</div>
+            <div class="party-detail">Quality Certification: ISO 9001:2015 Approved Batch</div>
           </div>
 
           <div class="party-card">
@@ -441,7 +441,7 @@ export function generateProformaQuotationHtml(options: ProformaQuotationOptions)
               <li>Rates are guaranteed for 7 calendar days from issue date subject to steel/cement commodity market indexes.</li>
               <li>Delivery will be dispatched within 4 hours of payment confirmation or purchase order receipt.</li>
               <li>Unloading at the customer site can be arranged by the site supervisor or requested with order.</li>
-              <li>Electronic weighbridge slip and test certificates will accompany the transport vehicle.</li>
+              <li>Authorized delivery challan and batch quality test certificates accompany the transport vehicle.</li>
             </ol>
           </div>
           <div class="sign-box">

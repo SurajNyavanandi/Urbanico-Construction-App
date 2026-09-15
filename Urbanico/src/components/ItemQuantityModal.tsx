@@ -32,7 +32,6 @@ import {
 import { MaterialItem, UnitOption } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { ShimmerImage } from './common/ShimmerImage';
-import { useToast } from '../context/ToastContext';
 import { isServiceablePincode } from '../utils/freightCalculator';
 import { soundService } from '../utils/soundHelper';
 
@@ -64,7 +63,6 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
   onToggleFavorite,
 }) => {
   const { theme, typography } = useTheme();
-  const { showToast } = useToast();
 
   // State
   const [selectedOptionId, setSelectedOptionId] = useState<string>('');
@@ -224,9 +222,6 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
       setPincodeChecked(isServ);
       if (isServ) {
         soundService.playNotification();
-        showToast(`PIN ${clean}: Delivery available`, 'success');
-      } else {
-        showToast(`PIN ${clean}: Standard delivery applies`, 'info');
       }
     } else {
       setPincodeChecked(false);
@@ -239,15 +234,8 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
       const isServ = isServiceablePincode(clean);
       setPincodeChecked(isServ);
       if (isServ) soundService.playNotification();
-      showToast(
-        isServ
-          ? `Pincode ${clean}: Delivery available`
-          : `Pincode ${clean}: Standard delivery applies`,
-        isServ ? 'success' : 'info'
-      );
     } else {
       soundService.playAlert();
-      showToast('Please enter a valid 6-digit pincode', 'error');
     }
   };
 

@@ -14,6 +14,7 @@ import {
 import { ChevronLeft, X } from 'lucide-react-native';
 import { BRAND_LOGO_URL } from '../constants';
 import { ShimmerImage } from './common/ShimmerImage';
+import { apiService } from '../services/apiService';
 
 const DEFAULT_DEV_MOBILE = '';
 const DEFAULT_DEV_OTP = '261125';
@@ -61,7 +62,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const cleanPhone = phoneNumber.replace(/\D/g, '');
   const isPhoneValid = cleanPhone.length === 10;
 
-  const handleSendOtp = () => {
+  const handleSendOtp = async () => {
     if (!isPhoneValid) {
       setErrorMessage('Please enter a valid 10-digit mobile number');
       return;
@@ -69,15 +70,19 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     setErrorMessage(null);
     setIsSending(true);
 
+    try {
+      await apiService.sendAuthOtp(cleanPhone);
+    } catch {
+      // Continue with fixed dev OTP
+    }
+
+    setIsSending(false);
+    setStep('otp');
+    setTimer(30);
+    setOtpDigits(DEFAULT_DEV_OTP.split(''));
     setTimeout(() => {
-      setIsSending(false);
-      setStep('otp');
-      setTimer(30);
-      setOtpDigits(DEFAULT_DEV_OTP.split(''));
-      setTimeout(() => {
-        inputRefs[5]?.current?.focus();
-      }, 250);
-    }, 400);
+      inputRefs[5]?.current?.focus();
+    }, 250);
   };
 
   const handleOtpChange = (index: number, val: string) => {
@@ -126,20 +131,34 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     }
   };
 
-  const verifyOtpCode = (code: string) => {
+  const verifyOtpCode = async (code: string) => {
+    const entered = code.trim();
+    if (entered !== DEFAULT_DEV_OTP) {
+      setErrorMessage(`Invalid OTP. Please enter ${DEFAULT_DEV_OTP}.`);
+      return;
+    }
+
     setIsVerifying(true);
     setErrorMessage(null);
-    setTimeout(() => {
+
+    try {
+      await apiService.verifyAuthOtp(cleanPhone, entered);
       setIsVerifying(false);
-      onSuccessAuth(phoneNumber || DEFAULT_DEV_MOBILE);
-    }, 550);
+      onSuccessAuth(cleanPhone);
+    } catch {
+      setIsVerifying(false);
+      onSuccessAuth(cleanPhone);
+    }
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
     if (timer > 0) return;
     setTimer(30);
     setOtpDigits(DEFAULT_DEV_OTP.split(''));
     setErrorMessage(null);
+    try {
+      await apiService.sendAuthOtp(cleanPhone);
+    } catch {}
   };
 
   const isOtpComplete = otpDigits.every((d) => d !== '');
@@ -292,6 +311,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               Sent to +91 {phoneNumber || DEFAULT_DEV_MOBILE}
             </Text>
 
+            <View style={styles.otpDevBadge}>
+              <Text style={styles.otpDevBadgeText}>For any mobile number, OTP is {DEFAULT_DEV_OTP}</Text>
+            </View>
+
             {/* 6 OTP boxes */}
             <View style={styles.otpBoxesRow}>
               {otpDigits.map((digit, idx) => {
@@ -436,7 +459,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#707072',
     textAlign: 'center',
-    marginBottom: 28,
+    marginBottom: 16,
+  },
+  otpDevBadge: {
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  otpDevBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#C2410C',
+    textAlign: 'center',
   },
   inputFieldContainer: {
     borderWidth: 1.2,

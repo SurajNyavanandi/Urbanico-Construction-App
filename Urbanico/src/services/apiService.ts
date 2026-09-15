@@ -169,6 +169,86 @@ class ApiService {
     }
   }
 
+  /**
+   * Fetch categories from backend
+   */
+  public async getCategories(): Promise<any[]> {
+    try {
+      const res = await this.request<{ success: boolean; categories: any[] }>('/api/materials/categories');
+      if (res && res.success && Array.isArray(res.categories)) {
+        return res.categories;
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Fetch trade services from backend
+   */
+  public async getServices(): Promise<any[]> {
+    try {
+      const res = await this.request<{ success: boolean; services: any[] }>('/api/materials/services');
+      if (res && res.success && Array.isArray(res.services)) {
+        return res.services;
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Fetch project bundles from backend
+   */
+  public async getBundles(): Promise<any[]> {
+    try {
+      const res = await this.request<{ success: boolean; bundles: any[] }>('/api/materials/bundles');
+      if (res && res.success && Array.isArray(res.bundles)) {
+        return res.bundles;
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  }
+
+  // ==================== AUTH & OTP ====================
+
+  /**
+   * Request login / registration OTP for any mobile number (fixed dev OTP: 261125)
+   */
+  public async sendAuthOtp(phone: string): Promise<{ success: boolean; message: string; otp?: string }> {
+    try {
+      const res = await this.request<{ success: boolean; message: string; otp?: string }>('/api/users/auth/send-otp', {
+        method: 'POST',
+        body: JSON.stringify({ phone }),
+      });
+      return res;
+    } catch {
+      return { success: true, message: 'OTP sent. Dev OTP: 261125', otp: '261125' };
+    }
+  }
+
+  /**
+   * Verify login / registration OTP for any mobile number (strictly 261125)
+   */
+  public async verifyAuthOtp(phone: string, otp: string): Promise<{ success: boolean; user?: any; message?: string }> {
+    try {
+      const res = await this.request<{ success: boolean; user?: any; message?: string }>('/api/users/auth/verify-otp', {
+        method: 'POST',
+        body: JSON.stringify({ phone, otp }),
+      });
+      return res;
+    } catch (err: any) {
+      if (String(otp).trim() === '261125') {
+        return { success: true, user: { phone } };
+      }
+      return { success: false, message: 'Invalid OTP. Please enter 261125.' };
+    }
+  }
+
   // ==================== ORDERS ====================
 
   // Local persistence helpers for seamless offline / static Vercel runtime

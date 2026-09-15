@@ -6,6 +6,7 @@ import {
   ScrollView,
   StyleSheet,
   RefreshControl,
+  Platform,
 } from 'react-native';
 import { Heart, Plus, ShoppingCart, ArrowRight } from 'lucide-react-native';
 import { MaterialItem } from '../types';
@@ -16,6 +17,7 @@ import { soundService } from '../utils/soundHelper';
 import { ProductCardSkeleton } from './common/SkeletonLoader';
 
 interface FavoritesScreenProps {
+  items?: MaterialItem[];
   onSelectItemModal: (item: MaterialItem) => void;
   onNavigateHome: () => void;
   onExploreCatalog?: () => void;
@@ -27,6 +29,7 @@ interface FavoritesScreenProps {
 }
 
 export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
+  items,
   onSelectItemModal,
   onNavigateHome,
   onExploreCatalog,
@@ -37,15 +40,15 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
   onOpenLoginModal,
 }) => {
   const { showToast } = useToast();
-  const favorites = MATERIAL_ITEMS.filter((item) => favoriteIds.includes(item.id));
+  const sourceItems = items && items.length > 0 ? items : MATERIAL_ITEMS;
+  const favorites = sourceItems.filter((item) => favoriteIds.includes(item.id));
   const [refreshing, setRefreshing] = useState(false);
 
   const handleRefresh = () => {
     setRefreshing(true);
     setTimeout(() => {
       setRefreshing(false);
-      showToast('Favourites updated', 'info');
-    }, 600);
+    }, 500);
   };
 
   const handleAddAllFavorites = () => {
@@ -233,7 +236,7 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F4F5F7',
   },
   scrollContent: {
     paddingHorizontal: 20,
@@ -283,9 +286,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#EEEEEE',
+    borderColor: '#E5E7EB',
     overflow: 'hidden',
     marginBottom: 12,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.03)',
+      },
+      default: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+        elevation: 3,
+      },
+    }),
   },
   imageContainer: {
     width: '100%',

@@ -696,12 +696,11 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
       description: options.orderDescription || 'Building Materials & Bulk Logistics',
       image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786515724/Gemini_Generated_Image_h44ohmh44ohmh44o_jsrc6g.png',
       prefill: {
-        name: options.userName || 'Customer',
-        email: options.userEmail || 'support@urbanico.in',
-        contact: options.userPhone || '9876543210',
+        name: options.userName || '',
+        email: options.userEmail || '',
+        contact: options.userPhone || '',
       },
       notes: {
-        site: 'Miyapur Site, Phase 2, Hyderabad',
         app: 'Urbanico Direct',
       },
       theme: {

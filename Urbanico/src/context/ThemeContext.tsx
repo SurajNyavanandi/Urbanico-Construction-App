@@ -198,30 +198,27 @@ export function getThemeColors(
   const isLight = mode === 'light';
 
   // 1. Apple-Inspired Design System Palette
-  // Pure White (#FFFFFF) & Crisp Subtle Neutral (#F5F5F7)
-  // Deep Black (#1D1D1F) & Slate Gray (#86868B)
-  // Apple Blue (#007AFF) accent
   if (isAppleDesign) {
     if (isLight) {
       return {
         mode: 'light',
         accent,
         isAppleDesign: true,
-        background: '#F5F5F7', // Apple Crisp Subtle Neutral
-        surface: '#FFFFFF', // Apple Pure White
-        surfaceSecondary: '#F5F5F7',
-        surfaceTertiary: '#E5E5EA', // Apple system gray 6
-        textPrimary: '#1D1D1F', // Apple Deep Black
-        textSecondary: '#86868B', // Apple Slate Gray
-        textMuted: '#86868B', // Apple Slate Gray
-        primary: '#007AFF', // Apple Blue Accent
-        primaryLight: '#EBF5FF',
-        primaryDark: '#0055B3',
-        border: '#E5E5EA', // 1px hairline border
-        borderLight: '#F2F2F7',
-        cardShadow: 'rgba(0, 0, 0, 0.04)',
+        background: '#F4F5F7', // Clean neutral light grey for all screens
+        surface: '#FFFFFF', // Pure White for cards & popups
+        surfaceSecondary: '#F9FAFB',
+        surfaceTertiary: '#F3F4F6',
+        textPrimary: '#111111', // Deep rich black
+        textSecondary: '#6B7280', // Slate neutral
+        textMuted: '#9CA3AF',
+        primary: '#111111', // Black & white theme
+        primaryLight: '#F3F4F6',
+        primaryDark: '#000000',
+        border: '#E5E7EB', // 1px hairline border
+        borderLight: '#F3F4F6',
+        cardShadow: 'rgba(0, 0, 0, 0.06)',
         headerBg: '#FFFFFF',
-        headerText: '#1D1D1F',
+        headerText: '#111111',
         statusBarStyle: 'dark',
       };
     } else {
@@ -229,16 +226,16 @@ export function getThemeColors(
         mode: 'dark',
         accent,
         isAppleDesign: true,
-        background: '#000000', // Apple Pure Black
-        surface: '#1C1C1E', // Apple Dark Secondary System Background
-        surfaceSecondary: '#2C2C2E', // Apple Dark Tertiary System Background
+        background: '#000000', // Pure Black
+        surface: '#1C1C1E',
+        surfaceSecondary: '#2C2C2E',
         surfaceTertiary: '#3A3A3C',
         textPrimary: '#F5F5F7',
-        textSecondary: '#86868B', // Apple Slate Gray
+        textSecondary: '#86868B',
         textMuted: '#636366',
-        primary: '#007AFF', // Apple Blue Accent
-        primaryLight: '#152E4D',
-        primaryDark: '#64D2FF',
+        primary: '#FFFFFF',
+        primaryLight: '#27272A',
+        primaryDark: '#F4F4F5',
         border: '#38383A',
         borderLight: '#2C2C2E',
         cardShadow: 'rgba(0, 0, 0, 0.4)',
@@ -249,25 +246,25 @@ export function getThemeColors(
     }
   }
 
-  // 2. Default Existing Palette (Unmodified fallback)
+  // 2. Black & White Theme with Light Grey Screen Background
   if (isLight) {
     return {
       mode: 'light',
       accent,
       isAppleDesign: false,
-      background: '#FAFAFA',
-      surface: '#FFFFFF',
-      surfaceSecondary: '#F4F4F5',
-      surfaceTertiary: '#E5E7EB',
-      textPrimary: '#111111',
-      textSecondary: '#707072',
+      background: '#F4F5F7', // Clean neutral light grey for all screens
+      surface: '#FFFFFF', // Pure White for cards, popups, and dialogs
+      surfaceSecondary: '#F9FAFB',
+      surfaceTertiary: '#F3F4F6',
+      textPrimary: '#111111', // Deep crisp black
+      textSecondary: '#6B7280', // Refined neutral slate gray
       textMuted: '#9CA3AF',
-      primary: '#111111',
-      primaryLight: '#F4F4F5',
+      primary: '#111111', // Black & white primary
+      primaryLight: '#F3F4F6',
       primaryDark: '#000000',
-      border: '#EEEEEE',
-      borderLight: '#F5F5F5',
-      cardShadow: 'rgba(0, 0, 0, 0.04)',
+      border: '#E5E7EB', // Crisp hairline border
+      borderLight: '#F3F4F6',
+      cardShadow: 'rgba(0, 0, 0, 0.06)',
       headerBg: '#FFFFFF',
       headerText: '#111111',
       statusBarStyle: 'dark',

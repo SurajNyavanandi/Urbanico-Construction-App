@@ -15,7 +15,6 @@ import {
   Download,
   FileText,
   ShieldCheck,
-  Scale,
   Copy,
   Check,
   Truck,
@@ -41,6 +40,7 @@ import {
 } from '../utils/invoiceHelper';
 import { INDIAN_GST_STATES, validateGSTIN } from '../utils/gstinValidator';
 import { formatSiteAddress } from '../utils/addressHelper';
+import { useClipboard, formatINR } from '../hooks';
 
 interface InvoiceModalProps {
   isOpen: boolean;
@@ -61,7 +61,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
 }) => {
   const { theme, typography } = useTheme();
   const { showToast } = useToast();
-  const [activeTab, setActiveTab] = useState<'invoice' | 'weighbridge' | 'bank'>('invoice');
+  const [activeTab, setActiveTab] = useState<'invoice' | 'bank'>('invoice');
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   if (!isOpen || !delivery) return null;
@@ -137,9 +137,8 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   // HSN resolution for primary material
   const primaryHsnInfo = getHSNCodeForMaterial(delivery.materialName);
 
-  // Determine if this order involves bulk weighable material
+  // Determine if this order involves bulk material
   const isBulkMaterial = Boolean(
-    delivery.weighmentSlipId ||
     delivery.materialName?.toLowerCase().includes('sand') ||
     delivery.materialName?.toLowerCase().includes('aggregate') ||
     delivery.materialName?.toLowerCase().includes('gravel') ||
@@ -147,12 +146,13 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
     delivery.materialName?.toLowerCase().includes('stone')
   );
 
+  const { copy } = useClipboard({ timeout: 2500 });
+
   // Copy helper
-  const handleCopy = (text: string, label: string) => {
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(text);
+  const handleCopy = async (text: string, label: string) => {
+    const success = await copy(text);
+    if (success) {
       setCopiedField(label);
-      showToast(`${label} copied to clipboard`, 'success');
       setTimeout(() => setCopiedField(null), 2500);
     }
   };
@@ -484,7 +484,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             font-weight: 800;
             font-size: 12px;
           }
-          .weighbridge-strip {
+          .dispatch-strip {
             border: 1px dashed #cbd5e1;
             background: #f8fafc;
             border-radius: 6px;
@@ -664,19 +664,11 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             </div>
           </div>
 
-          ${isBulkMaterial ? `
-          <div class="weighbridge-strip">
-            <b>⚖ ELECTRONIC WEIGHBRIDGE WEIGHT SLIP VERIFICATION:</b><br>
-            Slip No: <b>WB-2026-${cleanOrderNum}</b> | Station: <b>WB-HYD-04 (Miyapur Quarry Hub)</b> | NABL Calibrated Scale<br>
-            Gross Weight: <b>28,450 kg</b> | Tare (Empty) Weight: <b>10,150 kg</b> | <b>Net Material Delivered: 18,300 kg (18.30 MT)</b>
-          </div>
-          ` : `
-          <div class="weighbridge-strip" style="background: #F8FAFC; border-color: #E2E8F0; color: #475569;">
+          <div class="dispatch-strip">
             <b>📦 DISPATCH & QUALITY VERIFICATION:</b><br>
             Order No: <b>URB-${cleanOrderNum}</b> | Quantity / Package Count: <b>${delivery.quantity}</b> | Vehicle: <b>${vehicleDisplay}</b><br>
-            Materials verified & dispatched in factory sealed packaging from Urbanico Fulfillment Hub.
+            Materials inspected, certified, and dispatched in compliance with Indian Standards from Urbanico Fulfillment Hub.
           </div>
-          `}
 
           <div class="bottom-grid">
             <div class="bank-box">
@@ -789,27 +781,6 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                 Tax Breakdown
               </Text>
             </TouchableOpacity>
-
-            {isBulkMaterial && (
-              <TouchableOpacity
-                onPress={() => setActiveTab('weighbridge')}
-                style={[
-                  styles.segmentTab,
-                  activeTab === 'weighbridge' && styles.segmentTabActive,
-                ]}
-                activeOpacity={0.8}
-              >
-                <Scale size={14} color={activeTab === 'weighbridge' ? '#0F172A' : '#64748B'} />
-                <Text
-                  style={[
-                    styles.segmentLabel,
-                    activeTab === 'weighbridge' && styles.segmentLabelActive,
-                  ]}
-                >
-                  Weight Slip
-                </Text>
-              </TouchableOpacity>
-            )}
 
             <TouchableOpacity
               onPress={() => setActiveTab('bank')}
@@ -1134,67 +1105,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               </View>
             )}
 
-            {/* TAB 2: WEIGHBRIDGE WEIGHT SLIP */}
-            {activeTab === 'weighbridge' && (
-              <View style={styles.documentCard}>
-                <View style={styles.wbCardHeader}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Scale size={20} color="#0F172A" />
-                    <View>
-                      <Text style={styles.wbCardTitle}>ELECTRONIC WEIGHBRIDGE SLIP</Text>
-                      <Text style={styles.wbCardSub}>Slip No: WB-2026-{cleanOrderNum} • Miyapur Quarry Station</Text>
-                    </View>
-                  </View>
-                  <View style={styles.wbCertifiedPill}>
-                    <ShieldCheck size={12} color="#059669" />
-                    <Text style={styles.wbCertifiedText}>CALIBRATED</Text>
-                  </View>
-                </View>
-
-                <View style={styles.wbMetricsContainer}>
-                  <View style={styles.wbMetricBox}>
-                    <Text style={styles.wbMetricLabel}>GROSS VEHICLE WT</Text>
-                    <Text style={styles.wbMetricValue}>28,450 kg</Text>
-                    <Text style={styles.wbMetricSub}>Loaded Tipper</Text>
-                  </View>
-                  <View style={styles.wbMetricBox}>
-                    <Text style={styles.wbMetricLabel}>TARE (EMPTY) WT</Text>
-                    <Text style={styles.wbMetricValue}>10,150 kg</Text>
-                    <Text style={styles.wbMetricSub}>Tare Scaled</Text>
-                  </View>
-                  <View style={[styles.wbMetricBox, { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' }]}>
-                    <Text style={[styles.wbMetricLabel, { color: '#166534' }]}>NET DELIVERED WT</Text>
-                    <Text style={[styles.wbMetricValue, { color: '#15803D' }]}>18,300 kg</Text>
-                    <Text style={[styles.wbMetricSub, { color: '#166534', fontWeight: '700' }]}>18.30 Metric Tons</Text>
-                  </View>
-                </View>
-
-                <View style={styles.wbDetailsList}>
-                  <View style={styles.wbDetailRow}>
-                    <Text style={styles.wbDetailKey}>Weighbridge Terminal ID</Text>
-                    <Text style={styles.wbDetailVal}>WB-HYD-04 (Miyapur Aggregate Terminal)</Text>
-                  </View>
-                  <View style={styles.wbDetailRow}>
-                    <Text style={styles.wbDetailKey}>Weighbridge Operator</Text>
-                    <Text style={styles.wbDetailVal}>K. Rajesh (Govt. Certified Weights & Measures)</Text>
-                  </View>
-                  <View style={styles.wbDetailRow}>
-                    <Text style={styles.wbDetailKey}>Vehicle Registration</Text>
-                    <Text style={styles.wbDetailVal}>{delivery.vehicleNumber || 'Commercial Tipper'} ({delivery.vehicleType || 'Hydraulic Tipper'})</Text>
-                  </View>
-                  <View style={styles.wbDetailRow}>
-                    <Text style={styles.wbDetailKey}>Driver Name</Text>
-                    <Text style={styles.wbDetailVal}>{delivery.driverName || 'Assigned Driver'}</Text>
-                  </View>
-                  <View style={styles.wbDetailRow}>
-                    <Text style={styles.wbDetailKey}>Calibration Validity</Text>
-                    <Text style={styles.wbDetailVal}>Valid until 31 Dec 2026 (Govt Cert #WM/TS/8812)</Text>
-                  </View>
-                </View>
-              </View>
-            )}
-
-            {/* TAB 3: BANK & REMITTANCE DETAILS */}
+            {/* TAB 2: BANK & REMITTANCE DETAILS */}
             {activeTab === 'bank' && (
               <View style={styles.documentCard}>
                 <View style={styles.bankHeaderRow}>
@@ -1851,92 +1762,6 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     fontWeight: '600',
     color: '#475569',
-  },
-  wbCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    paddingBottom: 10,
-  },
-  wbCardTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  wbCardSub: {
-    fontSize: 11,
-    color: '#64748B',
-    marginTop: 1,
-  },
-  wbCertifiedPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#F0FDF4',
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  wbCertifiedText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#15803D',
-  },
-  wbMetricsContainer: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  wbMetricBox: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 8,
-    padding: 10,
-    backgroundColor: '#F8FAFC',
-    alignItems: 'center',
-    gap: 2,
-  },
-  wbMetricLabel: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: '#64748B',
-  },
-  wbMetricValue: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#0F172A',
-    marginTop: 2,
-  },
-  wbMetricSub: {
-    fontSize: 9.5,
-    color: '#64748B',
-  },
-  wbDetailsList: {
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  wbDetailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F8FAFC',
-  },
-  wbDetailKey: {
-    fontSize: 11,
-    color: '#64748B',
-  },
-  wbDetailVal: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#0F172A',
   },
   bankHeaderRow: {
     flexDirection: 'row',

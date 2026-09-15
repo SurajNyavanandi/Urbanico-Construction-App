@@ -175,20 +175,20 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (clean === 'BUILD10') {
       setAppliedCoupon('BUILD10');
       setCouponDiscount(500);
-      return { success: true, message: 'BUILD10 applied: ₹500 discount' };
+      return { success: true, message: 'Coupon applied: ₹500 discount' };
     }
     if (clean === 'URBAN50') {
       setAppliedCoupon('URBAN50');
       setCouponDiscount(250);
-      return { success: true, message: 'URBAN50 applied: ₹250 discount' };
+      return { success: true, message: 'Coupon applied: ₹250 discount' };
     }
     if (clean === 'SUPER500') {
       setAppliedCoupon('SUPER500');
       setCouponDiscount(500);
-      return { success: true, message: 'SUPER500 applied: ₹500 discount' };
+      return { success: true, message: 'Coupon applied: ₹500 discount' };
     }
 
-    return { success: false, message: 'Invalid or expired coupon' };
+    return { success: false, message: 'Invalid coupon code' };
   }, []);
 
   const removeCoupon = useCallback(() => {

@@ -44,7 +44,7 @@ export interface IOrder extends Document {
     paidAt?: Date;
     receiptNumber?: string;
   };
-  orderStatus: 'received' | 'confirmed' | 'weighing_in_progress' | 'dispatched' | 'in_transit' | 'delivered' | 'cancelled';
+  orderStatus: 'received' | 'confirmed' | 'processing' | 'dispatched' | 'in_transit' | 'delivered' | 'cancelled';
   eWayBillNo?: string;
   deliveryDate?: Date;
   vehicleNumber?: string;
@@ -120,7 +120,7 @@ const OrderSchema = new Schema<IOrder>(
     },
     orderStatus: {
       type: String,
-      enum: ['received', 'confirmed', 'weighing_in_progress', 'dispatched', 'in_transit', 'delivered', 'cancelled'],
+      enum: ['received', 'confirmed', 'processing', 'dispatched', 'in_transit', 'delivered', 'cancelled'],
       default: 'received',
       index: true,
     },

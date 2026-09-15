@@ -28,8 +28,8 @@ export const SupervisorHandoffModal: React.FC<SupervisorHandoffModalProps> = ({
   onSave,
 }) => {
   const isVisible = visible !== undefined ? visible : !!isOpen;
-  const initialName = currentSupervisorName || supervisor?.name || 'Anand Verma';
-  const initialPhone = currentSupervisorPhone || supervisor?.phone || '9876543210';
+  const initialName = currentSupervisorName || supervisor?.name || '';
+  const initialPhone = currentSupervisorPhone || supervisor?.phone || '';
 
   const { theme } = useTheme();
   const { showToast } = useToast();

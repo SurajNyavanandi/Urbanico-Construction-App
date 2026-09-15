@@ -2,13 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { WifiOff, RefreshCw, CheckCircle2 } from 'lucide-react-native';
 import { syncManager } from '../../utils/syncManager';
-import { useToast } from '../../context/ToastContext';
 
 export const OfflineStatusBanner: React.FC = () => {
   const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
   const [queuedCount, setQueuedCount] = useState<number>(0);
-  const { showToast } = useToast();
 
   useEffect(() => {
     const updateQueue = () => {
@@ -27,17 +25,14 @@ export const OfflineStatusBanner: React.FC = () => {
           syncManager.clearOfflineQueue();
           setQueuedCount(0);
           setIsSyncing(false);
-          showToast(`Back online! Synced ${q.length} pending mutations successfully.`, 'success');
         }, 1200);
       } else {
         setIsSyncing(false);
-        showToast('Internet connection restored.', 'info');
       }
     };
 
     const handleOffline = () => {
       setIsOnline(false);
-      showToast('Network disconnected. Switched to offline cached mode.', 'error');
     };
 
     window.addEventListener('online', handleOnline);
@@ -50,7 +45,7 @@ export const OfflineStatusBanner: React.FC = () => {
       window.removeEventListener('offline', handleOffline);
       clearInterval(interval);
     };
-  }, [showToast]);
+  }, []);
 
   const handleManualSync = () => {
     setIsSyncing(true);
@@ -58,7 +53,6 @@ export const OfflineStatusBanner: React.FC = () => {
       syncManager.clearOfflineQueue();
       setQueuedCount(0);
       setIsSyncing(false);
-      showToast('Offline cache synced with central server.', 'success');
     }, 800);
   };
 

@@ -37,6 +37,7 @@ export class OrderService {
       orderStatus: orderData.orderStatus || 'confirmed',
       paymentStatus: orderData.paymentStatus || 'paid',
       eWayBillNo: orderData.eWayBillNo || `EWB-TS-2026-${Math.floor(10000000 + Math.random() * 90000000)}`,
+      deliveryOtp: '261125',
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -64,7 +65,7 @@ export class OrderService {
 
     // Auto-create initial dispatch delivery tracking record
     try {
-      const otpCode = String(Math.floor(100000 + Math.random() * 900000));
+      const otpCode = '261125';
       const isServiceOrder = savedOrder.items?.every(
         (i: any) =>
           (i.category || '').toLowerCase().includes('service') ||

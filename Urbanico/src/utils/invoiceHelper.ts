@@ -537,8 +537,8 @@ export function generateTaxInvoiceHtml(data: TaxInvoiceData): { title: string; h
                   ${totalInWords}
                 </div>
                 <div style="margin-top: 12px; font-size: 11px; color: #475569; line-height: 1.5;">
-                  <strong>Direct Yard Dispatch Terms:</strong><br/>
-                  1. Goods once dispatched with digital weighment slip are non-returnable.<br/>
+                  <strong>Direct Dispatch Terms:</strong><br/>
+                  1. Goods once dispatched with authorized delivery challan are non-returnable.<br/>
                   2. Official B2B Invoice generated with verified GSTIN.<br/>
                   3. This is an authentic system-generated, digitally authenticated tax invoice.
                 </div>

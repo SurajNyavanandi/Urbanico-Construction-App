@@ -23,6 +23,7 @@ import { RazorpayPaymentResult } from './RazorpayModal';
 import { soundService } from '../utils/soundHelper';
 import { ActivityDelivery } from '../types';
 import { buildTaxInvoiceData, openTaxInvoicePrint } from '../utils/invoiceHelper';
+import { useClipboard, formatINR } from '../hooks';
 
 interface PaymentSuccessModalProps {
   visible: boolean;
@@ -52,7 +53,7 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
   businessName,
   gstin,
 }) => {
-  const [copied, setCopied] = useState(false);
+  const { copy, copied } = useClipboard({ timeout: 2000 });
 
   const recipientEmail =
     invoiceEmail ||
@@ -71,11 +72,7 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
   if (!visible || !paymentResult) return null;
 
   const handleCopyPaymentId = () => {
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-      navigator.clipboard.writeText(paymentResult.razorpay_payment_id);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    }
+    copy(paymentResult.razorpay_payment_id);
   };
 
   const handleDownloadInvoice = () => {
@@ -123,7 +120,7 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
               </View>
               <Text style={styles.orderPlacedHeading}>Order Placed Successfully!</Text>
               <Text style={styles.amountDisplay}>
-                ₹{paymentResult.amount.toLocaleString('en-IN')}
+                {formatINR(paymentResult.amount)}
               </Text>
               <Text style={styles.paymentMethodNotice}>
                 Paid via {paymentResult.method}

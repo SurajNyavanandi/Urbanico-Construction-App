@@ -433,7 +433,7 @@ export function calculateDynamicFreight(
 
   const vehicle = recommendVehicle(totalTons);
   const ratePerKm = vehicle.ratePerKm;
-  // Multi-trip calculation if order exceeds single vehicle payload
+  // Multi-trip calculation if order exceeds single vehicle capacity
   const tripsCount = totalTons > 0 ? Math.max(1, Math.ceil(totalTons / vehicle.maxTons)) : 1;
   const singleTripCharge = vehicle.baseFee + Math.round(distance * ratePerKm);
   const deliveryCharge = Math.max(49, singleTripCharge * tripsCount);

@@ -91,226 +91,245 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   };
 
   return (
-    <View
-      style={[
-        styles.navContainer,
-        {
-          backgroundColor: navBgColor,
-          borderTopColor: navBorderColor,
-          paddingBottom: bottomPadding,
-        },
-      ]}
-    >
-      <View style={styles.navContent}>
-        {/* 1. Home Tab */}
-        <TouchableOpacity
-          onPress={() => handleTabPress('home')}
-          activeOpacity={0.65}
-          style={styles.tabButton}
-          accessibilityRole="button"
-          accessibilityLabel="Home Tab"
-        >
-          <View style={[styles.iconWrapper, isHomeActive && styles.activeIconPill]}>
-            <Home
-              size={21}
-              color={isHomeActive ? activeColor : inactiveColor}
-              strokeWidth={isHomeActive ? 2.4 : 1.8}
-            />
-          </View>
-          <Text
-            style={[
-              styles.tabLabel,
-              {
-                color: isHomeActive ? activeColor : inactiveColor,
-                fontWeight: isHomeActive ? '700' : '500',
-              },
-            ]}
+    <View style={[styles.navWrapper, { backgroundColor: theme.background }]}>
+      <View
+        style={[
+          styles.navContainer,
+          {
+            backgroundColor: '#FFFFFF',
+            borderColor: '#E5E7EB',
+            paddingBottom: 6,
+          },
+        ]}
+      >
+        <View style={styles.navContent}>
+          {/* 1. Home Tab */}
+          <TouchableOpacity
+            onPress={() => handleTabPress('home')}
+            activeOpacity={0.7}
+            style={styles.tabButton}
+            accessibilityRole="button"
+            accessibilityLabel="Home Tab"
           >
-            Home
-          </Text>
-          {isHomeActive && <View style={[styles.activeDot, { backgroundColor: activeColor }]} />}
-        </TouchableOpacity>
-
-        {/* 2. Shop Tab */}
-        <TouchableOpacity
-          onPress={() => handleTabPress('shop')}
-          activeOpacity={0.65}
-          style={styles.tabButton}
-          accessibilityRole="button"
-          accessibilityLabel="Shop Tab"
-        >
-          <View style={[styles.iconWrapper, isShopActive && styles.activeIconPill]}>
-            <Search
-              size={21}
-              color={isShopActive ? activeColor : inactiveColor}
-              strokeWidth={isShopActive ? 2.4 : 1.8}
-            />
-          </View>
-          <Text
-            style={[
-              styles.tabLabel,
-              {
-                color: isShopActive ? activeColor : inactiveColor,
-                fontWeight: isShopActive ? '700' : '500',
-              },
-            ]}
-          >
-            Shop
-          </Text>
-          {isShopActive && <View style={[styles.activeDot, { backgroundColor: activeColor }]} />}
-        </TouchableOpacity>
-
-        {/* 3. Favourites Tab */}
-        <TouchableOpacity
-          onPress={() => handleTabPress('favorites')}
-          activeOpacity={0.65}
-          style={styles.tabButton}
-          accessibilityRole="button"
-          accessibilityLabel="Favourites Tab"
-        >
-          <View style={[styles.iconWrapper, isFavoritesActive && styles.activeIconPill]}>
-            <Heart
-              size={21}
-              color={isFavoritesActive ? activeColor : inactiveColor}
-              strokeWidth={isFavoritesActive ? 2.4 : 1.8}
-              fill={isFavoritesActive ? activeColor : 'transparent'}
-            />
-          </View>
-          <Text
-            style={[
-              styles.tabLabel,
-              {
-                color: isFavoritesActive ? activeColor : inactiveColor,
-                fontWeight: isFavoritesActive ? '700' : '500',
-              },
-            ]}
-          >
-            Favourites
-          </Text>
-          {isFavoritesActive && <View style={[styles.activeDot, { backgroundColor: activeColor }]} />}
-        </TouchableOpacity>
-
-        {/* 4. Cart Tab */}
-        <TouchableOpacity
-          onPress={() => handleTabPress('basket')}
-          activeOpacity={0.65}
-          style={styles.tabButton}
-          accessibilityRole="button"
-          accessibilityLabel="Cart Tab"
-        >
-          <View style={styles.iconBadgeWrapper}>
-            <View style={[styles.iconWrapper, isCartActive && styles.activeIconPill]}>
-              <ShoppingCart
-                size={21}
-                color={isCartActive ? activeColor : inactiveColor}
-                strokeWidth={isCartActive ? 2.4 : 1.8}
+            <View style={[styles.iconWrapper, isHomeActive && styles.activeIconPill]}>
+              <Home
+                size={22}
+                color={isHomeActive ? '#111111' : '#6B7280'}
+                strokeWidth={isHomeActive ? 2.5 : 1.8}
               />
             </View>
-            {cartCount > 0 && (
-              <AnimatedView
-                style={[
-                  styles.badge,
-                  {
-                    backgroundColor: theme.primary,
-                    transform: [{ scale: cartScaleAnim }],
-                  },
-                ]}
-              >
-                <Text style={styles.badgeText}>
-                  {cartCount > 99 ? '99+' : cartCount}
-                </Text>
-              </AnimatedView>
-            )}
-          </View>
-          <Text
-            style={[
-              styles.tabLabel,
-              {
-                color: isCartActive ? activeColor : inactiveColor,
-                fontWeight: isCartActive ? '700' : '500',
-              },
-            ]}
-          >
-            Cart
-          </Text>
-          {isCartActive && <View style={[styles.activeDot, { backgroundColor: activeColor }]} />}
-        </TouchableOpacity>
+            <Text
+              style={[
+                styles.tabLabel,
+                {
+                  color: isHomeActive ? '#111111' : '#6B7280',
+                  fontWeight: isHomeActive ? '800' : '600',
+                },
+              ]}
+            >
+              Home
+            </Text>
+            {isHomeActive && <View style={styles.activeDot} />}
+          </TouchableOpacity>
 
-        {/* 5. Profile Tab */}
-        <TouchableOpacity
-          onPress={() => handleTabPress('profile')}
-          activeOpacity={0.65}
-          style={styles.tabButton}
-          accessibilityRole="button"
-          accessibilityLabel="Profile Tab"
-        >
-          <View style={[styles.iconWrapper, isProfileActive && styles.activeIconPill]}>
-            <User
-              size={21}
-              color={isProfileActive ? activeColor : inactiveColor}
-              strokeWidth={isProfileActive ? 2.4 : 1.8}
-            />
-          </View>
-          <Text
-            style={[
-              styles.tabLabel,
-              {
-                color: isProfileActive ? activeColor : inactiveColor,
-                fontWeight: isProfileActive ? '700' : '500',
-              },
-            ]}
+          {/* 2. Shop Tab */}
+          <TouchableOpacity
+            onPress={() => handleTabPress('shop')}
+            activeOpacity={0.7}
+            style={styles.tabButton}
+            accessibilityRole="button"
+            accessibilityLabel="Shop Tab"
           >
-            Profile
-          </Text>
-          {isProfileActive && <View style={[styles.activeDot, { backgroundColor: activeColor }]} />}
-        </TouchableOpacity>
+            <View style={[styles.iconWrapper, isShopActive && styles.activeIconPill]}>
+              <Search
+                size={22}
+                color={isShopActive ? '#111111' : '#6B7280'}
+                strokeWidth={isShopActive ? 2.5 : 1.8}
+              />
+            </View>
+            <Text
+              style={[
+                styles.tabLabel,
+                {
+                  color: isShopActive ? '#111111' : '#6B7280',
+                  fontWeight: isShopActive ? '800' : '600',
+                },
+              ]}
+            >
+              Shop
+            </Text>
+            {isShopActive && <View style={styles.activeDot} />}
+          </TouchableOpacity>
+
+          {/* 3. Favourites Tab */}
+          <TouchableOpacity
+            onPress={() => handleTabPress('favorites')}
+            activeOpacity={0.7}
+            style={styles.tabButton}
+            accessibilityRole="button"
+            accessibilityLabel="Favourites Tab"
+          >
+            <View style={[styles.iconWrapper, isFavoritesActive && styles.activeIconPill]}>
+              <Heart
+                size={22}
+                color={isFavoritesActive ? '#111111' : '#6B7280'}
+                strokeWidth={isFavoritesActive ? 2.5 : 1.8}
+                fill={isFavoritesActive ? '#111111' : 'transparent'}
+              />
+            </View>
+            <Text
+              style={[
+                styles.tabLabel,
+                {
+                  color: isFavoritesActive ? '#111111' : '#6B7280',
+                  fontWeight: isFavoritesActive ? '800' : '600',
+                },
+              ]}
+            >
+              Favourites
+            </Text>
+            {isFavoritesActive && <View style={styles.activeDot} />}
+          </TouchableOpacity>
+
+          {/* 4. Cart Tab */}
+          <TouchableOpacity
+            onPress={() => handleTabPress('basket')}
+            activeOpacity={0.7}
+            style={styles.tabButton}
+            accessibilityRole="button"
+            accessibilityLabel="Cart Tab"
+          >
+            <View style={styles.iconBadgeWrapper}>
+              <View style={[styles.iconWrapper, isCartActive && styles.activeIconPill]}>
+                <ShoppingCart
+                  size={22}
+                  color={isCartActive ? '#111111' : '#6B7280'}
+                  strokeWidth={isCartActive ? 2.5 : 1.8}
+                />
+              </View>
+              {cartCount > 0 && (
+                <AnimatedView
+                  style={[
+                    styles.badge,
+                    {
+                      backgroundColor: '#111111',
+                      transform: [{ scale: cartScaleAnim }],
+                    },
+                  ]}
+                >
+                  <Text style={styles.badgeText}>
+                    {cartCount > 99 ? '99+' : cartCount}
+                  </Text>
+                </AnimatedView>
+              )}
+            </View>
+            <Text
+              style={[
+                styles.tabLabel,
+                {
+                  color: isCartActive ? '#111111' : '#6B7280',
+                  fontWeight: isCartActive ? '800' : '600',
+                },
+              ]}
+            >
+              Cart
+            </Text>
+            {isCartActive && <View style={styles.activeDot} />}
+          </TouchableOpacity>
+
+          {/* 5. Profile Tab */}
+          <TouchableOpacity
+            onPress={() => handleTabPress('profile')}
+            activeOpacity={0.7}
+            style={styles.tabButton}
+            accessibilityRole="button"
+            accessibilityLabel="Profile Tab"
+          >
+            <View style={[styles.iconWrapper, isProfileActive && styles.activeIconPill]}>
+              <User
+                size={22}
+                color={isProfileActive ? '#111111' : '#6B7280'}
+                strokeWidth={isProfileActive ? 2.5 : 1.8}
+              />
+            </View>
+            <Text
+              style={[
+                styles.tabLabel,
+                {
+                  color: isProfileActive ? '#111111' : '#6B7280',
+                  fontWeight: isProfileActive ? '800' : '600',
+                },
+              ]}
+            >
+              Profile
+            </Text>
+            {isProfileActive && <View style={styles.activeDot} />}
+          </TouchableOpacity>
+        </View>
       </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  navWrapper: {
+    backgroundColor: 'transparent',
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+    paddingTop: 4,
+  },
   navContainer: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 8,
+    borderRadius: 24,
+    borderWidth: 1,
+    paddingTop: 8,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 8px 24px -4px rgba(0, 0, 0, 0.1), 0 2px 6px -1px rgba(0, 0, 0, 0.05)',
+      },
+      default: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 16,
+        elevation: 8,
+      },
+    }),
   },
   navContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-around',
-    paddingHorizontal: 8,
+    paddingHorizontal: 6,
   },
   tabButton: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 3,
-    gap: 2,
+    paddingVertical: 4,
+    gap: 3,
     position: 'relative',
   },
   iconWrapper: {
-    padding: 2,
-    borderRadius: 12,
+    width: 38,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
   },
   activeIconPill: {
-    transform: [{ scale: 1.05 }],
+    backgroundColor: '#F3F4F6',
+    transform: [{ scale: 1.04 }],
   },
   activeDot: {
     width: 4,
     height: 4,
     borderRadius: 2,
-    marginTop: 2,
+    backgroundColor: '#111111',
+    marginTop: 1,
   },
   tabLabel: {
     fontSize: 10.5,
-    letterSpacing: -0.1,
+    letterSpacing: -0.2,
   },
   iconBadgeWrapper: {
     position: 'relative',
@@ -319,19 +338,21 @@ const styles = StyleSheet.create({
   },
   badge: {
     position: 'absolute',
-    top: -5,
-    right: -10,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
+    top: -4,
+    right: -6,
+    minWidth: 17,
+    height: 17,
+    borderRadius: 8.5,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 3,
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: '#FFFFFF',
   },
   badgeText: {
     color: '#FFFFFF',
     fontSize: 9,
-    fontWeight: '800',
+    fontWeight: '900',
   },
 });
 

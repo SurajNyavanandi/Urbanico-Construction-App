@@ -110,7 +110,6 @@ export interface ActivityDelivery {
   totalAmount: number;
   deliveryOtp?: string;
   ewayBillNumber?: string;
-  weighmentSlipId?: string;
   splitPayment?: {
     advancePaid: number;
     balanceDue: number;
