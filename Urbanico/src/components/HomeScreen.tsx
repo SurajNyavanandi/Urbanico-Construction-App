@@ -345,9 +345,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const activeBundles = (bundles && bundles.length > 0) ? bundles : PROJECT_BUNDLES;
 
   const { width: windowWidth } = useWindowDimensions();
+  const maxAppWidth = Platform.OS === 'web' ? Math.min(windowWidth, 480) : windowWidth;
   // Card width for horizontal scroll: gives comfortable width matching Shop section aesthetics
-  const CARD_WIDTH = Math.max(168, Math.round((windowWidth - 44) / 2.2));
-  const BUNDLE_CARD_WIDTH = Math.max(290, Math.min(350, Math.round(windowWidth * 0.84)));
+  const CARD_WIDTH = Math.max(168, Math.round((maxAppWidth - 44) / 2.2));
+  const BUNDLE_CARD_WIDTH = Math.max(290, Math.min(350, Math.round(maxAppWidth * 0.84)));
 
   const handleRefresh = () => {
     setRefreshing(true);

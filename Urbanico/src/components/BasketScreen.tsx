@@ -18,6 +18,7 @@ import {
   MapPin,
   ArrowRight,
   Truck,
+  Package,
   Check,
   Clock,
   Tag,
@@ -271,6 +272,446 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
         setGstinError(null);
       }
     }
+  };
+
+  const renderAddressSelectionSection = () => {
+    const currentAddr = selectedCheckoutAddress || availableAddresses[0] || activeLocation;
+    const parts = currentAddr.split(',');
+    const primaryLine = parts[0]?.trim() || 'Site Location';
+    const secondaryLine = parts.slice(1).join(',').trim();
+
+    return (
+      <View
+        style={[
+          styles.addressSelectionCardContainer,
+          {
+            backgroundColor: theme.surface,
+            borderColor: theme.border,
+            marginBottom: 10,
+            padding: 12,
+            borderRadius: 12,
+            borderWidth: 1,
+          },
+        ]}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <MapPin size={16} color={theme.primary} />
+            <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary }}>
+              Delivery Destination
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => {
+              soundService.playTap();
+              setIsChangingAddress(!isChangingAddress);
+            }}
+            activeOpacity={0.7}
+            style={{
+              paddingVertical: 3,
+              paddingHorizontal: 9,
+              borderRadius: 6,
+              backgroundColor: isChangingAddress ? theme.primary : theme.surfaceSecondary,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 12,
+                fontWeight: '700',
+                color: isChangingAddress ? '#FFFFFF' : theme.primary,
+              }}
+            >
+              {isChangingAddress ? 'Done' : 'Change'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Selected / Default Address Summary Card */}
+        <View
+          style={[
+            styles.addressSelectCard,
+            {
+              backgroundColor: theme.mode === 'dark' ? '#1E293B' : '#F0F9FF',
+              borderColor: theme.primary,
+              marginBottom: isChangingAddress ? 10 : 0,
+            },
+          ]}
+        >
+          <View style={styles.addressCardRadioRow}>
+            <View style={styles.addressInfoCol}>
+              <View style={styles.addressNameTagRow}>
+                <Text
+                  style={[
+                    styles.addressPrimaryName,
+                    { color: theme.textPrimary },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {primaryLine}
+                </Text>
+                <View
+                  style={[
+                    styles.addressTypeBadge,
+                    { backgroundColor: theme.primary },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.addressTypeBadgeText,
+                      { color: '#FFFFFF' },
+                    ]}
+                  >
+                    DELIVERY SITE
+                  </Text>
+                </View>
+              </View>
+
+              {secondaryLine ? (
+                <Text
+                  style={[styles.addressSecondaryText, { color: theme.textSecondary }]}
+                  numberOfLines={2}
+                >
+                  {secondaryLine}
+                </Text>
+              ) : null}
+
+              <View style={styles.contactDetailsRow}>
+                <Text style={[styles.contactName, { color: theme.textSecondary }]}>
+                  Recipient: <Text style={{ color: theme.textPrimary, fontWeight: '600' }}>{user?.name || 'Site Incharge'}</Text>
+                </Text>
+                <Text style={[styles.contactDot, { color: theme.textMuted }]}>•</Text>
+                <Text style={[styles.contactPhone, { color: theme.textSecondary }]}>
+                  +91 {user?.phone?.replace(/\D/g, '') || '98480 12345'}
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Alternate addresses list when user taps Change */}
+        {isChangingAddress && (
+          <View style={{ marginTop: 6 }}>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textMuted, marginBottom: 8, letterSpacing: 0.5 }}>
+              SELECT AN ALTERNATE ADDRESS
+            </Text>
+            <View style={styles.addressesListContainer}>
+              {availableAddresses.map((addr, idx) => {
+                const isSelected = selectedCheckoutAddress === addr;
+                const aParts = addr.split(',');
+                const aPrimaryLine = aParts[0]?.trim() || 'Site Location';
+                const aSecondaryLine = aParts.slice(1).join(',').trim();
+
+                return (
+                  <TouchableOpacity
+                    key={`cart-inline-addr-${idx}`}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      setSelectedCheckoutAddress(addr);
+                      setSelectedLocation(addr);
+                      setIsChangingAddress(false);
+                      soundService.playTap();
+                    }}
+                    style={[
+                      styles.addressSelectCard,
+                      {
+                        backgroundColor: isSelected
+                          ? (theme.mode === 'dark' ? '#1E293B' : '#F0F9FF')
+                          : theme.surfaceSecondary,
+                        borderColor: isSelected ? theme.primary : theme.border,
+                      },
+                    ]}
+                  >
+                    <View style={styles.addressCardRadioRow}>
+                      <View
+                        style={[
+                          styles.radioCircle,
+                          {
+                            borderColor: isSelected ? theme.primary : theme.textMuted,
+                          },
+                        ]}
+                      >
+                        {isSelected && (
+                          <View
+                            style={[
+                              styles.radioCircleInner,
+                              { backgroundColor: theme.primary },
+                            ]}
+                          />
+                        )}
+                      </View>
+
+                      <View style={styles.addressInfoCol}>
+                        <View style={styles.addressNameTagRow}>
+                          <Text
+                            style={[
+                              styles.addressPrimaryName,
+                              { color: theme.textPrimary },
+                            ]}
+                            numberOfLines={1}
+                          >
+                            {aPrimaryLine}
+                          </Text>
+                          <View
+                            style={[
+                              styles.addressTypeBadge,
+                              {
+                                backgroundColor: isSelected
+                                  ? theme.primary
+                                  : (theme.mode === 'dark' ? '#334155' : '#E2E8F0'),
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.addressTypeBadgeText,
+                                {
+                                  color: isSelected ? '#FFFFFF' : theme.textSecondary,
+                                },
+                              ]}
+                            >
+                              {idx === 0 ? 'DEFAULT SITE' : 'CONSTRUCTION SITE'}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {aSecondaryLine ? (
+                          <Text
+                            style={[styles.addressSecondaryText, { color: theme.textSecondary }]}
+                            numberOfLines={2}
+                          >
+                            {aSecondaryLine}
+                          </Text>
+                        ) : null}
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Add New Address Button inside Inline section */}
+            <TouchableOpacity
+              activeOpacity={0.75}
+              onPress={() => setIsAddingNewAddress(!isAddingNewAddress)}
+              style={[
+                styles.addNewAddressToggleBtn,
+                {
+                  backgroundColor: theme.surfaceSecondary,
+                  borderColor: isAddingNewAddress ? theme.primary : theme.border,
+                  marginTop: 8,
+                },
+              ]}
+            >
+              <View style={styles.addNewAddressToggleLeft}>
+                <Plus size={15} color={theme.primary} strokeWidth={2.5} />
+                <Text style={[styles.addNewAddressToggleText, { color: theme.primary, fontSize: 12.5 }]}>
+                  Add New Delivery Site Address
+                </Text>
+              </View>
+              {isAddingNewAddress ? (
+                <ChevronUp size={16} color={theme.primary} />
+              ) : (
+                <ChevronDown size={16} color={theme.textSecondary} />
+              )}
+            </TouchableOpacity>
+
+            {isAddingNewAddress && (
+              <View style={[styles.newAddressFormBox, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, marginTop: 8 }]}>
+                {Boolean(addrFormError) && (
+                  <View style={styles.formErrorBox}>
+                    <AlertTriangle size={14} color="#EF4444" />
+                    <Text style={styles.formErrorText}>{addrFormError}</Text>
+                  </View>
+                )}
+
+                <View style={styles.formRow}>
+                  <View style={styles.formCol}>
+                    <Text style={[styles.formLabel, { color: theme.textSecondary }]}>
+                      Full Name / Site Incharge *
+                    </Text>
+                    <TextInput
+                      value={newAddrName}
+                      onChangeText={(t) => {
+                        setNewAddrName(t);
+                        setAddrFormError(null);
+                      }}
+                      placeholder="e.g. Ramesh Reddy"
+                      placeholderTextColor={theme.textMuted}
+                      style={[
+                        styles.formTextInput,
+                        {
+                          backgroundColor: theme.surface,
+                          borderColor: theme.border,
+                          color: theme.textPrimary,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <View style={styles.formCol}>
+                    <Text style={[styles.formLabel, { color: theme.textSecondary }]}>
+                      10-Digit Mobile *
+                    </Text>
+                    <TextInput
+                      value={newAddrPhone}
+                      onChangeText={(t) => {
+                        setNewAddrPhone(t.replace(/\D/g, '').slice(0, 10));
+                        setAddrFormError(null);
+                      }}
+                      placeholder="98480 12345"
+                      placeholderTextColor={theme.textMuted}
+                      keyboardType="phone-pad"
+                      maxLength={10}
+                      style={[
+                        styles.formTextInput,
+                        {
+                          backgroundColor: theme.surface,
+                          borderColor: theme.border,
+                          color: theme.textPrimary,
+                        },
+                      ]}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.formRow}>
+                  <View style={styles.formCol}>
+                    <Text style={[styles.formLabel, { color: theme.textSecondary }]}>
+                      Pincode (6-Digit) *
+                    </Text>
+                    <TextInput
+                      value={newAddrPincode}
+                      onChangeText={handlePincodeChange}
+                      onBlur={handlePincodeBlur}
+                      placeholder="500081"
+                      placeholderTextColor={theme.textMuted}
+                      keyboardType="numeric"
+                      maxLength={6}
+                      style={[
+                        styles.formTextInput,
+                        {
+                          backgroundColor: theme.surface,
+                          borderColor: theme.border,
+                          color: theme.textPrimary,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <View style={styles.formCol}>
+                    <Text style={[styles.formLabel, { color: theme.textSecondary }]}>
+                      City & State
+                    </Text>
+                    <TextInput
+                      value={`${newAddrCity}, ${newAddrState}`}
+                      editable={false}
+                      style={[
+                        styles.formTextInput,
+                        {
+                          backgroundColor: theme.surface,
+                          borderColor: theme.border,
+                          color: theme.textSecondary,
+                        },
+                      ]}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.formColSingle}>
+                  <Text style={[styles.formLabel, { color: theme.textSecondary }]}>
+                    Plot / Flat / Building / Site Name *
+                  </Text>
+                  <TextInput
+                    value={newAddrFlat}
+                    onChangeText={(t) => {
+                      setNewAddrFlat(t);
+                      setAddrFormError(null);
+                    }}
+                    placeholder="Plot 42, Skyview Enclave"
+                    placeholderTextColor={theme.textMuted}
+                    style={[
+                      styles.formTextInput,
+                      {
+                        backgroundColor: theme.surface,
+                        borderColor: theme.border,
+                        color: theme.textPrimary,
+                      },
+                    ]}
+                  />
+                </View>
+
+                <View style={styles.formColSingle}>
+                  <Text style={[styles.formLabel, { color: theme.textSecondary }]}>
+                    Street / Colony / Landmark *
+                  </Text>
+                  <TextInput
+                    value={newAddrStreet}
+                    onChangeText={(t) => {
+                      setNewAddrStreet(t);
+                      setAddrFormError(null);
+                    }}
+                    placeholder="Financial District Main Road, Near ORR Exit"
+                    placeholderTextColor={theme.textMuted}
+                    style={[
+                      styles.formTextInput,
+                      {
+                        backgroundColor: theme.surface,
+                        borderColor: theme.border,
+                        color: theme.textPrimary,
+                      },
+                    ]}
+                  />
+                </View>
+
+                {/* Address Type Chips */}
+                <View style={styles.formColSingle}>
+                  <Text style={[styles.formLabel, { color: theme.textSecondary }]}>
+                    Address Type
+                  </Text>
+                  <View style={styles.typeChipsRow}>
+                    {(['Site', 'Home', 'Office', 'Warehouse'] as const).map((typ) => (
+                      <TouchableOpacity
+                        key={typ}
+                        onPress={() => setNewAddrType(typ)}
+                        style={[
+                          styles.typeChip,
+                          {
+                            backgroundColor:
+                              newAddrType === typ ? theme.primary : theme.surface,
+                            borderColor:
+                              newAddrType === typ ? theme.primary : theme.border,
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.typeChipText,
+                            {
+                              color: newAddrType === typ ? '#FFFFFF' : theme.textPrimary,
+                              fontWeight: newAddrType === typ ? '700' : '500',
+                            },
+                          ]}
+                        >
+                          {typ === 'Site' ? 'Construction Site' : typ}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={handleSaveAndSelectNewAddress}
+                  style={[styles.saveNewAddressBtn, { backgroundColor: theme.primary, marginTop: 4 }]}
+                >
+                  <Text style={styles.saveNewAddressBtnText}>
+                    Save & Deliver to this Address
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
+      </View>
+    );
   };
 
   const renderB2BGstinCard = (isModalView: boolean = false) => {
@@ -778,14 +1219,31 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       return;
     }
 
+    if (isB2BOpted) {
+      const activeGstin = checkoutGstin.trim() || (user?.gstin || '').trim();
+      if (!activeGstin) {
+        setGstinError('Please enter a valid 15-digit GSTIN or uncheck GSTIN');
+        showToast('Please enter your 15-digit GSTIN or uncheck GSTIN', 'error');
+        return;
+      }
+      const validation = validateGSTIN(activeGstin);
+      if (!validation.isValid) {
+        setGstinError(validation.errorMessage || 'Invalid GST number');
+        showToast(validation.errorMessage || 'Please enter a valid 15-digit GSTIN', 'error');
+        return;
+      }
+    }
+
     setShowSupervisorModal(false);
     setShowDispatcherChat(false);
     setPaymentError(null);
-    setSelectedCheckoutAddress(activeLocation);
-    setIsAddingNewAddress(false);
-    setIsChangingAddress(false);
-    setAddrFormError(null);
-    setShowCheckoutModal(true);
+    const chosenAddress = selectedCheckoutAddress || availableAddresses[0] || activeLocation;
+    setSelectedLocation(chosenAddress);
+    setIsPlacingOrder(true);
+    setTimeout(() => {
+      setIsPlacingOrder(false);
+      setShowRazorpayModal(true);
+    }, 200);
   };
 
   const handleConfirmAddressAndProceedToPay = () => {
@@ -1423,6 +1881,9 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                   </TouchableOpacity>
                 )}
 
+                {/* Delivery Site Address Selection (Inline above GSTIN & Promo Coupon) */}
+                {cartItems.length > 0 && renderAddressSelectionSection()}
+
                 {/* B2B Tax Invoice & GSTIN Section */}
                 {cartItems.length > 0 && renderB2BGstinCard(false)}
 
@@ -1600,11 +2061,11 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
             ) : deliveries.length === 0 ? (
               <View style={[styles.nikeEmptyBagContainer, { backgroundColor: theme.surface }]}>
                 <View style={[styles.nikeEmptyBagIconCircle, { backgroundColor: theme.surfaceSecondary }]}>
-                  <Truck size={34} color={theme.textPrimary} strokeWidth={1.5} />
+                  <Package size={34} color={theme.textPrimary} strokeWidth={1.5} />
                 </View>
                 <Text style={[styles.nikeEmptyBagTitle, { color: theme.textPrimary }]}>No active orders.</Text>
                 <Text style={[styles.nikeEmptyBagSub, { color: theme.textSecondary }]}>
-                  When you place an order, live dispatch tracking and invoices will appear here.
+                  When you place an order, dispatch lifecycle stages and invoices will appear here.
                 </Text>
                 <TouchableOpacity
                   onPress={() => onNavigateScreen('shop')}
@@ -1616,65 +2077,64 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
               </View>
             ) : (
               <View style={{ gap: 14 }}>
-                {/* Active Live Delivery Tracking Card with Real-Time Actions */}
+                {/* Active Order Vertical Lifecycle Card */}
                 {activeEnRoute && (
                   <View style={[styles.trackingCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <View style={[styles.trackingCardHeader, { borderBottomColor: theme.borderLight }]}>
                       <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
-                        <Text style={[styles.trackingOrderNumber, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]} numberOfLines={1}>
-                          Order #{activeEnRoute.orderNumber}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                          <Text style={[styles.trackingOrderNumber, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]} numberOfLines={1}>
+                            Order #{activeEnRoute.orderNumber}
+                          </Text>
+                          <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                            <Text style={{ fontSize: 9.5, fontWeight: '800', color: '#15803D' }}>IN TRANSIT</Text>
+                          </View>
+                        </View>
                         <Text style={[styles.trackingMaterialName, { color: theme.textSecondary }]} numberOfLines={1}>
                           {activeEnRoute.materialName}
                         </Text>
                       </View>
                       <View style={[styles.etaPill, { backgroundColor: '#DCFCE7' }]}>
-                        <Text style={[styles.etaPillText, { color: '#15803D' }]} numberOfLines={1}>{activeEnRoute.estimatedArrival}</Text>
-                      </View>
-                    </View>
-
-                    {/* Delivery OTP Badge */}
-                    <View style={styles.otpCardRow}>
-                      <View style={styles.otpLeft}>
-                        <Text style={styles.otpLabel}>Delivery Verification OTP</Text>
-                        <Text style={styles.otpValue}>{activeEnRoute.deliveryOtp || '8842'}</Text>
-                      </View>
-                      <TouchableOpacity
-                        onPress={() => setShowSupervisorModal(true)}
-                        style={styles.delegateOtpBtn}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.delegateOtpText}>Delegate to Foreman</Text>
-                      </TouchableOpacity>
-                    </View>
-
-                    {/* Delivery Meta */}
-                    <View style={styles.deliveryMetaRow}>
-                      <View style={[styles.deliveryMetaCol, { flex: 1, minWidth: 0 }]}>
-                        <Text style={[styles.metaLabelText, { color: theme.textSecondary }]}>Driver & Vehicle</Text>
-                        <Text style={[styles.metaValText, { color: theme.textPrimary }]} numberOfLines={1}>
-                          {activeEnRoute.driverName} ({activeEnRoute.vehicleNumber})
-                        </Text>
-                      </View>
-                      <View style={[styles.deliveryMetaCol, { flex: 1, minWidth: 0 }]}>
-                        <Text style={[styles.metaLabelText, { color: theme.textSecondary }]}>Assigned Site Supervisor</Text>
-                        <Text style={[styles.metaValText, { color: theme.textPrimary }]} numberOfLines={1}>
-                          {activeSupervisor.name} ({activeSupervisor.phone})
+                        <Clock size={11} color="#15803D" />
+                        <Text style={[styles.etaPillText, { color: '#15803D' }]} numberOfLines={1}>
+                          {activeEnRoute.estimatedArrival || 'Within 3 hrs'}
                         </Text>
                       </View>
                     </View>
 
-                    {/* Action Bar (Live Dispatcher Chat + GST Invoice + Cancel Icon) */}
+                    {/* Delivery Site Destination & OTP */}
+                    <View style={{ backgroundColor: theme.surfaceSecondary, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: theme.border, gap: 10 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                        <MapPin size={15} color={theme.primary} style={{ marginTop: 2 }} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 10, fontWeight: '700', textTransform: 'uppercase', color: theme.textMuted, letterSpacing: 0.5 }}>
+                            Site Destination
+                          </Text>
+                          <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textPrimary, lineHeight: 16 }} numberOfLines={2}>
+                            {formatSiteAddress(activeEnRoute.siteAddress)}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.borderLight, paddingTop: 8 }}>
+                        <View>
+                          <Text style={{ fontSize: 10, fontWeight: '600', color: theme.textSecondary }}>Gate Verification OTP</Text>
+                          <Text style={{ fontSize: 16, fontWeight: '900', letterSpacing: 2, color: theme.textPrimary }}>
+                            {activeEnRoute.deliveryOtp || '8842'}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => setShowSupervisorModal(true)}
+                          style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 6, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border }}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textPrimary }}>Delegate</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    {/* Action Bar (GST Invoice + Supervisor + Cancel Icon) */}
                     <View style={styles.activeActionBar}>
-                      <TouchableOpacity
-                        onPress={() => setShowDispatcherChat(true)}
-                        style={[styles.actionChipBtn, { backgroundColor: '#111111' }]}
-                        activeOpacity={0.8}
-                      >
-                        <MessageSquare size={13} color="#FFFFFF" />
-                        <Text style={styles.actionChipBtnText}>Live Dispatch</Text>
-                      </TouchableOpacity>
-
                       {onViewInvoice && (
                         <TouchableOpacity
                           onPress={() => onViewInvoice(activeEnRoute)}
@@ -1686,7 +2146,16 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                         </TouchableOpacity>
                       )}
 
-                      {/* Cancel display - icon only */}
+                      <TouchableOpacity
+                        onPress={() => setShowSupervisorModal(true)}
+                        style={[styles.actionChipBtn, { backgroundColor: '#111111' }]}
+                        activeOpacity={0.8}
+                      >
+                        <ShieldCheck size={13} color="#FFFFFF" />
+                        <Text style={[styles.actionChipBtnText, { color: '#FFFFFF' }]}>Supervisor</Text>
+                      </TouchableOpacity>
+
+                      {/* Cancel button */}
                       <TouchableOpacity
                         onPress={() => {
                           setOrderToCancel(activeEnRoute);
@@ -1694,7 +2163,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                         }}
                         style={[styles.cancelIconButton, { backgroundColor: theme.mode === 'dark' ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2', borderColor: theme.mode === 'dark' ? 'rgba(239, 68, 68, 0.3)' : '#FCA5A5' }]}
                         activeOpacity={0.8}
-                        accessibilityLabel="Cancel dispatch"
+                        accessibilityLabel="Cancel order"
                       >
                         <X size={15} color="#DC2626" strokeWidth={2.4} />
                       </TouchableOpacity>
@@ -1755,684 +2224,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
             )}
           </View>
         )}
-
-        {/* Order Checkout: Delivery Address & Order Review Modal (Flipkart / Amazon Style) */}
-        <Modal
-          visible={showCheckoutModal}
-          transparent
-          animationType="slide"
-          onRequestClose={() => setShowCheckoutModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <Pressable
-              style={styles.modalBackdrop}
-              onPress={() => setShowCheckoutModal(false)}
-            />
-            <View style={[styles.checkoutModalCard, { backgroundColor: theme.surface }]}>
-              {/* Header */}
-              <View style={[styles.checkoutModalHeader, { borderBottomColor: theme.border }]}>
-                <View style={styles.checkoutModalHeaderLeft}>
-                  <Text style={[styles.checkoutModalTitle, { color: theme.textPrimary }]}>
-                    Select Delivery Address
-                  </Text>
-                  <Text style={[styles.checkoutModalSubtitle, { color: theme.textSecondary }]}>
-                    Step 1 of 2: Confirm Site Destination
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => setShowCheckoutModal(false)}
-                  style={[styles.checkoutCloseBtn, { backgroundColor: theme.surfaceSecondary }]}
-                  accessibilityLabel="Close Checkout"
-                >
-                  <X size={18} color={theme.textPrimary} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Progress Stepper Bar */}
-              <View style={[styles.checkoutStepperBar, { backgroundColor: theme.surfaceSecondary, borderBottomColor: theme.borderLight }]}>
-                <View style={styles.checkoutStepItem}>
-                  <View style={[styles.checkoutStepDotActive, { backgroundColor: theme.primary }]}>
-                    <Check size={11} color="#FFFFFF" strokeWidth={3} />
-                  </View>
-                  <Text style={[styles.checkoutStepTextActive, { color: theme.primary }]}>
-                    1. Address
-                  </Text>
-                </View>
-                <View style={[styles.checkoutStepLine, { backgroundColor: theme.border }]} />
-                <View style={styles.checkoutStepItem}>
-                  <View style={[styles.checkoutStepDotPending, { borderColor: theme.textMuted }]}>
-                    <Text style={[styles.checkoutStepNumText, { color: theme.textMuted }]}>2</Text>
-                  </View>
-                  <Text style={[styles.checkoutStepTextPending, { color: theme.textMuted }]}>
-                    2. Payment
-                  </Text>
-                </View>
-              </View>
-
-              <ScrollView
-                style={styles.checkoutModalBody}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{ paddingBottom: 160 }}
-              >
-                {/* Saved Addresses Section - Only default address shown with single Change option */}
-                <View style={styles.checkoutSection}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      <MapPin size={16} color={theme.primary} />
-                      <Text style={[styles.checkoutSectionTitle, { color: theme.textPrimary, marginBottom: 0 }]}>
-                        Delivery Address
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      onPress={() => {
-                        soundService.playTap();
-                        setIsChangingAddress(!isChangingAddress);
-                      }}
-                      activeOpacity={0.7}
-                      style={{
-                        paddingVertical: 4,
-                        paddingHorizontal: 10,
-                        borderRadius: 6,
-                        backgroundColor: isChangingAddress ? theme.primary : theme.surfaceSecondary,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          fontSize: 13,
-                          fontWeight: '700',
-                          color: isChangingAddress ? '#FFFFFF' : theme.primary,
-                        }}
-                      >
-                        {isChangingAddress ? 'Done' : 'Change'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Single Default Address Display */}
-                  {(() => {
-                    const currentAddr = selectedCheckoutAddress || availableAddresses[0] || activeLocation;
-                    const parts = currentAddr.split(',');
-                    const primaryLine = parts[0]?.trim() || 'Site Location';
-                    const secondaryLine = parts.slice(1).join(',').trim();
-
-                    return (
-                      <View
-                        style={[
-                          styles.addressSelectCard,
-                          {
-                            backgroundColor: theme.mode === 'dark' ? '#1E293B' : '#F0F9FF',
-                            borderColor: theme.primary,
-                            marginBottom: isChangingAddress ? 12 : 0,
-                          },
-                        ]}
-                      >
-                        <View style={styles.addressCardRadioRow}>
-                          <View style={styles.addressInfoCol}>
-                            <View style={styles.addressNameTagRow}>
-                              <Text
-                                style={[
-                                  styles.addressPrimaryName,
-                                  { color: theme.textPrimary },
-                                ]}
-                                numberOfLines={1}
-                              >
-                                {primaryLine}
-                              </Text>
-                              <View
-                                style={[
-                                  styles.addressTypeBadge,
-                                  { backgroundColor: theme.primary },
-                                ]}
-                              >
-                                <Text
-                                  style={[
-                                    styles.addressTypeBadgeText,
-                                    { color: '#FFFFFF' },
-                                  ]}
-                                >
-                                  DEFAULT ADDRESS
-                                </Text>
-                              </View>
-                            </View>
-
-                            {secondaryLine ? (
-                              <Text
-                                style={[styles.addressSecondaryText, { color: theme.textSecondary }]}
-                                numberOfLines={2}
-                              >
-                                {secondaryLine}
-                              </Text>
-                            ) : null}
-
-                            <View style={styles.contactDetailsRow}>
-                              <Text style={[styles.contactName, { color: theme.textSecondary }]}>
-                                Recipient: <Text style={{ color: theme.textPrimary, fontWeight: '600' }}>{user?.name || 'Site Incharge'}</Text>
-                              </Text>
-                              <Text style={[styles.contactDot, { color: theme.textMuted }]}>•</Text>
-                              <Text style={[styles.contactPhone, { color: theme.textSecondary }]}>
-                                +91 {user?.phone?.replace(/\D/g, '') || '98480 12345'}
-                              </Text>
-                            </View>
-                          </View>
-                        </View>
-                      </View>
-                    );
-                  })()}
-
-                  {/* Alternate addresses list shown only when user taps Change */}
-                  {isChangingAddress && (
-                    <View style={{ marginTop: 6 }}>
-                      <Text style={{ fontSize: 12, fontWeight: '700', color: theme.textMuted, marginBottom: 8, letterSpacing: 0.5 }}>
-                        SELECT AN ALTERNATE ADDRESS
-                      </Text>
-                      <View style={styles.addressesListContainer}>
-                        {availableAddresses.map((addr, idx) => {
-                          const isSelected = selectedCheckoutAddress === addr;
-                          const parts = addr.split(',');
-                          const primaryLine = parts[0]?.trim() || 'Site Location';
-                          const secondaryLine = parts.slice(1).join(',').trim();
-
-                          return (
-                            <TouchableOpacity
-                              key={`checkout-addr-${idx}`}
-                              activeOpacity={0.8}
-                              onPress={() => {
-                                setSelectedCheckoutAddress(addr);
-                                setIsChangingAddress(false);
-                                soundService.playTap();
-                              }}
-                              style={[
-                                styles.addressSelectCard,
-                                {
-                                  backgroundColor: isSelected
-                                    ? (theme.mode === 'dark' ? '#1E293B' : '#F0F9FF')
-                                    : theme.surfaceSecondary,
-                                  borderColor: isSelected ? theme.primary : theme.border,
-                                },
-                              ]}
-                            >
-                              <View style={styles.addressCardRadioRow}>
-                                <View
-                                  style={[
-                                    styles.radioCircle,
-                                    {
-                                      borderColor: isSelected ? theme.primary : theme.textMuted,
-                                    },
-                                  ]}
-                                >
-                                  {isSelected && (
-                                    <View
-                                      style={[
-                                        styles.radioCircleInner,
-                                        { backgroundColor: theme.primary },
-                                      ]}
-                                    />
-                                  )}
-                                </View>
-
-                                <View style={styles.addressInfoCol}>
-                                  <View style={styles.addressNameTagRow}>
-                                    <Text
-                                      style={[
-                                        styles.addressPrimaryName,
-                                        { color: theme.textPrimary },
-                                      ]}
-                                      numberOfLines={1}
-                                    >
-                                      {primaryLine}
-                                    </Text>
-                                    <View
-                                      style={[
-                                        styles.addressTypeBadge,
-                                        {
-                                          backgroundColor: isSelected
-                                            ? theme.primary
-                                            : (theme.mode === 'dark' ? '#334155' : '#E2E8F0'),
-                                        },
-                                      ]}
-                                    >
-                                      <Text
-                                        style={[
-                                          styles.addressTypeBadgeText,
-                                          {
-                                            color: isSelected ? '#FFFFFF' : theme.textSecondary,
-                                          },
-                                        ]}
-                                      >
-                                        {idx === 0 ? 'DEFAULT SITE' : 'CONSTRUCTION SITE'}
-                                      </Text>
-                                    </View>
-                                  </View>
-
-                                  {secondaryLine ? (
-                                    <Text
-                                      style={[styles.addressSecondaryText, { color: theme.textSecondary }]}
-                                      numberOfLines={2}
-                                    >
-                                      {secondaryLine}
-                                    </Text>
-                                  ) : null}
-                                </View>
-                              </View>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    </View>
-                  )}
-                </View>
-
-                {/* Add New Delivery Address Toggle & Form (only when user has chosen to Change) */}
-                {isChangingAddress && (
-                  <View style={styles.checkoutSection}>
-                    <TouchableOpacity
-                      activeOpacity={0.75}
-                      onPress={() => setIsAddingNewAddress(!isAddingNewAddress)}
-                      style={[
-                        styles.addNewAddressToggleBtn,
-                        {
-                          backgroundColor: theme.surfaceSecondary,
-                          borderColor: isAddingNewAddress ? theme.primary : theme.border,
-                        },
-                      ]}
-                    >
-                      <View style={styles.addNewAddressToggleLeft}>
-                        <Plus size={16} color={theme.primary} strokeWidth={2.5} />
-                        <Text style={[styles.addNewAddressToggleText, { color: theme.primary }]}>
-                          Add New Delivery Address
-                        </Text>
-                      </View>
-                      {isAddingNewAddress ? (
-                        <ChevronUp size={18} color={theme.primary} />
-                      ) : (
-                        <ChevronDown size={18} color={theme.textSecondary} />
-                      )}
-                    </TouchableOpacity>
-
-                  {isAddingNewAddress && (
-                    <View style={[styles.newAddressFormBox, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                      {Boolean(addrFormError) && (
-                        <View style={styles.formErrorBox}>
-                          <AlertTriangle size={14} color="#EF4444" />
-                          <Text style={styles.formErrorText}>{addrFormError}</Text>
-                        </View>
-                      )}
-
-                      <View style={styles.formRow}>
-                        <View style={styles.formCol}>
-                          <Text style={[styles.formLabel, { color: theme.textSecondary }]}>
-                            Full Name / Site Incharge *
-                          </Text>
-                          <TextInput
-                            value={newAddrName}
-                            onChangeText={(t) => {
-                              setNewAddrName(t);
-                              setAddrFormError(null);
-                            }}
-                            placeholder="e.g. Ramesh Reddy"
-                            placeholderTextColor={theme.textMuted}
-                            style={[
-                              styles.formTextInput,
-                              {
-                                backgroundColor: theme.surfaceSecondary,
-                                borderColor: theme.border,
-                                color: theme.textPrimary,
-                              },
-                            ]}
-                          />
-                        </View>
-                        <View style={styles.formCol}>
-                          <Text style={[styles.formLabel, { color: theme.textSecondary }]}>
-                            10-Digit Mobile *
-                          </Text>
-                          <TextInput
-                            value={newAddrPhone}
-                            onChangeText={(t) => {
-                              setNewAddrPhone(t.replace(/\D/g, '').slice(0, 10));
-                              setAddrFormError(null);
-                            }}
-                            placeholder="98480 12345"
-                            placeholderTextColor={theme.textMuted}
-                            keyboardType="phone-pad"
-                            maxLength={10}
-                            style={[
-                              styles.formTextInput,
-                              {
-                                backgroundColor: theme.surfaceSecondary,
-                                borderColor: theme.border,
-                                color: theme.textPrimary,
-                              },
-                            ]}
-                          />
-                        </View>
-                      </View>
-
-                      <View style={styles.formRow}>
-                        <View style={styles.formCol}>
-                          <Text style={[styles.formLabel, { color: theme.textSecondary }]}>
-                            Pincode (6-Digit) *
-                          </Text>
-                          <TextInput
-                            value={newAddrPincode}
-                            onChangeText={handlePincodeChange}
-                            onBlur={handlePincodeBlur}
-                            placeholder="500081"
-                            placeholderTextColor={theme.textMuted}
-                            keyboardType="numeric"
-                            maxLength={6}
-                            style={[
-                              styles.formTextInput,
-                              {
-                                backgroundColor: theme.surfaceSecondary,
-                                borderColor: theme.border,
-                                color: theme.textPrimary,
-                              },
-                            ]}
-                          />
-                        </View>
-                        <View style={styles.formCol}>
-                          <Text style={[styles.formLabel, { color: theme.textSecondary }]}>
-                            City & State
-                          </Text>
-                          <TextInput
-                            value={`${newAddrCity}, ${newAddrState}`}
-                            editable={false}
-                            style={[
-                              styles.formTextInput,
-                              {
-                                backgroundColor: theme.surfaceSecondary,
-                                borderColor: theme.border,
-                                color: theme.textSecondary,
-                              },
-                            ]}
-                          />
-                        </View>
-                      </View>
-
-                      <View style={styles.formColSingle}>
-                        <Text style={[styles.formLabel, { color: theme.textSecondary }]}>
-                          Plot / Flat / Building / Site Name *
-                        </Text>
-                        <TextInput
-                          value={newAddrFlat}
-                          onChangeText={(t) => {
-                            setNewAddrFlat(t);
-                            setAddrFormError(null);
-                          }}
-                          placeholder="Plot 42, Skyview Enclave"
-                          placeholderTextColor={theme.textMuted}
-                          style={[
-                            styles.formTextInput,
-                            {
-                              backgroundColor: theme.surfaceSecondary,
-                              borderColor: theme.border,
-                              color: theme.textPrimary,
-                            },
-                          ]}
-                        />
-                      </View>
-
-                      <View style={styles.formColSingle}>
-                        <Text style={[styles.formLabel, { color: theme.textSecondary }]}>
-                          Street / Colony / Landmark *
-                        </Text>
-                        <TextInput
-                          value={newAddrStreet}
-                          onChangeText={(t) => {
-                            setNewAddrStreet(t);
-                            setAddrFormError(null);
-                          }}
-                          placeholder="Financial District Main Road, Near ORR Exit"
-                          placeholderTextColor={theme.textMuted}
-                          style={[
-                            styles.formTextInput,
-                            {
-                              backgroundColor: theme.surfaceSecondary,
-                              borderColor: theme.border,
-                              color: theme.textPrimary,
-                            },
-                          ]}
-                        />
-                      </View>
-
-                      {/* Address Type Chips */}
-                      <View style={styles.formColSingle}>
-                        <Text style={[styles.formLabel, { color: theme.textSecondary }]}>
-                          Address Type
-                        </Text>
-                        <View style={styles.typeChipsRow}>
-                          {(['Site', 'Home', 'Office', 'Warehouse'] as const).map((typ) => (
-                            <TouchableOpacity
-                              key={typ}
-                              onPress={() => setNewAddrType(typ)}
-                              style={[
-                                styles.typeChip,
-                                {
-                                  backgroundColor:
-                                    newAddrType === typ ? theme.primary : theme.surfaceSecondary,
-                                  borderColor:
-                                    newAddrType === typ ? theme.primary : theme.border,
-                                },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.typeChipText,
-                                  {
-                                    color: newAddrType === typ ? '#FFFFFF' : theme.textPrimary,
-                                    fontWeight: newAddrType === typ ? '700' : '500',
-                                  },
-                                ]}
-                              >
-                                {typ === 'Site' ? 'Construction Site' : typ}
-                              </Text>
-                            </TouchableOpacity>
-                          ))}
-                        </View>
-                      </View>
-
-                      <TouchableOpacity
-                        activeOpacity={0.85}
-                        onPress={handleSaveAndSelectNewAddress}
-                        style={[styles.saveNewAddressBtn, { backgroundColor: theme.primary }]}
-                      >
-                        <Text style={styles.saveNewAddressBtnText}>
-                          Save & Deliver to this Address
-                        </Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
-              )}
-
-                {/* B2B GSTIN Input for Input Tax Credit (ITC) */}
-                {renderB2BGstinCard(true)}
-
-                {/* Apply Contractor Promo / Coupon Code directly below GSTIN while ordering */}
-                {renderPromoCard(true)}
-
-                {/* Selectable Labor Assistance inside Checkout */}
-                {materialItems.length > 0 && (
-                  <TouchableOpacity
-                    activeOpacity={0.85}
-                    onPress={() => {
-                      soundService.playTap();
-                      setOptInLaborAssistance(!optInLaborAssistance);
-                    }}
-                    style={[
-                      styles.laborAssistanceCard,
-                      {
-                        backgroundColor: optInLaborAssistance ? (theme.mode === 'dark' ? '#064E3B' : '#ECFDF5') : theme.surfaceSecondary,
-                        borderColor: optInLaborAssistance ? '#10B981' : theme.border,
-                        marginTop: 4,
-                        marginBottom: 10,
-                      },
-                    ]}
-                  >
-                    <View style={styles.laborAssistanceTopRow}>
-                      <View style={styles.laborAssistanceLeft}>
-                        <View
-                          style={[
-                            styles.laborCheckboxCircle,
-                            {
-                              backgroundColor: optInLaborAssistance ? '#10B981' : 'transparent',
-                              borderColor: optInLaborAssistance ? '#10B981' : theme.textMuted,
-                            },
-                          ]}
-                        >
-                          {optInLaborAssistance ? <Check size={13} color="#FFFFFF" strokeWidth={3} /> : null}
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <View style={styles.laborTitleWithBadgeRow}>
-                            <Text style={[styles.laborAssistanceTitle, { color: theme.textPrimary }]}>
-                              Unloading Labor Assistance
-                            </Text>
-                            <View
-                              style={[
-                                styles.laborBadgePill,
-                                { backgroundColor: optInLaborAssistance ? '#D1FAE5' : '#F1F5F9' },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.laborBadgePillText,
-                                  { color: optInLaborAssistance ? '#065F46' : '#475569' },
-                                ]}
-                              >
-                                Optional
-                              </Text>
-                            </View>
-                          </View>
-                          <Text style={[styles.laborAssistanceSub, { color: theme.textSecondary }]}>
-                            {smartRecommendation.unloadingAssistance.label} ({smartRecommendation.unloadingAssistance.description})
-                          </Text>
-                        </View>
-                      </View>
-                      <View style={styles.laborPriceBox}>
-                        <Text
-                          style={[
-                            styles.laborPriceText,
-                            { color: optInLaborAssistance ? '#059669' : theme.textPrimary },
-                          ]}
-                        >
-                          +₹{smartRecommendation.unloadingAssistance.fee}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.laborStatusTag,
-                            { color: optInLaborAssistance ? '#059669' : theme.textMuted },
-                          ]}
-                        >
-                          {optInLaborAssistance ? 'Included' : 'Tap to Add'}
-                        </Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                )}
-
-                {/* Order Summary Preview (Flipkart / Amazon Style) */}
-                <View
-                  style={[
-                    styles.checkoutOrderSummaryCard,
-                    { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
-                  ]}
-                >
-                  <Text style={[styles.checkoutSummaryTitle, { color: theme.textPrimary }]}>
-                    Order Price Breakdown ({cartItems.length} {cartItems.length === 1 ? 'item' : 'items'})
-                  </Text>
-
-                  <View style={styles.checkoutSummaryRow}>
-                    <Text style={[styles.checkoutSummaryLabel, { color: theme.textSecondary }]}>
-                      Subtotal
-                    </Text>
-                    <Text style={[styles.checkoutSummaryVal, { color: theme.textPrimary }]}>
-                      ₹{subtotal.toLocaleString('en-IN')}
-                    </Text>
-                  </View>
-
-                  <View style={styles.checkoutSummaryRow}>
-                    <Text style={[styles.checkoutSummaryLabel, { color: theme.textSecondary }]}>
-                      Direct Yard Freight ({deliveryDistanceKm} km)
-                    </Text>
-                    <Text
-                      style={[
-                        styles.checkoutSummaryVal,
-                        { color: deliveryCharge === 0 ? '#10B981' : theme.textPrimary },
-                      ]}
-                    >
-                      {deliveryCharge === 0 ? 'FREE' : `₹${deliveryCharge.toLocaleString('en-IN')}`}
-                    </Text>
-                  </View>
-
-                  {materialItems.length > 0 && (
-                    <View style={styles.checkoutSummaryRow}>
-                      <Text style={[styles.checkoutSummaryLabel, { color: theme.textSecondary }]}>
-                        Site Unloading Labor
-                      </Text>
-                      <Text
-                        style={[
-                          styles.checkoutSummaryVal,
-                          {
-                            color: optInLaborAssistance ? '#059669' : theme.textMuted,
-                            fontWeight: optInLaborAssistance ? '700' : '500',
-                          },
-                        ]}
-                      >
-                        {optInLaborAssistance
-                          ? `+₹${unloadingLaborFee.toLocaleString('en-IN')}`
-                          : 'Self-Unloading (₹0)'}
-                      </Text>
-                    </View>
-                  )}
-
-                  {couponDiscount > 0 && (
-                    <View style={styles.checkoutSummaryRow}>
-                      <Text style={[styles.checkoutSummaryLabel, { color: '#10B981' }]}>
-                        Contractor Coupon ({appliedCoupon})
-                      </Text>
-                      <Text style={[styles.checkoutSummaryVal, { color: '#10B981' }]}>
-                        -₹{couponDiscount.toLocaleString('en-IN')}
-                      </Text>
-                    </View>
-                  )}
-
-                  <View style={[styles.checkoutTotalRow, { borderTopColor: theme.border }]}>
-                    <Text style={[styles.checkoutTotalLabel, { color: theme.textPrimary }]}>
-                      Total Payable
-                    </Text>
-                    <Text style={[styles.checkoutTotalVal, { color: theme.primary }]}>
-                      ₹{payableAmount.toLocaleString('en-IN')}
-                    </Text>
-                  </View>
-                </View>
-              </ScrollView>
-
-              {/* Bottom Sticky Action Footer */}
-              <View style={[styles.checkoutModalFooter, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
-                <View style={styles.checkoutFooterLeft}>
-                  <Text style={[styles.checkoutFooterTotalLabel, { color: theme.textSecondary }]}>
-                    Total Amount
-                  </Text>
-                  <Text style={[styles.checkoutFooterAmount, { color: theme.textPrimary }]}>
-                    ₹{payableAmount.toLocaleString('en-IN')}
-                  </Text>
-                </View>
-
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={handleConfirmAddressAndProceedToPay}
-                  style={[styles.checkoutProceedBtn, { backgroundColor: theme.primary }]}
-                >
-                  <Text style={styles.checkoutProceedBtnText}>
-                    Deliver Here & Pay
-                  </Text>
-                  <ArrowRight size={16} color="#FFFFFF" strokeWidth={2.5} />
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
 
         {/* Razorpay Modal */}
         {showRazorpayModal && (

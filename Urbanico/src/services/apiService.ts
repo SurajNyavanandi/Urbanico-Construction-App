@@ -189,7 +189,7 @@ class ApiService {
    */
   public async getServices(): Promise<any[]> {
     try {
-      const res = await this.request<{ success: boolean; services: any[] }>('/api/materials/services');
+      const res = await this.request<{ success: boolean; services: any[] }>('/api/services');
       if (res && res.success && Array.isArray(res.services)) {
         return res.services;
       }

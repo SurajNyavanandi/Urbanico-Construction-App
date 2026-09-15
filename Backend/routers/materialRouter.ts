@@ -9,11 +9,6 @@ router.post('/categories', MaterialController.createCategory);
 router.put('/categories/:id', MaterialController.updateCategory);
 router.delete('/categories/:id', MaterialController.deleteCategory);
 
-router.get('/services', MaterialController.getServices);
-router.post('/services', MaterialController.createService);
-router.put('/services/:id', MaterialController.updateService);
-router.delete('/services/:id', MaterialController.deleteService);
-
 router.get('/bundles', MaterialController.getProjectBundles);
 router.post('/bundles', MaterialController.createProjectBundle);
 router.put('/bundles/:id', MaterialController.updateProjectBundle);

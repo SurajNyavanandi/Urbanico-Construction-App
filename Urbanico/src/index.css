@@ -27,6 +27,30 @@
   }
 }
 
+/* ========================================================================= */
+/* TABLET & DESKTOP MOBILE-APP CONSTRAINTS                                   */
+/* ========================================================================= */
+@media (min-width: 640px) {
+  body {
+    background-color: #E2E8F0 !important;
+    background-image: radial-gradient(#CBD5E1 1px, transparent 1px);
+    background-size: 24px 24px;
+    min-height: 100vh;
+  }
+
+  /* Target the root app container and all React Native Web Modals/Portals */
+  body > div {
+    width: 100% !important;
+    max-width: 480px !important;
+    margin: 0 auto !important;
+    left: 0 !important;
+    right: 0 !important;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+    background-color: #FFFFFF;
+    overflow-x: hidden;
+  }
+}
+
 /* Smooth ambient floating elevation */
 .modern-pill-shadow {
   box-shadow: 0 4px 16px -2px rgba(0, 0, 0, 0.06), 0 2px 6px -1px rgba(0, 0, 0, 0.04);

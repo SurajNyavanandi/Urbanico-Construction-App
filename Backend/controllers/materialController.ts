@@ -41,35 +41,6 @@ export class MaterialController {
     return sendSuccess(res, { category: deleted }, 'Category deleted successfully');
   });
 
-  // --- SERVICES ---
-  public static getServices = asyncHandler(async (req: Request, res: Response) => {
-    const services = MaterialService.getServices();
-    return sendSuccess(res, { services, count: services.length });
-  });
-
-  public static createService = asyncHandler(async (req: Request, res: Response) => {
-    const service = MaterialService.createService(req.body);
-    return sendSuccess(res, { service }, 'Service created successfully', 201);
-  });
-
-  public static updateService = asyncHandler(async (req: Request, res: Response) => {
-    const id = String(req.params.id);
-    const updated = MaterialService.updateService(id, req.body);
-    if (!updated) {
-      return sendError(res, 'Service not found', 404);
-    }
-    return sendSuccess(res, { service: updated }, 'Service updated successfully');
-  });
-
-  public static deleteService = asyncHandler(async (req: Request, res: Response) => {
-    const id = String(req.params.id);
-    const deleted = MaterialService.deleteService(id);
-    if (!deleted) {
-      return sendError(res, 'Service not found to delete', 404);
-    }
-    return sendSuccess(res, { service: deleted }, 'Service deleted successfully');
-  });
-
   // --- BUNDLES ---
   public static getProjectBundles = asyncHandler(async (req: Request, res: Response) => {
     const bundles = MaterialService.getProjectBundles();

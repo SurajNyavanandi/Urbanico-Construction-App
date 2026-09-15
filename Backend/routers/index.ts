@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { paymentRouter } from './paymentRouter';
 import { orderRouter } from './orderRouter';
 import { materialRouter } from './materialRouter';
+import { serviceRouter } from './serviceRouter';
 import { userRouter } from './userRouter';
 import { deliveryRouter } from './deliveryRouter';
 import { PaymentController } from '../controllers/paymentController';
@@ -13,6 +14,7 @@ const apiRouter = Router();
 apiRouter.use('/razorpay', paymentRouter);
 apiRouter.use('/orders', orderRouter);
 apiRouter.use('/materials', materialRouter);
+apiRouter.use('/services', serviceRouter);
 apiRouter.use('/users', userRouter);
 apiRouter.use('/deliveries', deliveryRouter);
 

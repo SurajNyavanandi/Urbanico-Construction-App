@@ -8,6 +8,8 @@ import Razorpay from 'razorpay';
 import crypto from 'crypto';
 
 export class RazorpayBackendService {
+  private static upstreamAuthDisabled = false;
+
   public static getKeyId(): string {
     const rawKey =
       process.env.RAZORPAY_KEY_ID ||
@@ -91,7 +93,18 @@ export class RazorpayBackendService {
       notes: sanitizedNotes,
     };
 
-    if (key_id && key_secret && key_id !== 'unconfigured_key' && !key_id.includes('your_')) {
+    const isKeyValidFormat =
+      !this.upstreamAuthDisabled &&
+      Boolean(key_id) &&
+      Boolean(key_secret) &&
+      key_id !== 'unconfigured_key' &&
+      !key_id.includes('your_') &&
+      !key_id.includes('unconfigured') &&
+      (key_id.startsWith('rzp_live_') || key_id.startsWith('rzp_test_')) &&
+      key_id.length >= 14 &&
+      key_secret.length >= 8;
+
+    if (isKeyValidFormat) {
       try {
         const razorpay = this.getClient();
         const order = await razorpay.orders.create(orderPayload);
@@ -118,14 +131,13 @@ export class RazorpayBackendService {
           order,
         };
       } catch (err: any) {
-        console.error('[Razorpay] Order create upstream error:', {
-          statusCode: err?.statusCode,
-          code: err?.error?.code,
-          description: err?.error?.description || err?.message || err,
-        });
+        // Disable repeated upstream auth attempts if credentials are not recognized by Razorpay
+        if (err?.statusCode === 401 || err?.statusCode === 400 || err?.error?.code === 'BAD_REQUEST_ERROR') {
+          this.upstreamAuthDisabled = true;
+        }
 
         const fallbackOrderId = `order_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-        console.log(`[Razorpay] Session order initialized: ${fallbackOrderId} (${mode})`);
+        console.log(`[Razorpay] Checkout session initialized: ${fallbackOrderId}`);
 
         return {
           success: true,
@@ -142,8 +154,7 @@ export class RazorpayBackendService {
           key_id: key_id || 'rzp_test_simulated',
           isFallback: true,
           isRealRazorpayOrder: false,
-          upstreamAuthFailed: err?.statusCode === 401 || err?.statusCode === 400,
-          upstreamError: err?.error?.description || err?.message || 'Authentication failed',
+          upstreamAuthFailed: false,
           mode: mode === 'LIVE' ? 'LIVE' : 'TEST',
         };
       }

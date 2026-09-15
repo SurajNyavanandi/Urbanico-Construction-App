@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,30 +9,27 @@ import {
   Platform,
 } from 'react-native';
 import {
-  Truck,
+  Package,
   MapPin,
   Clock,
   Check,
   ArrowLeft,
-  PhoneCall,
-  MessageSquare,
-  Camera,
   FileText,
   AlertTriangle,
   Sparkles,
-  Navigation,
   Layers,
   Repeat,
   ShieldCheck,
   UserCheck,
+  KeyRound,
   X,
 } from 'lucide-react-native';
 import { ActivityDelivery } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { EmptyState } from './common/EmptyState';
 import { useToast } from '../context/ToastContext';
-import { LiveDispatcherChatModal } from './common/LiveDispatcherChatModal';
 import { SupervisorHandoffModal } from './common/SupervisorHandoffModal';
+import { formatSiteAddress } from '../utils/addressHelper';
 
 interface ActivityDashboardScreenProps {
   deliveries: ActivityDelivery[];
@@ -44,12 +41,35 @@ interface ActivityDashboardScreenProps {
   onOpenLoginModal?: () => void;
 }
 
-const TRACKING_STEPS = [
-  { id: 'confirmed', title: 'Order Confirmed', description: 'Order received & materials reserved', status: 'completed' },
-  { id: 'processing', title: 'Batching & Loading', description: 'Materials loaded & dispatched from hub', status: 'completed' },
-  { id: 'dispatched', title: 'Dispatched with E-Way Bill', description: 'Government E-Way bill #EWB-TS-2026 issued', status: 'completed' },
-  { id: 'out_for_delivery', title: 'Live GPS En Route', description: 'Transit via Outer Ring Road (ORR Exit 3)', status: 'active' },
-  { id: 'delivered', title: 'Site Delivery & Handover', description: 'Digital OTP sign-off & physical gate delivery', status: 'pending' },
+const ORDER_LIFECYCLE_STAGES = [
+  {
+    id: 'confirmed',
+    stepNumber: 1,
+    title: 'Order Confirmed',
+    description: 'Payment authorized & order booked in central inventory',
+    status: 'completed',
+  },
+  {
+    id: 'yard_processing',
+    stepNumber: 2,
+    title: 'Yard Material Batching',
+    description: 'Materials inspected, batch sealed & prepared for transit',
+    status: 'completed',
+  },
+  {
+    id: 'in_transit',
+    stepNumber: 3,
+    title: 'Out for Site Delivery',
+    description: 'Consignment en route to your construction site',
+    status: 'active',
+  },
+  {
+    id: 'site_handover',
+    stepNumber: 4,
+    title: 'Site Delivery & Unloading',
+    description: 'Gate OTP verification, material handover & e-invoice sign-off',
+    status: 'pending',
+  },
 ];
 
 export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = ({
@@ -65,28 +85,11 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
   const { showToast } = useToast();
   const [refreshing, setRefreshing] = useState(false);
 
-  // Live GPS simulation coordinates and moving vehicle state (Item 1)
-  const [gpsProgress, setGpsProgress] = useState(68);
-  const [gpsSpeed, setGpsSpeed] = useState(42);
-  const [etaRemainingMins, setEtaRemainingMins] = useState(24);
-  const [distanceKm, setDistanceKm] = useState(3.4);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setGpsProgress((prev) => (prev >= 98 ? 68 : prev + 1));
-      setGpsSpeed(Math.floor(38 + Math.random() * 12));
-      setDistanceKm((prev) => Math.max(0.8, Math.round((prev - 0.05) * 100) / 100));
-      setEtaRemainingMins((prev) => Math.max(4, Math.round(prev > 5 ? prev - 0.2 : prev)));
-    }, 4000);
-    return () => clearInterval(interval);
-  }, []);
-
   // Modals
-  const [showChatModal, setShowChatModal] = useState(false);
   const [showSupervisorModal, setShowSupervisorModal] = useState(false);
   const [supervisorData, setSupervisorData] = useState(() => ({
-    name: deliveries[0]?.driverName ? `${deliveries[0].driverName} (Site Contact)` : '',
-    phone: deliveries[0]?.driverPhone || '',
+    name: deliveries[0]?.driverName ? `${deliveries[0].driverName} (Site Incharge)` : 'Site Incharge',
+    phone: deliveries[0]?.driverPhone || '+91 98480 12345',
   }));
 
   const handleRefresh = () => {
@@ -108,15 +111,11 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
   const deliveredCount = validDeliveries.filter((d) => (d?.status || '').toLowerCase() === 'delivered').length;
   const successRate = validDeliveries.length > 0 ? Math.round((deliveredCount / validDeliveries.length) * 100) : 100;
 
-  const handleCallDriver = () => {
-    // Direct action
-  };
-
   const handleCancelOrder = (orderId?: string) => {
     const targetId = orderId || activeEnRoute?.id || activeEnRoute?.orderNumber;
     if (targetId) {
       setCancelledIds((prev) => [...prev, targetId]);
-      showToast('Dispatch cancelled. Reversal & refund initiated.', 'info');
+      showToast('Order delivery cancelled. Refund initiated.', 'info');
     }
   };
 
@@ -134,7 +133,7 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
             <ArrowLeft color="#111111" size={20} strokeWidth={2.2} />
           </TouchableOpacity>
         )}
-        <Text style={styles.navBarTitle}>Activity</Text>
+        <Text style={styles.navBarTitle}>Activity & Orders</Text>
         <View style={{ width: 36 }} />
       </View>
 
@@ -155,13 +154,13 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
           !isLoggedIn ? (
             <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, alignItems: 'center', padding: 24 }]}>
               <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: theme.surfaceSecondary, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>
-                <Truck size={32} color={theme.primary} strokeWidth={1.75} />
+                <Package size={32} color={theme.primary} strokeWidth={1.75} />
               </View>
               <Text style={{ fontSize: 18, fontWeight: '700', color: theme.textPrimary, textAlign: 'center', marginBottom: 8, fontFamily: typography.fontFamilyHeading }}>
                 Log in to View Orders
               </Text>
               <Text style={{ fontSize: 13, color: theme.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 20, maxWidth: 280 }}>
-                If you previously placed site orders with your mobile number, log in to track active dispatches, GPS telemetry, and GST tax invoices.
+                If you previously placed site orders with your mobile number, log in to view active orders, dispatch lifecycle stages, and GST tax invoices.
               </Text>
               <TouchableOpacity
                 onPress={() => {
@@ -189,209 +188,182 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
           )
         ) : (
           <>
-            {/* 1. Live Shipments Vertical Tracking Section & Minimalist Route Tracker */}
+            {/* 1. Active Order Vertical Lifecycle Hierarchy Card */}
             {activeEnRoute && (
               <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                 {/* Header */}
                 <View style={[styles.cardHeader, { borderBottomColor: theme.borderLight }]}>
                   <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
-                    <Text style={[styles.orderNumberTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]} numberOfLines={1}>
-                      Order #{activeEnRoute.orderNumber}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                      <Text style={[styles.orderNumberTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]} numberOfLines={1}>
+                        Order #{activeEnRoute.orderNumber}
+                      </Text>
+                      <View style={[styles.statusBadgePill, { backgroundColor: '#DCFCE7' }]}>
+                        <Text style={[styles.statusBadgeText, { color: '#15803D' }]}>
+                          IN TRANSIT
+                        </Text>
+                      </View>
+                    </View>
                     <Text style={[styles.materialSub, { color: theme.textSecondary }]} numberOfLines={1}>
-                      {activeEnRoute.materialName}
+                      {activeEnRoute.materialName} • {activeEnRoute.quantity || '1 Load'}
                     </Text>
                   </View>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <View style={[styles.etaPill, { backgroundColor: '#DCFCE7' }]}>
+                      <Clock size={11} color="#15803D" />
                       <Text style={[styles.etaPillText, { color: '#15803D' }]} numberOfLines={1}>
-                        {etaRemainingMins} mins
+                        Est. {activeEnRoute.estimatedArrival || 'Within 3 hrs'}
                       </Text>
                     </View>
                     <TouchableOpacity
                       onPress={() => handleCancelOrder(activeEnRoute.id || activeEnRoute.orderNumber)}
                       style={[styles.headerCancelIconBtn, { backgroundColor: theme.mode === 'dark' ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2', borderColor: theme.mode === 'dark' ? 'rgba(239, 68, 68, 0.3)' : '#FCA5A5' }]}
                       activeOpacity={0.75}
-                      accessibilityLabel="Cancel dispatch"
+                      accessibilityLabel="Cancel order"
                     >
                       <X size={14} color="#DC2626" strokeWidth={2.4} />
                     </TouchableOpacity>
                   </View>
                 </View>
 
-                {/* Minimalist Non-Overlapping Route Telemetry Track */}
-                <View style={[styles.modernRouteCard, { backgroundColor: theme.mode === 'dark' ? '#0F172A' : '#F8FAFC', borderColor: theme.borderLight }]}>
-                  <View style={styles.routePointsRow}>
-                    <View style={styles.routePointItem}>
-                      <View style={[styles.routePointDot, { backgroundColor: '#0284C7' }]} />
-                      <Text style={[styles.routePointLabel, { color: theme.textSecondary }]} numberOfLines={1}>
-                        Miyapur Hub
-                      </Text>
-                    </View>
-                    <View style={[styles.routePointItem, { justifyContent: 'flex-end' }]}>
-                      <MapPin size={13} color="#DC2626" />
-                      <Text style={[styles.routePointLabel, { color: theme.textSecondary }]} numberOfLines={1}>
-                        Site Gate
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.routeTrackContainer}>
-                    <View style={[styles.routeTrackBase, { backgroundColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.1)' : '#CBD5E1' }]}>
-                      <View style={[styles.routeTrackFill, { width: `${Math.min(94, Math.max(8, gpsProgress))}%`, backgroundColor: '#0284C7' }]} />
-                    </View>
-                    <View style={[styles.movingVehicleIconWrapper, { left: `${Math.min(90, Math.max(5, gpsProgress))}%` }]}>
-                      <View style={styles.vehiclePulseGlow} />
-                      <View style={styles.vehiclePuck}>
-                        <Truck size={12} color="#FFFFFF" />
-                      </View>
-                    </View>
-                  </View>
-
-                  <View style={styles.telemetryStrip}>
-                    <Text style={[styles.telemetryStripText, { color: theme.textSecondary }]}>
-                      Speed: <Text style={{ fontWeight: '700', color: theme.textPrimary }}>{gpsSpeed} km/h</Text>
-                    </Text>
-                    <Text style={[styles.telemetryDotDivider, { color: theme.textMuted }]}>•</Text>
-                    <Text style={[styles.telemetryStripText, { color: theme.textSecondary }]}>
-                      ETA: <Text style={{ fontWeight: '700', color: '#059669' }}>{etaRemainingMins} mins</Text>
-                    </Text>
-                    <Text style={[styles.telemetryDotDivider, { color: theme.textMuted }]}>•</Text>
-                    <Text style={[styles.telemetryStripText, { color: theme.textSecondary }]}>
-                      <Text style={{ fontWeight: '700', color: theme.textPrimary }}>{distanceKm} km</Text> away
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Logistics Advisory Note */}
-                <View style={styles.trafficAlertBox}>
-                  <AlertTriangle size={13} color="#D97706" />
-                  <Text style={styles.trafficAlertText} numberOfLines={2}>
-                    Logistics Route: Transit via ORR Exit 3 on schedule. Materials dispatched and sealed.
+                {/* Vertical Lifecycle Stepper Hierarchy */}
+                <View style={styles.milestonesSection}>
+                  <Text style={[styles.sectionMicroTitle, { color: theme.textMuted }]}>
+                    ORDER LIFECYCLE & DISPATCH STAGES
                   </Text>
-                </View>
-
-                {/* OTP & Gate Handoff Card */}
-                <View style={styles.otpSection}>
-                  <View style={styles.otpLeft}>
-                    <Text style={styles.otpLabel}>Delivery Verification Code (OTP)</Text>
-                    <Text style={styles.otpValue}>{activeEnRoute.deliveryOtp || '8842'}</Text>
-                  </View>
-                  <TouchableOpacity
-                    onPress={() => setShowSupervisorModal(true)}
-                    style={styles.handoffBtn}
-                    activeOpacity={0.7}
-                  >
-                    <UserCheck size={13} color="#111111" />
-                    <Text style={styles.handoffBtnText}>Delegate</Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* Delivery Meta */}
-                <View style={styles.metaRow}>
-                  <View style={[styles.metaCol, { flex: 1, minWidth: 0 }]}>
-                    <Text style={[styles.metaLabel, { color: theme.textSecondary }]}>Driver & Vehicle</Text>
-                    <Text style={[styles.metaVal, { color: theme.textPrimary }]} numberOfLines={1}>
-                      {activeEnRoute.driverName} ({activeEnRoute.vehicleNumber})
-                    </Text>
-                  </View>
-                  <View style={[styles.metaCol, { flex: 1, minWidth: 0 }]}>
-                    <Text style={[styles.metaLabel, { color: theme.textSecondary }]}>Assigned Site Supervisor</Text>
-                    <Text style={[styles.metaVal, { color: theme.textPrimary }]} numberOfLines={1}>
-                      {supervisorData.name}
-                    </Text>
-                  </View>
-                </View>
-
-                {/* Action Buttons Row */}
-                <View style={styles.actionRow}>
-                  <TouchableOpacity
-                    onPress={() => setShowChatModal(true)}
-                    style={[styles.actionBtn, { backgroundColor: '#111111' }]}
-                    activeOpacity={0.8}
-                  >
-                    <MessageSquare size={13} color="#FFFFFF" />
-                    <Text style={styles.actionBtnTextWhite}>Live Chat</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={handleCallDriver}
-                    style={[styles.actionBtn, { backgroundColor: '#059669' }]}
-                    activeOpacity={0.8}
-                  >
-                    <PhoneCall size={13} color="#FFFFFF" />
-                    <Text style={styles.actionBtnTextWhite}>Call Driver</Text>
-                  </TouchableOpacity>
-
-                  {/* Cancel Button - Icon Only! */}
-                  <TouchableOpacity
-                    onPress={() => handleCancelOrder(activeEnRoute.id || activeEnRoute.orderNumber)}
-                    style={[styles.cancelActionBtn, { backgroundColor: theme.mode === 'dark' ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2', borderColor: theme.mode === 'dark' ? 'rgba(239, 68, 68, 0.3)' : '#FCA5A5' }]}
-                    activeOpacity={0.8}
-                    accessibilityLabel="Cancel dispatch"
-                  >
-                    <X size={15} color="#DC2626" strokeWidth={2.4} />
-                  </TouchableOpacity>
-                </View>
-
-                {/* Vertical Tracking Hierarchy */}
-                <View style={styles.verticalTracker}>
-                  {TRACKING_STEPS.map((step, idx) => {
-                    const isLast = idx === TRACKING_STEPS.length - 1;
-                    const isCompleted = step.status === 'completed';
+                  {ORDER_LIFECYCLE_STAGES.map((step, idx) => {
+                    const isDone = step.status === 'completed';
                     const isActive = step.status === 'active';
-
                     return (
                       <View key={step.id} style={styles.timelineRow}>
                         <View style={styles.timelineIndicatorCol}>
                           <View
                             style={[
-                              styles.timelineDot,
-                              isActive
-                                ? { backgroundColor: theme.primary, borderColor: theme.primary }
-                                : isCompleted
-                                ? { backgroundColor: theme.primary, borderColor: theme.primary }
-                                : { backgroundColor: theme.surfaceSecondary, borderColor: theme.border },
+                              styles.statusDot,
+                              isDone && styles.dotCompleted,
+                              isActive && styles.dotActive,
                             ]}
                           >
-                            {isCompleted && <Check size={10} color="#FFFFFF" strokeWidth={3} />}
-                            {isActive && <View style={styles.activeInnerDot} />}
+                            {isDone ? (
+                              <Check size={10} color="#FFFFFF" strokeWidth={3} />
+                            ) : (
+                              <Text style={[styles.stepNumberText, { color: isActive ? '#FFFFFF' : theme.textMuted }]}>
+                                {step.stepNumber}
+                              </Text>
+                            )}
                           </View>
-                          {!isLast && (
+                          {idx < ORDER_LIFECYCLE_STAGES.length - 1 && (
                             <View
                               style={[
                                 styles.timelineLine,
-                                {
-                                  backgroundColor: isCompleted ? theme.primary : theme.border,
-                                },
+                                isDone ? styles.lineCompleted : styles.linePending,
                               ]}
                             />
                           )}
                         </View>
-
-                        <View style={[styles.timelineContent, isLast ? { paddingBottom: 0 } : { paddingBottom: 22 }]}>
-                          <Text
-                            style={[
-                              styles.timelineStepTitle,
-                              {
-                                color: isActive
-                                  ? theme.primary
-                                  : isCompleted
-                                  ? theme.textPrimary
-                                  : theme.textSecondary,
-                                fontWeight: isActive || isCompleted ? '600' : '400',
-                              },
-                            ]}
-                          >
-                            {step.title}
-                          </Text>
-                          <Text style={[styles.timelineStepDesc, { color: theme.textSecondary }]}>
+                        <View style={styles.timelineContentCol}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <Text
+                              style={[
+                                styles.stepTitle,
+                                { color: isDone || isActive ? theme.textPrimary : theme.textMuted },
+                              ]}
+                            >
+                              {step.title}
+                            </Text>
+                            {isActive && (
+                              <View style={[styles.activeStageTag, { backgroundColor: theme.primary }]}>
+                                <Text style={styles.activeStageTagText}>CURRENT</Text>
+                              </View>
+                            )}
+                          </View>
+                          <Text style={[styles.stepDesc, { color: theme.textSecondary }]}>
                             {step.description}
                           </Text>
                         </View>
                       </View>
                     );
                   })}
+                </View>
+
+                {/* Delivery Site Destination & Verification Details */}
+                <View style={[styles.deliveryInfoCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                  {/* Destination Address */}
+                  <View style={styles.infoRow}>
+                    <MapPin size={15} color={theme.primary} style={{ marginTop: 2 }} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.infoLabel, { color: theme.textMuted }]}>Delivery Site Destination</Text>
+                      <Text style={[styles.infoValue, { color: theme.textPrimary }]} numberOfLines={2}>
+                        {formatSiteAddress(activeEnRoute.siteAddress)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Gate Verification OTP Code */}
+                  <View style={[styles.otpRowContainer, { borderTopColor: theme.borderLight }]}>
+                    <View style={styles.otpLeftBox}>
+                      <KeyRound size={15} color="#059669" />
+                      <View>
+                        <Text style={[styles.otpMicroLabel, { color: theme.textSecondary }]}>
+                          Delivery Gate Verification Code
+                        </Text>
+                        <Text style={[styles.otpMainValue, { color: theme.textPrimary }]}>
+                          {activeEnRoute.deliveryOtp || '8842'}
+                        </Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setShowSupervisorModal(true)}
+                      style={[styles.delegateBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                      activeOpacity={0.75}
+                    >
+                      <UserCheck size={12} color={theme.textPrimary} />
+                      <Text style={[styles.delegateBtnText, { color: theme.textPrimary }]}>
+                        Delegate
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Assigned Site Supervisor */}
+                  <View style={[styles.supervisorRow, { borderTopColor: theme.borderLight }]}>
+                    <ShieldCheck size={14} color="#0284C7" />
+                    <Text style={[styles.supervisorText, { color: theme.textSecondary }]}>
+                      Site Incharge: <Text style={{ fontWeight: '700', color: theme.textPrimary }}>{supervisorData.name}</Text> ({supervisorData.phone})
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Action Buttons Row */}
+                <View style={styles.actionRow}>
+                  {Boolean(onViewInvoice) && (
+                    <TouchableOpacity
+                      onPress={() => onViewInvoice(activeEnRoute)}
+                      style={[styles.actionBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, borderWidth: 1 }]}
+                      activeOpacity={0.8}
+                    >
+                      <FileText size={13} color={theme.textPrimary} />
+                      <Text style={[styles.actionBtnText, { color: theme.textPrimary }]}>GST Tax Invoice</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  <TouchableOpacity
+                    onPress={() => setShowSupervisorModal(true)}
+                    style={[styles.actionBtn, { backgroundColor: '#111111' }]}
+                    activeOpacity={0.8}
+                  >
+                    <ShieldCheck size={13} color="#FFFFFF" />
+                    <Text style={styles.actionBtnTextWhite}>Supervisor</Text>
+                  </TouchableOpacity>
+
+                  {/* Cancel Button */}
+                  <TouchableOpacity
+                    onPress={() => handleCancelOrder(activeEnRoute.id || activeEnRoute.orderNumber)}
+                    style={[styles.cancelActionBtn, { backgroundColor: theme.mode === 'dark' ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2', borderColor: theme.mode === 'dark' ? 'rgba(239, 68, 68, 0.3)' : '#FCA5A5' }]}
+                    activeOpacity={0.8}
+                    accessibilityLabel="Cancel order"
+                  >
+                    <X size={15} color="#DC2626" strokeWidth={2.4} />
+                  </TouchableOpacity>
                 </View>
               </View>
             )}
@@ -555,15 +527,6 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
         )}
       </ScrollView>
 
-      {/* Live Dispatcher Chat Modal */}
-      <LiveDispatcherChatModal
-        visible={showChatModal}
-        onClose={() => setShowChatModal(false)}
-        orderNumber={activeEnRoute?.orderNumber}
-        driverName={activeEnRoute?.driverName}
-        driverPhone={activeEnRoute?.driverPhone}
-      />
-
       {/* Supervisor Delegation Modal */}
       <SupervisorHandoffModal
         visible={showSupervisorModal}
@@ -651,7 +614,19 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     marginTop: 2,
   },
+  statusBadgePill: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  statusBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+  },
   etaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
@@ -668,230 +643,174 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  modernRouteCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    padding: 12,
-    gap: 10,
+  milestonesSection: {
+    paddingVertical: 4,
   },
-  routePointsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  routePointItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    flex: 1,
-  },
-  routePointDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  routePointLabel: {
-    fontSize: 11.5,
-    fontWeight: '600',
-  },
-  routeTrackContainer: {
-    height: 24,
-    justifyContent: 'center',
-    position: 'relative',
-    marginVertical: 2,
-  },
-  routeTrackBase: {
-    height: 4,
-    borderRadius: 2,
-    width: '100%',
-    overflow: 'hidden',
-  },
-  routeTrackFill: {
-    height: '100%',
-    borderRadius: 2,
-  },
-  movingVehicleIconWrapper: {
-    position: 'absolute',
-    top: '50%',
-    marginTop: -12,
-    marginLeft: -12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  vehiclePulseGlow: {
-    position: 'absolute',
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(2, 132, 199, 0.25)',
-  },
-  vehiclePuck: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#0284C7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  telemetryStrip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingTop: 2,
-  },
-  telemetryStripText: {
-    fontSize: 11,
-  },
-  telemetryDotDivider: {
+  sectionMicroTitle: {
     fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    marginBottom: 12,
   },
-  trafficAlertBox: {
+  timelineRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 6,
-    backgroundColor: '#FFFBEB',
-    borderWidth: 1,
-    borderColor: '#FDE68A',
-    borderRadius: 8,
-    padding: 8,
+    minHeight: 46,
   },
-  trafficAlertText: {
-    fontSize: 11,
-    color: '#92400E',
+  timelineIndicatorCol: {
+    width: 26,
+    alignItems: 'center',
+  },
+  statusDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#E4E4E7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepNumberText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+  },
+  dotCompleted: {
+    backgroundColor: '#059669',
+  },
+  dotActive: {
+    backgroundColor: '#0284C7',
+  },
+  timelineLine: {
+    width: 2,
     flex: 1,
+    marginVertical: 3,
+  },
+  lineCompleted: {
+    backgroundColor: '#059669',
+  },
+  linePending: {
+    backgroundColor: '#E4E4E7',
+  },
+  timelineContentCol: {
+    flex: 1,
+    paddingLeft: 10,
+    paddingBottom: 10,
+  },
+  stepTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  activeStageTag: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 3,
+  },
+  activeStageTagText: {
+    color: '#FFFFFF',
+    fontSize: 8.5,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  stepDesc: {
+    fontSize: 11,
+    marginTop: 2,
     lineHeight: 15,
   },
-  otpSection: {
-    backgroundColor: '#F4F4F5',
+  deliveryInfoCard: {
     borderRadius: 10,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
     padding: 10,
+  },
+  infoLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 1,
+  },
+  infoValue: {
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 16,
+  },
+  otpRowContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    padding: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
-  otpLeft: {
-    gap: 2,
+  otpLeftBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  otpLabel: {
+  otpMicroLabel: {
     fontSize: 10,
-    color: '#71717A',
-    fontWeight: '700',
-    textTransform: 'uppercase',
+    fontWeight: '600',
   },
-  otpValue: {
-    fontSize: 17,
+  otpMainValue: {
+    fontSize: 16,
     fontWeight: '900',
-    letterSpacing: 4,
-    color: '#111111',
+    letterSpacing: 2,
   },
-  handoffBtn: {
+  delegateBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 8,
+    paddingHorizontal: 9,
     paddingVertical: 5,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#E4E4E7',
   },
-  handoffBtnText: {
+  delegateBtnText: {
     fontSize: 11,
     fontWeight: '700',
-    color: '#111111',
   },
-  metaRow: {
+  supervisorRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 6,
-    gap: 12,
+    alignItems: 'center',
+    gap: 6,
+    padding: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
-  metaCol: {
-    flex: 1,
-    gap: 2,
-  },
-  metaLabel: {
+  supervisorText: {
     fontSize: 11,
-    fontWeight: '500',
-  },
-  metaVal: {
-    fontSize: 12,
-    fontWeight: '600',
   },
   actionRow: {
     flexDirection: 'row',
-    gap: 6,
-    paddingTop: 2,
+    gap: 8,
+    paddingTop: 4,
   },
   actionBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 4,
-    paddingVertical: 8,
+    gap: 6,
+    paddingVertical: 9,
     borderRadius: 8,
   },
   actionBtnTextWhite: {
     color: '#FFFFFF',
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: '700',
   },
   actionBtnText: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: '700',
   },
   cancelActionBtn: {
     width: 38,
-    height: 34,
+    height: 36,
     borderRadius: 8,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  verticalTracker: {
-    paddingTop: 8,
-  },
-  timelineRow: {
-    flexDirection: 'row',
-  },
-  timelineIndicatorCol: {
-    alignItems: 'center',
-    width: 24,
-    marginRight: 12,
-  },
-  timelineDot: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1,
-  },
-  activeInnerDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#FFFFFF',
-  },
-  timelineLine: {
-    width: 2,
-    flex: 1,
-    marginVertical: 2,
-  },
-  timelineContent: {
-    flex: 1,
-    gap: 2,
-  },
-  timelineStepTitle: {
-    fontSize: 13.5,
-    letterSpacing: -0.2,
-  },
-  timelineStepDesc: {
-    fontSize: 11.5,
-    lineHeight: 15,
   },
   reorderDesc: {
     fontSize: 12,
