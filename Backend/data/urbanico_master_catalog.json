@@ -1,0 +1,1719 @@
+{
+  "version": "2.0.0",
+  "generatedAt": "2026-09-16T10:01:38.929Z",
+  "categories": [
+    {
+      "id": "cement",
+      "name": "Cement",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614395/cement2_s1pf60.jpg",
+      "count": "7 Top Brands",
+      "priceLabel": "From ₹365 / Bag",
+      "subcategoriesText": "UltraTech, ACC, Ambuja, Dalmia, Birla, JSW",
+      "tag": "CEMENT"
+    },
+    {
+      "id": "bricks",
+      "name": "Bricks & Blocks",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614403/brick2_gjzbjh.jpg",
+      "count": "5 Types",
+      "priceLabel": "From ₹6.5 / Brick",
+      "subcategoriesText": "Red Clay, AAC Blocks, Fly Ash, Concrete Blocks, Hollow Blocks",
+      "tag": "BRICKS"
+    },
+    {
+      "id": "sand",
+      "name": "Sand",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614393/sand2_wj9sly.jpg",
+      "count": "4 Varieties",
+      "priceLabel": "From ₹55 / Bag",
+      "subcategoriesText": "Plastering Sand, Regular Sand (M-Sand), Gray Sand (P-Sand), Filling Sand",
+      "tag": "SAND"
+    },
+    {
+      "id": "stone",
+      "name": "Stone & Aggregates",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614394/stones2_i0cjzq.jpg",
+      "count": "5 Sizes",
+      "priceLabel": "From ₹50 / Bag",
+      "subcategoriesText": "10mm, 20mm, 40mm, 60mm Boulder & Stone Dust",
+      "tag": "AGGREGATES"
+    },
+    {
+      "id": "iron_bars",
+      "name": "Iron Bars & Steel",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614394/ironbars2_t1ktel.jpg",
+      "count": "5 Rebar Grades",
+      "priceLabel": "From ₹95 / Wire",
+      "subcategoriesText": "8mm, 10mm, 12mm, 16mm TMT & Binding Wire / Rings",
+      "tag": "STEEL & TMT"
+    },
+    {
+      "id": "centring",
+      "name": "Centring & Formwork",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614394/centering2_lb7s6n.jpg",
+      "count": "5 Formwork Types",
+      "priceLabel": "From ₹50 / Plank",
+      "subcategoriesText": "Wooden Planks, Shuttering Ply, Support Poles, Steel Scaffolding, Steel Props",
+      "tag": "FORMWORK"
+    },
+    {
+      "id": "tiles",
+      "name": "Tiles & Flooring",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1787033354/Tiles_kw4xbl.jpg",
+      "count": "4 Subcategories",
+      "priceLabel": "From ₹42 / Sq.Ft",
+      "subcategoriesText": "Vitrified Double Charge, Ceramic Designer Wall, Anti-Skid Floor, Paver Tiles",
+      "tag": "TILES"
+    },
+    {
+      "id": "services",
+      "name": "Services",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1786533919/mason_ipgxhc.jpg",
+      "count": "6 Skilled Trades",
+      "priceLabel": "Demo @ ₹99",
+      "subcategoriesText": "Mason, Painter, Fabricator, Electrician, Plumber, Carpenter",
+      "tag": "SERVICES"
+    }
+  ],
+  "services": [
+    {
+      "id": "mason",
+      "name": "Mason",
+      "subtitle": "Tile & Brickwork",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1786705284/mason_nxpwh5.jpg",
+      "rate": "₹99 Demo Visit",
+      "description": "Experienced Masons for bricklaying, plastering, stone masonry, tile fitting & concrete slab laying.",
+      "tag": "SERVICES"
+    },
+    {
+      "id": "painter",
+      "name": "Painter",
+      "subtitle": "Interior & Exterior Painting",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1786705284/painter_dofdp9.jpg",
+      "rate": "₹99 Demo Visit",
+      "description": "Professional Wall Painters for interior wall putty, primer coat, exterior weather-shield & texture finish.",
+      "tag": "SERVICES"
+    },
+    {
+      "id": "fabricator",
+      "name": "Fabricator",
+      "subtitle": "Steel & Welding Works",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1788852146/fabricator_dmfp4t.jpg",
+      "rate": "₹99 Demo Visit",
+      "description": "Certified Steel Fabricators for gates, window grills, roof trusses & heavy structural welding work.",
+      "tag": "SERVICES"
+    },
+    {
+      "id": "electrician",
+      "name": "Electrician",
+      "subtitle": "Wiring & Panels",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1788852931/electrician_imidbv.jpg",
+      "rate": "₹99 Demo Visit",
+      "description": "Licensed Electricians for wall conduit wiring, distribution boards, lighting fixtures & earthing.",
+      "tag": "SERVICES"
+    },
+    {
+      "id": "plumber",
+      "name": "Plumber",
+      "subtitle": "Piping & Sanitary Fittings",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1788852146/plumber_zxj5ct.jpg",
+      "rate": "₹99 Demo Visit",
+      "description": "Experienced Plumbers for CPVC/PVC concealed piping, overhead tanks, bathroom fittings & drainage.",
+      "tag": "SERVICES"
+    },
+    {
+      "id": "carpenter",
+      "name": "Carpenter",
+      "subtitle": "Woodwork & Formwork",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1788852146/carpenter_pdnvrz.jpg",
+      "rate": "₹99 Demo Visit",
+      "description": "Skilled Carpenters for door frames, window shuttering, modular kitchens & custom wood fittings.",
+      "tag": "SERVICES"
+    }
+  ],
+  "bundles": [
+    {
+      "id": "bundle-masonry-plaster",
+      "title": "Masonry & Plastering Starter Combo",
+      "subtitle": "Bricks + Sand + Cement (1:4 Mortar Ratio)",
+      "tag": "MOST ORDERED • 1:4 RATIO",
+      "description": "The exact civil construction ratio for 100 sq.ft of brickwork plus 2-sided plastering. Perfectly bundles 1,000 Kiln Red Bricks with 1 Auto of washed Plastering Sand and 10 Bags of UltraTech PPC Cement to prevent mortar dry cracks.",
+      "itemsSummary": "1,000 Red Clay Bricks + 1 Auto Plastering Sand + 10 Bags UltraTech PPC",
+      "itemsIncluded": [
+        "1,000 Red Clay Bricks (Kiln-Fired 1st Class)",
+        "1 Auto Plastering Sand (~1 Ton Washed)",
+        "10 Bags UltraTech Super PPC (500 KG)"
+      ],
+      "savings": "Save ₹450 / combo",
+      "price": 14080,
+      "originalPrice": 14530,
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931567/Red_Bricks_paggbp.png",
+      "targetCategory": "bricks",
+      "bundleItems": [
+        {
+          "itemId": "red-bricks",
+          "itemName": "Red Clay Bricks",
+          "optionLabel": "Batch of 1000 Bricks",
+          "unitPrice": 8500,
+          "quantity": 1,
+          "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931567/Red_Bricks_paggbp.png",
+          "categoryName": "bricks"
+        },
+        {
+          "itemId": "plastering-sand",
+          "itemName": "Plastering Sand",
+          "optionLabel": "Auto Load (~1 Ton)",
+          "unitPrice": 1930,
+          "quantity": 1,
+          "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931576/Plastering_Sand_mvhxto.png",
+          "categoryName": "sand"
+        },
+        {
+          "itemId": "ultratech-ppc",
+          "itemName": "UltraTech Super PPC",
+          "optionLabel": "10 Bags (500 KG)",
+          "unitPrice": 3650,
+          "quantity": 1,
+          "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_3894293894293894_nqgrsm.jpg",
+          "categoryName": "cement"
+        }
+      ]
+    },
+    {
+      "id": "bundle-rcc-slab-pour",
+      "title": "RCC Slab & Column Reinforcement Pack",
+      "subtitle": "12mm TMT Steel + 20mm Stone + 53 Cement",
+      "tag": "STRUCTURAL STRENGTH M25",
+      "description": "Engineered structural combination for 150 sq.ft of M25 grade RCC roof slab or column beam pouring. Combines primary Fe550D 12mm rebar bundle with 3 Tons of hard 20mm crushed stone and 10 Bags of UltraTech 53 Grade OPC for high early compressive strength.",
+      "itemsSummary": "1 Bundle 12mm TMT (5 Rods) + 1 Tractor 20mm Stone + 10 Bags UltraTech 53",
+      "itemsIncluded": [
+        "1 Bundle 12mm TMT Steel (5 Rods - 12m length)",
+        "1 Tractor 20mm Stone Aggregate (~3 Tons Full Level)",
+        "10 Bags UltraTech 53 Grade OPC (500 KG)"
+      ],
+      "savings": "Save ₹500 / combo",
+      "price": 9130,
+      "originalPrice": 9630,
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931575/Stone_20mm_qvbriu.png",
+      "targetCategory": "iron_bars",
+      "bundleItems": [
+        {
+          "itemId": "tmt-12mm",
+          "itemName": "Iron Bar 12mm",
+          "optionLabel": "1 Bundle (5 Rods - 12m)",
+          "unitPrice": 2800,
+          "quantity": 1,
+          "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931568/Iron_bar_wz80t5.png",
+          "categoryName": "iron_bars"
+        },
+        {
+          "itemId": "stone-20mm",
+          "itemName": "Stone 20mm",
+          "optionLabel": "Tractor Full level (~3 Tons)",
+          "unitPrice": 2700,
+          "quantity": 1,
+          "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931575/Stone_20mm_qvbriu.png",
+          "categoryName": "stone"
+        },
+        {
+          "itemId": "ultratech-53",
+          "itemName": "UltraTech Cement",
+          "optionLabel": "10 Bags (500 KG)",
+          "unitPrice": 3750,
+          "quantity": 1,
+          "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477602/Gemini_Generated_Image_krt598krt598krt5_uqgizg.jpg",
+          "categoryName": "cement"
+        }
+      ]
+    },
+    {
+      "id": "bundle-foundation-footing",
+      "title": "Foundation Bedding & PCC Base Pack",
+      "subtitle": "40mm Blue Metal + Coarse Sand + PPC Cement",
+      "tag": "FOUNDATION ESSENTIALS",
+      "description": "Ground stabilization pack for leveling building trenches and laying lean concrete base (PCC 1:4:8). Includes 3 Tons of 40mm subgrade stone, 3 Tons coarse M-Sand, and 8 Bags of moisture-resistant PPC.",
+      "itemsSummary": "1 Tractor 40mm Stone + 1 Tractor Regular M-Sand + 8 Bags PPC Cement",
+      "itemsIncluded": [
+        "1 Tractor 40mm Crushed Blue Metal (~3 Tons)",
+        "1 Tractor Regular Concrete Sand (~3 Tons)",
+        "8 Bags UltraTech Super PPC Cement (400 KG)"
+      ],
+      "savings": "Save ₹380 / combo",
+      "price": 7540,
+      "originalPrice": 7920,
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931569/Stone_40mm_gze9gj.png",
+      "targetCategory": "stone",
+      "bundleItems": [
+        {
+          "itemId": "stone-40mm",
+          "itemName": "Stone 40mm",
+          "optionLabel": "Tractor Full level (~3 Tons)",
+          "unitPrice": 2600,
+          "quantity": 1,
+          "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931569/Stone_40mm_gze9gj.png",
+          "categoryName": "stone"
+        },
+        {
+          "itemId": "m-sand-concrete",
+          "itemName": "Regular Sand",
+          "optionLabel": "Tractor Full level (~3 Tons)",
+          "unitPrice": 2400,
+          "quantity": 1,
+          "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931585/Regular_Sand_ajv0wc.png",
+          "categoryName": "sand"
+        },
+        {
+          "itemId": "ultratech-ppc",
+          "itemName": "UltraTech Super PPC",
+          "optionLabel": "8 Bags (400 KG)",
+          "unitPrice": 2920,
+          "quantity": 1,
+          "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_3894293894293894_nqgrsm.jpg",
+          "categoryName": "cement"
+        }
+      ]
+    },
+    {
+      "id": "bundle-tiling-finishing",
+      "title": "Flooring Installation Complete Kit",
+      "subtitle": "Vitrified Tiles + Tile Adhesive + Mason Demo",
+      "tag": "PREMIUM INTERIOR FINISH",
+      "description": "Complete floor overhaul kit designed for a 150 sq.ft living room or office cabin. Contains 10 boxes of 600x600 mm double charge vitrified tiles plus a scheduled on-site master tile-mason site inspection.",
+      "itemsSummary": "10 Boxes Vitrified Tiles (155 Sq.Ft) + 1x Site Mason Demo",
+      "itemsIncluded": [
+        "10 Boxes Vitrified Double Charge Tiles (600x600 mm, 40 Tiles)",
+        "1x Expert Tile-Mason Site Inspection & Level Check Demo"
+      ],
+      "savings": "Save ₹650 / combo",
+      "price": 9089,
+      "originalPrice": 9739,
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1787033354/Tiles_kw4xbl.jpg",
+      "targetCategory": "tiles",
+      "bundleItems": [
+        {
+          "itemId": "vitrified-double-charge",
+          "itemName": "Vitrified Double Charge Tiles",
+          "optionLabel": "10 Boxes (155 Sq.Ft)",
+          "unitPrice": 8990,
+          "quantity": 1,
+          "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1787033354/Tiles_kw4xbl.jpg",
+          "categoryName": "tiles"
+        },
+        {
+          "itemId": "service-mason",
+          "itemName": "Mason Site Inspection",
+          "optionLabel": "1x Expert Site Visit Demo Session",
+          "unitPrice": 99,
+          "quantity": 1,
+          "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1786705284/mason_nxpwh5.jpg",
+          "categoryName": "services"
+        }
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "id": "vitrified-double-charge",
+      "categoryId": "tiles",
+      "category": "Tiles & Flooring",
+      "name": "Vitrified Double Charge Tiles",
+      "subtitle": "600x600 mm (2x2 ft) Premium Gloss",
+      "description": "High gloss double charge vitrified tiles with nano polish technology. Stain resistant and zero water absorption.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1787033354/Tiles_kw4xbl.jpg",
+      "actionType": "add_to_cart",
+      "defaultPrice": 58,
+      "unit": "Sq.Ft",
+      "inStock": true,
+      "stockQuantity": 8500,
+      "hsnCode": "69072100",
+      "gstRate": 18,
+      "fastDispatch": true,
+      "tag": "TILES",
+      "options": [
+        {
+          "id": "v-box-4",
+          "label": "1 Box (4 Tiles / 15.5 Sq.Ft)",
+          "price": 899,
+          "type": "radio"
+        },
+        {
+          "id": "v-pallet",
+          "label": "Pallet Bundle (~1,500 Sq.Ft)",
+          "price": 81000,
+          "type": "radio"
+        }
+      ],
+      "specifications": {
+        "fineness": "Water absorption < 0.05%",
+        "compressiveStrength": "> 35 N/mm²",
+        "grade": "Grade 1 Double Charge"
+      }
+    },
+    {
+      "id": "ceramic-designer-wall",
+      "categoryId": "tiles",
+      "category": "Tiles & Flooring",
+      "name": "Ceramic Designer Wall Tiles",
+      "subtitle": "300x450 mm (1x1.5 ft) Kitchen & Bath",
+      "description": "Designer digital wall tiles suitable for kitchen dados, bathrooms, and interior accents. Resistant to steam and household cleaners.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1787033354/Tiles_kw4xbl.jpg",
+      "actionType": "add_to_cart",
+      "defaultPrice": 42,
+      "unit": "Sq.Ft",
+      "inStock": true,
+      "stockQuantity": 6200,
+      "hsnCode": "69072200",
+      "gstRate": 18,
+      "fastDispatch": true,
+      "tag": "TILES",
+      "options": [
+        {
+          "id": "w-box-6",
+          "label": "1 Box (6 Tiles / 9 Sq.Ft)",
+          "price": 380,
+          "type": "radio"
+        },
+        {
+          "id": "w-pallet",
+          "label": "Pallet Bundle (~900 Sq.Ft)",
+          "price": 35000,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "antiskid-floor-tiles",
+      "categoryId": "tiles",
+      "category": "Tiles & Flooring",
+      "name": "Anti-Skid Matte Floor Tiles",
+      "subtitle": "300x300 mm (1x1 ft) Wet Area & Balcony",
+      "description": "High-traction matte ceramic floor tiles engineered for wet areas, balconies, terraces, and bathrooms to prevent slipping.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1787033354/Tiles_kw4xbl.jpg",
+      "actionType": "add_to_cart",
+      "defaultPrice": 48,
+      "unit": "Sq.Ft",
+      "inStock": true,
+      "stockQuantity": 4100,
+      "hsnCode": "69072300",
+      "gstRate": 18,
+      "fastDispatch": true,
+      "tag": "TILES",
+      "options": [
+        {
+          "id": "f-box-9",
+          "label": "1 Box (9 Tiles / 9 Sq.Ft)",
+          "price": 430,
+          "type": "radio"
+        },
+        {
+          "id": "f-pallet",
+          "label": "Pallet Bundle (~900 Sq.Ft)",
+          "price": 39000,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "heavy-duty-paver-tiles",
+      "categoryId": "tiles",
+      "category": "Tiles & Flooring",
+      "name": "Heavy Duty Parking & Paver Tiles",
+      "subtitle": "400x400 mm (16x16 inch) 12mm Outdoor Grade",
+      "description": "12mm full-body vitrified parking tiles designed to withstand vehicular load, heavy wear, and outdoor weathering.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1787033354/Tiles_kw4xbl.jpg",
+      "actionType": "add_to_cart",
+      "defaultPrice": 65,
+      "unit": "Sq.Ft",
+      "inStock": true,
+      "stockQuantity": 5300,
+      "hsnCode": "68101910",
+      "gstRate": 18,
+      "fastDispatch": true,
+      "tag": "TILES",
+      "options": [
+        {
+          "id": "p-box-5",
+          "label": "1 Box (5 Tiles / 8.6 Sq.Ft)",
+          "price": 560,
+          "type": "radio"
+        },
+        {
+          "id": "p-pallet",
+          "label": "Pallet Bundle (~860 Sq.Ft)",
+          "price": 51000,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "ultratech-53",
+      "categoryId": "cement",
+      "category": "Cement",
+      "name": "UltraTech Cement",
+      "subtitle": "53 Grade OPC (50kg Bag)",
+      "description": "UltraTech Ordinary Portland Cement 53 Grade. High early strength ideal for structural RCC columns, beams, and slabs.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477602/Gemini_Generated_Image_krt598krt598krt5_uqgizg.jpg",
+      "actionType": "add_to_cart",
+      "defaultPrice": 380,
+      "unit": "Bag (50kg)",
+      "inStock": true,
+      "stockQuantity": 4500,
+      "hsnCode": "25232910",
+      "gstRate": 28,
+      "fastDispatch": true,
+      "tag": "CEMENT",
+      "options": [
+        {
+          "id": "ut-1bag",
+          "label": "1 Bag (50 KG)",
+          "price": 380,
+          "type": "radio"
+        },
+        {
+          "id": "ut-50bag",
+          "label": "Pallet Bundle (50 Bags / 2.5 Tons)",
+          "price": 18500,
+          "type": "radio"
+        }
+      ],
+      "specifications": {
+        "fineness": "310 m²/kg (Blaine)",
+        "soundness": "1.2 mm (Le Chatelier)",
+        "settingTime": "Initial: 110 min, Final: 215 min",
+        "compressiveStrength": "53.8 MPa (28 Days)",
+        "grade": "53 Grade OPC"
+      }
+    },
+    {
+      "id": "ultratech-ppc",
+      "categoryId": "cement",
+      "category": "Cement",
+      "name": "UltraTech Super",
+      "subtitle": "PPC Weather Shield (50kg Bag)",
+      "description": "Portland Pozzolana Cement formulated with fly-ash slurry for superior crack resistance, brick masonry, and exterior plastering.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_3894293894293894_nqgrsm.jpg",
+      "actionType": "add_to_cart",
+      "defaultPrice": 365,
+      "unit": "Bag (50kg)",
+      "inStock": true,
+      "stockQuantity": 3800,
+      "hsnCode": "25232930",
+      "gstRate": 28,
+      "fastDispatch": true,
+      "tag": "CEMENT",
+      "options": [
+        {
+          "id": "utppc-1bag",
+          "label": "1 Bag (50 KG)",
+          "price": 365,
+          "type": "radio"
+        },
+        {
+          "id": "utppc-50bag",
+          "label": "Pallet Bundle (50 Bags / 2.5 Tons)",
+          "price": 17800,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "ambuja-kawach",
+      "categoryId": "cement",
+      "category": "Cement",
+      "name": "Ambuja Cement",
+      "subtitle": "Kawach Waterproof (50kg Bag)",
+      "description": "Specially treated water-repellent cement. Eliminates dampness and efflorescence in basements and boundary walls.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_3894293894293894_nqgrsm.jpg",
+      "actionType": "add_to_cart",
+      "defaultPrice": 395,
+      "unit": "Bag (50kg)",
+      "inStock": true,
+      "stockQuantity": 2900,
+      "hsnCode": "25232910",
+      "gstRate": 28,
+      "fastDispatch": true,
+      "tag": "CEMENT",
+      "options": [
+        {
+          "id": "amb-1bag",
+          "label": "1 Bag (50 KG)",
+          "price": 395,
+          "type": "radio"
+        },
+        {
+          "id": "amb-50bag",
+          "label": "Pallet Bundle (50 Bags / 2.5 Tons)",
+          "price": 19200,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "acc-gold",
+      "categoryId": "cement",
+      "category": "Cement",
+      "name": "ACC Cement",
+      "subtitle": "Gold Water Shield (50kg Bag)",
+      "description": "ACC Gold Water Shield with active silane technology for leak-proof structural foundations and roof slabs.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1785477601/Gemini_Generated_Image_acowooacowooacow_vt85zm.jpg",
+      "actionType": "add_to_cart",
+      "defaultPrice": 385,
+      "unit": "Bag (50kg)",
+      "inStock": true,
+      "stockQuantity": 2200,
+      "hsnCode": "25232910",
+      "gstRate": 28,
+      "fastDispatch": true,
+      "tag": "CEMENT",
+      "options": [
+        {
+          "id": "acc-1bag",
+          "label": "1 Bag (50 KG)",
+          "price": 385,
+          "type": "radio"
+        },
+        {
+          "id": "acc-50bag",
+          "label": "Pallet Bundle (50 Bags / 2.5 Tons)",
+          "price": 18800,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "birla-super",
+      "categoryId": "cement",
+      "category": "Cement",
+      "name": "Birla Cement",
+      "subtitle": "Super OPC 53 Grade (50kg Bag)",
+      "description": "Birla Super high-compressive OPC 53 grade cement for industrial heavy-duty civil foundations and bridge slabs.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1785839313/Gemini_Generated_Image_9bsqb89bsqb89bsq_su50qk.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 370,
+      "unit": "Bag (50kg)",
+      "inStock": true,
+      "stockQuantity": 2100,
+      "hsnCode": "25232910",
+      "gstRate": 28,
+      "fastDispatch": true,
+      "tag": "CEMENT",
+      "options": [
+        {
+          "id": "birla-1bag",
+          "label": "1 Bag (50 KG)",
+          "price": 370,
+          "type": "radio"
+        },
+        {
+          "id": "birla-50bag",
+          "label": "Pallet Bundle (50 Bags / 2.5 Tons)",
+          "price": 18100,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "jsw-concreel",
+      "categoryId": "cement",
+      "category": "Cement",
+      "name": "JSW Cement",
+      "subtitle": "Concreel HD Slag (50kg Bag)",
+      "description": "Composite slag cement designed to fight chemical attacks, sulfate soil exposure, and coastal dampness.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1785839313/Gemini_Generated_Image_9ez1pu9ez1pu9ez1_md0wky.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 375,
+      "unit": "Bag (50kg)",
+      "inStock": true,
+      "stockQuantity": 1800,
+      "hsnCode": "25232920",
+      "gstRate": 28,
+      "fastDispatch": true,
+      "tag": "CEMENT",
+      "options": [
+        {
+          "id": "jsw-1bag",
+          "label": "1 Bag (50 KG)",
+          "price": 375,
+          "type": "radio"
+        },
+        {
+          "id": "jsw-50bag",
+          "label": "Pallet Bundle (50 Bags / 2.5 Tons)",
+          "price": 18300,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "dalmia-dsp",
+      "categoryId": "cement",
+      "category": "Cement",
+      "name": "Dalmia Cement",
+      "subtitle": "DSP Heavy Duty (50kg Bag)",
+      "description": "Dalmia DSP engineered special slag cement offering ultra-dense concrete packing and anti-corrosion protection for steel rebar.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1785839313/Gemini_Generated_Image_68ob8t68ob8t68ob_ampmuz.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 390,
+      "unit": "Bag (50kg)",
+      "inStock": true,
+      "stockQuantity": 1950,
+      "hsnCode": "25232920",
+      "gstRate": 28,
+      "fastDispatch": true,
+      "tag": "CEMENT",
+      "options": [
+        {
+          "id": "dal-1bag",
+          "label": "1 Bag (50 KG)",
+          "price": 390,
+          "type": "radio"
+        },
+        {
+          "id": "dal-50bag",
+          "label": "Pallet Bundle (50 Bags / 2.5 Tons)",
+          "price": 18900,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "plastering-sand",
+      "categoryId": "sand",
+      "category": "Sand",
+      "name": "Plastering Sand",
+      "subtitle": "0.15mm–2.36mm (Zone IV)",
+      "description": "Triple-washed ultra-fine manufactured sand specially graded for internal and external wall plastering with zero crack risk.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931576/Plastering_Sand_mvhxto.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 70,
+      "unit": "Ton",
+      "inStock": true,
+      "stockQuantity": 1500,
+      "hsnCode": "25051012",
+      "gstRate": 5,
+      "fastDispatch": true,
+      "tag": "SAND",
+      "options": [
+        {
+          "id": "psand-bag10",
+          "label": "Bag (10 KG)",
+          "price": 70,
+          "type": "radio"
+        },
+        {
+          "id": "psand-bag25",
+          "label": "Bag (25 KG)",
+          "price": 120,
+          "type": "radio"
+        },
+        {
+          "id": "psand-auto",
+          "label": "Auto (~1 Ton)",
+          "price": 1700,
+          "type": "radio"
+        },
+        {
+          "id": "psand-trac15",
+          "label": "Tractor Body level (~1.5 Ton)",
+          "price": 2300,
+          "type": "radio"
+        },
+        {
+          "id": "psand-trac3",
+          "label": "Tractor Full level (~3 Tons)",
+          "price": 2700,
+          "type": "radio"
+        },
+        {
+          "id": "psand-truck",
+          "label": "Truck (~10 Tons)",
+          "price": 15000,
+          "type": "radio"
+        }
+      ],
+      "specifications": {
+        "siltContent": "0.4% (IS limit < 3%)",
+        "zone": "Zone IV (0.15-2.36mm)",
+        "bulkDensity": "1.62 Tons/m³"
+      }
+    },
+    {
+      "id": "m-sand-concrete",
+      "categoryId": "sand",
+      "category": "Sand",
+      "name": "Regular Sand",
+      "subtitle": "Concrete & Masonry (Zone II)",
+      "description": "Manufactured sand cubically crushed from pure blue granite. Optimized for concrete mixing and brick mortar.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931585/Regular_Sand_ajv0wc.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 65,
+      "unit": "Ton",
+      "inStock": true,
+      "stockQuantity": 1800,
+      "hsnCode": "25051011",
+      "gstRate": 5,
+      "fastDispatch": true,
+      "tag": "SAND",
+      "options": [
+        {
+          "id": "msand-bag25",
+          "label": "Bag (25 KG)",
+          "price": 110,
+          "type": "radio"
+        },
+        {
+          "id": "msand-trac3",
+          "label": "Tractor Load (~3 Tons)",
+          "price": 2400,
+          "type": "radio"
+        },
+        {
+          "id": "msand-truck",
+          "label": "Tipper Truck (~10 Tons)",
+          "price": 13500,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "p-sand-plaster",
+      "categoryId": "sand",
+      "category": "Sand",
+      "name": "Gray Sand",
+      "subtitle": "Washed River Sand Alternative",
+      "description": "Hydraulically classified fine gray sand with balanced grain distribution for smooth exterior finishing.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931576/Plastering_Sand_mvhxto.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 68,
+      "unit": "Ton",
+      "inStock": true,
+      "stockQuantity": 950,
+      "hsnCode": "25051019",
+      "gstRate": 5,
+      "fastDispatch": true,
+      "tag": "SAND",
+      "options": [
+        {
+          "id": "pmsand-bag25",
+          "label": "Bag (25 KG)",
+          "price": 115,
+          "type": "radio"
+        },
+        {
+          "id": "pmsand-trac3",
+          "label": "Tractor Load (~3 Tons)",
+          "price": 2550,
+          "type": "radio"
+        },
+        {
+          "id": "pmsand-truck",
+          "label": "Tipper Truck (~10 Tons)",
+          "price": 14200,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "pit-filling-sand",
+      "categoryId": "sand",
+      "category": "Sand",
+      "name": "Filling Sand",
+      "subtitle": "Foundation & Pit Filling",
+      "description": "Earth-free natural subgrade sand for basement backfilling, foundation packing, and pipeline cushion bedding.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931567/Filling_Sand_m2xt47.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 55,
+      "unit": "Ton",
+      "inStock": true,
+      "stockQuantity": 1200,
+      "hsnCode": "25051010",
+      "gstRate": 5,
+      "fastDispatch": true,
+      "tag": "SAND",
+      "options": [
+        {
+          "id": "fsand-trac3",
+          "label": "Tractor Load (~3 Tons)",
+          "price": 2100,
+          "type": "radio"
+        },
+        {
+          "id": "fsand-truck",
+          "label": "Tipper Truck (~10 Tons)",
+          "price": 11500,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "red-bricks",
+      "categoryId": "bricks",
+      "category": "Bricks & Blocks",
+      "name": "Red Clay Bricks",
+      "subtitle": "Kiln-Fired 1st Class (9x4x3 inch)",
+      "description": "High-density first-class kiln burnt clay bricks. Uniform cherry red color and ringing metallic sound.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931567/Red_Bricks_paggbp.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 9,
+      "unit": "Piece",
+      "inStock": true,
+      "stockQuantity": 65000,
+      "hsnCode": "69041000",
+      "gstRate": 12,
+      "fastDispatch": true,
+      "tag": "BRICKS",
+      "options": [
+        {
+          "id": "brick-500",
+          "label": "Batch of 500 Bricks",
+          "price": 4500,
+          "type": "radio"
+        },
+        {
+          "id": "brick-truck",
+          "label": "Truck Load (3000 Bricks)",
+          "price": 25000,
+          "type": "radio"
+        }
+      ],
+      "specifications": {
+        "compressiveStrength": "> 10.5 N/mm²",
+        "grade": "Class 1 Kiln Burnt"
+      }
+    },
+    {
+      "id": "fly-ash-bricks",
+      "categoryId": "bricks",
+      "category": "Bricks & Blocks",
+      "name": "Fly Ash Bricks",
+      "subtitle": "Thermal Cement Bricks",
+      "description": "Eco-friendly autoclaved fly ash bricks with precision sharp edges and superior thermal insulation.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931579/Fly_Ash_Bricks_mxjawi.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 6.5,
+      "unit": "Piece",
+      "inStock": true,
+      "stockQuantity": 42000,
+      "hsnCode": "68159910",
+      "gstRate": 12,
+      "fastDispatch": true,
+      "tag": "BRICKS",
+      "options": [
+        {
+          "id": "flyash-500",
+          "label": "Batch of 500 Bricks",
+          "price": 3250,
+          "type": "radio"
+        },
+        {
+          "id": "flyash-truck",
+          "label": "Truck Load (3000 Bricks)",
+          "price": 17800,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "aac-blocks",
+      "categoryId": "bricks",
+      "category": "Bricks & Blocks",
+      "name": "AAC Blocks",
+      "subtitle": "6 inch Lightweight (600x200x150 mm)",
+      "description": "Autoclaved Aerated Concrete Blocks. 3x lighter than clay bricks, saving structural dead load and mortar.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931560/ACC_Blocks_skzqyb.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 62,
+      "unit": "Piece",
+      "inStock": true,
+      "stockQuantity": 18000,
+      "hsnCode": "68101110",
+      "gstRate": 12,
+      "fastDispatch": true,
+      "tag": "BRICKS",
+      "options": [
+        {
+          "id": "aac-100",
+          "label": "100 Blocks (600x200x150 mm)",
+          "price": 6200,
+          "type": "radio"
+        },
+        {
+          "id": "aac-300",
+          "label": "Full Truck (300 Blocks)",
+          "price": 18000,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "solid-concrete-blocks",
+      "categoryId": "bricks",
+      "category": "Bricks & Blocks",
+      "name": "Concrete Blocks",
+      "subtitle": "Solid Heavy Duty",
+      "description": "Dense vibrated solid concrete blocks for load-bearing perimeter walls and commercial basements.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931577/Concrete_Blocks_ywqgc3.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 42,
+      "unit": "Piece",
+      "inStock": true,
+      "stockQuantity": 15000,
+      "hsnCode": "68101190",
+      "gstRate": 12,
+      "fastDispatch": true,
+      "tag": "BRICKS",
+      "options": [
+        {
+          "id": "sblock-100",
+          "label": "100 Solid Blocks",
+          "price": 4200,
+          "type": "radio"
+        },
+        {
+          "id": "sblock-500",
+          "label": "Full Truck (500 Blocks)",
+          "price": 20000,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "hollow-concrete-blocks",
+      "categoryId": "bricks",
+      "category": "Bricks & Blocks",
+      "name": "Hollow Blocks",
+      "subtitle": "Partition Wall (Acoustic)",
+      "description": "Vibrated hollow core concrete blocks offering natural soundproofing and rapid conduit running.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931578/Hollow_Blocks_gwaxjs.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 38,
+      "unit": "Piece",
+      "inStock": true,
+      "stockQuantity": 12000,
+      "hsnCode": "68101190",
+      "gstRate": 12,
+      "fastDispatch": true,
+      "tag": "BRICKS",
+      "options": [
+        {
+          "id": "hblock-100",
+          "label": "100 Hollow Blocks",
+          "price": 3800,
+          "type": "radio"
+        },
+        {
+          "id": "hblock-500",
+          "label": "Full Truck (500 Blocks)",
+          "price": 18200,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "stone-10mm",
+      "categoryId": "stone",
+      "category": "Stone & Aggregates",
+      "name": "Stone 10mm",
+      "subtitle": "Blue Metal Aggregate",
+      "description": "Clean angular 10mm granite aggregate for thin RCC sections, precast slabs, and interlocking paver base.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931576/Stone_10mm_kvfjbe.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 70,
+      "unit": "Ton",
+      "inStock": true,
+      "stockQuantity": 2800,
+      "hsnCode": "25171010",
+      "gstRate": 5,
+      "fastDispatch": true,
+      "tag": "AGGREGATES",
+      "options": [
+        {
+          "id": "bag-25kg",
+          "label": "Bag (25 KG)",
+          "price": 120,
+          "type": "radio"
+        },
+        {
+          "id": "tractor-3ton",
+          "label": "Tractor Load (~3 Tons)",
+          "price": 2700,
+          "type": "radio"
+        },
+        {
+          "id": "truck-10ton",
+          "label": "Tipper Truck (~10 Tons)",
+          "price": 15000,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "stone-20mm",
+      "categoryId": "stone",
+      "category": "Stone & Aggregates",
+      "name": "Stone 20mm",
+      "subtitle": "RCC Aggregate (M20/M25)",
+      "description": "Primary structural crushed blue granite aggregate for standard residential and commercial RCC framing.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931575/Stone_20mm_qvbriu.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 70,
+      "unit": "Ton",
+      "inStock": true,
+      "stockQuantity": 3400,
+      "hsnCode": "25171010",
+      "gstRate": 5,
+      "fastDispatch": true,
+      "tag": "AGGREGATES",
+      "options": [
+        {
+          "id": "s20-bag-25kg",
+          "label": "Bag (25 KG)",
+          "price": 120,
+          "type": "radio"
+        },
+        {
+          "id": "s20-tractor-3ton",
+          "label": "Tractor Load (~3 Tons)",
+          "price": 2700,
+          "type": "radio"
+        },
+        {
+          "id": "s20-truck-10ton",
+          "label": "Tipper Truck (~10 Tons)",
+          "price": 15000,
+          "type": "radio"
+        }
+      ],
+      "specifications": {
+        "compressiveStrength": "> 120 MPa Crushing Value",
+        "grade": "20mm Angular Blue Granite"
+      }
+    },
+    {
+      "id": "stone-40mm",
+      "categoryId": "stone",
+      "category": "Stone & Aggregates",
+      "name": "Stone 40mm",
+      "subtitle": "Foundation Aggregate & PCC",
+      "description": "Heavy 40mm crushed stone aggregate for Plain Cement Concrete (PCC), road sub-base, and trench filling.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931569/Stone_40mm_gze9gj.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 65,
+      "unit": "Ton",
+      "inStock": true,
+      "stockQuantity": 2100,
+      "hsnCode": "25171010",
+      "gstRate": 5,
+      "fastDispatch": true,
+      "tag": "AGGREGATES",
+      "options": [
+        {
+          "id": "s40-bag-25kg",
+          "label": "Bag (25 KG)",
+          "price": 115,
+          "type": "radio"
+        },
+        {
+          "id": "s40-tractor-3ton",
+          "label": "Tractor Load (~3 Tons)",
+          "price": 2600,
+          "type": "radio"
+        },
+        {
+          "id": "s40-truck-10ton",
+          "label": "Tipper Truck (~10 Tons)",
+          "price": 14500,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "stone-60mm",
+      "categoryId": "stone",
+      "category": "Stone & Aggregates",
+      "name": "Stone 60mm",
+      "subtitle": "Heavy Boulders",
+      "description": "Oversized heavy granite boulders for railway ballast, gabion mesh walls, and wet earth slope retention.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931552/Stone_60mm_s9ln4i.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 65,
+      "unit": "Ton",
+      "inStock": true,
+      "stockQuantity": 1800,
+      "hsnCode": "25171010",
+      "gstRate": 5,
+      "fastDispatch": true,
+      "tag": "AGGREGATES",
+      "options": [
+        {
+          "id": "s60-tractor-3ton",
+          "label": "Tractor Load (~3 Tons)",
+          "price": 2500,
+          "type": "radio"
+        },
+        {
+          "id": "s60-truck-10ton",
+          "label": "Tipper Truck (~10 Tons)",
+          "price": 14000,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "quarry-stone-dust",
+      "categoryId": "stone",
+      "category": "Stone & Aggregates",
+      "name": "Stone Dust",
+      "subtitle": "Granite Powder",
+      "description": "Fine blue granite crusher dust. Essential binder for paver block laying, sub-base leveling, and asphalt.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931559/Stone_Dust_m6tuvj.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 50,
+      "unit": "Ton",
+      "inStock": true,
+      "stockQuantity": 3100,
+      "hsnCode": "25171020",
+      "gstRate": 5,
+      "fastDispatch": true,
+      "tag": "AGGREGATES",
+      "options": [
+        {
+          "id": "sdust-auto",
+          "label": "Auto (~1 Ton)",
+          "price": 1200,
+          "type": "radio"
+        },
+        {
+          "id": "sdust-tractor",
+          "label": "Tractor Load (~3 Tons)",
+          "price": 2100,
+          "type": "radio"
+        },
+        {
+          "id": "sdust-truck",
+          "label": "Tipper Truck (~10 Tons)",
+          "price": 11000,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "tmt-8mm",
+      "categoryId": "iron_bars",
+      "category": "Iron Bars & Steel",
+      "name": "Iron Bar 8mm",
+      "subtitle": "TMT Steel Rebar (Fe 550D)",
+      "description": "Fe 550D grade high-ductility 8mm rebar. Used for stirrups, column rings, and thin slab meshes.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931568/Iron_bar_wz80t5.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 380,
+      "unit": "Ton",
+      "inStock": true,
+      "stockQuantity": 95,
+      "hsnCode": "72142090",
+      "gstRate": 18,
+      "fastDispatch": true,
+      "tag": "STEEL & TMT",
+      "options": [
+        {
+          "id": "tmt8-bundle",
+          "label": "1 Bundle (10 Rods - 12m)",
+          "price": 3800,
+          "type": "stepper"
+        },
+        {
+          "id": "tmt8-ton",
+          "label": "1 Ton (~26 Bundles)",
+          "price": 58500,
+          "type": "radio"
+        }
+      ],
+      "specifications": {
+        "compressiveStrength": "Fe 550D (550 MPa Yield)",
+        "grade": "Fe 550D Super Ductile"
+      }
+    },
+    {
+      "id": "tmt-10mm",
+      "categoryId": "iron_bars",
+      "category": "Iron Bars & Steel",
+      "name": "Iron Bar 10mm",
+      "subtitle": "TMT Steel Rebar (Fe 550D)",
+      "description": "Fe 550D 10mm primary rebar for slab reinforcement, cantilever projections, and secondary lintels.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931568/Iron_bar_wz80t5.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 480,
+      "unit": "Ton",
+      "inStock": true,
+      "stockQuantity": 110,
+      "hsnCode": "72142090",
+      "gstRate": 18,
+      "fastDispatch": true,
+      "tag": "STEEL & TMT",
+      "options": [
+        {
+          "id": "tmt10-bundle",
+          "label": "1 Bundle (7 Rods - 12m)",
+          "price": 3360,
+          "type": "stepper"
+        },
+        {
+          "id": "tmt10-ton",
+          "label": "1 Ton (~21 Bundles)",
+          "price": 58200,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "tmt-12mm",
+      "categoryId": "iron_bars",
+      "category": "Iron Bars & Steel",
+      "name": "Iron Bar 12mm",
+      "subtitle": "TMT Steel Rebar (Fe 550D)",
+      "description": "Fe 550D 12mm structural steel rebar for multi-storey residential columns, plinth beams, and main roof slabs.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931568/Iron_bar_wz80t5.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 560,
+      "unit": "Ton",
+      "inStock": true,
+      "stockQuantity": 140,
+      "hsnCode": "72142090",
+      "gstRate": 18,
+      "fastDispatch": true,
+      "tag": "STEEL & TMT",
+      "options": [
+        {
+          "id": "tmt12-bundle",
+          "label": "1 Bundle (5 Rods - 12m)",
+          "price": 2800,
+          "type": "stepper"
+        },
+        {
+          "id": "tmt12-ton",
+          "label": "1 Ton (~18 Bundles)",
+          "price": 58000,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "tmt-16mm",
+      "categoryId": "iron_bars",
+      "category": "Iron Bars & Steel",
+      "name": "Iron Bar 16mm",
+      "subtitle": "TMT Steel Rebar (Fe 550D)",
+      "description": "Fe 550D heavy structural 16mm rebar for heavy foundation footings, main columns, and retaining walls.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931568/Iron_bar_wz80t5.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 980,
+      "unit": "Ton",
+      "inStock": true,
+      "stockQuantity": 80,
+      "hsnCode": "72142090",
+      "gstRate": 18,
+      "fastDispatch": true,
+      "tag": "STEEL & TMT",
+      "options": [
+        {
+          "id": "tmt16-bundle",
+          "label": "1 Bundle (3 Rods - 12m)",
+          "price": 2940,
+          "type": "stepper"
+        },
+        {
+          "id": "tmt16-ton",
+          "label": "1 Ton (~10 Bundles)",
+          "price": 57800,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "binding-wire-rings",
+      "categoryId": "iron_bars",
+      "category": "Iron Bars & Steel",
+      "name": "Binding Wire",
+      "subtitle": "18 Gauge Wire & Stirrup Rings",
+      "description": "Annealed 18-gauge black binding wire with ready-made 7x7 inch MS stirrups for tying reinforcement rebar.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931566/Binding_wire_mtr9s7.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 95,
+      "unit": "Roll",
+      "inStock": true,
+      "stockQuantity": 650,
+      "hsnCode": "72171010",
+      "gstRate": 18,
+      "fastDispatch": true,
+      "tag": "STEEL & TMT",
+      "options": [
+        {
+          "id": "bwire-25kg",
+          "label": "Binding Wire Bundle (25 KG Roll)",
+          "price": 2375,
+          "type": "stepper"
+        },
+        {
+          "id": "rings-100",
+          "label": "7x7 Ring Stirrups (100 Pcs)",
+          "price": 1800,
+          "type": "stepper"
+        }
+      ]
+    },
+    {
+      "id": "bamboo-planks",
+      "categoryId": "centring",
+      "category": "Centring & Formwork",
+      "name": "Wooden Planks",
+      "subtitle": "Bamboo Centring Boards",
+      "description": "Seasoned silver-wood and bamboo planks for concrete beam formwork, edge stops, and scaffold staging.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931561/Wooden_Planks_o94gt5.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 50,
+      "unit": "Plank",
+      "inStock": true,
+      "stockQuantity": 4200,
+      "hsnCode": "44071000",
+      "gstRate": 12,
+      "fastDispatch": true,
+      "tag": "FORMWORK",
+      "options": [
+        {
+          "id": "8ft-3in",
+          "label": "8 ft - 3 inch Plank",
+          "price": 50,
+          "type": "stepper"
+        },
+        {
+          "id": "12ft-3in",
+          "label": "12 ft - 3 inch Plank",
+          "price": 65,
+          "type": "stepper"
+        },
+        {
+          "id": "20ft-3in",
+          "label": "20 ft - 3 inch Plank",
+          "price": 110,
+          "type": "stepper"
+        },
+        {
+          "id": "8ft-8in",
+          "label": "8 ft - 8 inch Wide Plank",
+          "price": 125,
+          "type": "stepper"
+        },
+        {
+          "id": "12ft-8in",
+          "label": "12 ft - 8 inch Wide Plank",
+          "price": 160,
+          "type": "stepper"
+        },
+        {
+          "id": "20ft-8in",
+          "label": "20 ft - 8 inch Wide Plank",
+          "price": 210,
+          "type": "stepper"
+        }
+      ]
+    },
+    {
+      "id": "shuttering-plywood",
+      "categoryId": "centring",
+      "category": "Centring & Formwork",
+      "name": "Centring Plywood",
+      "subtitle": "12mm / 18mm Marine Ply",
+      "description": "Phenolic film-faced shuttering plywood. Provides a mirror finish concrete surface and allows up to 20 re-uses.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931558/Centering_Plywood_zoikgt.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 1250,
+      "unit": "Sheet",
+      "inStock": true,
+      "stockQuantity": 1800,
+      "hsnCode": "44123300",
+      "gstRate": 18,
+      "fastDispatch": true,
+      "tag": "FORMWORK",
+      "options": [
+        {
+          "id": "ply-12mm",
+          "label": "12 mm Film Faced Ply (8x4 ft)",
+          "price": 1250,
+          "type": "stepper"
+        },
+        {
+          "id": "ply-18mm",
+          "label": "18 mm Heavy Duty Ply (8x4 ft)",
+          "price": 1680,
+          "type": "stepper"
+        }
+      ]
+    },
+    {
+      "id": "wooden-poles",
+      "categoryId": "centring",
+      "category": "Centring & Formwork",
+      "name": "Support Poles",
+      "subtitle": "Wooden Props (8ft–15ft)",
+      "description": "Casuarina poles selected for straightness and load bearing. Sturdy staging props for shuttering slabs.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931559/Support_Poles_btq0sm.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 60,
+      "unit": "Pole",
+      "inStock": true,
+      "stockQuantity": 3200,
+      "hsnCode": "44031000",
+      "gstRate": 12,
+      "fastDispatch": true,
+      "tag": "FORMWORK",
+      "options": [
+        {
+          "id": "8ft-pol",
+          "label": "8 ft Casuarina Pole",
+          "price": 60,
+          "type": "stepper"
+        },
+        {
+          "id": "12ft-pol",
+          "label": "12 ft Casuarina Pole",
+          "price": 95,
+          "type": "stepper"
+        },
+        {
+          "id": "15ft-pol",
+          "label": "15 ft Casuarina Pole",
+          "price": 145,
+          "type": "stepper"
+        }
+      ]
+    },
+    {
+      "id": "scaffolding-frames",
+      "categoryId": "centring",
+      "category": "Centring & Formwork",
+      "name": "Steel Scaffolding",
+      "subtitle": "Modular Frame Set",
+      "description": "Modular heavy-gauge tubular H-frames and scissor braces for safe exterior facade work and high ceiling plastering.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931559/Steel_Scaffolding_lsxa8k.png",
+      "actionType": "get_quote",
+      "defaultPrice": 2800,
+      "unit": "Set",
+      "inStock": true,
+      "stockQuantity": 450,
+      "hsnCode": "73084000",
+      "gstRate": 18,
+      "fastDispatch": true,
+      "tag": "FORMWORK",
+      "options": [
+        {
+          "id": "scaf-set",
+          "label": "Standard Modular Frame Set (2 H-Frames + Cross Brace)",
+          "price": 2800,
+          "type": "stepper"
+        }
+      ]
+    },
+    {
+      "id": "adjustable-steel-props",
+      "categoryId": "centring",
+      "category": "Centring & Formwork",
+      "name": "Steel Props",
+      "subtitle": "Adjustable Jack Poles",
+      "description": "High-strength telescopic steel jack props with heavy threaded sleeve for exact floor height adjustment.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931568/Steel_Props_de7tta.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 680,
+      "unit": "Piece",
+      "inStock": true,
+      "stockQuantity": 1500,
+      "hsnCode": "73084000",
+      "gstRate": 18,
+      "fastDispatch": true,
+      "tag": "FORMWORK",
+      "options": [
+        {
+          "id": "prop-2m",
+          "label": "2 Meter Adjustable Prop Jack",
+          "price": 680,
+          "type": "stepper"
+        },
+        {
+          "id": "prop-3.8m",
+          "label": "3.8 Meter Heavy Duty Prop Jack",
+          "price": 920,
+          "type": "stepper"
+        }
+      ]
+    },
+    {
+      "id": "steel-centring-sheets",
+      "categoryId": "centring",
+      "category": "Centring & Formwork",
+      "name": "Steel Sheets",
+      "subtitle": "Heavy Gauge Slab Formwork",
+      "description": "14-gauge pressed steel shuttering plates with welded angles for rigid concrete decking.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/f_auto,q_auto/v1785931558/Centering_Plywood_zoikgt.png",
+      "actionType": "add_to_cart",
+      "defaultPrice": 160,
+      "unit": "Sheet",
+      "inStock": true,
+      "stockQuantity": 3200,
+      "hsnCode": "73089090",
+      "gstRate": 18,
+      "fastDispatch": true,
+      "tag": "FORMWORK",
+      "options": [
+        {
+          "id": "sheet-3x2",
+          "label": "3 x 2 Feet Sheet (14 Gauge)",
+          "price": 160,
+          "type": "stepper"
+        },
+        {
+          "id": "sheet-4x2",
+          "label": "4 x 2 Feet Sheet (14 Gauge)",
+          "price": 210,
+          "type": "stepper"
+        }
+      ]
+    },
+    {
+      "id": "service-mason",
+      "categoryId": "services",
+      "category": "Services",
+      "name": "Mason",
+      "subtitle": "Tile & Brickwork",
+      "description": "Experienced Masons for bricklaying, plastering, stone masonry, tile fitting & concrete slab laying.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1786705284/mason_nxpwh5.jpg",
+      "actionType": "add_to_cart",
+      "defaultPrice": 99,
+      "unit": "Visit",
+      "inStock": true,
+      "stockQuantity": 100,
+      "tag": "SERVICES",
+      "options": [
+        {
+          "id": "demo-session",
+          "label": "1x Expert Site Visit Demo Session",
+          "price": 99,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "service-painter",
+      "categoryId": "services",
+      "category": "Services",
+      "name": "Painter",
+      "subtitle": "Wall Painting",
+      "description": "Professional Wall Painters for interior wall putty, primer coat, exterior weather-shield & texture finish.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1786705284/painter_dofdp9.jpg",
+      "actionType": "add_to_cart",
+      "defaultPrice": 99,
+      "unit": "Visit",
+      "inStock": true,
+      "stockQuantity": 100,
+      "tag": "SERVICES",
+      "options": [
+        {
+          "id": "demo-session",
+          "label": "1x Expert Site Visit Demo Session",
+          "price": 99,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "service-fabricator",
+      "categoryId": "services",
+      "category": "Services",
+      "name": "Fabricator",
+      "subtitle": "Steel & Welding",
+      "description": "Certified Steel Fabricators for gates, window grills, roof trusses & heavy structural welding work.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1788852146/fabricator_dmfp4t.jpg",
+      "actionType": "add_to_cart",
+      "defaultPrice": 99,
+      "unit": "Visit",
+      "inStock": true,
+      "stockQuantity": 100,
+      "tag": "SERVICES",
+      "options": [
+        {
+          "id": "demo-session",
+          "label": "1x Expert Site Visit Demo Session",
+          "price": 99,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "service-electrician",
+      "categoryId": "services",
+      "category": "Services",
+      "name": "Electrician",
+      "subtitle": "Wiring & Panels",
+      "description": "Licensed Electricians for wall conduit wiring, distribution boards, lighting fixtures & earthing.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1788852931/electrician_imidbv.jpg",
+      "actionType": "add_to_cart",
+      "defaultPrice": 99,
+      "unit": "Visit",
+      "inStock": true,
+      "stockQuantity": 100,
+      "tag": "SERVICES",
+      "options": [
+        {
+          "id": "demo-session",
+          "label": "1x Expert Site Visit Demo Session",
+          "price": 99,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "service-plumber",
+      "categoryId": "services",
+      "category": "Services",
+      "name": "Plumber",
+      "subtitle": "Piping & Sanitary",
+      "description": "Experienced Plumbers for CPVC/PVC concealed piping, overhead tanks, bathroom fittings & drainage.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1788852146/plumber_zxj5ct.jpg",
+      "actionType": "add_to_cart",
+      "defaultPrice": 99,
+      "unit": "Visit",
+      "inStock": true,
+      "stockQuantity": 100,
+      "tag": "SERVICES",
+      "options": [
+        {
+          "id": "demo-session",
+          "label": "1x Expert Site Visit Demo Session",
+          "price": 99,
+          "type": "radio"
+        }
+      ]
+    },
+    {
+      "id": "service-carpenter",
+      "categoryId": "services",
+      "category": "Services",
+      "name": "Carpenter",
+      "subtitle": "Woodwork & Doors",
+      "description": "Skilled Carpenters for door frames, window shuttering, modular kitchens & custom wood fittings.",
+      "image": "https://res.cloudinary.com/dfr0zghtc/image/upload/v1788852146/carpenter_pdnvrz.jpg",
+      "actionType": "add_to_cart",
+      "defaultPrice": 99,
+      "unit": "Visit",
+      "inStock": true,
+      "stockQuantity": 100,
+      "tag": "SERVICES",
+      "options": [
+        {
+          "id": "demo-session",
+          "label": "1x Expert Site Visit Demo Session",
+          "price": 99,
+          "type": "radio"
+        }
+      ]
+    }
+  ]
+}

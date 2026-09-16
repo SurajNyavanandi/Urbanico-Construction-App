@@ -4,6 +4,9 @@ import { MaterialController } from '../controllers/materialController';
 const router = Router();
 
 // Specific sub-routes first before parameterized /:id
+router.post('/seed', MaterialController.seedCatalog);
+router.get('/seed', MaterialController.seedCatalog);
+
 router.get('/categories', MaterialController.getCategories);
 router.post('/categories', MaterialController.createCategory);
 router.put('/categories/:id', MaterialController.updateCategory);

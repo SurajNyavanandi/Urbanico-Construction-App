@@ -39,4 +39,10 @@ export class ServiceController {
     }
     return sendSuccess(res, { service: deleted }, 'Service deleted successfully');
   });
+
+  public static seedServices = asyncHandler(async (req: Request, res: Response) => {
+    await ServiceService.seedDefaultServices();
+    const services = await ServiceService.getAllServices();
+    return sendSuccess(res, { servicesCount: services.length }, 'Urbanico services catalog seeded successfully');
+  });
 }

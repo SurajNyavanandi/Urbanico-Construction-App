@@ -169,27 +169,32 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const applyCoupon = useCallback((code: string) => {
+    const isServicesOnlyCart = cartItems.length > 0 && cartItems.every(isCartItemService);
+    if (isServicesOnlyCart) {
+      return { success: false, message: 'Coupons are not applicable on trade service visits' };
+    }
+
     const clean = code.trim().toUpperCase();
     if (!clean) return { success: false, message: 'Enter a valid coupon code' };
 
-    if (clean === 'BUILD10') {
-      setAppliedCoupon('BUILD10');
-      setCouponDiscount(500);
-      return { success: true, message: 'Coupon applied: ₹500 discount' };
+    if (clean === 'URBAN10' || clean === 'SAVE10' || clean === 'DISCOUNT10') {
+      setAppliedCoupon(clean);
+      setCouponDiscount(100);
+      return { success: true, message: 'Coupon applied: 10% discount' };
     }
-    if (clean === 'URBAN50') {
-      setAppliedCoupon('URBAN50');
+    if (clean === 'URBAN50' || clean === 'SAVE50') {
+      setAppliedCoupon(clean);
       setCouponDiscount(250);
       return { success: true, message: 'Coupon applied: ₹250 discount' };
     }
-    if (clean === 'SUPER500') {
-      setAppliedCoupon('SUPER500');
+    if (clean === 'SUPER500' || clean === 'URBAN500' || clean === 'SITE500') {
+      setAppliedCoupon(clean);
       setCouponDiscount(500);
       return { success: true, message: 'Coupon applied: ₹500 discount' };
     }
 
     return { success: false, message: 'Invalid coupon code' };
-  }, []);
+  }, [cartItems]);
 
   const removeCoupon = useCallback(() => {
     setAppliedCoupon(null);
@@ -302,10 +307,43 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };
 
+const fallbackCartContext: CartContextType = {
+  cartItems: [],
+  savedForLaterItems: [],
+  appliedCoupon: null,
+  couponDiscount: 0,
+  totals: {
+    serviceItems: [],
+    materialItems: [],
+    isServicesOnly: false,
+    hasServices: false,
+    hasMaterials: false,
+    totalQuantity: 0,
+    servicesSubtotal: 0,
+    materialsSubtotal: 0,
+    subtotal: 0,
+    gstTax: 0,
+    deliveryCharge: 0,
+    unloadingCharge: 0,
+    couponDiscount: 0,
+    grandTotal: 0,
+  },
+  addToCart: () => {},
+  updateQuantity: () => {},
+  removeFromCart: () => {},
+  clearCart: () => {},
+  applyCoupon: () => ({ success: false, message: 'Cart not initialized' }),
+  removeCoupon: () => {},
+  saveForLater: () => {},
+  moveToCart: () => {},
+  removeSavedForLater: () => {},
+  addBundleToCart: () => {},
+};
+
 export const useCart = (): CartContextType => {
   const context = useContext(CartContext);
   if (!context) {
-    throw new Error('useCart must be used within a CartProvider');
+    return fallbackCartContext;
   }
   return context;
 };

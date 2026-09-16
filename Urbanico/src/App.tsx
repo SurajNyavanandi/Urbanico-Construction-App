@@ -6,6 +6,7 @@ import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { LocationProvider, useLocation } from './context/LocationContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { ToastProvider, useToast } from './context/ToastContext';
+import { CartProvider } from './context/CartContext';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 import { HomeScreen, ProjectBundle, PROJECT_BUNDLES } from './components/HomeScreen';
@@ -384,6 +385,30 @@ function MainAppContent() {
         }
         if (Array.isArray(bunds) && bunds.length > 0) {
           setBundles(bunds);
+        }
+
+        // Ultra-minimalistic verification log for materials, subcategories, and services from backend
+        if (Array.isArray(cats) && Array.isArray(mats) && Array.isArray(servs)) {
+          const catItems: Record<string, string[]> = {};
+          mats.forEach((m: any) => {
+            const catId = m.categoryId || 'other';
+            if (catId !== 'services') {
+              if (!catItems[catId]) catItems[catId] = [];
+              catItems[catId].push(m.name || m.title || m.id);
+            }
+          });
+
+          const catSummary = cats
+            .filter((c: any) => c.id !== 'services')
+            .map((c: any) => `  • ${c.name} (${(catItems[c.id] || []).length}): ${(catItems[c.id] || []).join(', ')}`)
+            .join('\n');
+
+          const servSummary = servs.map((s: any) => s.name || s.id).join(', ');
+
+          console.log(
+            `%c[Urbanico Backend Catalog]\n${catSummary}\n  • Services [No subcategories] (${servs.length}): ${servSummary}`,
+            'color: #059669; font-weight: 600;'
+          );
         }
       } catch (e) {
         console.warn('Failed to sync backend catalog:', e);
@@ -1142,9 +1167,11 @@ export default function App() {
       <ThemeProvider>
         <LanguageProvider>
           <LocationProvider>
-            <ToastProvider>
-              <MainAppContent />
-            </ToastProvider>
+            <CartProvider>
+              <ToastProvider>
+                <MainAppContent />
+              </ToastProvider>
+            </CartProvider>
           </LocationProvider>
         </LanguageProvider>
       </ThemeProvider>

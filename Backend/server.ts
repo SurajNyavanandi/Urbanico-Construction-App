@@ -18,6 +18,8 @@ import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import { connectDB, getDBStatus } from './config/db';
 import { apiRouter } from './routers';
+import { MaterialService } from './services/materialService';
+import { ServiceService } from './services/serviceService';
 
 const app = express();
 // Port: 3000 for local development & container proxy; Render provides PORT or defaults to 3000
@@ -110,10 +112,22 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 export async function startServer() {
-  // Connect to MongoDB Atlas in background
-  connectDB().catch((dbErr: any) => {
-    console.error('Initial DB connection attempt returned:', dbErr?.message || dbErr);
-  });
+  // Connect to MongoDB Atlas and auto-seed catalog
+  connectDB()
+    .then(async (conn) => {
+      if (conn) {
+        try {
+          await MaterialService.seedAllData();
+          await ServiceService.seedDefaultServices();
+          console.log('[DB] Catalog synchronization complete.');
+        } catch (seedErr: any) {
+          console.warn('[DB] Seeding note:', seedErr?.message || seedErr);
+        }
+      }
+    })
+    .catch((dbErr: any) => {
+      console.error('Initial DB connection attempt returned:', dbErr?.message || dbErr);
+    });
 
   // Vite middleware for preview/frontend serving
   if (process.env.NODE_ENV !== 'production') {

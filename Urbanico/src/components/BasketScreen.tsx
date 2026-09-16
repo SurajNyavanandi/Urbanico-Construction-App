@@ -938,6 +938,8 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   };
 
   const renderPromoCard = (isModalView: boolean = false) => {
+    if (isServicesOnly) return null;
+
     return (
       <View
         style={[
@@ -1273,6 +1275,12 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   };
 
   const handleApplyCoupon = (code: string) => {
+    if (isServicesOnly) {
+      setCouponError('Coupons are not applicable on trade service visits');
+      showToast('Coupons are not applicable on trade service visits', 'error');
+      return;
+    }
+
     const clean = code.trim().toUpperCase();
     if (!clean) {
       setCouponError('Please enter a coupon code');
@@ -1280,14 +1288,15 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       return;
     }
 
-    if (clean === 'BUILD10' || clean === 'SAVE10' || clean === 'DISCOUNT10' || clean === 'URBAN10') {
-      const disc = Math.min(2500, Math.max(100, Math.round(subtotal * 0.1)));
+    if (clean === 'URBAN10' || clean === 'SAVE10' || clean === 'DISCOUNT10') {
+      const rawDisc = Math.round(subtotal * 0.1);
+      const disc = Math.min(2500, Math.min(Math.max(1, subtotal - 1), Math.max(100, rawDisc)));
       setAppliedCoupon(clean);
       setCouponDiscount(disc);
       setCouponError(null);
       showToast(`Coupon applied! Saved ₹${disc.toLocaleString('en-IN')}`, 'success');
     } else if (clean === 'URBAN500' || clean === 'SUPER500' || clean === 'SITE500') {
-      const disc = Math.min(subtotal, 500);
+      const disc = Math.min(Math.max(1, subtotal - 1), 500);
       setAppliedCoupon(clean);
       setCouponDiscount(disc);
       setCouponError(null);
@@ -1298,14 +1307,14 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       setCouponDiscount(disc);
       setCouponError(null);
       showToast(`Coupon applied! Saved ₹${disc.toLocaleString('en-IN')}`, 'success');
-    } else if (clean === 'MEGA2026' || clean === 'BULK12') {
-      const disc = Math.min(5000, Math.round(subtotal * 0.12));
+    } else if (clean === 'MEGA2026' || clean === 'OFFER12') {
+      const disc = Math.min(5000, Math.max(1, Math.round(subtotal * 0.12)));
       setAppliedCoupon(clean);
       setCouponDiscount(disc);
       setCouponError(null);
       showToast(`Coupon applied! Saved ₹${disc.toLocaleString('en-IN')}`, 'success');
     } else if (clean === 'URBANICO' || clean === 'WELCOME') {
-      const disc = Math.min(1000, Math.max(150, Math.round(subtotal * 0.1)));
+      const disc = Math.min(1000, Math.min(Math.max(1, subtotal - 1), Math.max(150, Math.round(subtotal * 0.1))));
       setAppliedCoupon(clean);
       setCouponDiscount(disc);
       setCouponError(null);
@@ -1884,8 +1893,8 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                 {/* Delivery Site Address Selection (Inline above GSTIN & Promo Coupon) */}
                 {cartItems.length > 0 && renderAddressSelectionSection()}
 
-                {/* B2B Tax Invoice & GSTIN Section */}
-                {cartItems.length > 0 && renderB2BGstinCard(false)}
+                {/* B2B Tax Invoice & GSTIN Section (Only for materials, hidden for single/pure service orders) */}
+                {cartItems.length > 0 && !isServicesOnly && renderB2BGstinCard(false)}
 
                 {/* Apply Contractor Promo Code / Coupon (Positioned directly below GSTIN) */}
                 {cartItems.length > 0 && renderPromoCard(false)}

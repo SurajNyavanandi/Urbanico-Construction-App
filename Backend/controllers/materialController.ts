@@ -14,18 +14,18 @@ export class MaterialController {
 
   // --- CATEGORIES ---
   public static getCategories = asyncHandler(async (req: Request, res: Response) => {
-    const categories = MaterialService.getCategories();
+    const categories = await MaterialService.getCategories();
     return sendSuccess(res, { categories, count: categories.length });
   });
 
   public static createCategory = asyncHandler(async (req: Request, res: Response) => {
-    const category = MaterialService.createCategory(req.body);
+    const category = await MaterialService.createCategory(req.body);
     return sendSuccess(res, { category }, 'Category created successfully', 201);
   });
 
   public static updateCategory = asyncHandler(async (req: Request, res: Response) => {
     const id = String(req.params.id);
-    const updated = MaterialService.updateCategory(id, req.body);
+    const updated = await MaterialService.updateCategory(id, req.body);
     if (!updated) {
       return sendError(res, 'Category not found', 404);
     }
@@ -34,7 +34,7 @@ export class MaterialController {
 
   public static deleteCategory = asyncHandler(async (req: Request, res: Response) => {
     const id = String(req.params.id);
-    const deleted = MaterialService.deleteCategory(id);
+    const deleted = await MaterialService.deleteCategory(id);
     if (!deleted) {
       return sendError(res, 'Category not found to delete', 404);
     }
@@ -101,5 +101,21 @@ export class MaterialController {
       return sendError(res, 'Material not found to delete', 404);
     }
     return sendSuccess(res, { material: deleted }, 'Material deleted successfully');
+  });
+
+  // --- SEED CATALOG ---
+  public static seedCatalog = asyncHandler(async (req: Request, res: Response) => {
+    await MaterialService.seedAllData();
+    const categories = await MaterialService.getCategories();
+    const materials = await MaterialService.getAllMaterials();
+    return sendSuccess(
+      res,
+      {
+        categoriesCount: categories.length,
+        materialsCount: materials.length,
+        bundlesCount: MaterialService.getProjectBundles().length,
+      },
+      'Urbanico master materials catalogue seeded successfully'
+    );
   });
 }

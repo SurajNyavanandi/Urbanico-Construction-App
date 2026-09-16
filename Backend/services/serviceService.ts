@@ -1,84 +1,35 @@
-import { Service, IService } from '../models/Service';
+import { Service } from '../models/Service';
 import mongoose from 'mongoose';
+import { MASTER_SERVICES, MasterService } from '../data/seedData';
 
-export interface ServiceInfo {
-  id: string;
-  name: string;
-  subtitle: string;
-  image: string;
-  rate: string;
-  description: string;
-  tag?: string;
-}
+export type ServiceInfo = MasterService;
 
-export const BACKEND_SERVICES: ServiceInfo[] = [
-  {
-    id: 'mason',
-    name: 'Mason',
-    subtitle: 'Tile & Brickwork',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786705284/mason_nxpwh5.jpg',
-    rate: '₹99 Demo Visit',
-    description: 'Experienced Masons for bricklaying, plastering, stone masonry, tile fitting & concrete slab laying.',
-  },
-  {
-    id: 'painter',
-    name: 'Painter',
-    subtitle: 'Interior & Exterior Painting',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786705284/painter_dofdp9.jpg',
-    rate: '₹99 Demo Visit',
-    description: 'Skilled Painters for putty application, primer coating, texture finishes & exterior weather-proof coating.',
-  },
-  {
-    id: 'fabricator',
-    name: 'Fabricator',
-    subtitle: 'Steel & Welding Works',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1788852146/fabricator_dmfp4t.jpg',
-    rate: '₹99 Demo Visit',
-    description: 'Heavy and light fabrication specialists for structural trusses, MS gates, railings & safety grills.',
-  },
-  {
-    id: 'electrician',
-    name: 'Electrician',
-    subtitle: 'Wiring & Panels',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1788852931/electrician_imidbv.jpg',
-    rate: '₹99 Demo Visit',
-    description: 'Certified Electricians for conduit piping, MCB panel installation, 3-phase wiring & safety earthing.',
-  },
-  {
-    id: 'plumber',
-    name: 'Plumber',
-    subtitle: 'Piping & Sanitary Fittings',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1788852146/plumber_zxj5ct.jpg',
-    rate: '₹99 Demo Visit',
-    description: 'CPVC/UPVC water supply line installation, drainage plumbing, bathroom fittings & sump motor connections.',
-  },
-  {
-    id: 'carpenter',
-    name: 'Carpenter',
-    subtitle: 'Woodwork & Formwork',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1788852146/carpenter_pdnvrz.jpg',
-    rate: '₹99 Demo Visit',
-    description: 'Specialist Carpenters for door frames, wooden centring, modular kitchen carcasses & plywood shuttering.',
-  },
-];
+export const BACKEND_SERVICES: ServiceInfo[] = MASTER_SERVICES;
 
-let inMemoryServices = [...BACKEND_SERVICES];
+let inMemoryServices: ServiceInfo[] = [...MASTER_SERVICES];
 
 function getDefaultImageForCategory(categoryId: string, name?: string): string {
-  return 'https://images.unsplash.com/photo-1541888086925-ebc66336ea26?auto=format&fit=crop&q=80&w=600';
+  return 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786705284/mason_nxpwh5.jpg';
 }
 
 export class ServiceService {
   public static async getAllServices() {
     try {
       if (mongoose.connection.readyState === 1) {
-        const services = await Service.find().lean().exec();
+        let services = await Service.find().lean().exec();
+        if (services && services.length > 0) {
+          return services;
+        }
+
+        // Auto-seed if collection is empty
+        await this.seedDefaultServices();
+        services = await Service.find().lean().exec();
         if (services && services.length > 0) {
           return services;
         }
       }
     } catch (err) {
-      // fallback to memory
+      console.warn('ServiceService getAllServices using in-memory store:', err);
     }
     return inMemoryServices;
   }
@@ -86,7 +37,9 @@ export class ServiceService {
   public static async getServiceById(id: string) {
     try {
       if (mongoose.connection.readyState === 1) {
-        const service = await Service.findOne({ $or: [{ id }, { _id: mongoose.Types.ObjectId.isValid(id) ? id : undefined }] }).lean().exec();
+        const service = await Service.findOne({
+          $or: [{ id }, { _id: mongoose.Types.ObjectId.isValid(id) ? id : undefined }],
+        }).lean().exec();
         if (service) return service;
       }
     } catch (err) {
@@ -106,7 +59,7 @@ export class ServiceService {
       description: data.description || 'Experienced certified construction trade professional for site works.',
       tag: data.tag || 'SERVICES',
     };
-    
+
     try {
       if (mongoose.connection.readyState === 1) {
         const service = await Service.create(newService);
@@ -128,7 +81,7 @@ export class ServiceService {
           { $set: data },
           { new: true }
         ).lean().exec();
-        
+
         if (updated) {
           const idx = inMemoryServices.findIndex((s) => s.id.toLowerCase() === id.toLowerCase());
           if (idx !== -1) {
@@ -140,7 +93,7 @@ export class ServiceService {
     } catch (err) {
       // fallback
     }
-    
+
     const idx = inMemoryServices.findIndex((s) => s.id.toLowerCase() === id.toLowerCase());
     if (idx !== -1) {
       if (data.image && !data.image.startsWith('http')) {
@@ -155,8 +108,10 @@ export class ServiceService {
   public static async deleteService(id: string) {
     try {
       if (mongoose.connection.readyState === 1) {
-        const deleted = await Service.findOneAndDelete({ $or: [{ id }, { _id: mongoose.Types.ObjectId.isValid(id) ? id : undefined }] }).lean().exec();
-        
+        const deleted = await Service.findOneAndDelete({
+          $or: [{ id }, { _id: mongoose.Types.ObjectId.isValid(id) ? id : undefined }],
+        }).lean().exec();
+
         if (deleted) {
           const idx = inMemoryServices.findIndex((s) => s.id.toLowerCase() === id.toLowerCase());
           if (idx !== -1) {
@@ -175,5 +130,23 @@ export class ServiceService {
       return removed;
     }
     return null;
+  }
+
+  public static async seedDefaultServices() {
+    try {
+      if (mongoose.connection.readyState === 1) {
+        for (const s of MASTER_SERVICES) {
+          await Service.findOneAndUpdate(
+            { id: s.id },
+            { $set: s },
+            { upsert: true, new: true }
+          ).exec();
+        }
+        console.log(`🌱 Seeded ${MASTER_SERVICES.length} Urbanico services successfully.`);
+      }
+    } catch (err: any) {
+      console.error('Error seeding default services:', err.message);
+    }
+    inMemoryServices = [...MASTER_SERVICES];
   }
 }

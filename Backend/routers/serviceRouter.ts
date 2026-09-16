@@ -3,6 +3,9 @@ import { ServiceController } from '../controllers/serviceController';
 
 const router = Router();
 
+router.post('/seed', ServiceController.seedServices);
+router.get('/seed', ServiceController.seedServices);
+
 router.get('/', ServiceController.getServices);
 router.get('/:id', ServiceController.getServiceById);
 router.post('/', ServiceController.createService);
