@@ -108,18 +108,10 @@ export function loadRazorpayScript(): Promise<boolean> {
 
 // ==============================================================================
 // RAZORPAY FRONTEND CLIENT SERVICE
-// Env: EXPO_PUBLIC_API_URL / VITE_API_URL (Render: https://urbanico-construction-app.onrender.com/api | Local: http://localhost:3000/api)
-// Key: EXPO_PUBLIC_RAZORPAY_KEY_ID / VITE_RAZORPAY_KEY_ID
+// Dynamic API communication layer for payments & checkout
 // ==============================================================================
 
-// Safe API Base URL resolver from environment variables
-const API_BASE_URL =
-  (typeof process !== 'undefined' &&
-    process.env &&
-    (process.env.EXPO_PUBLIC_API_URL ||
-      process.env.VITE_API_URL ||
-      process.env.REACT_APP_API_URL)) ||
-  '';
+const API_BASE_URL = '/api';
 
 let cachedRazorpayKey = '';
 
@@ -131,14 +123,7 @@ export function setCachedRazorpayKey(key: string): void {
 
 export function getClientRazorpayKey(): string {
   if (cachedRazorpayKey) return cachedRazorpayKey;
-  const key =
-    (typeof process !== 'undefined' &&
-      process.env &&
-      (process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID ||
-        process.env.RAZORPAY_KEY_ID ||
-        process.env.VITE_RAZORPAY_KEY_ID)) ||
-    '';
-  return (key || '').trim().replace(/^["']|["']$/g, '');
+  return '';
 }
 
 export function getClientKeyMode(): 'LIVE' | 'TEST' {
@@ -155,14 +140,7 @@ export function getClientUpiVpa(): string {
     }
   } catch {}
 
-  const vpa =
-    (typeof process !== 'undefined' &&
-      process.env &&
-      (process.env.EXPO_PUBLIC_UPI_VPA ||
-        process.env.VITE_UPI_VPA ||
-        process.env.UPI_VPA)) ||
-    '';
-  return (vpa || '').trim();
+  return 'urbanico.pay@okaxis';
 }
 
 export function getClientUpiPayeeName(): string {
@@ -173,14 +151,7 @@ export function getClientUpiPayeeName(): string {
     }
   } catch {}
 
-  const name =
-    (typeof process !== 'undefined' &&
-      process.env &&
-      (process.env.EXPO_PUBLIC_UPI_PAYEE_NAME ||
-        process.env.VITE_UPI_PAYEE_NAME ||
-        process.env.UPI_PAYEE_NAME)) ||
-    'Urbanico Construction';
-  return (name || '').trim();
+  return 'Urbanico Construction Materials';
 }
 
 export function setClientUpiVpa(vpa: string, payeeName?: string): void {
@@ -479,6 +450,13 @@ export async function createRazorpayOrder(params: CreateOrderParams): Promise<Cr
 
         const contentType = response.headers.get('content-type') || '';
 
+        if (!response.ok) {
+          const errorData = await response.text().catch(() => '');
+          if (errorData.includes('Razorpay LIVE Authentication Failed') || response.status === 401 || response.status === 500) {
+            throw new Error(errorData || 'Backend API Error');
+          }
+        }
+        
         if (response.ok && (contentType.includes('application/json') || contentType.includes('text/plain'))) {
           const data = await response.json().catch(() => null);
           if (data && (data.success || data.id || data.order_id)) {
@@ -532,6 +510,15 @@ export async function createRazorpayOrder(params: CreateOrderParams): Promise<Cr
     }
   } catch (err: any) {
     console.warn('[Payment] Notice:', err?.message || err);
+    const errMsg = err?.message || '';
+    if (errMsg.includes('Razorpay LIVE') || clientMode === 'LIVE') {
+        throw new Error(errMsg || "Razorpay Server Authentication Failed. Please verify your Live Key ID and Key Secret in settings.");
+    }
+  }
+
+  // CRITICAL FIX: Do NOT fake the order if we are in LIVE mode.
+  if (clientMode === 'LIVE') {
+      throw new Error("Razorpay Server Authentication Failed. Please verify your Live Key ID and Key Secret in settings.");
   }
 
   console.log(`[Payment] Order: ${fallbackOrderId}`);
@@ -607,6 +594,11 @@ export async function verifyRazorpayPayment(params: VerifyPaymentParams): Promis
   }
 
   // Client-side verification fallback for native mobile apps
+  const clientMode = getClientKeyMode();
+  if (clientMode === 'LIVE') {
+     throw new Error("Razorpay Server Verification Failed. Please ensure your backend is reachable and keys are correct.");
+  }
+  
   console.log(`[Payment] Verified: ${sanitizedVerifyPayload.razorpay_order_id}`);
   return {
     success: true,
@@ -653,7 +645,7 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
     const keyId = orderKeyId || getClientRazorpayKey();
 
     if (!keyId) {
-      const msg = 'Razorpay Key ID is not configured. Please define EXPO_PUBLIC_RAZORPAY_KEY_ID in environment settings.';
+      const msg = 'Razorpay Key ID is not configured on the server. Please ensure backend provides it.';
       console.warn(`[Payment] ${msg}`);
       if (options.onFailure) {
         options.onFailure(msg);

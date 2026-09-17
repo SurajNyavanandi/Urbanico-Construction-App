@@ -36,16 +36,6 @@ export function getBaseApiUrls(): string[] {
     urls.push(sharedActiveApiBase);
   }
 
-  // 1. Explicit env variable (EXPO_PUBLIC_API_URL or VITE_API_URL)
-  const envUrl =
-    (typeof process !== 'undefined' &&
-      process.env &&
-      (process.env.EXPO_PUBLIC_API_URL || process.env.VITE_API_URL)) ||
-    '';
-  if (envUrl && envUrl.trim()) {
-    urls.push(envUrl.trim().replace(/\/+$/, ''));
-  }
-
   const isWeb = Platform.OS === 'web' && typeof window !== 'undefined' && window.location;
   const isMetroDev =
     isWeb &&
@@ -53,16 +43,14 @@ export function getBaseApiUrls(): string[] {
       window.location.port === '19006' ||
       window.location.port === '8082');
 
-  // 2. Standard Web runtime (Express / Vite on port 3000, Cloud Run, Vercel proxy)
+  // Primary API endpoint in web runtime
   if (isWeb && !isMetroDev) {
     urls.push('/api');
   }
 
-  // 3. Localhost Express backend port 3000
-  if (isWeb) {
-    if (isMetroDev) {
-      urls.push('http://localhost:3000/api');
-    }
+  // Local development fallback
+  if (isWeb && isMetroDev) {
+    urls.push('http://localhost:3000/api');
   }
 
   // 4. LAN IP discovery (e.g. testing on mobile device over Wi-Fi)

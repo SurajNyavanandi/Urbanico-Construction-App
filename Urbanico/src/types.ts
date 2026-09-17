@@ -5,7 +5,6 @@ export type ScreenType =
   | 'basket'
   | 'favorites'
   | 'profile'
-  | 'settings'
   | 'activity'
   | 'auth_mobile'
   | 'auth_otp';

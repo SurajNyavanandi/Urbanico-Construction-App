@@ -26,7 +26,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   const isCartActive = activeScreen === 'basket';
   const isProfileActive =
     activeScreen === 'profile' ||
-    activeScreen === 'settings' ||
     activeScreen === 'activity';
 
   const activeColor = isAppleDesign ? '#007AFF' : theme.textPrimary;

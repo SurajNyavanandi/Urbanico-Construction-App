@@ -1,6 +1,5 @@
 // ==============================================================================
 // RAZORPAY BACKEND SERVICE
-// Env: RAZORPAY_KEY_ID (rzp_live_* or rzp_test_*), RAZORPAY_KEY_SECRET
 // Port: 3000 (Local VSC: http://localhost:3000 | Render: https://urbanico-construction-app.onrender.com)
 // ==============================================================================
 
@@ -11,21 +10,12 @@ export class RazorpayBackendService {
   private static upstreamAuthDisabled = false;
 
   public static getKeyId(): string {
-    const rawKey =
-      process.env.RAZORPAY_KEY_ID ||
-      process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID ||
-      process.env.VITE_RAZORPAY_KEY_ID ||
-      '';
+    const rawKey = process.env.RAZORPAY_KEY_ID || '';
     return rawKey.trim().replace(/^["']|["']$/g, '').replace(/[\r\n\t]/g, '');
   }
 
   public static getKeySecret(): string {
-    const rawSecret =
-      process.env.RAZORPAY_KEY_SECRET ||
-      process.env.RAZORPAY_SECRET ||
-      process.env.EXPO_PUBLIC_RAZORPAY_KEY_SECRET ||
-      process.env.VITE_RAZORPAY_KEY_SECRET ||
-      '';
+    const rawSecret = process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_SECRET || '';
     return rawSecret.trim().replace(/^["']|["']$/g, '').replace(/[\r\n\t]/g, '');
   }
 
@@ -131,6 +121,13 @@ export class RazorpayBackendService {
           order,
         };
       } catch (err: any) {
+        console.error('[Razorpay] Orders Create Error:', err);
+        
+        // CRITICAL: NEVER simulate a payment if the app is attempting to use LIVE credentials.
+        if (mode === 'LIVE') {
+           throw new Error('Razorpay LIVE Authentication Failed. Please check your Key ID and Key Secret. Error: ' + (err?.error?.description || err.message || 'Unknown'));
+        }
+
         // Disable repeated upstream auth attempts if credentials are not recognized by Razorpay
         if (err?.statusCode === 401 || err?.statusCode === 400 || err?.error?.code === 'BAD_REQUEST_ERROR') {
           this.upstreamAuthDisabled = true;
@@ -155,7 +152,7 @@ export class RazorpayBackendService {
           isFallback: true,
           isRealRazorpayOrder: false,
           upstreamAuthFailed: false,
-          mode: mode === 'LIVE' ? 'LIVE' : 'TEST',
+          mode: (mode as string) === 'LIVE' ? 'LIVE' : 'TEST',
         };
       }
     }

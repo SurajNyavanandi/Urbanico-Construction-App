@@ -142,8 +142,17 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
             setUpstreamAuthFailed(!!res.upstreamAuthFailed);
           }
         })
-        .catch(() => {
-          setOrderId(`ORDER_${Math.random().toString(36).substring(2, 10).toUpperCase()}`);
+        .catch((err) => {
+          console.error(err);
+          const isLive = getClientKeyMode() === 'LIVE';
+          if (isLive) {
+            setStatusMessage('Error: Authentication Failed. Check API Keys.');
+            setTimeout(() => {
+              if (onClose) onClose();
+            }, 3000);
+          } else {
+            setOrderId(`ORDER_${Math.random().toString(36).substring(2, 10).toUpperCase()}`);
+          }
         });
     }
   }, [visible, effectivePayableAmount, selectedLocation, orderDescription]);
@@ -345,8 +354,14 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
               status: 'success',
             });
           },
-          onFailure: () => {
-            executeInAppPayment();
+          onFailure: (err) => {
+            setIsProcessing(false);
+            if (isLive) {
+               setStatusMessage('Error: Payment Failed or Dismissed');
+               setTimeout(() => { if (onClose) onClose(); }, 2000);
+            } else {
+               executeInAppPayment();
+            }
           },
           onDismiss: () => {
             setIsProcessing(false);
@@ -354,9 +369,21 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
         });
         return;
       } catch {
+        if (isLive) {
+           setStatusMessage('Error: Gateway Initialization Failed');
+           setTimeout(() => { if (onClose) onClose(); }, 2000);
+           return;
+        }
         executeInAppPayment();
         return;
       }
+    }
+
+    if (isLive && selectedCategory !== 'site_pay') {
+       setIsProcessing(false);
+       setStatusMessage('Error: Live Checkout Unavailable. Invalid Order Context.');
+       setTimeout(() => { if (onClose) onClose(); }, 3000);
+       return;
     }
 
     executeInAppPayment();

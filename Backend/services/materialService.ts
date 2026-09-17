@@ -79,7 +79,6 @@ export class MaterialService {
 
         // Auto-seed default materials if collection is completely empty
         if (materials.length === 0 && !filter.search && (!filter.category || filter.category === 'All' || filter.category === 'all')) {
-          await this.seedDefaultMaterials();
           materials = await Material.find(query).sort({ createdAt: -1 }).lean().exec();
         }
 
@@ -138,7 +137,6 @@ export class MaterialService {
         }
 
         // Auto-seed default categories if empty
-        await this.seedDefaultCategories();
         categories = await Category.find().sort({ createdAt: 1 }).lean().exec();
         if (categories && categories.length > 0) {
           return categories;
@@ -404,70 +402,4 @@ export class MaterialService {
     return null;
   }
 
-  // ==========================================
-  // SEEDING ENGINE
-  // ==========================================
-  public static async seedDefaultCategories() {
-    try {
-      if (mongoose.connection.readyState === 1) {
-        for (const cat of MASTER_CATEGORIES) {
-          await Category.findOneAndUpdate(
-            { id: cat.id },
-            { $set: cat },
-            { upsert: true, new: true }
-          ).exec();
-        }
-        console.log(`🌱 Seeded ${MASTER_CATEGORIES.length} Urbanico material categories.`);
-      }
-    } catch (err: any) {
-      console.error('Error seeding default categories:', err.message);
-    }
-    inMemoryCategories = [...MASTER_CATEGORIES];
-  }
-
-  public static async seedDefaultMaterials() {
-    try {
-      if (mongoose.connection.readyState === 1) {
-        for (const item of MASTER_MATERIAL_ITEMS) {
-          await Material.findOneAndUpdate(
-            { id: item.id },
-            { $set: item },
-            { upsert: true, new: true }
-          ).exec();
-        }
-        console.log(`🌱 Seeded ${MASTER_MATERIAL_ITEMS.length} Urbanico construction materials successfully.`);
-      }
-    } catch (err: any) {
-      console.error('Error seeding default materials:', err.message);
-    }
-    inMemoryMaterials = [...MASTER_MATERIAL_ITEMS];
-  }
-
-  public static logCatalogSummary() {
-    const catItemsMap: Record<string, string[]> = {};
-    inMemoryMaterials.forEach((m: any) => {
-      const catId = m.categoryId || 'other';
-      if (catId !== 'services') {
-        if (!catItemsMap[catId]) catItemsMap[catId] = [];
-        catItemsMap[catId].push(m.name);
-      }
-    });
-
-    const categoryLines = inMemoryCategories
-      .filter((c: any) => c.id !== 'services')
-      .map((c: any) => `  • ${c.name} (${(catItemsMap[c.id] || []).length}): ${(catItemsMap[c.id] || []).join(', ')}`)
-      .join('\n');
-
-    const serviceNames = MASTER_SERVICES.map((s: any) => s.name).join(', ');
-
-    console.log(
-      `\n[Urbanico Backend Catalog]\n${categoryLines}\n  • Services [No subcategories] (${MASTER_SERVICES.length}): ${serviceNames}\n`
-    );
-  }
-
-  public static async seedAllData() {
-    await this.seedDefaultCategories();
-    await this.seedDefaultMaterials();
-    this.logCatalogSummary();
-  }
 }

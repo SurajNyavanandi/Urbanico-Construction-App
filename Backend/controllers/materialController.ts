@@ -104,18 +104,4 @@ export class MaterialController {
   });
 
   // --- SEED CATALOG ---
-  public static seedCatalog = asyncHandler(async (req: Request, res: Response) => {
-    await MaterialService.seedAllData();
-    const categories = await MaterialService.getCategories();
-    const materials = await MaterialService.getAllMaterials();
-    return sendSuccess(
-      res,
-      {
-        categoriesCount: categories.length,
-        materialsCount: materials.length,
-        bundlesCount: MaterialService.getProjectBundles().length,
-      },
-      'Urbanico master materials catalogue seeded successfully'
-    );
-  });
 }

@@ -3,16 +3,10 @@
 // Endpoints: /api/razorpay/create-order, /api/razorpay/verify-payment, /api/orders, /api/materials
 // Local VSC: Port 3000 (http://localhost:3000/api)
 // Render:    Auto-configured port or 3000 (https://urbanico-construction-app.onrender.com/api)
-// Vercel:    Frontend (https://urbanico.vercel.app) connects to backend via EXPO_PUBLIC_API_URL
+// Vercel:    Frontend (https://urbanico.vercel.app) connects to backend via the API URL
 // ==============================================================================
 
-import dotenv from 'dotenv';
 import path from 'path';
-
-// .env loader: Reads root .env and backend/.env for local VSC testing and Render runtime
-dotenv.config();
-dotenv.config({ path: path.resolve(process.cwd(), '.env') });
-dotenv.config({ path: path.resolve(process.cwd(), 'backend', '.env') });
 
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
@@ -117,7 +111,6 @@ export async function startServer() {
     .then(async (conn) => {
       if (conn) {
         try {
-          await MaterialService.seedAllData();
           await ServiceService.seedDefaultServices();
           console.log('[DB] Catalog synchronization complete.');
         } catch (seedErr: any) {

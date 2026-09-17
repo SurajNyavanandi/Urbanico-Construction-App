@@ -745,7 +745,92 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
         <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
 
-        {/* 3. Address Management: Saved Addresses */}
+        {
+
+        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
+
+        /* 3. Wishlist / Saved Materials */}
+        <TouchableOpacity
+          onPress={() => {
+            closeAllSubModals();
+            onNavigateScreen('favorites');
+          }}
+          style={styles.menuRow}
+          activeOpacity={0.7}
+        >
+          <View style={styles.menuRowLeft}>
+            <View style={[styles.iconCircle, { backgroundColor: theme.surfaceSecondary }]}>
+              <Heart size={18} color={theme.textPrimary} strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.menuRowLabel, { color: theme.textPrimary }]}>
+                Favourites & Saved Supplies
+              </Text>
+              <Text style={[styles.menuRowSubLabel, { color: theme.textSecondary }]}>
+                Quick re-ordering list
+              </Text>
+            </View>
+          </View>
+          <View style={styles.menuRowRight}>
+            {favoriteCount > 0 && (
+              <View style={[styles.countBadge, { backgroundColor: theme.surfaceSecondary }]}>
+                <Text style={[styles.countBadgeText, { color: theme.textPrimary }]}>
+                  {favoriteCount}
+                </Text>
+              </View>
+            )}
+            <ChevronRight size={18} color={theme.textMuted} />
+          </View>
+        </TouchableOpacity>
+
+        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
+
+        {
+
+        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
+
+        /* 4. Saved for Later (Direct Profile Access) */}
+        <TouchableOpacity
+          onPress={() => openSingleModal('saved_for_later')}
+          style={styles.menuRow}
+          activeOpacity={0.7}
+        >
+          <View style={styles.menuRowLeft}>
+            <View style={[styles.iconCircle, { backgroundColor: theme.surfaceSecondary }]}>
+              <Bookmark size={18} color={theme.textPrimary} strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.menuRowLabel, { color: theme.textPrimary }]}>
+                Saved for Later
+              </Text>
+              <Text style={[styles.menuRowSubLabel, { color: theme.textSecondary }]}>
+                {savedForLaterItems.length > 0
+                  ? `${savedForLaterItems.length} item${savedForLaterItems.length > 1 ? 's' : ''} kept for later`
+                  : 'Items saved from your cart'}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.menuRowRight}>
+            {savedForLaterItems.length > 0 ? (
+              <View style={[styles.countBadge, { backgroundColor: theme.mode === 'dark' ? '#064E3B30' : '#ECFDF5' }]}>
+                <Text style={[styles.countBadgeText, { color: '#059669', fontWeight: '700' }]}>
+                  {savedForLaterItems.length} Saved
+                </Text>
+              </View>
+            ) : (
+              <Text style={[styles.subValueText, { color: theme.textSecondary }]}>0 Items</Text>
+            )}
+            <ChevronRight size={18} color={theme.textMuted} />
+          </View>
+        </TouchableOpacity>
+
+        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
+
+        {
+
+        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
+
+        /* 5. Address Management: Saved Addresses */}
         <TouchableOpacity
           onPress={() => {
             if (!isLoggedIn) {
@@ -782,7 +867,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
         <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
 
-        {/* 4. Payment Methods & Ledger */}
+        {
+
+        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
+
+        /* 6. Payment Methods & Ledger */}
         <TouchableOpacity
           onPress={() => {
             if (!isLoggedIn) {
@@ -821,80 +910,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
         <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
 
-        {/* 5. Wishlist / Saved Materials */}
-        <TouchableOpacity
-          onPress={() => {
-            closeAllSubModals();
-            onNavigateScreen('favorites');
-          }}
-          style={styles.menuRow}
-          activeOpacity={0.7}
-        >
-          <View style={styles.menuRowLeft}>
-            <View style={[styles.iconCircle, { backgroundColor: theme.surfaceSecondary }]}>
-              <Heart size={18} color={theme.textPrimary} strokeWidth={2} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.menuRowLabel, { color: theme.textPrimary }]}>
-                Favourites & Saved Supplies
-              </Text>
-              <Text style={[styles.menuRowSubLabel, { color: theme.textSecondary }]}>
-                Quick re-ordering list
-              </Text>
-            </View>
-          </View>
-          <View style={styles.menuRowRight}>
-            {favoriteCount > 0 && (
-              <View style={[styles.countBadge, { backgroundColor: theme.surfaceSecondary }]}>
-                <Text style={[styles.countBadgeText, { color: theme.textPrimary }]}>
-                  {favoriteCount}
-                </Text>
-              </View>
-            )}
-            <ChevronRight size={18} color={theme.textMuted} />
-          </View>
-        </TouchableOpacity>
+        {
 
         <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
 
-        {/* 6. Saved for Later (Direct Profile Access) */}
-        <TouchableOpacity
-          onPress={() => openSingleModal('saved_for_later')}
-          style={styles.menuRow}
-          activeOpacity={0.7}
-        >
-          <View style={styles.menuRowLeft}>
-            <View style={[styles.iconCircle, { backgroundColor: theme.surfaceSecondary }]}>
-              <Bookmark size={18} color={theme.textPrimary} strokeWidth={2} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.menuRowLabel, { color: theme.textPrimary }]}>
-                Saved for Later
-              </Text>
-              <Text style={[styles.menuRowSubLabel, { color: theme.textSecondary }]}>
-                {savedForLaterItems.length > 0
-                  ? `${savedForLaterItems.length} item${savedForLaterItems.length > 1 ? 's' : ''} kept for later`
-                  : 'Items saved from your cart'}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.menuRowRight}>
-            {savedForLaterItems.length > 0 ? (
-              <View style={[styles.countBadge, { backgroundColor: theme.mode === 'dark' ? '#064E3B30' : '#ECFDF5' }]}>
-                <Text style={[styles.countBadgeText, { color: '#059669', fontWeight: '700' }]}>
-                  {savedForLaterItems.length} Saved
-                </Text>
-              </View>
-            ) : (
-              <Text style={[styles.subValueText, { color: theme.textSecondary }]}>0 Items</Text>
-            )}
-            <ChevronRight size={18} color={theme.textMuted} />
-          </View>
-        </TouchableOpacity>
-
-        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
-
-        {/* 7. Refer & Earn (Popup Modal) */}
+        /* 7. Refer & Earn (Popup Modal) */}
         <TouchableOpacity
           onPress={() => openSingleModal('refer')}
           style={styles.menuRow}
@@ -923,7 +943,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
         <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
 
-        {/* 7. Settings (Consistent Popup Modal) */}
+        {
+
+        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
+
+        /* 8. Settings (Consistent Popup Modal) */}
         <TouchableOpacity
           onPress={() => openSingleModal('settings')}
           style={styles.menuRow}
@@ -952,7 +976,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
         <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
 
-        {/* 8. Help & Support (Popup Modal) */}
+        {
+
+        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
+
+        /* 9. Help & Support (Popup Modal) */}
         <TouchableOpacity
           onPress={() => openSingleModal('help')}
           style={styles.menuRow}
@@ -976,7 +1004,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           </View>
         </TouchableOpacity>
 
-        {/* 9. Sign Out (When Logged In) */}
+        {
+
+        /* 10. Sign Out (When Logged In) */}
         {isLoggedIn && (
           <>
             <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { View, StyleSheet, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
@@ -9,19 +9,14 @@ import { ToastProvider, useToast } from './context/ToastContext';
 import { CartProvider } from './context/CartContext';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
-import { HomeScreen, ProjectBundle, PROJECT_BUNDLES } from './components/HomeScreen';
+import { ProjectBundle, PROJECT_BUNDLES } from './components/HomeScreen';
 import { ItemQuantityModal } from './components/ItemQuantityModal';
-import { SettingsScreen } from './components/SettingsScreen';
-import { AuthScreen } from './components/AuthScreen';
-import { BasketScreen } from './components/BasketScreen';
-import { FavoritesScreen } from './components/FavoritesScreen';
-import { ShopScreen } from './components/ShopScreen';
-import { UserProfileScreen } from './components/UserProfileScreen';
-import { ActivityDashboardScreen } from './components/ActivityDashboardScreen';
 import { NikeAuthModal } from './components/NikeAuthModal';
 import { LocationModal } from './components/LocationModal';
 import { InvoiceModal } from './components/InvoiceModal';
 import { LanguagePromptModal } from './components/LanguagePromptModal';
+import { ErrorBoundary } from './components/common/ErrorBoundary';
+import { ScreenSkeletonLoader } from './components/common/ScreenSkeletonLoader';
 import { preloadImages } from './utils/imageOptimization';
 import { safeStorage } from './utils/safeStorage';
 import { BRAND_LOGO_URL } from './constants';
@@ -44,11 +39,24 @@ import {
 } from './data/materialsData';
 import { resolveSearchCategory } from './services/searchService';
 import { apiService } from './services/apiService';
+import { useDynamicCatalog } from './hooks/useDynamicCatalog';
 import { formatSiteAddress } from './utils/addressHelper';
+
+// Code splitting / Lazy Loading for screens
+const HomeScreen = lazy(() => import('./components/HomeScreen').then((m) => ({ default: m.HomeScreen })));
+const BasketScreen = lazy(() => import('./components/BasketScreen').then((m) => ({ default: m.BasketScreen })));
+const FavoritesScreen = lazy(() => import('./components/FavoritesScreen').then((m) => ({ default: m.FavoritesScreen })));
+const UserProfileScreen = lazy(() => import('./components/UserProfileScreen').then((m) => ({ default: m.UserProfileScreen })));
+const ActivityDashboardScreen = lazy(() => import('./components/ActivityDashboardScreen').then((m) => ({ default: m.ActivityDashboardScreen })));
+const AuthScreen = lazy(() => import('./components/AuthScreen').then((m) => ({ default: m.AuthScreen })));
+const ShopScreen = lazy(() => import('./components/ShopScreen').then((m) => ({ default: m.ShopScreen })));
+const CategoryDetailScreen = lazy(() => import('./components/CategoryDetailScreen').then((m) => ({ default: m.CategoryDetailScreen })));
+
 
 function MainAppContent() {
   const { theme } = useTheme();
   const { showToast, showAddToCartToast } = useToast();
+  const { materials, categories, services, bundles, isLoading: isCatalogLoading, error: catalogError, refreshCatalog } = useDynamicCatalog();
 
   // Navigation & Screen State (Opens directly to Home screen by default)
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
@@ -267,11 +275,7 @@ function MainAppContent() {
   };
 
   // Dynamic backend catalogue states
-  const [materials, setMaterials] = useState<MaterialItem[]>(MATERIAL_ITEMS);
-  const [categories, setCategories] = useState<any[]>(CATEGORIES);
-  const [services, setServices] = useState<any[]>(SERVICES);
-  const [bundles, setBundles] = useState<ProjectBundle[]>(PROJECT_BUNDLES);
-
+        
   // Favorites State (persisted per user or guest session)
   const [favoriteIds, setFavoriteIds] = useState<string[]>(() => {
     try {
@@ -359,68 +363,7 @@ function MainAppContent() {
     });
   };
 
-  // Sync dynamic catalog data from backend on mount
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadCatalogData() {
-      try {
-        const [mats, cats, servs, bunds] = await Promise.all([
-          apiService.getMaterials().catch(() => []),
-          apiService.getCategories().catch(() => []),
-          apiService.getServices().catch(() => []),
-          apiService.getBundles().catch(() => []),
-        ]);
-
-        if (!isMounted) return;
-
-        if (Array.isArray(mats) && mats.length > 0) {
-          setMaterials(mats);
-        }
-        if (Array.isArray(cats) && cats.length > 0) {
-          setCategories(cats);
-        }
-        if (Array.isArray(servs) && servs.length > 0) {
-          setServices(servs);
-        }
-        if (Array.isArray(bunds) && bunds.length > 0) {
-          setBundles(bunds);
-        }
-
-        // Ultra-minimalistic verification log for materials, subcategories, and services from backend
-        if (Array.isArray(cats) && Array.isArray(mats) && Array.isArray(servs)) {
-          const catItems: Record<string, string[]> = {};
-          mats.forEach((m: any) => {
-            const catId = m.categoryId || 'other';
-            if (catId !== 'services') {
-              if (!catItems[catId]) catItems[catId] = [];
-              catItems[catId].push(m.name || m.title || m.id);
-            }
-          });
-
-          const catSummary = cats
-            .filter((c: any) => c.id !== 'services')
-            .map((c: any) => `  • ${c.name} (${(catItems[c.id] || []).length}): ${(catItems[c.id] || []).join(', ')}`)
-            .join('\n');
-
-          const servSummary = servs.map((s: any) => s.name || s.id).join(', ');
-
-          console.log(
-            `%c[Urbanico Backend Catalog]\n${catSummary}\n  • Services [No subcategories] (${servs.length}): ${servSummary}`,
-            'color: #059669; font-weight: 600;'
-          );
-        }
-      } catch (e) {
-        console.warn('Failed to sync backend catalog:', e);
-      }
-    }
-
-    loadCatalogData();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
+  
   // Sync with backend on mount and auth changes
   useEffect(() => {
     // 1. Fetch live orders from backend API only if user is logged in
@@ -898,13 +841,21 @@ function MainAppContent() {
     if (currentScreen === 'basket') return 'Cart';
     if (currentScreen === 'favorites') return 'Favourites';
     if (currentScreen === 'profile') return 'Profile';
-    if (currentScreen === 'settings') return 'Settings';
-    if (currentScreen === 'activity') return 'Activity Dashboard';
+        if (currentScreen === 'activity') return 'Activity Dashboard';
     if (currentScreen === 'auth_mobile' || currentScreen === 'auth_otp') return 'Account Verification';
     return 'Home';
   };
 
   const totalCartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+
+  if (isCatalogLoading) {
+    return (
+      <SafeAreaView style={[styles.appContainer, { backgroundColor: theme.background }]} edges={['top']}>
+        <ExpoStatusBar style={theme.statusBarStyle} />
+        <ScreenSkeletonLoader />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={[styles.appContainer, { backgroundColor: theme.background }]} edges={['top']}>
@@ -912,192 +863,188 @@ function MainAppContent() {
 
       {/* Main View Router */}
       <View style={[styles.mainContent, { backgroundColor: theme.background }]}>
-          {(currentScreen === 'shop' || currentScreen === 'category') && (
-            <ShopScreen
-              selectedCategoryId={selectedCategoryId}
-              onSelectCategoryTab={handleSelectCategory}
-              onSelectItem={handleOpenItemModal}
-              favoriteIds={favoriteIds}
-              onToggleFavorite={handleToggleFavorite}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
-              viewMode={globalViewMode}
-              onViewModeChange={setGlobalViewMode}
-              onBack={() => setCurrentScreen('home')}
-              materials={materials}
-              categories={categories}
-              services={services}
-            />
-          )}
+        <ErrorBoundary>
+          <Suspense fallback={<ScreenSkeletonLoader />}>
+            {(currentScreen === 'shop' || currentScreen === 'category') && (
+              <ShopScreen
+                selectedCategoryId={selectedCategoryId}
+                onSelectCategoryTab={handleSelectCategory}
+                onSelectItem={handleOpenItemModal}
+                favoriteIds={favoriteIds}
+                onToggleFavorite={handleToggleFavorite}
+                searchQuery={searchQuery}
+                onSearchChange={setSearchQuery}
+                viewMode={globalViewMode}
+                onViewModeChange={setGlobalViewMode}
+                onBack={() => setCurrentScreen('home')}
+                materials={materials}
+                categories={categories}
+                services={services}
+              />
+            )}
 
-          {currentScreen === 'home' && (
-            <HomeScreen
-              headerComponent={
-                <Header
-                  currentScreen={currentScreen}
-                  title={getScreenTitle()}
-                  selectedLocation={selectedLocation}
-                  onOpenLocationModal={handleOpenLocationModal}
-                  onBack={undefined}
-                  searchQuery={searchQuery}
-                  onSearchChange={setSearchQuery}
-                  recentSearches={recentSearches}
-                  onSelectSearchQuery={handleSelectSearchQuery}
-                  onClearRecentSearches={handleClearRecentSearches}
-                  onRemoveRecentSearch={handleRemoveRecentSearch}
-                  onSelectItemModal={handleOpenItemModal}
-                  onNavigateScreen={setCurrentScreen}
-                  materials={materials}
-                  categories={categories}
-                  services={services}
-                />
-              }
-              onSelectCategory={handleSelectCategory}
-              onNavigateAllMaterials={() => {
-                setSelectedCategoryId('all');
-                setCurrentScreen('shop');
-              }}
-              onNavigateAllServices={() => {
-                setSelectedCategoryId('services-catalog');
-                setCurrentScreen('shop');
-              }}
-              onSelectItem={handleOpenItemModal}
-              searchQuery={searchQuery}
-              favoriteIds={favoriteIds}
-              onToggleFavorite={handleToggleFavorite}
-              onAddBundleToCartAndNavigate={handleAddBundleToCartAndNavigate}
-              materials={materials}
-              categories={categories}
-              services={services}
-              bundles={bundles}
-            />
-          )}
-
-          {currentScreen === 'basket' && (
-            <BasketScreen
-              user={user}
-              cartItems={cartItems}
-              onUpdateQuantity={handleUpdateCartQty}
-              onRemoveItem={handleRemoveCartItem}
-              onClearCart={handleClearCart}
-              onAddToCart={handleAddToCartItem}
-              selectedLocation={selectedLocation}
-              onNavigateScreen={setCurrentScreen}
-              deliveries={deliveries}
-              onOrderCreated={handleOrderCreated}
-              onViewInvoice={handleOpenInvoiceModal}
-              onChangeAddressRedirect={() => {
-                setOpenProfileAddresses(true);
-                setCurrentScreen('profile');
-              }}
-              isLoggedIn={isLoggedIn}
-              onOpenLoginModal={handleOpenAuthModal}
-            />
-          )}
-
-          {currentScreen === 'favorites' && (
-            <FavoritesScreen
-              items={materials}
-              onSelectItemModal={handleOpenItemModal}
-              onNavigateHome={() => setCurrentScreen('home')}
-              onExploreCatalog={() => {
-                setSelectedCategoryId('all');
-                setCurrentScreen('shop');
-              }}
-              favoriteIds={favoriteIds}
-              onToggleFavorite={handleToggleFavorite}
-              isLoggedIn={isLoggedIn}
-              onOpenLoginModal={handleOpenAuthModal}
-            />
-          )}
-
-          {currentScreen === 'profile' && (
-            <UserProfileScreen
-              user={user}
-              onUpdateUser={handleUpdateUser}
-              onNavigateScreen={(scr) => {
-                setOpenProfileAddresses(false);
-                setCurrentScreen(scr);
-              }}
-              isLoggedIn={isLoggedIn}
-              onLogout={handleLogout}
-              savedLocations={savedLocations}
-              onAddLocation={handleAddLocation}
-              onEditLocation={handleEditLocation}
-              onDeleteLocation={handleDeleteLocation}
-              onSelectLocation={handleSelectLocation}
-              deliveries={deliveries}
-              onViewInvoice={handleOpenInvoiceModal}
-              initialOpenAddressesModal={openProfileAddresses}
-              onOpenLoginModal={handleOpenAuthModal}
-              favoriteCount={favoriteIds.length}
-              viewMode={globalViewMode}
-              onViewModeChange={setGlobalViewMode}
-              onExploreCatalog={() => {
-                setSelectedCategoryId('all');
-                setCurrentScreen('shop');
-              }}
-              onReorderMaterial={(matName) => {
-                const matchedItem = materials.find((m) =>
-                  m.name.toLowerCase().includes(matName.toLowerCase()) || matName.toLowerCase().includes(m.name.toLowerCase())
-                ) || MATERIAL_ITEMS.find((m) =>
-                  m.name.toLowerCase().includes(matName.toLowerCase()) || matName.toLowerCase().includes(m.name.toLowerCase())
-                );
-                if (matchedItem) {
-                  handleOpenItemModal(matchedItem);
-                } else {
+            {currentScreen === 'home' && (
+              <HomeScreen
+                headerComponent={
+                  <Header
+                    currentScreen={currentScreen}
+                    title={getScreenTitle()}
+                    selectedLocation={selectedLocation}
+                    onOpenLocationModal={handleOpenLocationModal}
+                    onBack={undefined}
+                    searchQuery={searchQuery}
+                    onSearchChange={setSearchQuery}
+                    recentSearches={recentSearches}
+                    onSelectSearchQuery={handleSelectSearchQuery}
+                    onClearRecentSearches={handleClearRecentSearches}
+                    onRemoveRecentSearch={handleRemoveRecentSearch}
+                    onSelectItemModal={handleOpenItemModal}
+                    onNavigateScreen={setCurrentScreen}
+                    materials={materials}
+                    categories={categories}
+                    services={services}
+                  />
+                }
+                onSelectCategory={handleSelectCategory}
+                onNavigateAllMaterials={() => {
                   setSelectedCategoryId('all');
                   setCurrentScreen('shop');
-                }
-              }}
-            />
-          )}
+                }}
+                onNavigateAllServices={() => {
+                  setSelectedCategoryId('services-catalog');
+                  setCurrentScreen('shop');
+                }}
+                onSelectItem={handleOpenItemModal}
+                searchQuery={searchQuery}
+                favoriteIds={favoriteIds}
+                onToggleFavorite={handleToggleFavorite}
+                onAddBundleToCartAndNavigate={handleAddBundleToCartAndNavigate}
+                materials={materials}
+                categories={categories}
+                services={services}
+                bundles={bundles}
+              />
+            )}
 
-          {currentScreen === 'settings' && (
-            <SettingsScreen
-              onBack={() => setCurrentScreen('profile')}
-              onClearRecentSearches={handleClearRecentSearches}
-              viewMode={globalViewMode}
-              onViewModeChange={setGlobalViewMode}
-            />
-          )}
+            {currentScreen === 'basket' && (
+              <BasketScreen
+                user={user}
+                cartItems={cartItems}
+                onUpdateQuantity={handleUpdateCartQty}
+                onRemoveItem={handleRemoveCartItem}
+                onClearCart={handleClearCart}
+                onAddToCart={handleAddToCartItem}
+                selectedLocation={selectedLocation}
+                onNavigateScreen={setCurrentScreen}
+                deliveries={deliveries}
+                onOrderCreated={handleOrderCreated}
+                onViewInvoice={handleOpenInvoiceModal}
+                onChangeAddressRedirect={() => {
+                  setOpenProfileAddresses(true);
+                  setCurrentScreen('profile');
+                }}
+                isLoggedIn={isLoggedIn}
+                onOpenLoginModal={handleOpenAuthModal}
+              />
+            )}
 
-          {currentScreen === 'activity' && (
-            <ActivityDashboardScreen
-              deliveries={deliveries}
-              isLoggedIn={isLoggedIn}
-              onOpenLoginModal={handleOpenAuthModal}
-              onBack={() => setCurrentScreen('profile')}
-              onExploreCatalog={() => {
-                setSelectedCategoryId('all');
-                setCurrentScreen('shop');
-              }}
-              onViewInvoice={handleOpenInvoiceModal}
-              onReorderMaterial={(matName) => {
-                const matchedItem = materials.find((m) =>
-                  m.name.toLowerCase().includes(matName.toLowerCase()) || matName.toLowerCase().includes(m.name.toLowerCase())
-                ) || MATERIAL_ITEMS.find((m) =>
-                  m.name.toLowerCase().includes(matName.toLowerCase()) || matName.toLowerCase().includes(m.name.toLowerCase())
-                );
-                if (matchedItem) {
-                  handleOpenItemModal(matchedItem);
-                } else {
+            {currentScreen === 'favorites' && (
+              <FavoritesScreen
+                items={materials}
+                onSelectItemModal={handleOpenItemModal}
+                onNavigateHome={() => setCurrentScreen('home')}
+                onExploreCatalog={() => {
                   setSelectedCategoryId('all');
                   setCurrentScreen('shop');
-                }
-              }}
-            />
-          )}
+                }}
+                favoriteIds={favoriteIds}
+                onToggleFavorite={handleToggleFavorite}
+                isLoggedIn={isLoggedIn}
+                onOpenLoginModal={handleOpenAuthModal}
+              />
+            )}
 
-          {(currentScreen === 'auth_mobile' || currentScreen === 'auth_otp') && (
-            <AuthScreen
-              initialStep={currentScreen === 'auth_otp' ? 'otp' : 'mobile'}
-              onSuccessAuth={handleAuthSuccess}
-              onBack={() => {
-                setCurrentScreen('home');
-              }}
-            />
-          )}
+            {currentScreen === 'profile' && (
+              <UserProfileScreen
+                user={user}
+                onUpdateUser={handleUpdateUser}
+                onNavigateScreen={(scr) => {
+                  setOpenProfileAddresses(false);
+                  setCurrentScreen(scr);
+                }}
+                isLoggedIn={isLoggedIn}
+                onLogout={handleLogout}
+                savedLocations={savedLocations}
+                onAddLocation={handleAddLocation}
+                onEditLocation={handleEditLocation}
+                onDeleteLocation={handleDeleteLocation}
+                onSelectLocation={handleSelectLocation}
+                deliveries={deliveries}
+                onViewInvoice={handleOpenInvoiceModal}
+                initialOpenAddressesModal={openProfileAddresses}
+                onOpenLoginModal={handleOpenAuthModal}
+                favoriteCount={favoriteIds.length}
+                viewMode={globalViewMode}
+                onViewModeChange={setGlobalViewMode}
+                onExploreCatalog={() => {
+                  setSelectedCategoryId('all');
+                  setCurrentScreen('shop');
+                }}
+                onReorderMaterial={(matName) => {
+                  const matchedItem = materials.find((m) =>
+                    m.name.toLowerCase().includes(matName.toLowerCase()) || matName.toLowerCase().includes(m.name.toLowerCase())
+                  ) || MATERIAL_ITEMS.find((m) =>
+                    m.name.toLowerCase().includes(matName.toLowerCase()) || matName.toLowerCase().includes(m.name.toLowerCase())
+                  );
+                  if (matchedItem) {
+                    handleOpenItemModal(matchedItem);
+                  } else {
+                    setSelectedCategoryId('all');
+                    setCurrentScreen('shop');
+                  }
+                }}
+              />
+            )}
+
+
+            {currentScreen === 'activity' && (
+              <ActivityDashboardScreen
+                deliveries={deliveries}
+                isLoggedIn={isLoggedIn}
+                onOpenLoginModal={handleOpenAuthModal}
+                onBack={() => setCurrentScreen('profile')}
+                onExploreCatalog={() => {
+                  setSelectedCategoryId('all');
+                  setCurrentScreen('shop');
+                }}
+                onViewInvoice={handleOpenInvoiceModal}
+                onReorderMaterial={(matName) => {
+                  const matchedItem = materials.find((m) =>
+                    m.name.toLowerCase().includes(matName.toLowerCase()) || matName.toLowerCase().includes(m.name.toLowerCase())
+                  ) || MATERIAL_ITEMS.find((m) =>
+                    m.name.toLowerCase().includes(matName.toLowerCase()) || matName.toLowerCase().includes(m.name.toLowerCase())
+                  );
+                  if (matchedItem) {
+                    handleOpenItemModal(matchedItem);
+                  } else {
+                    setSelectedCategoryId('all');
+                    setCurrentScreen('shop');
+                  }
+                }}
+              />
+            )}
+
+            {(currentScreen === 'auth_mobile' || currentScreen === 'auth_otp') && (
+              <AuthScreen
+                initialStep={currentScreen === 'auth_otp' ? 'otp' : 'mobile'}
+                onSuccessAuth={handleAuthSuccess}
+                onBack={() => {
+                  setCurrentScreen('home');
+                }}
+              />
+            )}
+          </Suspense>
+        </ErrorBoundary>
       </View>
 
       {/* Nike Auth Modal (Login/Signup Bottom Sheet matching n1.jpeg, n2.jpeg) */}
