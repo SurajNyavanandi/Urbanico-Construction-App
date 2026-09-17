@@ -1,51 +1,45 @@
-// ==============================================================================
-// URBANICO BACKEND API SERVER
-// Endpoints: /api/razorpay/create-order, /api/razorpay/verify-payment, /api/orders, /api/materials
-// Local VSC: Port 3000 (http://localhost:3000/api)
-// Render:    Auto-configured port or 3000 (https://urbanico-construction-app.onrender.com/api)
-// Vercel:    Frontend (https://urbanico.vercel.app) connects to backend via the API URL
-// ==============================================================================
-
 import path from 'path';
-
 import express from 'express';
-import { createServer as createViteServer } from 'vite';
-import { connectDB, getDBStatus } from './config/db';
+import { connectDB } from './config/db';
 import { apiRouter } from './routers';
-import { MaterialService } from './services/materialService';
 import { ServiceService } from './services/serviceService';
+import { paymentRouter } from './routers/paymentRouter';
+import { PaymentController } from './controllers/paymentController';
 
 const app = express();
-// Port: 3000 for local development & container proxy; Render provides PORT or defaults to 3000
 const PORT = 3000;
-const FRONTEND_URL = process.env.FRONTEND_URL || 'https://urbanico.vercel.app';
 
-// 1. JSON & URL encoding parsers
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 2. CORS Middleware - Allow frontend from localhost, custom configured FRONTEND_URL, and production domains
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   const allowedOrigins = [
-    'http://localhost:5173',
     'http://localhost:3000',
-    'http://localhost:8081',
-    'http://localhost:19006',
-    FRONTEND_URL,
+    'http://localhost:5173',  // Vite React default
+    'http://localhost:5174',  // Vite alternative
+    'http://localhost:8081',  // React Native (Metro Bundler) default
+    'http://localhost:19000', // Expo React Native default
+    'http://localhost:19006', // Expo Web default
+    'https://virattom.com',
     'https://urbanico.vercel.app',
-    'https://urbanico-construction-app.onrender.com',
-  ].filter(Boolean);
+    'https://urbanico-admin.vercel.app'
+  ];
 
-  // Allow requesting origin dynamically or fallback to *
-  if (origin) {
+  // Allow explicitly listed origins, cloud run previews, and dynamic local dev networks (localhost / LAN)
+  if (origin && (
+    allowedOrigins.includes(origin) || 
+    origin.endsWith('.run.app') || 
+    origin.startsWith('http://localhost:') || 
+    origin.startsWith('http://192.168.')
+  )) {
     res.setHeader('Access-Control-Allow-Origin', origin);
-  } else {
+  } else if (!origin) {
     res.setHeader('Access-Control-Allow-Origin', '*');
   }
 
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Cache-Control, Pragma');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
 
   if (req.method === 'OPTIONS') {
@@ -54,116 +48,58 @@ app.use((req, res, next) => {
   next();
 });
 
-// 3. Mount all modular API routes on /api and root fallbacks
 app.use('/api', apiRouter);
-
-// Flat direct endpoints on root to avoid 404 if client requests without /api
-import { paymentRouter } from './routers/paymentRouter';
-import { PaymentController } from './controllers/paymentController';
 app.use('/razorpay', paymentRouter);
 app.post('/create-order', PaymentController.createOrder);
 app.post('/verify-payment', PaymentController.verifyPayment);
 
-// 4. Server & Integration info endpoint
-app.get('/api/server-info', (req, res) => {
-  res.json({
-    status: 'online',
-    service: 'Urbanico Backend API',
-    port: PORT,
-    database: getDBStatus().isConnected ? 'connected' : 'disconnected',
-    endpoints: [
-      '/api/health',
-      '/api/server-info',
-      '/api/orders',
-      '/api/materials',
-      '/api/deliveries',
-      '/api/users',
-      '/api/razorpay/create-order',
-      '/api/razorpay/verify-payment',
-    ],
-  });
-});
-
-// 5. Health check
 app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    database: getDBStatus(),
-  });
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// 6. Global Error Handler for API routes and JSON syntax errors
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (err instanceof SyntaxError && 'body' in err) {
     return res.status(400).json({ success: false, error: 'Malformed JSON payload' });
   }
-  console.error('[Backend] Internal Error:', err?.message || err);
-  if (res.headersSent) {
-    return next(err);
-  }
+  console.error('[Backend] Error:', err?.message || err);
+  if (res.headersSent) return next(err);
   return res.status(500).json({ success: false, error: 'Internal server error' });
 });
 
 export async function startServer() {
-  // Connect to MongoDB Atlas and auto-seed catalog
   connectDB()
     .then(async (conn) => {
       if (conn) {
         try {
           await ServiceService.seedDefaultServices();
-          console.log('[DB] Catalog synchronization complete.');
-        } catch (seedErr: any) {
-          console.warn('[DB] Seeding note:', seedErr?.message || seedErr);
+        } catch (err) {
+          console.warn('[DB] Seeding issue:', err);
         }
       }
     })
-    .catch((dbErr: any) => {
-      console.error('Initial DB connection attempt returned:', dbErr?.message || dbErr);
-    });
+    .catch((err) => console.error('DB connect error:', err));
 
-  // Vite middleware for preview/frontend serving
   if (process.env.NODE_ENV !== 'production') {
     try {
+      const { createServer: createViteServer } = await import('vite');
       const vite = await createViteServer({
         server: { middlewareMode: true },
         appType: 'spa',
       });
       app.use(vite.middlewares);
-    } catch (viteErr) {
-      // Standalone backend mode without vite
-    }
+    } catch (e) {}
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     const indexPath = path.join(distPath, 'index.html');
     app.use(express.static(distPath));
     
-    // Express 4/5 safe fallback for single-page applications and root requests
     app.use((req, res, next) => {
       if (req.method !== 'GET') return next();
       if (req.path.startsWith('/api')) {
-        return res.status(404).json({ error: 'API endpoint not found', path: req.path });
+        return res.status(404).json({ error: 'Not found' });
       }
       res.sendFile(indexPath, (err) => {
-        if (err) {
-          res.json({
-            service: 'Urbanico Backend API',
-            status: 'online',
-            environment: process.env.NODE_ENV || 'production',
-            database: getDBStatus(),
-            message: 'Urbanico Backend API is live and accepting requests.',
-            endpoints: [
-              '/api/health',
-              '/api/server-info',
-              '/api/orders',
-              '/api/materials',
-              '/api/deliveries',
-              '/api/users',
-              '/api/razorpay/create-order',
-              '/api/razorpay/verify-payment',
-            ],
-          });
-        }
+        if (err) res.json({ status: 'online', service: 'Urbanico Backend' });
       });
     });
   }
@@ -175,11 +111,8 @@ export async function startServer() {
   return app;
 }
 
-// Start automatically when executed directly
 if (process.env.NODE_ENV !== 'test') {
-  startServer().catch((err) => {
-    console.error('Failed to start backend server:', err);
-  });
+  startServer().catch(console.error);
 }
 
 export { app };
