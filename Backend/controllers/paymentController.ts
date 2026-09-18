@@ -2,7 +2,7 @@
 // PAYMENT CONTROLLER
 // POST /api/razorpay/create-order  -> Initiates order (Amount in paise or INR)
 // POST /api/razorpay/verify-payment -> Verifies HMAC-SHA256 signature
-// Port: 3000 (Local VSC: http://localhost:3000 | Render: https://urbanico-construction-app.onrender.com)
+// Port: 3000 (Local VSC: http://localhost:3000 | Render: https://urbanico.onrender.com)
 // ==============================================================================
 
 import { Request, Response } from 'express';

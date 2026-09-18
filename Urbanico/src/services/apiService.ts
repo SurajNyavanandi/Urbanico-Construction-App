@@ -36,6 +36,18 @@ export function getBaseApiUrls(): string[] {
     urls.push(sharedActiveApiBase);
   }
 
+  // Environment-configured backend URL (compatible with Expo Metro, Vite, and Node)
+  const envBackendUrl =
+    (typeof process !== 'undefined' &&
+      ((process.env as any)?.EXPO_PUBLIC_BACKEND_URL ||
+        (process.env as any)?.VITE_BACKEND_URL ||
+        (process.env as any)?.REACT_APP_BACKEND_URL)) ||
+    '';
+  if (envBackendUrl && typeof envBackendUrl === 'string' && envBackendUrl.trim().length > 0) {
+    const clean = envBackendUrl.trim().replace(/\/+$/, '');
+    urls.push(clean.endsWith('/api') ? clean : `${clean}/api`);
+  }
+
   const isWeb = Platform.OS === 'web' && typeof window !== 'undefined' && window.location;
   const isMetroDev =
     isWeb &&
@@ -46,7 +58,7 @@ export function getBaseApiUrls(): string[] {
   // Primary API endpoint in web runtime
   if (isWeb && !isMetroDev) {
     if (window.location.hostname.includes('vercel.app') || window.location.hostname.includes('virattom.com')) {
-      urls.push('https://urbanico-construction-app.onrender.com/api');
+      urls.push('https://urbanico.onrender.com/api');
     } else {
       urls.push('/api');
     }
@@ -86,7 +98,7 @@ export function getBaseApiUrls(): string[] {
   }
 
   // 6. Live production cloud backend fallback (Render)
-  urls.push('https://urbanico-construction-app.onrender.com/api');
+  urls.push('https://urbanico.onrender.com/api');
 
   return Array.from(new Set(urls.filter(Boolean).map((u) => u.trim().replace(/\/+$/, ''))));
 }

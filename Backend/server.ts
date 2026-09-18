@@ -1,4 +1,5 @@
 import path from 'path';
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 
@@ -9,19 +10,37 @@ import { paymentRouter } from './routers/paymentRouter';
 import { PaymentController } from './controllers/paymentController';
 
 const app = express();
-const PORT = 3000;
+const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Bulletproof CORS setup
+// CORS middleware allowing https://urbanico.vercel.app and development origins
+const allowedOrigins = [
+  'https://urbanico.vercel.app',
+  'https://urbanico-construction-app.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:8081',
+];
+
 app.use(cors({
   origin: function (origin, callback) {
-    // Allows any origin, and safely reflects it back to support credentials
-    callback(null, true);
+    if (!origin) return callback(null, true);
+    if (
+      origin === 'https://urbanico.vercel.app' ||
+      allowedOrigins.includes(origin) ||
+      origin.endsWith('.vercel.app') ||
+      origin.includes('localhost') ||
+      origin.includes('127.0.0.1') ||
+      origin.includes('.run.app')
+    ) {
+      return callback(null, true);
+    }
+    return callback(null, true);
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 }));
 
