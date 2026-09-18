@@ -485,7 +485,7 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
                       <View style={[styles.orderLeft, { flex: 1, minWidth: 0, marginRight: 12 }]}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                           <Text style={[styles.orderMaterialName, { color: theme.textPrimary }]} numberOfLines={1}>
-                            {del?.materialName || 'Material Delivery'}
+                            {del?.orderNumber ? `Order #${del.orderNumber}` : 'Standard Order'}
                           </Text>
                           {isCancelled && (
                             <View style={{ backgroundColor: '#FEE2E2', paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: 4 }}>
@@ -493,8 +493,11 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
                             </View>
                           )}
                         </View>
+                        <Text style={{ fontSize: 13, color: theme.textSecondary, marginTop: 2, marginBottom: 2 }} numberOfLines={1}>
+                          {del?.materialName || 'Material Delivery'}
+                        </Text>
                         <Text style={[styles.orderTimeText, { color: theme.textSecondary }]} numberOfLines={1}>
-                          {del?.timestamp || 'Recent'} • {isCancelled ? 'Refund Issued' : (del?.vehicleNumber || 'Standard Logistics')}
+                          {del?.timestamp || 'Recent'}{isCancelled ? ' • Refund Issued' : ''}
                         </Text>
                         {Boolean(del?.ewayBillNumber) && !isCancelled && (
                           <Text style={[styles.ewayText, { color: '#0284C7' }]} numberOfLines={1}>

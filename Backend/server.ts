@@ -1,5 +1,6 @@
 import path from 'path';
 import express from 'express';
+import cors from 'cors';
 
 import { connectDB } from './config/db';
 import { apiRouter } from './routers';
@@ -8,47 +9,21 @@ import { paymentRouter } from './routers/paymentRouter';
 import { PaymentController } from './controllers/paymentController';
 
 const app = express();
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = 3000;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  const allowedOrigins = [
-    'http://localhost:3000',
-    'http://localhost:5173',  // Vite React default
-    'http://localhost:5174',  // Vite alternative
-    'http://localhost:8081',  // React Native (Metro Bundler) default
-    'http://localhost:19000', // Expo React Native default
-    'http://localhost:19006', // Expo Web default
-    'https://virattom.com',
-    'https://urbanico.vercel.app',
-    'https://urbanico-admin.vercel.app'
-  ];
-
-  // Allow explicitly listed origins, cloud run previews, and dynamic local dev networks (localhost / LAN)
-  if (origin && (
-    allowedOrigins.includes(origin) || 
-    origin.endsWith('.run.app') || 
-    origin.startsWith('http://localhost:') || 
-    origin.startsWith('http://192.168.')
-  )) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  } else if (!origin) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-  }
-
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Vary', 'Origin');
-
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(204);
-  }
-  next();
-});
+// Bulletproof CORS setup
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allows any origin, and safely reflects it back to support credentials
+    callback(null, true);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
+}));
 
 app.use('/api', apiRouter);
 app.use('/razorpay', paymentRouter);

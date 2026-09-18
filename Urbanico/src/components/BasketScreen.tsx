@@ -2200,7 +2200,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                           <View style={[styles.deliveryLeftInfo, { flex: 1, minWidth: 0, marginRight: 10 }]}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                               <Text style={[styles.delMaterialName, { color: theme.textPrimary }]} numberOfLines={1}>
-                                {del.materialName}
+                                {del.orderNumber ? `Order #${del.orderNumber}` : 'Standard Order'}
                               </Text>
                               {isCancelled && (
                                 <View style={{ backgroundColor: '#FEE2E2', paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: 4 }}>
@@ -2208,8 +2208,11 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                                 </View>
                               )}
                             </View>
+                            <Text style={{ fontSize: 13, color: theme.textSecondary, marginTop: 2, marginBottom: 2 }} numberOfLines={1}>
+                              {del.materialName}
+                            </Text>
                             <Text style={[styles.timestampText, { color: theme.textSecondary }]} numberOfLines={1}>
-                              {del.timestamp} • {isCancelled ? 'Refund Issued' : del.vehicleNumber}
+                              {del.timestamp}{isCancelled ? ' • Refund Issued' : ''}
                             </Text>
                           </View>
 
