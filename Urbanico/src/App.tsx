@@ -1,5 +1,8 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
+
+import { View, StyleSheet, ActivityIndicator, LogBox } from 'react-native';
+
+LogBox.ignoreLogs(['"shadow*" style props are deprecated. Use "boxShadow".', '"shadow*" style props are deprecated']);
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { ThemeProvider, useTheme } from './context/ThemeContext';

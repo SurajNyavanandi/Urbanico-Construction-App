@@ -183,7 +183,7 @@ export const Toast: React.FC<ToastProps> = ({
           {
             backgroundColor: theme.mode === 'dark' ? '#18181B' : '#FFFFFF',
             borderColor: theme.mode === 'dark' ? '#27272A' : '#E5E7EB',
-            shadowColor: '#000000',
+            
             transform: [{ translateY }, { scale }],
             opacity,
           },
@@ -296,9 +296,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
+    boxShadow: '0px 8px 18px rgba(0, 0, 0, 0.18)',
     elevation: 14,
   },
   imageCol: {

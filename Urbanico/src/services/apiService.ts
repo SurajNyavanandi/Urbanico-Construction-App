@@ -45,7 +45,11 @@ export function getBaseApiUrls(): string[] {
 
   // Primary API endpoint in web runtime
   if (isWeb && !isMetroDev) {
-    urls.push('/api');
+    if (window.location.hostname.includes('vercel.app') || window.location.hostname.includes('virattom.com')) {
+      urls.push('https://urbanico-construction-app.onrender.com/api');
+    } else {
+      urls.push('/api');
+    }
   }
 
   // Local development fallback
