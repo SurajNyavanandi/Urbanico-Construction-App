@@ -1350,7 +1350,14 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   };
 
   const handlePaymentSuccess = (result: RazorpayPaymentResult) => {
-    console.log(`[Order] Paid: ₹${result.amount} | PayID: ${result.razorpay_payment_id}`);
+    console.log(`[Order Payment Success] Received payment confirmation from gateway!`, {
+      amount: result.amount,
+      paymentId: result.razorpay_payment_id,
+      orderId: result.razorpay_order_id,
+      method: result.method,
+      isLiveMode: result.isLiveMode,
+      status: result.status,
+    });
 
     setShowRazorpayModal(false);
     setLatestPaymentResult(result);

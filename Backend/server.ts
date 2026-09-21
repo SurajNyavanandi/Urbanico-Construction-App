@@ -1,5 +1,11 @@
 import path from 'path';
-import 'dotenv/config';
+import dotenv from 'dotenv';
+
+// Load .env from current directory and parent directory (single common .env at project root)
+dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
+
 import express from 'express';
 import cors from 'cors';
 
@@ -46,6 +52,8 @@ app.use(cors({
 
 app.use('/api', apiRouter);
 app.use('/razorpay', paymentRouter);
+app.get('/api/razorpay/config', PaymentController.getConfig);
+app.get('/razorpay/config', PaymentController.getConfig);
 app.post('/create-order', PaymentController.createOrder);
 app.post('/verify-payment', PaymentController.verifyPayment);
 

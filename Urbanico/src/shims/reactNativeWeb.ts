@@ -6,6 +6,11 @@ export const TurboModuleRegistry = {
   getEnforcing: (_name: string) => null,
 };
 
+export const LogBox = {
+  ignoreLogs: (_logs: string[]) => {},
+  ignoreAllLogs: (_ignore?: boolean) => {},
+};
+
 export const {
   ActivityIndicator,
   Alert,

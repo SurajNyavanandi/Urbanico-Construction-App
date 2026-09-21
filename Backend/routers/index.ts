@@ -19,6 +19,8 @@ apiRouter.use('/users', userRouter);
 apiRouter.use('/deliveries', deliveryRouter);
 
 // Flat aliases for backwards compatibility with existing frontend calls
+apiRouter.get('/razorpay-config', PaymentController.getConfig);
+apiRouter.get('/config', PaymentController.getConfig);
 apiRouter.post('/create-order', PaymentController.createOrder);
 apiRouter.post('/verify-payment', PaymentController.verifyPayment);
 

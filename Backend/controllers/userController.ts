@@ -2,6 +2,9 @@ import { Request, Response } from 'express';
 import { UserService } from '../services/userService';
 import { validateBackendProfile } from '../utils/sanitizer';
 import { asyncHandler, sendSuccess, sendError } from '../utils/apiResponse';
+import { generateAuthToken, AuthenticatedRequest, getPermissionsForRole } from '../middleware/auth';
+
+const CLOUDINARY_PROFILE_PIC = 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg';
 
 export class UserController {
   public static sendOtp = asyncHandler(async (req: Request, res: Response) => {
@@ -27,14 +30,62 @@ export class UserController {
     }
     // OTP MUST be 261125
     if (String(otp).trim() !== '261125') {
-      return sendError(res, 'Invalid OTP code. Please enter 261125.', 400);
+      return sendError(res, 'Invalid OTP code. Please enter 261125.', 401);
     }
 
-    const user = await UserService.findOrCreateUser(phone);
+    const user: any = await UserService.findOrCreateUser(phone, {
+      avatarUrl: CLOUDINARY_PROFILE_PIC,
+      profilePicture: CLOUDINARY_PROFILE_PIC,
+    });
+
+    if (!user.avatarUrl) {
+      user.avatarUrl = CLOUDINARY_PROFILE_PIC;
+    }
+    if (!user.profilePicture) {
+      user.profilePicture = CLOUDINARY_PROFILE_PIC;
+    }
+
+    const token = generateAuthToken({
+      _id: user._id,
+      phone: user.phone,
+      name: user.name,
+      role: user.role,
+      avatarUrl: CLOUDINARY_PROFILE_PIC,
+    });
+
+    const permissions = getPermissionsForRole(user.role || 'contractor');
+
     return sendSuccess(res, {
-      message: 'OTP verified successfully',
-      user,
-      token: `auth_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+      message: 'Authentication successful',
+      user: {
+        ...((user.toObject && user.toObject()) || user),
+        avatarUrl: CLOUDINARY_PROFILE_PIC,
+        profilePicture: CLOUDINARY_PROFILE_PIC,
+        permissions,
+      },
+      token,
+      role: user.role || 'contractor',
+      permissions,
+    });
+  });
+
+  public static getCurrentUser = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+    if (!req.user) {
+      return sendError(res, 'Not authenticated', 401);
+    }
+    const user: any = await UserService.getUserById(req.user.id) || await UserService.getUserByPhone(req.user.phone);
+    if (!user) {
+      return sendError(res, 'User not found', 404);
+    }
+    const permissions = getPermissionsForRole(user.role || 'contractor');
+    return sendSuccess(res, {
+      user: {
+        ...((user.toObject && user.toObject()) || user),
+        avatarUrl: CLOUDINARY_PROFILE_PIC,
+        profilePicture: CLOUDINARY_PROFILE_PIC,
+        permissions,
+      },
+      permissions,
     });
   });
 
@@ -43,8 +94,17 @@ export class UserController {
     if (!phone) {
       return sendError(res, 'Phone number parameter required', 400);
     }
-    const user = await UserService.getUserByPhone(phone) || await UserService.findOrCreateUser(phone);
-    return sendSuccess(res, { user });
+    const user: any = (await UserService.getUserByPhone(phone)) || (await UserService.findOrCreateUser(phone, {
+      avatarUrl: CLOUDINARY_PROFILE_PIC,
+      profilePicture: CLOUDINARY_PROFILE_PIC,
+    }));
+    return sendSuccess(res, {
+      user: {
+        ...((user.toObject && user.toObject()) || user),
+        avatarUrl: CLOUDINARY_PROFILE_PIC,
+        profilePicture: CLOUDINARY_PROFILE_PIC,
+      },
+    });
   });
 
   public static updateProfile = asyncHandler(async (req: Request, res: Response) => {
@@ -58,11 +118,31 @@ export class UserController {
       return sendError(res, 'User ID or Phone number is required to update profile', 400);
     }
 
-    const user = await UserService.updateUser(idOrPhone, validation.sanitized);
+    const user: any = await UserService.updateUser(idOrPhone, {
+      ...validation.sanitized,
+      avatarUrl: CLOUDINARY_PROFILE_PIC,
+      profilePicture: CLOUDINARY_PROFILE_PIC,
+    });
     if (!user) {
-      const newUser = await UserService.findOrCreateUser(idOrPhone, validation.sanitized);
-      return sendSuccess(res, { user: newUser });
+      const newUser: any = await UserService.findOrCreateUser(idOrPhone, {
+        ...validation.sanitized,
+        avatarUrl: CLOUDINARY_PROFILE_PIC,
+        profilePicture: CLOUDINARY_PROFILE_PIC,
+      });
+      return sendSuccess(res, {
+        user: {
+          ...((newUser.toObject && newUser.toObject()) || newUser),
+          avatarUrl: CLOUDINARY_PROFILE_PIC,
+          profilePicture: CLOUDINARY_PROFILE_PIC,
+        },
+      });
     }
-    return sendSuccess(res, { user });
+    return sendSuccess(res, {
+      user: {
+        ...((user.toObject && user.toObject()) || user),
+        avatarUrl: CLOUDINARY_PROFILE_PIC,
+        profilePicture: CLOUDINARY_PROFILE_PIC,
+      },
+    });
   });
 }

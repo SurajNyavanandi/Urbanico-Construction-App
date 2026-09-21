@@ -7,6 +7,9 @@ export interface IUser extends Document {
   role: 'contractor' | 'engineer' | 'supervisor' | 'client' | 'admin';
   gstin?: string;
   companyName?: string;
+  avatarUrl?: string;
+  profilePicture?: string;
+  permissions?: string[];
   billingAddress?: {
     street: string;
     city: string;
@@ -39,6 +42,15 @@ const UserSchema = new Schema<IUser>(
     },
     gstin: { type: String, trim: true, uppercase: true },
     companyName: { type: String, trim: true },
+    avatarUrl: {
+      type: String,
+      default: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg',
+    },
+    profilePicture: {
+      type: String,
+      default: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg',
+    },
+    permissions: [{ type: String }],
     billingAddress: {
       street: { type: String },
       city: { type: String, default: 'Hyderabad' },

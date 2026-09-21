@@ -11,6 +11,7 @@ declare module 'react-native-web' {
   export type TextInput = any;
   export const StyleSheet: any;
   export const Platform: any;
+  export const LogBox: any;
   export const Animated: any;
   export const Modal: any;
   export const Pressable: any;

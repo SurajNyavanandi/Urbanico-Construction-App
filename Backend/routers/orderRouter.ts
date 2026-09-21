@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import { OrderController } from '../controllers/orderController';
+import { authenticateToken } from '../middleware/auth';
 
 const router = Router();
 
-// Order CRUD & state transitions
+// Order CRUD & state transitions with optional/required authorization
+router.use(authenticateToken);
 router.get('/', OrderController.getOrders);
 router.post('/', OrderController.createOrder);
 router.post('/email-invoice', OrderController.emailInvoice);

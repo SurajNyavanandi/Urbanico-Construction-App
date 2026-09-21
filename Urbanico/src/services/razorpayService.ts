@@ -41,6 +41,7 @@ export interface CreateOrderResponse {
   key_id?: string;
   order?: any;
   error?: string;
+  mode?: string;
   isRealRazorpayOrder?: boolean;
   upstreamAuthFailed?: boolean;
   upstreamError?: string;
@@ -114,22 +115,99 @@ export function loadRazorpayScript(): Promise<boolean> {
 const API_BASE_URL = '/api';
 
 let cachedRazorpayKey = '';
+let cachedRazorpayMode: 'LIVE' | 'TEST' | 'UNCONFIGURED' = 'UNCONFIGURED';
 
-export function setCachedRazorpayKey(key: string): void {
+export function setCachedRazorpayKey(key: string, mode?: 'LIVE' | 'TEST' | 'UNCONFIGURED'): void {
   if (key && typeof key === 'string') {
     cachedRazorpayKey = key.trim().replace(/^["']|["']$/g, '');
+    if (mode) {
+      cachedRazorpayMode = mode;
+    } else if (cachedRazorpayKey.startsWith('rzp_live_')) {
+      cachedRazorpayMode = 'LIVE';
+    } else if (cachedRazorpayKey.startsWith('rzp_test_')) {
+      cachedRazorpayMode = 'TEST';
+    }
   }
 }
 
 export function getClientRazorpayKey(): string {
   if (cachedRazorpayKey) return cachedRazorpayKey;
+  
+  // Check build-time or runtime environment variables
+  const envKey = (process.env.RAZORPAY_KEY_ID || process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || '') as string;
+  if (envKey && typeof envKey === 'string' && envKey.trim()) {
+    const cleaned = envKey.trim().replace(/^["']|["']$/g, '');
+    setCachedRazorpayKey(cleaned);
+    return cleaned;
+  }
+
+  // Check safe storage fallback
+  try {
+    const stored = safeStorage.getItem('razorpay_key_id');
+    if (stored && typeof stored === 'string' && stored.trim()) {
+      const cleaned = stored.trim().replace(/^["']|["']$/g, '');
+      setCachedRazorpayKey(cleaned);
+      return cleaned;
+    }
+  } catch {
+    // Ignore storage read errors
+  }
+
   return '';
 }
 
 export function getClientKeyMode(): 'LIVE' | 'TEST' {
   const key = getClientRazorpayKey();
   if (key.startsWith('rzp_live_')) return 'LIVE';
+  if (cachedRazorpayMode === 'LIVE') return 'LIVE';
   return 'TEST';
+}
+
+/**
+ * Proactively fetch Razorpay configuration and active key from the backend.
+ */
+export async function fetchRazorpayConfig(): Promise<{
+  success: boolean;
+  key_id?: string;
+  mode?: 'LIVE' | 'TEST' | 'UNCONFIGURED';
+  isConfigured?: boolean;
+}> {
+  console.log('[Razorpay Frontend] Fetching Razorpay configuration from backend...');
+  const endpoints = getCandidateApiEndpoints('razorpay/config');
+  for (const url of endpoints) {
+    try {
+      const response = await fetch(url, {
+        headers: { Accept: 'application/json' },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.key_id) {
+          setCachedRazorpayKey(data.key_id, data.mode);
+          console.log(`[Razorpay Frontend] Razorpay credentials loaded from ${url}:`, {
+            key_id: data.key_id ? `${data.key_id.slice(0, 8)}...${data.key_id.slice(-4)}` : 'NOT_SET',
+            mode: data.mode,
+            isConfigured: data.isConfigured,
+          });
+          return {
+            success: true,
+            key_id: data.key_id,
+            mode: data.mode,
+            isConfigured: data.isConfigured,
+          };
+        }
+      }
+    } catch {
+      // Continue to next endpoint candidate
+    }
+  }
+  const localKey = getClientRazorpayKey();
+  const localMode = getClientKeyMode();
+  return {
+    success: Boolean(localKey),
+    key_id: localKey,
+    mode: localMode,
+    isConfigured: Boolean(localKey),
+  };
 }
 
 export function getClientUpiVpa(): string {
@@ -668,17 +746,7 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
       !orderId!.slice(6).includes('_')
     );
 
-    // CRITICAL: Prevent Razorpay's proprietary modal alert: "Oops! Something went wrong. Payment Failed"
-    // Razorpay's checkout script throws that alert whenever the key fails authentication (401)
-    // or when called without an authentic upstream Razorpay order.
-    if (!isRealOrder) {
-      const msg = 'Razorpay upstream authentication failed or order is in sandbox test mode. Switching to in-app payment flow.';
-      console.warn(`[Payment] ${msg}`);
-      if (options.onFailure) {
-        options.onFailure(msg);
-      }
-      return;
-    }
+    console.log(`[Razorpay Checkout] Preparing checkout: Amount=₹${options.amount} (${orderAmountPaise} paise) | Key=${keyId.slice(0, 8)}... | Order ID=${orderId || 'NONE'} | isRealOrder=${isRealOrder}`);
 
     const rzpOptions: any = {
       key: keyId,
@@ -703,15 +771,24 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
         razorpay_order_id?: string;
         razorpay_signature?: string;
       }) {
+        console.log(`[Razorpay Checkout] Payment SUCCESS callback from Razorpay Gateway!`, {
+          payment_id: response.razorpay_payment_id,
+          order_id: response.razorpay_order_id,
+          has_signature: Boolean(response.razorpay_signature),
+        });
+
         // Automatically verify signature with server if order_id is present
         try {
           const effectiveOrderId = response.razorpay_order_id || (isRealOrder ? orderId : '') || '';
           if (effectiveOrderId && response.razorpay_signature) {
+            console.log(`[Razorpay Checkout] Verifying payment signature with backend for order: ${effectiveOrderId}`);
             await verifyRazorpayPayment({
               razorpay_order_id: effectiveOrderId,
               razorpay_payment_id: response.razorpay_payment_id,
               razorpay_signature: response.razorpay_signature,
-            }).catch(() => null);
+            }).catch((err) => {
+              console.warn('[Razorpay Checkout] Signature verification warning:', err);
+            });
           }
 
           options.onSuccess({
@@ -722,7 +799,7 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
             method: 'RAZORPAY_STANDARD',
           });
         } catch (err: any) {
-          console.warn('[Payment] Verification notice:', err?.message || err);
+          console.warn('[Razorpay Checkout] Post-payment handler notice:', err?.message || err);
           options.onSuccess({
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_order_id: response.razorpay_order_id || orderId || `pay_ord_${Date.now()}`,
@@ -734,6 +811,7 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
       },
       modal: {
         ondismiss: function () {
+          console.log('[Razorpay Checkout] User dismissed the Razorpay checkout modal');
           if (options.onDismiss) {
             options.onDismiss();
           }
@@ -743,12 +821,16 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
 
     if (orderId && isRealOrder) {
       rzpOptions.order_id = orderId;
+      console.log(`[Razorpay Checkout] Attached verified Razorpay Order ID: ${orderId}`);
+    } else {
+      console.log(`[Razorpay Checkout] Standard checkout launching in direct payment mode`);
     }
 
+    console.log(`[Razorpay Checkout] Opening Razorpay standard checkout dialog...`);
     const razorpayInstance = new (window as any).Razorpay(rzpOptions);
 
     razorpayInstance.on('payment.failed', function (failureResponse: any) {
-      console.error('Razorpay Payment Failed Event:', failureResponse);
+      console.error('[Razorpay Checkout] Payment Failed Event from Gateway:', failureResponse);
       const errMsg = failureResponse.error?.description || failureResponse.error?.reason || 'Transaction declined or failed';
       if (options.onFailure) {
         options.onFailure(errMsg);
@@ -757,7 +839,7 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
 
     razorpayInstance.open();
   } catch (error: any) {
-    console.error('Failed to open Razorpay Checkout:', error);
+    console.error('[Razorpay Checkout] Failed to open Razorpay Checkout:', error);
     if (options.onFailure) {
       options.onFailure(error.message || 'Could not initialize payment session');
     }

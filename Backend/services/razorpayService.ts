@@ -7,11 +7,10 @@ import Razorpay from 'razorpay';
 import crypto from 'crypto';
 
 export class RazorpayBackendService {
-  private static upstreamAuthDisabled = false;
-
   public static getKeyId(): string {
-    const rawKey = process.env.RAZORPAY_KEY_ID || '';
-    return rawKey.trim().replace(/^["']|["']$/g, '').replace(/[\r\n\t]/g, '');
+    const rawKey = process.env.RAZORPAY_KEY_ID || process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || '';
+    const cleanKey = rawKey.trim().replace(/^["']|["']$/g, '').replace(/[\r\n\t]/g, '');
+    return cleanKey || 'rzp_test_1DP5mmOlF5G5ag';
   }
 
   public static getKeySecret(): string {
@@ -27,6 +26,18 @@ export class RazorpayBackendService {
     return 'TEST';
   }
 
+  public static isConfigured(): boolean {
+    const key_id = this.getKeyId();
+    const key_secret = this.getKeySecret();
+    return Boolean(
+      key_id &&
+      key_secret &&
+      (key_id.startsWith('rzp_live_') || key_id.startsWith('rzp_test_')) &&
+      key_id.length >= 14 &&
+      key_secret.length >= 8
+    );
+  }
+
   public static getMaskedKey(): string {
     const key = this.getKeyId();
     if (!key) return 'NOT_SET';
@@ -39,7 +50,7 @@ export class RazorpayBackendService {
     const key_secret = this.getKeySecret();
     const mode = this.getKeyMode();
 
-    console.log(`[Razorpay] Init (${mode}) - Key: ${this.getMaskedKey()} - Secret present: ${Boolean(key_secret)}`);
+    console.log(`[Razorpay Backend] Client Init (${mode}) - Key: ${this.getMaskedKey()} | Secret Present: ${Boolean(key_secret)}`);
 
     return new Razorpay({
       key_id: key_id || 'unconfigured_key',
@@ -57,7 +68,7 @@ export class RazorpayBackendService {
     const key_secret = this.getKeySecret();
     const mode = this.getKeyMode();
 
-    console.log(`[Razorpay] Order: ₹${(options.amountInPaise / 100).toFixed(2)} (${mode})`);
+    console.log(`[Razorpay Backend] createOrder invoked: amount=₹${(options.amountInPaise / 100).toFixed(2)} (${options.amountInPaise} paise) | Mode=${mode} | Key=${this.getMaskedKey()}`);
 
     // Sanitize notes: Razorpay accepts max 15 key-value pairs, string keys (alphanumeric/underscore), string values max 256 chars
     const sanitizedNotes: Record<string, string> = {
@@ -84,7 +95,6 @@ export class RazorpayBackendService {
     };
 
     const isKeyValidFormat =
-      !this.upstreamAuthDisabled &&
       Boolean(key_id) &&
       Boolean(key_secret) &&
       key_id !== 'unconfigured_key' &&
@@ -96,10 +106,17 @@ export class RazorpayBackendService {
 
     if (isKeyValidFormat) {
       try {
+        console.log(`[Razorpay Backend] Calling razorpay.orders.create with payload:`, JSON.stringify(orderPayload));
         const razorpay = this.getClient();
         const order = await razorpay.orders.create(orderPayload);
 
-        console.log(`[Razorpay] Real Order Created: ${order.id}`);
+        console.log(`[Razorpay Backend] Official Razorpay Order Created successfully!`, {
+          order_id: order.id,
+          amount: order.amount,
+          currency: order.currency,
+          status: order.status,
+          mode,
+        });
 
         return {
           ...order,
@@ -121,20 +138,20 @@ export class RazorpayBackendService {
           order,
         };
       } catch (err: any) {
-        console.error('[Razorpay] Orders Create Error:', err);
+        console.error('[Razorpay Backend] razorpay.orders.create API Error:', {
+          message: err?.message,
+          statusCode: err?.statusCode,
+          errorDetails: err?.error,
+        });
         
-        // CRITICAL: NEVER simulate a payment if the app is attempting to use LIVE credentials.
+        // In LIVE mode, fail explicitly so caller knows the exact Razorpay error
         if (mode === 'LIVE') {
-           throw new Error('Razorpay LIVE Authentication Failed. Please check your Key ID and Key Secret. Error: ' + (err?.error?.description || err.message || 'Unknown'));
-        }
-
-        // Disable repeated upstream auth attempts if credentials are not recognized by Razorpay
-        if (err?.statusCode === 401 || err?.statusCode === 400 || err?.error?.code === 'BAD_REQUEST_ERROR') {
-          this.upstreamAuthDisabled = true;
+          const detailedMsg = err?.error?.description || err?.message || 'Razorpay LIVE Authentication or Order Creation Failed';
+          throw new Error(`Razorpay LIVE Error: ${detailedMsg}`);
         }
 
         const fallbackOrderId = `order_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-        console.log(`[Razorpay] Checkout session initialized: ${fallbackOrderId}`);
+        console.warn(`[Razorpay Backend] Order creation failed with test keys; providing fallback session: ${fallbackOrderId}`);
 
         return {
           success: true,
@@ -151,15 +168,21 @@ export class RazorpayBackendService {
           key_id: key_id || 'rzp_test_simulated',
           isFallback: true,
           isRealRazorpayOrder: false,
-          upstreamAuthFailed: false,
+          upstreamAuthFailed: true,
+          upstreamError: err?.error?.description || err?.message || 'Razorpay test API error',
           mode: (mode as string) === 'LIVE' ? 'LIVE' : 'TEST',
         };
       }
     }
 
+    // Keys not configured or invalid format
+    if (mode === 'LIVE') {
+      throw new Error(`Razorpay LIVE credentials missing or invalid. Key ID=${this.getMaskedKey()}, Secret Present=${Boolean(key_secret)}`);
+    }
+
     // Fallback for sandbox / demo mode
     const simulatedOrderId = `order_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-    console.log(`[Razorpay] Standalone order: ${simulatedOrderId}`);
+    console.log(`[Razorpay Backend] Keys not configured or running in demo sandbox. Created mock order: ${simulatedOrderId}`);
     return {
       success: true,
       id: simulatedOrderId,
@@ -174,6 +197,7 @@ export class RazorpayBackendService {
       notes: orderPayload.notes,
       key_id: key_id || 'rzp_test_simulated',
       isSandbox: true,
+      isRealRazorpayOrder: false,
       mode: 'SIMULATED',
     };
   }
@@ -186,10 +210,15 @@ export class RazorpayBackendService {
     const keySecret = this.getKeySecret();
     const mode = this.getKeyMode();
 
-    console.log(`[Razorpay] Verify: ${params.razorpay_payment_id}`);
+    console.log(`[Razorpay Backend] verifySignature request:`, {
+      payment_id: params.razorpay_payment_id,
+      order_id: params.razorpay_order_id,
+      signature_provided: params.razorpay_signature ? `${params.razorpay_signature.slice(0, 10)}...` : 'NONE',
+      mode,
+    });
 
     if (!keySecret || keySecret === 'unconfigured_secret') {
-      console.log(`[Razorpay] Sandbox accepted: ${params.razorpay_payment_id}`);
+      console.warn(`[Razorpay Backend] Key secret not configured. Accepting verification in fallback mode.`);
       return {
         isValid: true,
         expectedSignature: params.razorpay_signature,
@@ -200,6 +229,7 @@ export class RazorpayBackendService {
 
     if (!params.razorpay_order_id) {
       const isValid = Boolean(params.razorpay_payment_id && (params.razorpay_payment_id.startsWith('pay_') || params.razorpay_payment_id.length > 5));
+      console.log(`[Razorpay Backend] Direct payment ID verification: valid=${isValid}`);
       return {
         isValid,
         expectedSignature: 'direct_payment',
@@ -224,10 +254,15 @@ export class RazorpayBackendService {
       params.razorpay_order_id.startsWith('SITE_') ||
       params.razorpay_order_id.startsWith('ORD_');
 
-    const isValid =
-      expectedSignature === params.razorpay_signature || isSimulatedOrFallback;
+    const isExactMatch = expectedSignature === params.razorpay_signature;
+    const isValid = isExactMatch || isSimulatedOrFallback;
 
-    console.log(`[Razorpay] Verify: ${isValid ? 'valid' : 'invalid'} (simulated: ${isSimulatedOrFallback})`);
+    console.log(`[Razorpay Backend] Signature comparison:`, {
+      isExactMatch,
+      isSimulatedOrFallback,
+      finalValid: isValid,
+      mode,
+    });
 
     return {
       isValid,

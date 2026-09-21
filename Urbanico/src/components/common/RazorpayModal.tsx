@@ -27,11 +27,14 @@ import {
   createRazorpayOrder,
   verifyRazorpayPayment,
   getClientKeyMode,
+  getClientRazorpayKey,
   getClientUpiVpa,
   getClientUpiPayeeName,
   openRazorpayStandardCheckout,
   launchUpiPaymentIntent,
   sanitizePaymentPayload,
+  loadRazorpayScript,
+  fetchRazorpayConfig,
 } from '../../services/razorpayService';
 import {
   GooglePayIcon,
@@ -125,6 +128,20 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
       setStatusMessage('');
       setShowPriceBreakdown(false);
 
+      console.log(`[Payment Modal] Opened for amount: ₹${effectivePayableAmount}. Preloading Razorpay SDK and configuration...`);
+      loadRazorpayScript().then((loaded) => {
+        console.log(`[Payment Modal] Razorpay Checkout SDK script loaded: ${loaded}`);
+      });
+
+      fetchRazorpayConfig().then((cfg) => {
+        console.log(`[Payment Modal] Active Razorpay Backend Config:`, {
+          key_id: cfg.key_id ? `${cfg.key_id.slice(0, 8)}...` : 'NOT_SET',
+          mode: cfg.mode,
+          isConfigured: cfg.isConfigured,
+        });
+      });
+
+      console.log(`[Payment Modal] Requesting order creation for ₹${effectivePayableAmount}...`);
       createRazorpayOrder({
         amount: effectivePayableAmount,
         currency: 'INR',
@@ -136,6 +153,11 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
         },
       })
         .then((res) => {
+          console.log(`[Payment Modal] Order created response received:`, {
+            order_id: res?.order_id,
+            isRealRazorpayOrder: res?.isRealRazorpayOrder,
+            mode: res?.mode,
+          });
           if (res?.order_id) {
             setOrderId(res.order_id);
             setIsRealOrder(!!res.isRealRazorpayOrder);
@@ -143,13 +165,10 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
           }
         })
         .catch((err) => {
-          console.error(err);
+          console.error('[Payment Modal] Order creation error:', err);
           const isLive = getClientKeyMode() === 'LIVE';
           if (isLive) {
-            setStatusMessage('Error: Authentication Failed. Check API Keys.');
-            setTimeout(() => {
-              if (onClose) onClose();
-            }, 3000);
+            setStatusMessage(`Authentication Notice: ${err?.message || 'Check API Keys'}`);
           } else {
             setOrderId(`ORDER_${Math.random().toString(36).substring(2, 10).toUpperCase()}`);
           }
@@ -323,70 +342,70 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
 
   const handleExecutePayment = async () => {
     const isLive = getClientKeyMode() === 'LIVE';
+    console.log(`[Payment Modal] handleExecutePayment clicked!`, {
+      category: selectedCategory,
+      amount: effectivePayableAmount,
+      orderId,
+      isRealOrder,
+      isLive,
+    });
 
-    if (
-      isRealOrder &&
-      !upstreamAuthFailed &&
-      selectedCategory !== 'site_pay' &&
-      typeof window !== 'undefined' &&
-      (window as any).Razorpay
-    ) {
-      setIsProcessing(true);
-      setStatusMessage('Opening gateway...');
-      try {
-        await openRazorpayStandardCheckout({
-          amount: effectivePayableAmount,
-          precreatedOrderId: orderId,
-          isRealRazorpayOrder: isRealOrder,
-          orderDescription: orderDescription,
-          userName: userName || '',
-          userEmail: userEmail || '',
-          userPhone: userPhone || '',
-          onSuccess: (paymentResult: any) => {
-            setIsProcessing(false);
-            onPaymentSuccess({
-              razorpay_payment_id: paymentResult.razorpay_payment_id,
-              razorpay_order_id: paymentResult.razorpay_order_id || orderId,
-              razorpay_signature: paymentResult.razorpay_signature,
-              amount: effectivePayableAmount,
-              method: paymentResult.method || 'Razorpay Gateway',
-              isLiveMode: isLive,
-              status: 'success',
-            });
-          },
-          onFailure: (err) => {
-            setIsProcessing(false);
-            if (isLive) {
-               setStatusMessage('Error: Payment Failed or Dismissed');
-               setTimeout(() => { if (onClose) onClose(); }, 2000);
-            } else {
-               executeInAppPayment();
-            }
-          },
-          onDismiss: () => {
-            setIsProcessing(false);
-          },
-        });
-        return;
-      } catch {
-        if (isLive) {
-           setStatusMessage('Error: Gateway Initialization Failed');
-           setTimeout(() => { if (onClose) onClose(); }, 2000);
-           return;
-        }
-        executeInAppPayment();
-        return;
+    if (selectedCategory === 'site_pay') {
+      console.log(`[Payment Modal] Processing Pay on Delivery order...`);
+      executeInAppPayment();
+      return;
+    }
+
+    // Online payment methods (UPI, Card, Netbanking) -> Launch Real Razorpay Gateway
+    setIsProcessing(true);
+    setStatusMessage('Connecting to Razorpay Secure Gateway...');
+    console.log(`[Payment Modal] Initiating Razorpay Standard Checkout for ₹${effectivePayableAmount}...`);
+
+    try {
+      await openRazorpayStandardCheckout({
+        amount: effectivePayableAmount,
+        precreatedOrderId: isRealOrder ? orderId : undefined,
+        isRealRazorpayOrder: isRealOrder,
+        orderDescription: orderDescription,
+        userName: userName || '',
+        userEmail: userEmail || '',
+        userPhone: userPhone || '',
+        onSuccess: (paymentResult: any) => {
+          console.log(`[Payment Modal] Payment SUCCESS callback received from Razorpay Gateway!`, paymentResult);
+          setIsProcessing(false);
+          setStatusMessage('Payment Successful! Processing order...');
+          onPaymentSuccess({
+            razorpay_payment_id: paymentResult.razorpay_payment_id,
+            razorpay_order_id: paymentResult.razorpay_order_id || orderId,
+            razorpay_signature: paymentResult.razorpay_signature,
+            amount: effectivePayableAmount,
+            method: paymentResult.method || 'Razorpay Gateway',
+            isLiveMode: isLive,
+            status: 'success',
+          });
+        },
+        onFailure: (err) => {
+          console.error(`[Payment Modal] Razorpay payment failure callback:`, err);
+          setIsProcessing(false);
+          setStatusMessage(`Payment Incomplete: ${err}`);
+          if (onPaymentFailure) {
+            onPaymentFailure(err);
+          }
+        },
+        onDismiss: () => {
+          console.log(`[Payment Modal] Razorpay checkout dismissed by customer`);
+          setIsProcessing(false);
+          setStatusMessage('');
+        },
+      });
+    } catch (err: any) {
+      console.error(`[Payment Modal] Error initiating Razorpay Checkout:`, err);
+      setIsProcessing(false);
+      setStatusMessage(`Gateway Error: ${err?.message || 'Could not launch payment modal'}`);
+      if (onPaymentFailure) {
+        onPaymentFailure(err?.message || 'Payment failed');
       }
     }
-
-    if (isLive && selectedCategory !== 'site_pay') {
-       setIsProcessing(false);
-       setStatusMessage('Error: Live Checkout Unavailable. Invalid Order Context.');
-       setTimeout(() => { if (onClose) onClose(); }, 3000);
-       return;
-    }
-
-    executeInAppPayment();
   };
 
   const popularBanks = [
