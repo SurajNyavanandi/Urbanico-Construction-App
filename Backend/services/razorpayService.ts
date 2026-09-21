@@ -118,6 +118,40 @@ export class RazorpayBackendService {
           mode,
         });
 
+        let payment_link = '';
+        let payment_link_id = '';
+        try {
+          const custName = (sanitizedNotes.userName || sanitizedNotes.name || 'Urbanico Customer').slice(0, 50);
+          const custEmail = (sanitizedNotes.userEmail || sanitizedNotes.email || 'customer@urbanico.in').slice(0, 50);
+          const custContact = (sanitizedNotes.userPhone || sanitizedNotes.phone || sanitizedNotes.contact || '').replace(/[^0-9+]/g, '').slice(0, 15);
+
+          const plink = await razorpay.paymentLink.create({
+            amount: Math.round(options.amountInPaise),
+            currency: (options.currency || 'INR').toUpperCase(),
+            accept_partial: false,
+            description: `Urbanico Direct Order - ${order.id}`,
+            customer: {
+              name: custName,
+              email: custEmail,
+              contact: custContact && custContact.length >= 10 ? custContact : undefined,
+            },
+            notify: {
+              sms: false,
+              email: false,
+            },
+            reminder_enable: false,
+            notes: {
+              ...sanitizedNotes,
+              order_id: order.id,
+            },
+          });
+          payment_link = plink.short_url;
+          payment_link_id = plink.id;
+          console.log(`[Razorpay Backend] Official Payment Link created: ${payment_link} (${payment_link_id})`);
+        } catch (linkErr: any) {
+          console.warn(`[Razorpay Backend] Notice: payment link creation skipped/warned:`, linkErr?.message || linkErr);
+        }
+
         return {
           ...order,
           success: true,
@@ -135,6 +169,9 @@ export class RazorpayBackendService {
           mode,
           isLive: mode === 'LIVE',
           isRealRazorpayOrder: true,
+          payment_link,
+          short_url: payment_link,
+          payment_link_id,
           order,
         };
       } catch (err: any) {
@@ -269,5 +306,38 @@ export class RazorpayBackendService {
       expectedSignature,
       mode,
     };
+  }
+
+  public static async createPaymentLink(options: {
+    amountInPaise: number;
+    currency?: string;
+    description?: string;
+    order_id?: string;
+    userName?: string;
+    userEmail?: string;
+    userPhone?: string;
+    notes?: Record<string, string>;
+  }) {
+    const razorpay = this.getClient();
+    const cleanPhone = (options.userPhone || '').replace(/[^0-9+]/g, '').slice(0, 15);
+    const plink = await razorpay.paymentLink.create({
+      amount: Math.round(options.amountInPaise),
+      currency: (options.currency || 'INR').toUpperCase(),
+      accept_partial: false,
+      description: options.description || `Urbanico Direct Materials & Services`,
+      customer: {
+        name: options.userName || 'Urbanico Customer',
+        email: options.userEmail || 'customer@urbanico.in',
+        contact: cleanPhone && cleanPhone.length >= 10 ? cleanPhone : undefined,
+      },
+      notify: { sms: false, email: false },
+      reminder_enable: false,
+      notes: {
+        order_id: options.order_id || '',
+        platform: 'urbanico_mobile',
+        ...(options.notes || {}),
+      },
+    });
+    return plink;
   }
 }
