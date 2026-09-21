@@ -650,11 +650,20 @@ function MainAppContent() {
     const cleanPhone = validPhone.replace(/[^0-9]/g, '');
 
     // 1. Restore or initialize user profile
-    let loadedProfile = { ...INITIAL_USER, phone: validPhone, isVerified: true };
+    let loadedProfile = {
+      ...INITIAL_USER,
+      phone: validPhone,
+      isVerified: true,
+      avatarUrl: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg',
+    };
     try {
       const savedProf = safeStorage.getItem(`urbanico_user_profile_${validPhone}`);
       if (savedProf) {
-        loadedProfile = { ...loadedProfile, ...JSON.parse(savedProf) };
+        loadedProfile = {
+          ...loadedProfile,
+          ...JSON.parse(savedProf),
+          avatarUrl: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg',
+        };
       }
     } catch {
       // ignore
@@ -674,6 +683,7 @@ function MainAppContent() {
               companyName: serverUser.companyName || prev.companyName,
               gstin: serverUser.gstin || prev.gstin,
               siteLocation: serverUser.siteLocation || prev.siteLocation,
+              avatarUrl: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg',
             }));
           }
         })
@@ -829,6 +839,7 @@ function MainAppContent() {
     setSelectedInvoiceDelivery(null);
     setOpenProfileAddresses(false);
     try {
+      apiService.clearAuthSession();
       safeStorage.removeItem('urbanico_auth_session');
       safeStorage.removeItem('urbanico_orders');
       safeStorage.removeItem('urbanico_cart_guest');

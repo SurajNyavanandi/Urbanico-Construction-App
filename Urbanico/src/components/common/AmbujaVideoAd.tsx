@@ -179,7 +179,8 @@ export const AmbujaVideoAd: React.FC<AmbujaVideoAdProps> = ({
                 }
               }}
               src={AMBUJA_AD_VIDEO_URL}
-              preload="auto"
+              preload="metadata"
+              crossOrigin="anonymous"
               autoPlay
               muted={isMuted}
               loop

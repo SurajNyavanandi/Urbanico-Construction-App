@@ -29,7 +29,7 @@ export const INITIAL_USER: UserProfile = {
   email: '',
   role: 'customer',
   siteLocation: '',
-  avatarUrl: '',
+  avatarUrl: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg',
   isVerified: false,
   creditLimit: 0,
   usedCredit: 0,

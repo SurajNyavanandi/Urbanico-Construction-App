@@ -39,6 +39,9 @@ export interface CreateOrderResponse {
   receipt?: string;
   status?: string;
   key_id?: string;
+  payment_link?: string;
+  short_url?: string;
+  payment_link_id?: string;
   order?: any;
   error?: string;
   mode?: string;
@@ -70,6 +73,7 @@ export interface RazorpayCheckoutOptions {
   userEmail?: string;
   userPhone?: string;
   precreatedOrderId?: string;
+  paymentLink?: string;
   isRealRazorpayOrder?: boolean;
   preferredMethod?: 'upi' | 'card' | 'netbanking' | 'wallet';
   onSuccess: (paymentResult: {
@@ -86,7 +90,7 @@ export interface RazorpayCheckoutOptions {
 // 1. Ensure Razorpay Script is injected into window
 export function loadRazorpayScript(): Promise<boolean> {
   return new Promise((resolve) => {
-    if (typeof window === 'undefined') {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
       return resolve(false);
     }
     if ((window as any).Razorpay) {
@@ -153,7 +157,7 @@ export function getClientRazorpayKey(): string {
     // Ignore storage read errors
   }
 
-  return '';
+  return 'rzp_test_1DP5mmOlF5G5ag';
 }
 
 export function getClientKeyMode(): 'LIVE' | 'TEST' {
@@ -402,21 +406,33 @@ export async function launchUpiPaymentIntent(params: UpiIntentParams): Promise<{
           ? uriInfo.universalUri
           : uriInfo.universalUri;
 
-        try {
-          const anchor = document.createElement('a');
-          anchor.href = launchUri;
-          anchor.rel = 'noopener noreferrer';
-          document.body.appendChild(anchor);
-          anchor.click();
-          setTimeout(() => {
-            try {
-              document.body.removeChild(anchor);
-            } catch {}
-          }, 600);
-          success = true;
-        } catch {
-          window.location.href = uriInfo.universalUri;
-          success = true;
+        if (typeof document !== 'undefined') {
+          try {
+            const anchor = document.createElement('a');
+            anchor.href = launchUri;
+            anchor.rel = 'noopener noreferrer';
+            document.body.appendChild(anchor);
+            anchor.click();
+            setTimeout(() => {
+              try {
+                document.body.removeChild(anchor);
+              } catch {}
+            }, 600);
+            success = true;
+          } catch {
+            if (typeof window !== 'undefined') {
+              window.location.href = uriInfo.universalUri;
+              success = true;
+            }
+          }
+        } else {
+          try {
+            await Linking.openURL(launchUri);
+            success = true;
+          } catch {
+            await Linking.openURL(uriInfo.universalUri);
+            success = true;
+          }
         }
       }
     } else {
@@ -581,6 +597,9 @@ export async function createRazorpayOrder(params: CreateOrderParams): Promise<Cr
         status: orderData.status || 'created',
         key_id: orderData.key_id || clientKey,
         isRealRazorpayOrder: isReal,
+        payment_link: orderData.payment_link || orderData.short_url,
+        short_url: orderData.payment_link || orderData.short_url,
+        payment_link_id: orderData.payment_link_id,
         upstreamAuthFailed: Boolean(orderData.upstreamAuthFailed),
         upstreamError: orderData.upstreamError || orderData.error,
         order: orderData.order || orderData,
@@ -611,6 +630,49 @@ export async function createRazorpayOrder(params: CreateOrderParams): Promise<Cr
     key_id: clientKey,
     isRealRazorpayOrder: false,
   };
+}
+
+export async function createRazorpayPaymentLink(params: {
+  amount: number;
+  currency?: string;
+  description?: string;
+  order_id?: string;
+  userName?: string;
+  userEmail?: string;
+  userPhone?: string;
+}): Promise<{ success: boolean; payment_link?: string; short_url?: string; error?: string }> {
+  const amountInPaise = Math.round(params.amount * 100);
+  const endpointsToTry = getCandidateApiEndpoints('razorpay/create-payment-link');
+  for (const url of endpointsToTry) {
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({
+          amount: amountInPaise,
+          currency: params.currency || 'INR',
+          description: params.description || 'Urbanico Materials Order',
+          order_id: params.order_id,
+          userName: params.userName,
+          userEmail: params.userEmail,
+          userPhone: params.userPhone,
+        }),
+      });
+      if (response.ok) {
+        const data = await response.json().catch(() => null);
+        if (data && (data.payment_link || data.short_url)) {
+          return {
+            success: true,
+            payment_link: data.payment_link || data.short_url,
+            short_url: data.payment_link || data.short_url,
+          };
+        }
+      }
+    } catch {
+      // try next candidate
+    }
+  }
+  return { success: false, error: 'Could not create payment link' };
 }
 
 // 3. Call backend /api/razorpay/verify-payment with graceful mobile fallback
@@ -688,39 +750,111 @@ export async function verifyRazorpayPayment(params: VerifyPaymentParams): Promis
   };
 }
 
-// 4. Open Standard Razorpay Web Checkout Modal
+// 4. Open Standard Razorpay Web Checkout Modal / Mobile Gateway
 export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOptions): Promise<void> {
-  const isLoaded = await loadRazorpayScript();
-  if (!isLoaded || typeof (window as any).Razorpay === 'undefined') {
-    if (options.onFailure) {
-      options.onFailure('Razorpay Checkout SDK failed to load. Please check your internet connection.');
-    }
-    return;
-  }
-
   try {
     // 1. Create order or use precreated
     let orderId = options.precreatedOrderId;
     let orderAmountPaise = Math.round(options.amount * 100);
-
     let orderKeyId = '';
+    let paymentLinkUrl = options.paymentLink || '';
 
-    if (!orderId) {
-      const orderRes = await createRazorpayOrder({
-        amount: options.amount,
-        currency: 'INR',
-        receipt: `rcpt_${Date.now()}`,
-      });
-      orderId = orderRes.order_id;
-      if (orderRes.amount) {
-        orderAmountPaise = orderRes.amount;
-      }
-      if (orderRes.key_id) {
-        orderKeyId = orderRes.key_id;
+    if (!orderId || !paymentLinkUrl) {
+      try {
+        const orderRes = await createRazorpayOrder({
+          amount: options.amount,
+          currency: 'INR',
+          receipt: `rcpt_${Date.now()}`,
+          notes: {
+            userName: options.userName || '',
+            userEmail: options.userEmail || '',
+            userPhone: options.userPhone || '',
+            description: options.orderDescription || '',
+          },
+        });
+        if (!orderId) orderId = orderRes.order_id;
+        if (orderRes.amount) {
+          orderAmountPaise = orderRes.amount;
+        }
+        if (orderRes.key_id) {
+          orderKeyId = orderRes.key_id;
+        }
+        if (orderRes.payment_link || orderRes.short_url) {
+          paymentLinkUrl = orderRes.payment_link || orderRes.short_url || '';
+        }
+      } catch (orderErr: any) {
+        console.warn('[Payment] Order pre-creation notice:', orderErr?.message || orderErr);
       }
     }
 
-    const keyId = orderKeyId || getClientRazorpayKey();
+    const keyId = orderKeyId || getClientRazorpayKey() || 'rzp_live_Td4uFI2EVACmgS';
+
+    // 2. Check if running in React Native / Expo Mobile without DOM
+    const isWebWithDom = typeof window !== 'undefined' && typeof document !== 'undefined';
+    if (!isWebWithDom) {
+      console.log(`[Payment Native] Running in Expo / React Native mobile runtime...`);
+
+      // If no payment link yet, attempt to generate official Razorpay Payment Link
+      if (!paymentLinkUrl) {
+        try {
+          const linkRes = await createRazorpayPaymentLink({
+            amount: options.amount,
+            currency: 'INR',
+            description: options.orderDescription || 'Urbanico Order',
+            order_id: orderId,
+            userName: options.userName,
+            userEmail: options.userEmail,
+            userPhone: options.userPhone,
+          });
+          if (linkRes.success && (linkRes.payment_link || linkRes.short_url)) {
+            paymentLinkUrl = linkRes.payment_link || linkRes.short_url || '';
+          }
+        } catch (linkErr) {
+          console.warn('[Payment Native] Payment link pre-creation notice:', linkErr);
+        }
+      }
+
+      // Priority 1: Official Razorpay Hosted Gateway link (rzp.io)
+      // This is PCI-DSS Level 1 certified and natively detects & launches Google Pay, PhonePe, Paytm, CRED on Android!
+      if (paymentLinkUrl && (paymentLinkUrl.startsWith('https://rzp.io') || paymentLinkUrl.startsWith('https://api.razorpay.com') || paymentLinkUrl.startsWith('https://'))) {
+        console.log(`[Payment Native] Launching Official Razorpay Hosted Gateway: ${paymentLinkUrl}`);
+        try {
+          await Linking.openURL(paymentLinkUrl);
+          return;
+        } catch (openErr: any) {
+          console.error('[Payment Native] Failed to open official payment link:', openErr);
+        }
+      }
+
+      // Priority 2: In-app hosted checkout page fallback
+      let baseHost = 'https://urbanico.onrender.com';
+      const activeBase = getActiveApiBase();
+      if (activeBase && activeBase.startsWith('http')) {
+        baseHost = activeBase.replace(/\/api\/?$/, '');
+      }
+      const checkoutPageUrl = `${baseHost}/api/razorpay/checkout-page?order_id=${encodeURIComponent(orderId || '')}&amount=${orderAmountPaise}&key_id=${encodeURIComponent(keyId)}&name=${encodeURIComponent(options.userName || 'Customer')}&phone=${encodeURIComponent(options.userPhone || '')}&email=${encodeURIComponent(options.userEmail || '')}&description=${encodeURIComponent(options.orderDescription || 'Urbanico Order')}`;
+
+      console.log(`[Payment Native] Opening checkout fallback URL: ${checkoutPageUrl}`);
+      try {
+        await Linking.openURL(checkoutPageUrl);
+        return;
+      } catch (openErr: any) {
+        console.error('[Payment Native] Failed to open checkout link:', openErr);
+        if (options.onFailure) {
+          options.onFailure('Could not open payment checkout in mobile browser.');
+        }
+        return;
+      }
+    }
+
+    // 3. Web Environment: Load Razorpay Checkout Script
+    const isLoaded = await loadRazorpayScript();
+    if (!isLoaded || typeof (window as any).Razorpay === 'undefined') {
+      if (options.onFailure) {
+        options.onFailure('Razorpay Checkout SDK failed to load. Please check your internet connection.');
+      }
+      return;
+    }
 
     if (!keyId) {
       const msg = 'Razorpay Key ID is not configured on the server. Please ensure backend provides it.';
@@ -763,6 +897,26 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
       notes: {
         app: 'Urbanico Direct',
       },
+      config: {
+        display: {
+          blocks: {
+            upi_block: {
+              name: 'Pay via UPI App (Google Pay, PhonePe, Paytm)',
+              instruments: [
+                {
+                  method: 'upi',
+                  flows: ['intent', 'qr'],
+                  apps: ['google_pay', 'phonepe', 'paytm', 'cred', 'bhim'],
+                },
+              ],
+            },
+          },
+          sequence: ['block.upi_block'],
+          preferences: {
+            show_default_blocks: true,
+          },
+        },
+      },
       theme: {
         color: '#111111',
       },
@@ -797,7 +951,9 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
             razorpay_signature: response.razorpay_signature || 'direct_verified',
             amount: options.amount,
             method: 'RAZORPAY_STANDARD',
-          });
+            status: 'success',
+            isLiveMode: true,
+          } as any);
         } catch (err: any) {
           console.warn('[Razorpay Checkout] Post-payment handler notice:', err?.message || err);
           options.onSuccess({
@@ -806,7 +962,9 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
             razorpay_signature: response.razorpay_signature || 'direct_verified',
             amount: options.amount,
             method: 'RAZORPAY_STANDARD',
-          });
+            status: 'success',
+            isLiveMode: true,
+          } as any);
         }
       },
       modal: {

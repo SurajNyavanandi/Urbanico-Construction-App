@@ -11,7 +11,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Image,
 } from 'react-native';
+
+const CLOUDINARY_PROFILE_PIC = 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg';
 import {
   Truck,
   MapPin,
@@ -656,7 +659,12 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             <View style={styles.loggedInHeaderSection}>
               <View style={styles.loggedInHeaderRow}>
                 <View style={styles.userAvatar}>
-                  <UserCheck size={24} color="#059669" strokeWidth={2} />
+                  <Image
+                    source={{ uri: user.avatarUrl || CLOUDINARY_PROFILE_PIC }}
+                    style={styles.userAvatarImg}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.avatarOnlineDot} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <View style={styles.nameBadgeRow}>
@@ -2179,6 +2187,24 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 automaticallyAdjustKeyboardInsets={true}
                 contentContainerStyle={{ paddingBottom: 24 }}
               >
+              {/* Profile Photo Display */}
+              <View style={styles.editModalAvatarRow}>
+                <View style={styles.editModalAvatarWrapper}>
+                  <Image
+                    source={{ uri: user.avatarUrl || CLOUDINARY_PROFILE_PIC }}
+                    style={styles.editModalAvatarImg}
+                    resizeMode="cover"
+                  />
+                  <View style={styles.editModalAvatarBadge}>
+                    <Check size={11} color="#FFFFFF" strokeWidth={3} />
+                  </View>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.avatarRoleTag, { color: theme.textPrimary }]}>Verified Contractor Profile</Text>
+                  <Text style={[styles.avatarSubtext, { color: theme.textSecondary }]}>Cloudinary verified profile picture</Text>
+                </View>
+              </View>
+
               <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>
                 Full Name <Text style={{ color: '#EF4444' }}>*</Text>
               </Text>
@@ -2694,12 +2720,74 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   userAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: '#ECFDF5',
     alignItems: 'center',
     justifyContent: 'center',
+    position: 'relative',
+    borderWidth: 2,
+    borderColor: '#059669',
+  },
+  userAvatarImg: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
+  avatarOnlineDot: {
+    position: 'absolute',
+    bottom: -1,
+    right: -1,
+    width: 13,
+    height: 13,
+    borderRadius: 7,
+    backgroundColor: '#059669',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  editModalAvatarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginBottom: 16,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: 'rgba(5, 150, 105, 0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(5, 150, 105, 0.2)',
+  },
+  editModalAvatarWrapper: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    position: 'relative',
+  },
+  editModalAvatarImg: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+  },
+  editModalAvatarBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#059669',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  avatarRoleTag: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  avatarSubtext: {
+    fontSize: 12,
+    marginTop: 2,
   },
   nameBadgeRow: {
     flexDirection: 'row',

@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Animated, Platform, Image } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Home, Search, Heart, ShoppingCart, User } from 'lucide-react-native';
 import { ScreenType } from '../types';
@@ -245,10 +245,16 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             accessibilityLabel="Profile Tab"
           >
             <View style={[styles.iconWrapper, isProfileActive && styles.activeIconPill]}>
-              <User
-                size={22}
-                color={isProfileActive ? '#111111' : '#6B7280'}
-                strokeWidth={isProfileActive ? 2.5 : 1.8}
+              <Image
+                source={{ uri: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg' }}
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 11,
+                  borderWidth: isProfileActive ? 2 : 1,
+                  borderColor: isProfileActive ? '#111111' : '#9CA3AF',
+                }}
+                resizeMode="cover"
               />
             </View>
             <Text

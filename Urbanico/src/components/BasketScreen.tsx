@@ -9,6 +9,7 @@ import {
   Modal,
   Pressable,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import {
   ShoppingCart,
@@ -51,7 +52,8 @@ import { INITIAL_DELIVERIES } from '../data/materialsData';
 import { useTheme } from '../context/ThemeContext';
 import { useLocation } from '../context/LocationContext';
 import { lookupCityStateFromPincode, formatSiteAddress } from '../utils/addressHelper';
-import { RazorpayModal, RazorpayPaymentResult } from './RazorpayModal';
+import { RazorpayPaymentResult } from './RazorpayModal';
+import { openRazorpayStandardCheckout } from '../services/razorpayService';
 import { PaymentSuccessModal } from './PaymentSuccessModal';
 import { EmptyState } from './common/EmptyState';
 import { ShimmerImage } from './common/ShimmerImage';
@@ -223,7 +225,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   const unloadingLaborFee = optInLaborAssistance ? smartRecommendation.unloadingAssistance.fee : 0;
 
   // Razorpay Payment States
-  const [showRazorpayModal, setShowRazorpayModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [latestPaymentResult, setLatestPaymentResult] = useState<RazorpayPaymentResult | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
@@ -1214,7 +1215,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     setOrderToCancel(null);
   };
 
-  const handleStartCheckout = () => {
+  const handleStartCheckout = async () => {
     if (!isLoggedIn) {
       showToast('Please log in or sign up to proceed to checkout', 'info');
       if (onOpenLoginModal) onOpenLoginModal();
@@ -1242,36 +1243,38 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     const chosenAddress = selectedCheckoutAddress || availableAddresses[0] || activeLocation;
     setSelectedLocation(chosenAddress);
     setIsPlacingOrder(true);
-    setTimeout(() => {
+
+    try {
+      await openRazorpayStandardCheckout({
+        amount: payableAmount,
+        userName: user?.name || 'Customer',
+        userPhone: user?.phone || '',
+        userEmail: user?.email || '',
+        orderDescription: isServicesOnly
+          ? `${serviceItems[0]?.itemName || 'Trade Service'} Booking - Urbanico`
+          : `Order (${cartItems.length} items) - Urbanico Direct`,
+        onSuccess: (result: any) => {
+          setIsPlacingOrder(false);
+          handlePaymentSuccess(result);
+        },
+        onFailure: (err) => {
+          setIsPlacingOrder(false);
+          setPaymentError(err);
+          showToast(err || 'Payment was not completed. Please try again.', 'error');
+        },
+        onDismiss: () => {
+          setIsPlacingOrder(false);
+        },
+      });
+    } catch (err: any) {
       setIsPlacingOrder(false);
-      setShowRazorpayModal(true);
-    }, 200);
+      showToast(err?.message || 'Unable to open Razorpay gateway', 'error');
+    }
   };
 
   const handleConfirmAddressAndProceedToPay = () => {
-    if (isB2BOpted) {
-      const activeGstin = checkoutGstin.trim() || (user?.gstin || '').trim();
-      if (!activeGstin) {
-        setGstinError('Please enter a valid 15-digit GSTIN or uncheck GSTIN');
-        showToast('Please enter your 15-digit GSTIN or uncheck GSTIN', 'error');
-        return;
-      }
-      const validation = validateGSTIN(activeGstin);
-      if (!validation.isValid) {
-        setGstinError(validation.errorMessage || 'Invalid GST number');
-        showToast(validation.errorMessage || 'Please enter a valid 15-digit GSTIN', 'error');
-        return;
-      }
-    }
-
-    const chosenAddress = selectedCheckoutAddress || activeLocation;
-    setSelectedLocation(chosenAddress);
     setShowCheckoutModal(false);
-    setIsPlacingOrder(true);
-    setTimeout(() => {
-      setIsPlacingOrder(false);
-      setShowRazorpayModal(true);
-    }, 200);
+    handleStartCheckout();
   };
 
   const handleApplyCoupon = (code: string) => {
@@ -1333,20 +1336,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   };
 
   const handlePlaceOrder = () => {
-    if (!isLoggedIn) {
-      showToast('Please log in or sign up to proceed to checkout', 'info');
-      if (onOpenLoginModal) onOpenLoginModal();
-      return;
-    }
-
-    setShowSupervisorModal(false);
-    setShowDispatcherChat(false);
-    setPaymentError(null);
-    setIsPlacingOrder(true);
-    setTimeout(() => {
-      setIsPlacingOrder(false);
-      setShowRazorpayModal(true);
-    }, 200);
+    handleStartCheckout();
   };
 
   const handlePaymentSuccess = (result: RazorpayPaymentResult) => {
@@ -1359,7 +1349,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       status: result.status,
     });
 
-    setShowRazorpayModal(false);
     setLatestPaymentResult(result);
     setShowSuccessModal(true);
     setActiveTab('history');
@@ -1984,23 +1973,48 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                   </View>
                 )}
 
-                {/* Checkout CTA */}
+                {/* Single Minimalist Pay Button */}
                 {cartItems.length > 0 && (
-                  <View style={{ gap: 8, marginTop: 6 }}>
+                  <View style={{ marginTop: 10 }}>
                     <TouchableOpacity
                       onPress={handleStartCheckout}
                       disabled={isPlacingOrder}
-                      activeOpacity={0.85}
-                      style={[styles.nikeCheckoutPill, { backgroundColor: theme.primary }]}
+                      activeOpacity={0.88}
+                      style={[
+                        styles.nikeCheckoutPill,
+                        {
+                          backgroundColor: '#0F172A',
+                          height: 52,
+                          borderRadius: 26,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          paddingHorizontal: 24,
+                        },
+                      ]}
                     >
-                      <Text style={styles.nikeCheckoutPillText}>
-                        {isPlacingOrder
-                          ? 'Processing...'
-                          : isServicesOnly
-                          ? `Book Service • ₹${payableAmount.toLocaleString('en-IN')}`
-                          : `Place Order • ₹${payableAmount.toLocaleString('en-IN')}`}
-                      </Text>
-                      <ArrowRight size={16} color="#FFFFFF" strokeWidth={2.2} />
+                      {isPlacingOrder ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                          <ActivityIndicator size="small" color="#FFFFFF" />
+                          <Text style={[styles.nikeCheckoutPillText, { fontSize: 15, fontWeight: '600' }]}>
+                            Opening Razorpay...
+                          </Text>
+                        </View>
+                      ) : (
+                        <View
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            width: '100%',
+                          }}
+                        >
+                          <Text style={[styles.nikeCheckoutPillText, { fontSize: 16, fontWeight: '700', letterSpacing: 0.3 }]}>
+                            Pay ₹{payableAmount.toLocaleString('en-IN')}
+                          </Text>
+                          <ArrowRight size={18} color="#FFFFFF" strokeWidth={2.4} />
+                        </View>
+                      )}
                     </TouchableOpacity>
                   </View>
                 )}
@@ -2244,32 +2258,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
           </View>
         )}
 
-        {/* Razorpay Modal */}
-        {showRazorpayModal && (
-          <RazorpayModal
-            visible={showRazorpayModal}
-            onClose={() => {
-              setShowRazorpayModal(false);
-              setIsPlacingOrder(false);
-            }}
-            amount={payableAmount}
-            userName={user?.name}
-            userPhone={user?.phone}
-            userEmail={user?.email}
-            orderDescription={
-              isServicesOnly
-                ? `${serviceItems[0]?.itemName || 'Trade Service'} Booking - Urbanico`
-                : `Booking (${cartItems.length} items) - Urbanico Supply`
-            }
-            selectedLocation={selectedCheckoutAddress || activeLocation}
-            onPaymentSuccess={handlePaymentSuccess}
-            onPaymentFailure={(err) => {
-              setPaymentError(err);
-              setIsPlacingOrder(false);
-              showToast(err || 'Payment was not completed. Please try again.', 'error');
-            }}
-          />
-        )}
 
         {/* Payment Success Confirmation Receipt Screen */}
         {showSuccessModal && (

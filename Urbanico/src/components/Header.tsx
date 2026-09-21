@@ -122,7 +122,6 @@ export const Header: React.FC<HeaderProps> = ({
     setIsSearchOpen(false);
   }, [currentScreen]);
 
-  const locationName = activeLocation.split(',')[0] || 'Home';
   const queryLower = searchInputText.toLowerCase().trim();
 
   const { cleanQuery, normalizedQuery, wasCorrected, correctionNotice } = normalizeSearchQuery(queryLower);
@@ -242,40 +241,64 @@ export const Header: React.FC<HeaderProps> = ({
             }}
             activeOpacity={0.7}
             style={styles.locationInfoGroup}
+            accessibilityRole="button"
+            accessibilityLabel={`Deliver to ${activeLocation || 'Select Site Location'}`}
           >
-            <View style={styles.brandRow}>
-              <Text style={[styles.brandTitle, { color: theme.textPrimary }]}>URBANICO</Text>
-            </View>
-            <View style={styles.locationAddressRow}>
-              <MapPin color={theme.primary || '#059669'} size={12} strokeWidth={2.4} />
-              <Text style={[styles.locationDeliverLabel, { color: theme.textMuted }]}>
+            <View style={styles.deliverHeaderRow}>
+              <MapPin color={theme.primary || '#059669'} size={12} strokeWidth={2.6} />
+              <Text style={[styles.deliverHeaderLabel, { color: theme.mode === 'dark' ? '#94A3B8' : '#64748B' }]}>
                 DELIVER TO
               </Text>
-              <Text style={[styles.locationAddressText, { color: theme.textPrimary }]} numberOfLines={1}>
-                {locationName}
+            </View>
+            <View style={styles.siteLocationRow}>
+              <Text style={[styles.siteLocationText, { color: theme.textPrimary }]} numberOfLines={1}>
+                {activeLocation || 'Select Site Location'}
               </Text>
-              <ChevronDown color={theme.textSecondary} size={12} strokeWidth={2.4} />
+              <ChevronDown color={theme.textPrimary} size={14} strokeWidth={2.4} />
             </View>
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity
-          onPress={() => {
-            soundService.playTap();
-            setIsNotificationsOpen(true);
-          }}
-          activeOpacity={0.75}
-          style={[
-            styles.notificationButton,
-            {
-              backgroundColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.05)' : '#F8FAFC',
-              borderColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.08)' : '#E2E8F0',
-            },
-          ]}
-        >
-          <Bell color={theme.textPrimary} size={18} strokeWidth={1.9} />
-          <View style={[styles.notificationDot, { borderColor: theme.surface }]} />
-        </TouchableOpacity>
+        <View style={styles.topRightActions}>
+          <TouchableOpacity
+            onPress={() => {
+              soundService.playTap();
+              setIsNotificationsOpen(true);
+            }}
+            activeOpacity={0.75}
+            style={[
+              styles.notificationButton,
+              {
+                backgroundColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.05)' : '#F8FAFC',
+                borderColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.08)' : '#E2E8F0',
+              },
+            ]}
+          >
+            <Bell color={theme.textPrimary} size={18} strokeWidth={1.9} />
+            <View style={[styles.notificationDot, { borderColor: theme.surface }]} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => {
+              soundService.playTap();
+              if (onNavigateScreen) onNavigateScreen('profile');
+            }}
+            activeOpacity={0.8}
+            style={[
+              styles.headerAvatarTouch,
+              {
+                borderColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.15)' : '#059669',
+              },
+            ]}
+            accessibilityLabel="User Profile"
+          >
+            <Image
+              source={{ uri: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg' }}
+              style={styles.headerAvatarImg}
+              resizeMode="cover"
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* 2. Modern Minimalist Search Bar Trigger on Home screen */}
@@ -763,47 +786,29 @@ const styles = StyleSheet.create({
   locationInfoGroup: {
     flex: 1,
     justifyContent: 'center',
+    minWidth: 0,
   },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  brandTitle: {
-    fontSize: 13.5,
-    fontWeight: '900',
-    color: '#0F172A',
-    letterSpacing: 0.5,
-  },
-  expressBadge: {
-    backgroundColor: 'rgba(5, 150, 105, 0.1)',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 4,
-  },
-  expressBadgeText: {
-    fontSize: 8.5,
-    fontWeight: '800',
-    color: '#059669',
-    letterSpacing: 0.5,
-  },
-  locationAddressRow: {
+  deliverHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: 1,
+    marginBottom: 2,
   },
-  locationDeliverLabel: {
-    fontSize: 9.5,
-    fontWeight: '700',
-    color: '#94A3B8',
-    letterSpacing: 0.4,
-    lineHeight: 12,
+  deliverHeaderLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
   },
-  locationAddressText: {
-    fontSize: 12,
+  siteLocationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minWidth: 0,
+  },
+  siteLocationText: {
+    fontSize: 13.5,
     fontWeight: '700',
-    color: '#0F172A',
     letterSpacing: -0.2,
     flexShrink: 1,
   },
@@ -835,6 +840,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#EF4444',
     borderWidth: 1.5,
     borderColor: '#FFFFFF',
+  },
+  headerAvatarTouch: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerAvatarImg: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
   },
 
   /* Search Trigger Bar (Modern Minimalist Pill) */
