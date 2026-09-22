@@ -109,7 +109,7 @@ export async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[Backend] Port: ${PORT} | API: http://localhost:${PORT}/api`);
+    console.log(`[Urbanico] Server running on http://0.0.0.0:${PORT}`);
   });
 
   return app;

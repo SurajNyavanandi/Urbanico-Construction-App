@@ -228,15 +228,10 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
             </TouchableOpacity>
 
             <View style={styles.headerTitleBlock}>
-              <Text style={styles.headerTitle}>Razorpay Secure Checkout</Text>
+              <Text style={styles.headerTitle}>Checkout</Text>
               <Text style={styles.headerSubtitle} numberOfLines={1}>
                 {orderDescription}
               </Text>
-            </View>
-
-            <View style={styles.secureBadge}>
-              <Lock size={12} color="#059669" strokeWidth={2.4} />
-              <Text style={styles.secureBadgeText}>100% SECURE</Text>
             </View>
           </View>
 
@@ -277,43 +272,15 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
               </View>
             ) : null}
 
-            {/* Official Razorpay Security Guarantee */}
-            <View style={styles.gatewayInfoCard}>
-              <View style={styles.gatewayInfoTop}>
-                <ShieldCheck size={22} color="#059669" strokeWidth={2.2} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.gatewayInfoTitle}>Direct Bank-Grade Checkout</Text>
-                  <Text style={styles.gatewayInfoDesc}>
-                    Complete your payment directly via Razorpay's certified gateway. UPI apps, credit/debit cards, and net banking are processed with 256-bit encryption.
-                  </Text>
-                </View>
-              </View>
-
-              {/* Supported Payment Channels */}
-              <View style={styles.channelIconsRow}>
-                <View style={styles.brandIconWrap}><GooglePayIcon size={20} /></View>
-                <View style={styles.brandIconWrap}><PhonePeIcon size={20} /></View>
-                <View style={styles.brandIconWrap}><PaytmIcon size={20} /></View>
-                <View style={styles.brandIconWrap}><CredIcon size={20} /></View>
-                <View style={styles.brandIconWrap}><VisaIcon size={20} /></View>
-                <View style={styles.brandIconWrap}><MastercardIcon size={20} /></View>
-                <View style={styles.brandIconWrap}><RupayIcon size={20} /></View>
-              </View>
-
-              <View style={styles.featurePillsRow}>
-                <View style={styles.featurePill}>
-                  <Zap size={11} color="#0284C7" />
-                  <Text style={styles.featurePillText}>Instant UPI 1-Tap</Text>
-                </View>
-                <View style={styles.featurePill}>
-                  <Lock size={11} color="#059669" />
-                  <Text style={styles.featurePillText}>PCI-DSS Certified</Text>
-                </View>
-                <View style={styles.featurePill}>
-                  <Check size={11} color="#16A34A" />
-                  <Text style={styles.featurePillText}>GST Tax Invoice</Text>
-                </View>
-              </View>
+            {/* Supported Payment Channels */}
+            <View style={[styles.channelIconsRow, { marginVertical: 12, justifyContent: 'center' }]}>
+              <View style={styles.brandIconWrap}><GooglePayIcon size={20} /></View>
+              <View style={styles.brandIconWrap}><PhonePeIcon size={20} /></View>
+              <View style={styles.brandIconWrap}><PaytmIcon size={20} /></View>
+              <View style={styles.brandIconWrap}><CredIcon size={20} /></View>
+              <View style={styles.brandIconWrap}><VisaIcon size={20} /></View>
+              <View style={styles.brandIconWrap}><MastercardIcon size={20} /></View>
+              <View style={styles.brandIconWrap}><RupayIcon size={20} /></View>
             </View>
 
             {/* Primary Action Button */}
@@ -346,18 +313,9 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
               <Truck size={18} color="#334155" strokeWidth={2} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.sitePayTitle}>Pay on Delivery / Site Dispatch</Text>
-                <Text style={styles.sitePaySub}>Pay at construction site via cash or RTGS upon unloading</Text>
               </View>
               <ChevronRight size={16} color="#94A3B8" />
             </TouchableOpacity>
-
-            {/* Privacy & Security Footnote */}
-            <View style={styles.securityFootnote}>
-              <Lock size={12} color="#64748B" />
-              <Text style={styles.securityFootnoteText}>
-                Urbanico never collects or stores card details or UPI PINs. Key: {maskedKey}
-              </Text>
-            </View>
           </ScrollView>
         </KeyboardAvoidingView>
       </View>
@@ -608,6 +566,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#000000',
     letterSpacing: 0.3,
+    textAlign: 'center',
   },
   sitePayBtn: {
     flexDirection: 'row',

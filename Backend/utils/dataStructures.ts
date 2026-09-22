@@ -90,6 +90,109 @@ export class LRUCache<K, V> {
  * - dequeue: O(1) amortized
  * - peek: O(1)
  */
+export class PriorityQueue<T> {
+  private heap: T[] = [];
+  private comparator: (a: T, b: T) => number;
+
+  constructor(comparator: (a: T, b: T) => number = (a: any, b: any) => a - b) {
+    this.comparator = comparator;
+  }
+
+  public enqueue(item: T): void {
+    this.heap.push(item);
+    this.bubbleUp(this.heap.length - 1);
+  }
+
+  public dequeue(): T | undefined {
+    if (this.heap.length === 0) return undefined;
+    if (this.heap.length === 1) return this.heap.pop();
+
+    const root = this.heap[0];
+    this.heap[0] = this.heap.pop()!;
+    this.sinkDown(0);
+    return root;
+  }
+
+  public peek(): T | undefined {
+    return this.heap[0];
+  }
+
+  public get size(): number {
+    return this.heap.length;
+  }
+
+  public isEmpty(): boolean {
+    return this.heap.length === 0;
+  }
+
+  public clear(): void {
+    this.heap = [];
+  }
+
+  private bubbleUp(index: number): void {
+    while (index > 0) {
+      const parentIndex = Math.floor((index - 1) / 2);
+      if (this.comparator(this.heap[index], this.heap[parentIndex]) < 0) {
+        [this.heap[index], this.heap[parentIndex]] = [this.heap[parentIndex], this.heap[index]];
+        index = parentIndex;
+      } else {
+        break;
+      }
+    }
+  }
+
+  private sinkDown(index: number): void {
+    const length = this.heap.length;
+    while (true) {
+      const leftChild = 2 * index + 1;
+      const rightChild = 2 * index + 2;
+      let smallest = index;
+
+      if (leftChild < length && this.comparator(this.heap[leftChild], this.heap[smallest]) < 0) {
+        smallest = leftChild;
+      }
+
+      if (rightChild < length && this.comparator(this.heap[rightChild], this.heap[smallest]) < 0) {
+        smallest = rightChild;
+      }
+
+      if (smallest !== index) {
+        [this.heap[index], this.heap[smallest]] = [this.heap[smallest], this.heap[index]];
+        index = smallest;
+      } else {
+        break;
+      }
+    }
+  }
+}
+
+export function fuzzyMatchScore(text: string, query: string): number {
+  const t = text.toLowerCase();
+  const q = query.toLowerCase().trim();
+
+  if (!q) return 1;
+  if (t === q) return 1;
+  if (t.includes(q)) return 0.8 + (q.length / t.length) * 0.2;
+
+  let tIdx = 0;
+  let qIdx = 0;
+  let matchedChars = 0;
+
+  while (tIdx < t.length && qIdx < q.length) {
+    if (t[tIdx] === q[qIdx]) {
+      matchedChars++;
+      qIdx++;
+    }
+    tIdx++;
+  }
+
+  if (qIdx === q.length) {
+    return (matchedChars / t.length) * 0.7;
+  }
+
+  return 0;
+}
+
 export class Queue<T> {
   private items: T[] = [];
   private headIndex: number = 0;

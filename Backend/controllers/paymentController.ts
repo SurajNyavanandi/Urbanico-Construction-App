@@ -228,9 +228,8 @@ export class PaymentController {
 </head>
 <body>
   <div class="card">
-    <div class="shield-icon">🛡️</div>
-    <h1>Razorpay Secure Gateway</h1>
-    <p class="sub">Official 256-bit encrypted checkout for Urbanico Direct materials & trade services</p>
+    <h1>Payment</h1>
+    <p class="sub">Urbanico Direct materials & trade services</p>
     
     <div class="amount-box">
       <span class="amount-label">Total Payable</span>
@@ -240,10 +239,6 @@ export class PaymentController {
     <button id="pay-btn" class="btn-pay" onclick="launchRazorpay()">
       <span id="btn-text">Open Razorpay Gateway</span>
     </button>
-
-    <div class="security-note">
-      🔒 PCI-DSS Level 1 Certified • RBI Compliant
-    </div>
   </div>
 
   <script>

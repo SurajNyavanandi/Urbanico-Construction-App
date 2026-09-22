@@ -75,13 +75,19 @@ export interface RazorpayCheckoutOptions {
   precreatedOrderId?: string;
   paymentLink?: string;
   isRealRazorpayOrder?: boolean;
-  preferredMethod?: 'upi' | 'card' | 'netbanking' | 'wallet';
+  preferredMethod?: 'upi' | 'card' | 'netbanking' | 'wallet' | 'emi';
+  preferredUpiApp?: string;
+  preferredBank?: string;
+  preferredWallet?: string;
+  vpa?: string;
   onSuccess: (paymentResult: {
     razorpay_payment_id: string;
     razorpay_order_id: string;
     razorpay_signature: string;
     amount: number;
     method?: string;
+    status?: string;
+    isLiveMode?: boolean;
   }) => void;
   onFailure?: (error: string) => void;
   onDismiss?: () => void;
@@ -387,24 +393,12 @@ export async function launchUpiPaymentIntent(params: UpiIntentParams): Promise<{
         const isAndroid = /Android/i.test(navigator.userAgent || '');
         const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent || '');
 
-        // On desktop web, native mobile app schemes (intent://) are not registered in Chrome.
-        // Return cleanly so UI provides QR code scanning or VPA copy.
-        if (!isTouchMobile) {
-          return {
-            success: false,
-            launchedApp: uriInfo.appName,
-            targetUri: uriInfo.universalUri,
-            universalUri: uriInfo.universalUri,
-            fallbackUrl: uriInfo.fallbackRazorpayUrl,
-          };
-        }
-
-        // On mobile devices, prefer clean app scheme or standard NPCI upi:// URI
+        // On mobile devices and web browsers, prefer app-specific intent or standard NPCI upi:// URI
         const launchUri = isIOS
           ? uriInfo.customSchemeUri || uriInfo.universalUri
           : isAndroid
-          ? uriInfo.universalUri
-          : uriInfo.universalUri;
+          ? uriInfo.androidIntentUri || uriInfo.universalUri
+          : uriInfo.targetAppUri || uriInfo.universalUri;
 
         if (typeof document !== 'undefined') {
           try {
@@ -421,8 +415,13 @@ export async function launchUpiPaymentIntent(params: UpiIntentParams): Promise<{
             success = true;
           } catch {
             if (typeof window !== 'undefined') {
-              window.location.href = uriInfo.universalUri;
-              success = true;
+              try {
+                window.location.href = launchUri;
+                success = true;
+              } catch {
+                window.open(launchUri, '_blank');
+                success = true;
+              }
             }
           }
         } else {
@@ -880,7 +879,55 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
       !orderId!.slice(6).includes('_')
     );
 
-    console.log(`[Razorpay Checkout] Preparing checkout: Amount=₹${options.amount} (${orderAmountPaise} paise) | Key=${keyId.slice(0, 8)}... | Order ID=${orderId || 'NONE'} | isRealOrder=${isRealOrder}`);
+    const cleanPhone = (options.userPhone || '9848012345').replace(/\D/g, '').slice(-10);
+    const cleanEmail = (options.userEmail || 'orders@urbanico.in').trim();
+    const cleanName = (options.userName || 'Urbanico Customer').trim();
+
+    console.log(`[Razorpay Checkout] Preparing checkout: Amount=₹${options.amount} (${orderAmountPaise} paise) | Key=${keyId.slice(0, 8)}... | Contact=${cleanPhone} | Order ID=${orderId || 'NONE'} | isRealOrder=${isRealOrder}`);
+
+    // Configure Amazon & Flipkart style display blocks and prefilled payment methods
+    const prefillData: any = {
+      name: cleanName,
+      email: cleanEmail,
+      contact: cleanPhone,
+    };
+    if (options.preferredMethod) {
+      prefillData.method = options.preferredMethod;
+    }
+    if (options.vpa) {
+      prefillData.vpa = options.vpa;
+    }
+    if (options.preferredBank) {
+      prefillData.bank = options.preferredBank;
+    }
+    if (options.preferredWallet) {
+      prefillData.wallet = options.preferredWallet;
+    }
+
+    // Sequence priority matching Amazon / Flipkart hierarchy
+    let displaySequence = ["block.upi", "block.cards", "block.netbanking", "block.wallets", "block.emi"];
+    if (options.preferredMethod === 'card') {
+      displaySequence = ["block.cards", "block.upi", "block.netbanking", "block.wallets", "block.emi"];
+    } else if (options.preferredMethod === 'netbanking') {
+      displaySequence = ["block.netbanking", "block.upi", "block.cards", "block.wallets", "block.emi"];
+    } else if (options.preferredMethod === 'wallet') {
+      displaySequence = ["block.wallets", "block.upi", "block.cards", "block.netbanking", "block.emi"];
+    } else if (options.preferredMethod === 'emi') {
+      displaySequence = ["block.emi", "block.cards", "block.upi", "block.netbanking", "block.wallets"];
+    }
+
+    const upiAppMap: Record<string, string> = {
+      gpay: 'google_pay',
+      phonepe: 'phonepe',
+      paytm: 'paytm',
+      cred: 'cred',
+      bhim: 'bhim',
+    };
+    const defaultUpiApps = ['google_pay', 'phonepe', 'paytm', 'cred', 'bhim'];
+    const chosenUpiApp = options.preferredUpiApp ? (upiAppMap[options.preferredUpiApp] || options.preferredUpiApp) : '';
+    const sortedUpiApps = chosenUpiApp
+      ? [chosenUpiApp, ...defaultUpiApps.filter((a) => a !== chosenUpiApp)]
+      : defaultUpiApps;
 
     const rzpOptions: any = {
       key: keyId,
@@ -889,36 +936,77 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
       name: 'Urbanico Direct',
       description: options.orderDescription || 'Building Materials & Bulk Logistics',
       image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786515724/Gemini_Generated_Image_h44ohmh44ohmh44o_jsrc6g.png',
-      prefill: {
-        name: options.userName || '',
-        email: options.userEmail || '',
-        contact: options.userPhone || '',
-      },
+      ...(isRealOrder && orderId ? { order_id: orderId } : {}),
+      prefill: prefillData,
       notes: {
         app: 'Urbanico Direct',
+        siteDestination: options.orderDescription || 'Site Delivery',
+      },
+      theme: {
+        color: '#0F172A',
+        hide_topbar: false,
       },
       config: {
         display: {
           blocks: {
-            upi_block: {
-              name: 'Pay via UPI App (Google Pay, PhonePe, Paytm)',
+            upi: {
+              name: 'Pay via UPI (PhonePe, GPay, Paytm, CRED)',
               instruments: [
                 {
                   method: 'upi',
-                  flows: ['intent', 'qr'],
-                  apps: ['google_pay', 'phonepe', 'paytm', 'cred', 'bhim'],
+                  flows: ['intent', 'qr', 'collect'],
+                  apps: sortedUpiApps,
+                },
+              ],
+            },
+            cards: {
+              name: 'Credit / Debit / ATM Cards (Visa, MasterCard, RuPay)',
+              instruments: [
+                {
+                  method: 'card',
+                },
+              ],
+            },
+            netbanking: {
+              name: 'Net Banking (All Major Indian Banks)',
+              instruments: [
+                {
+                  method: 'netbanking',
+                },
+              ],
+            },
+            wallets: {
+              name: 'Wallets (Paytm, PhonePe, Mobikwik)',
+              instruments: [
+                {
+                  method: 'wallet',
+                },
+              ],
+            },
+            emi: {
+              name: 'EMI / Pay Later',
+              instruments: [
+                {
+                  method: 'emi',
                 },
               ],
             },
           },
-          sequence: ['block.upi_block'],
+          sequence: displaySequence,
           preferences: {
             show_default_blocks: true,
           },
         },
       },
-      theme: {
-        color: '#111111',
+      modal: {
+        confirm_close: true,
+        backdropclose: false,
+        ondismiss: function () {
+          console.log('[Razorpay Checkout] User dismissed the Razorpay checkout modal');
+          if (options.onDismiss) {
+            options.onDismiss();
+          }
+        },
       },
       handler: async function (response: {
         razorpay_payment_id: string;
@@ -966,14 +1054,6 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
             isLiveMode: true,
           } as any);
         }
-      },
-      modal: {
-        ondismiss: function () {
-          console.log('[Razorpay Checkout] User dismissed the Razorpay checkout modal');
-          if (options.onDismiss) {
-            options.onDismiss();
-          }
-        },
       },
     };
 

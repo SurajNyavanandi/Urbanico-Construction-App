@@ -229,3 +229,113 @@ export function binarySearch<T>(
 
   return -1;
 }
+
+
+// ============================================================================
+// 4. DATA STRUCTURE: Queue & Pagination Algorithm
+// ============================================================================
+
+export class Queue<T> {
+  private items: T[] = [];
+  private headIndex: number = 0;
+
+  public enqueue(item: T): void {
+    this.items.push(item);
+  }
+
+  public dequeue(): T | undefined {
+    if (this.isEmpty()) return undefined;
+
+    const item = this.items[this.headIndex];
+    this.headIndex++;
+
+    if (this.headIndex > 100 && this.headIndex * 2 >= this.items.length) {
+      this.items = this.items.slice(this.headIndex);
+      this.headIndex = 0;
+    }
+
+    return item;
+  }
+
+  public peek(): T | undefined {
+    if (this.isEmpty()) return undefined;
+    return this.items[this.headIndex];
+  }
+
+  public isEmpty(): boolean {
+    return this.headIndex >= this.items.length;
+  }
+
+  public get size(): number {
+    return Math.max(0, this.items.length - this.headIndex);
+  }
+
+  public clear(): void {
+    this.items = [];
+    this.headIndex = 0;
+  }
+
+  public toArray(): T[] {
+    return this.items.slice(this.headIndex);
+  }
+}
+
+export interface PaginationOptions<T> {
+  page?: number;
+  limit?: number;
+  sortField?: keyof T;
+  sortDirection?: 'asc' | 'desc';
+  filterPredicate?: (item: T) => boolean;
+}
+
+export interface PaginatedResult<T> {
+  items: T[];
+  total: number;
+  page: number;
+  totalPages: number;
+  hasPrev: boolean;
+  hasNext: boolean;
+}
+
+export function paginateAndSort<T>(
+  collection: T[],
+  options: PaginationOptions<T> = {}
+): PaginatedResult<T> {
+  const page = Math.max(1, Number(options.page) || 1);
+  const limit = Math.max(1, Math.min(100, Number(options.limit) || 20));
+
+  let filtered = options.filterPredicate
+    ? collection.filter(options.filterPredicate)
+    : collection;
+
+  if (options.sortField) {
+    const field = options.sortField;
+    const direction = options.sortDirection === 'desc' ? -1 : 1;
+
+    filtered = [...filtered].sort((a, b) => {
+      const valA = a[field];
+      const valB = b[field];
+
+      if (valA === valB) return 0;
+      if (valA === undefined || valA === null) return 1;
+      if (valB === undefined || valB === null) return -1;
+
+      return valA < valB ? -1 * direction : 1 * direction;
+    });
+  }
+
+  const total = filtered.length;
+  const totalPages = Math.ceil(total / limit) || 1;
+  const startIndex = (page - 1) * limit;
+  const items = filtered.slice(startIndex, startIndex + limit);
+
+  return {
+    items,
+    total,
+    page,
+    totalPages,
+    hasPrev: page > 1,
+    hasNext: page < totalPages,
+  };
+}
+

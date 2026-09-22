@@ -65,11 +65,17 @@ export function setDefaultSavedPaymentMethod(id: string, userPhone?: string): Sa
   return updated;
 }
 
+export const MAX_SAVED_PAYMENT_METHODS = 7;
+
 export function addSavedPaymentMethod(method: SavedPaymentMethod, userPhone?: string): SavedPaymentMethod[] {
   if (!method.isVerified) {
     throw new Error('Cannot save unverified payment method.');
   }
   const current = getSavedPaymentMethods(userPhone);
+
+  if (current.length >= MAX_SAVED_PAYMENT_METHODS) {
+    throw new Error(`Maximum limit reached (${MAX_SAVED_PAYMENT_METHODS} payment methods). Please remove an existing method to add a new one.`);
+  }
   
   // Prevent duplicates by VPA / Details
   const isDuplicate = current.some(

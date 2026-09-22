@@ -63,7 +63,7 @@ function MainAppContent() {
 
   // Navigation & Screen State (Opens directly to Home screen by default)
   const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
-  const [selectedCategoryId, setSelectedCategoryId] = useState<CategoryId | 'all'>('sand');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<CategoryId | 'all'>('all');
   const [globalViewMode, setGlobalViewMode] = useState<'list' | 'grid'>('grid');
   const [openProfileAddresses, setOpenProfileAddresses] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -455,6 +455,13 @@ function MainAppContent() {
   };
 
   // Navigation Handlers
+  const handleNavigateScreen = (scr: ScreenType) => {
+    if (scr === 'shop' || scr === 'category') {
+      setSelectedCategoryId('all');
+    }
+    setCurrentScreen(scr);
+  };
+
   const handleSelectCategory = (catId: CategoryId | 'all' | 'services' | 'services-catalog') => {
     setSelectedCategoryId(catId as any);
     setCurrentScreen('shop');
@@ -913,7 +920,7 @@ function MainAppContent() {
                     onClearRecentSearches={handleClearRecentSearches}
                     onRemoveRecentSearch={handleRemoveRecentSearch}
                     onSelectItemModal={handleOpenItemModal}
-                    onNavigateScreen={setCurrentScreen}
+                    onNavigateScreen={handleNavigateScreen}
                     materials={materials}
                     categories={categories}
                     services={services}
@@ -921,7 +928,7 @@ function MainAppContent() {
                 }
                 onSelectCategory={handleSelectCategory}
                 onNavigateAllMaterials={() => {
-                  setSelectedCategoryId('all');
+                  setSelectedCategoryId('materials');
                   setCurrentScreen('shop');
                 }}
                 onNavigateAllServices={() => {
@@ -949,7 +956,7 @@ function MainAppContent() {
                 onClearCart={handleClearCart}
                 onAddToCart={handleAddToCartItem}
                 selectedLocation={selectedLocation}
-                onNavigateScreen={setCurrentScreen}
+                onNavigateScreen={handleNavigateScreen}
                 deliveries={deliveries}
                 onOrderCreated={handleOrderCreated}
                 onViewInvoice={handleOpenInvoiceModal}
@@ -984,7 +991,7 @@ function MainAppContent() {
                 onUpdateUser={handleUpdateUser}
                 onNavigateScreen={(scr) => {
                   setOpenProfileAddresses(false);
-                  setCurrentScreen(scr);
+                  handleNavigateScreen(scr);
                 }}
                 isLoggedIn={isLoggedIn}
                 onLogout={handleLogout}
@@ -1110,7 +1117,7 @@ function MainAppContent() {
         <BottomNav
           activeScreen={currentScreen}
           onSelectTab={(scr) => {
-            if (scr === 'shop' && !selectedCategoryId) {
+            if (scr === 'shop') {
               setSelectedCategoryId('all');
             }
             setCurrentScreen(scr);

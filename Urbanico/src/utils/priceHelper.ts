@@ -1,3 +1,5 @@
+import { formatINR } from '../hooks/useFormatters';
+
 /**
  * Utility functions for robust currency and price parsing across the Urbanico application.
  * Prevents NaN or truncation bugs when parsing strings with commas, currency symbols, or unit suffixes.
@@ -34,10 +36,9 @@ export function parseSanitizedPrice(input: string | number | null | undefined): 
  * Formats a number cleanly into Indian Rupee format.
  * Example: 120000 -> "₹1,20,000"
  */
-export function formatInr(amount: number): string {
-  const safeAmount = isNaN(amount) ? 0 : Math.round(amount);
-  return `₹${safeAmount.toLocaleString('en-IN')}`;
-}
+export const formatInr = formatINR;
+export { formatINR };
+
 
 /**
  * Computes GST calculation (0% GST - direct pricing without added tax)

@@ -1,4 +1,5 @@
 import { CartItem, MaterialItem, UnitOption } from '../types';
+import { formatINR } from '../hooks/useFormatters';
 
 /**
  * Checks whether an item represents a trade/expert service (e.g. Mason, Electrician, Painter, etc.)
@@ -118,6 +119,5 @@ export function calculateCartTotals(
   };
 }
 
-export function formatCurrency(amount: number): string {
-  return `₹${Math.round(amount).toLocaleString('en-IN')}`;
-}
+export const formatCurrency = formatINR;
+
