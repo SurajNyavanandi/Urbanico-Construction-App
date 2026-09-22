@@ -191,8 +191,8 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
             <View style={styles.dispatchCard}>
               <Clock size={15} color="#059669" />
               <View style={{ flex: 1, marginLeft: 8 }}>
-                <Text style={styles.dispatchTitle}>Direct Yard Dispatch</Text>
-                <Text style={styles.dispatchSub}>Estimated delivery within 3 hours</Text>
+                <Text style={styles.dispatchTitle}>Estimated Dispatch</Text>
+                <Text style={styles.dispatchSub}>Delivery within 3 hours</Text>
               </View>
             </View>
 
@@ -207,7 +207,7 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
                 activeOpacity={0.88}
               >
                 <Truck size={16} color="#FFFFFF" strokeWidth={2.2} />
-                <Text style={styles.primaryActionButtonText}>Track Order Details</Text>
+                <Text style={styles.primaryActionButtonText}>Track Order</Text>
               </TouchableOpacity>
 
               {Boolean(onContinueShopping) && (
@@ -230,7 +230,7 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
                 activeOpacity={0.7}
               >
                 <FileText size={14} color="#475569" />
-                <Text style={styles.downloadInvoiceBtnText}>Download Tax Invoice (PDF)</Text>
+                <Text style={styles.downloadInvoiceBtnText}>Download Invoice</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>

@@ -555,11 +555,11 @@ export const Header: React.FC<HeaderProps> = ({
                               {item.name}
                             </Text>
                             <Text style={[styles.productRowSub, { color: theme.textSecondary }]} numberOfLines={1}>
-                              {item.subtitle || `${(item?.categoryId || 'MATERIALS').toUpperCase()} • Direct Yard`}
+                              {item.subtitle || (item?.categoryId || 'MATERIALS').toUpperCase()}
                             </Text>
                             <View style={styles.stockBadgeRow}>
                               <CheckCircle2 size={11} color="#059669" strokeWidth={2.2} />
-                              <Text style={styles.stockBadgeText}>In Stock • Ready for Delivery</Text>
+                              <Text style={styles.stockBadgeText}>In Stock</Text>
                             </View>
                           </View>
                           {Boolean(item.defaultPrice) && (

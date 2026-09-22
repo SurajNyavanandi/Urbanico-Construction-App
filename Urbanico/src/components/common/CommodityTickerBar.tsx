@@ -175,7 +175,7 @@ export const CommodityTickerBar: React.FC = () => {
                 <View style={styles.updateTimeRow}>
                   <Clock size={12} color={theme.textSecondary} />
                   <Text style={[styles.updateTimeText, { color: theme.textSecondary }]}>
-                    Verified against Telangana Foundry & Mill indices ({selectedRate.lastUpdated})
+                    Updated {selectedRate.lastUpdated}
                   </Text>
                 </View>
               </ScrollView>

@@ -345,8 +345,8 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
               >
                 <Heart
                   size={18}
-                  color={isFav ? '#E11D48' : theme.textPrimary}
-                  fill={isFav ? '#E11D48' : 'transparent'}
+                  color={isFav ? theme.textPrimary : theme.textPrimary}
+                  fill={isFav ? theme.textPrimary : 'transparent'}
                 />
               </TouchableOpacity>
             )}
@@ -403,7 +403,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
                       Single Site Demo & Scope Inspection
                     </Text>
                     <Text style={[styles.serviceVisitNoticeSub, { color: theme.textSecondary }]}>
-                      1 certified expert visit per site booking. The ₹99 demo fee is 100% credited toward your final project bill upon hire.
+                      Fee credited toward your final project bill upon hire.
                     </Text>
                   </View>
                   <View style={[styles.serviceFixedQtyBadge, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -440,7 +440,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
                         </View>
                       </View>
                       <Text style={[styles.timelineStepDesc, { color: theme.textSecondary }]}>
-                        Certified professional visits your site to evaluate requirements and assess project scope.
+                        On-site visit to evaluate requirements and project scope.
                       </Text>
                     </View>
                   </View>

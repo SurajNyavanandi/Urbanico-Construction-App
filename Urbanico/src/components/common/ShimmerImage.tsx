@@ -18,6 +18,7 @@ import {
   ImageOptimizationOptions,
   ImageSizePreset,
 } from '../../utils/imageOptimization';
+import { useIntersectionObserver } from '../../hooks/useIntersectionObserver';
 
 export interface ShimmerImageProps {
   source?: any;
@@ -29,6 +30,8 @@ export interface ShimmerImageProps {
   preset?: ImageSizePreset;
   optimizationOptions?: ImageOptimizationOptions;
   priority?: 'high' | 'normal' | 'low';
+  lazy?: boolean;
+  rootMargin?: string;
   fallbackIconSize?: number;
   showFallbackOnMissing?: boolean;
   showRetryOnError?: boolean;
@@ -37,7 +40,7 @@ export interface ShimmerImageProps {
   onError?: (e?: any) => void;
 }
 
-export const ShimmerImage: React.FC<ShimmerImageProps> = ({
+const ShimmerImageComponent: React.FC<ShimmerImageProps> = ({
   source,
   style,
   resizeMode = 'cover',
@@ -47,6 +50,8 @@ export const ShimmerImage: React.FC<ShimmerImageProps> = ({
   preset,
   optimizationOptions,
   priority = 'normal',
+  lazy = true,
+  rootMargin = '180px 0px',
   fallbackIconSize = 22,
   showFallbackOnMissing = true,
   showRetryOnError = false,
@@ -74,6 +79,19 @@ export const ShimmerImage: React.FC<ShimmerImageProps> = ({
     if (!optimizedUri) return false;
     return imageCache.isCached(optimizedUri);
   }, [optimizedUri]);
+
+  const isPriorityHigh = priority === 'high';
+  const shouldLazyLoad = lazy && !isPriorityHigh && !initiallyCached;
+
+  // Native Intersection Observer for lazy loading without external dependencies
+  const [containerRef, isVisible] = useIntersectionObserver<any>({
+    rootMargin,
+    threshold: 0.01,
+    triggerOnce: true,
+    enabled: shouldLazyLoad,
+  });
+
+  const isEligibleToLoad = initiallyCached || isPriorityHigh || !shouldLazyLoad || isVisible;
 
   const [loaded, setLoaded] = useState<boolean>(initiallyCached);
   const [hasError, setHasError] = useState<boolean>(false);
@@ -160,6 +178,7 @@ export const ShimmerImage: React.FC<ShimmerImageProps> = ({
     }
     return (
       <View
+        ref={containerRef as any}
         style={[
           styles.container,
           {
@@ -191,6 +210,7 @@ export const ShimmerImage: React.FC<ShimmerImageProps> = ({
 
   return (
     <View
+      ref={containerRef as any}
       style={[
         styles.container,
         { borderRadius },
@@ -198,8 +218,8 @@ export const ShimmerImage: React.FC<ShimmerImageProps> = ({
         style,
       ]}
     >
-      {/* Lightweight Shimmer Placeholder before download */}
-      {!loaded && (
+      {/* Lightweight Shimmer Placeholder while unobserved or loading */}
+      {(!loaded || !isEligibleToLoad) && (
         <AnimatedView
           style={[
             StyleSheet.absoluteFill,
@@ -212,25 +232,32 @@ export const ShimmerImage: React.FC<ShimmerImageProps> = ({
         />
       )}
 
-      {/* Universal Web & Native Compatible Image */}
-      <RNImage
-        source={{
-          uri: finalSourceUri ? `${finalSourceUri}${retryCount > 0 ? `?retry=${retryCount}` : ''}` : undefined,
-        }}
-        resizeMode={finalResizeMode}
-        style={[
-          styles.image,
-          {
-            borderRadius,
-            opacity: loaded ? 1 : 0.99,
-          },
-        ]}
-        onLoad={handleLoad}
-        onError={handleError}
-      />
+      {/* Universal Web & Native Compatible Lazy Image */}
+      {isEligibleToLoad && (
+        <RNImage
+          source={{
+            uri: finalSourceUri ? `${finalSourceUri}${retryCount > 0 ? `?retry=${retryCount}` : ''}` : undefined,
+          }}
+          resizeMode={finalResizeMode}
+          style={[
+            styles.image,
+            {
+              borderRadius,
+              opacity: loaded ? 1 : 0.99,
+            },
+          ]}
+          onLoad={handleLoad}
+          onError={handleError}
+          // @ts-ignore Web specific attributes
+          loading={isPriorityHigh ? 'eager' : 'lazy'}
+          decoding="async"
+        />
+      )}
     </View>
   );
 };
+
+export const ShimmerImage = React.memo(ShimmerImageComponent);
 
 const styles = StyleSheet.create({
   container: {

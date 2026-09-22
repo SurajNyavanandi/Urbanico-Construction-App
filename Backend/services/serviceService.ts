@@ -1,6 +1,7 @@
 import { Service } from '../models/Service';
 import mongoose from 'mongoose';
 import { MASTER_SERVICES, MasterService } from '../data/seedData';
+import { serviceCache } from '../utils/memoryCache';
 
 export type ServiceInfo = MasterService;
 
@@ -14,10 +15,14 @@ function getDefaultImageForCategory(categoryId: string, name?: string): string {
 
 export class ServiceService {
   public static async getAllServices() {
+    const cached = serviceCache.get('services:all');
+    if (cached) return cached;
+
     try {
       if (mongoose.connection.readyState === 1) {
         let services = await Service.find().lean().exec();
         if (services && services.length > 0) {
+          serviceCache.set('services:all', services, 300_000);
           return services;
         }
 
@@ -25,30 +30,42 @@ export class ServiceService {
         await this.seedDefaultServices();
         services = await Service.find().lean().exec();
         if (services && services.length > 0) {
+          serviceCache.set('services:all', services, 300_000);
           return services;
         }
       }
     } catch (err) {
       console.warn('ServiceService getAllServices using in-memory store:', err);
     }
+    serviceCache.set('services:all', inMemoryServices, 300_000);
     return inMemoryServices;
   }
 
   public static async getServiceById(id: string) {
+    const cacheKey = `service:${id}`;
+    const cached = serviceCache.get(cacheKey);
+    if (cached) return cached;
+
     try {
       if (mongoose.connection.readyState === 1) {
         const service = await Service.findOne({
           $or: [{ id }, { _id: mongoose.Types.ObjectId.isValid(id) ? id : undefined }],
         }).lean().exec();
-        if (service) return service;
+        if (service) {
+          serviceCache.set(cacheKey, service, 300_000);
+          return service;
+        }
       }
     } catch (err) {
       // fallback
     }
-    return inMemoryServices.find((s) => s.id.toLowerCase() === id.toLowerCase()) || null;
+    const fallback = inMemoryServices.find((s) => s.id.toLowerCase() === id.toLowerCase()) || null;
+    if (fallback) serviceCache.set(cacheKey, fallback, 300_000);
+    return fallback;
   }
 
   public static async createService(data: Partial<ServiceInfo>) {
+    serviceCache.clear();
     const rawId = (data.id || data.name || `srv_${Date.now()}`).toLowerCase().replace(/[^a-z0-9]/g, '_');
     const newService: ServiceInfo = {
       id: rawId,
@@ -74,6 +91,7 @@ export class ServiceService {
   }
 
   public static async updateService(id: string, data: Partial<ServiceInfo>) {
+    serviceCache.clear();
     try {
       if (mongoose.connection.readyState === 1) {
         const updated = await Service.findOneAndUpdate(
@@ -106,6 +124,7 @@ export class ServiceService {
   }
 
   public static async deleteService(id: string) {
+    serviceCache.clear();
     try {
       if (mongoose.connection.readyState === 1) {
         const deleted = await Service.findOneAndDelete({

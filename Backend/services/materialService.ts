@@ -10,6 +10,7 @@ import {
   MasterMaterialItem,
   MasterProjectBundle,
 } from '../data/seedData';
+import { materialCache, categoryCache, bundleCache } from '../utils/memoryCache';
 
 export type CategoryInfo = MasterCategory;
 export type ProjectBundleInfo = MasterProjectBundle;
@@ -58,6 +59,12 @@ export class MaterialService {
   // MATERIALS GET & FILTER
   // ==========================================
   public static async getAllMaterials(filter: { category?: string; search?: string } = {}) {
+    const cacheKey = `materials:${filter.category || 'all'}:${filter.search || ''}`;
+    const cached = materialCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     try {
       if (mongoose.connection.readyState === 1) {
         const query: Record<string, any> = {};
@@ -83,6 +90,7 @@ export class MaterialService {
         }
 
         if (materials && materials.length > 0) {
+          materialCache.set(cacheKey, materials, 120_000);
           return materials;
         }
       }
@@ -91,7 +99,7 @@ export class MaterialService {
     }
 
     // Filter in-memory dynamic catalogue
-    return inMemoryMaterials.filter((m) => {
+    const result = inMemoryMaterials.filter((m) => {
       if (filter.category && filter.category !== 'All' && filter.category !== 'all') {
         const cat = filter.category.toLowerCase();
         const matchesCategory =
@@ -109,42 +117,60 @@ export class MaterialService {
       }
       return true;
     });
+
+    materialCache.set(cacheKey, result, 120_000);
+    return result;
   }
 
   public static async getMaterialById(id: string) {
+    const cacheKey = `material:${id}`;
+    const cached = materialCache.get(cacheKey);
+    if (cached) return cached;
+
     try {
       if (mongoose.connection.readyState === 1) {
         const material = await Material.findOne({
           $or: [{ id }, { _id: mongoose.Types.ObjectId.isValid(id) ? id : undefined }],
         }).lean().exec();
-        if (material) return material;
+        if (material) {
+          materialCache.set(cacheKey, material, 300_000);
+          return material;
+        }
       }
     } catch (err) {
       // fallback
     }
-    return inMemoryMaterials.find((m: any) => m.id === id || m._id === id || m.name === id) || null;
+    const fallback = inMemoryMaterials.find((m: any) => m.id === id || m._id === id || m.name === id) || null;
+    if (fallback) materialCache.set(cacheKey, fallback, 300_000);
+    return fallback;
   }
 
   // ==========================================
   // CATEGORIES CRUD (Database-Backed + In-Memory Fallback)
   // ==========================================
   public static async getCategories() {
+    const cached = categoryCache.get('categories:all');
+    if (cached) return cached;
+
     try {
       if (mongoose.connection.readyState === 1) {
         let categories = await Category.find().sort({ createdAt: 1 }).lean().exec();
         if (categories && categories.length > 0) {
+          categoryCache.set('categories:all', categories, 300_000);
           return categories;
         }
 
         // Auto-seed default categories if empty
         categories = await Category.find().sort({ createdAt: 1 }).lean().exec();
         if (categories && categories.length > 0) {
+          categoryCache.set('categories:all', categories, 300_000);
           return categories;
         }
       }
     } catch (err) {
       console.warn('MaterialService getCategories using in-memory fallback:', err);
     }
+    categoryCache.set('categories:all', inMemoryCategories, 300_000);
     return inMemoryCategories;
   }
 
@@ -163,6 +189,7 @@ export class MaterialService {
   }
 
   public static async createCategory(data: Partial<CategoryInfo>) {
+    categoryCache.clear();
     const rawId = (data.id || data.name || `cat_${Date.now()}`).toLowerCase().replace(/[^a-z0-9]/g, '_');
     const newCategory: CategoryInfo = {
       id: rawId,
@@ -190,6 +217,7 @@ export class MaterialService {
   }
 
   public static async updateCategory(id: string, data: Partial<CategoryInfo>) {
+    categoryCache.clear();
     try {
       if (mongoose.connection.readyState === 1) {
         const updated = await Category.findOneAndUpdate(
@@ -222,6 +250,7 @@ export class MaterialService {
   }
 
   public static async deleteCategory(id: string) {
+    categoryCache.clear();
     try {
       if (mongoose.connection.readyState === 1) {
         const deleted = await Category.findOneAndDelete({
@@ -260,6 +289,7 @@ export class MaterialService {
   }
 
   public static createProjectBundle(data: Partial<ProjectBundleInfo>) {
+    bundleCache.clear();
     const rawId = (data.id || data.title || `bnd_${Date.now()}`).toLowerCase().replace(/[^a-z0-9]/g, '_');
     const newBundle: ProjectBundleInfo = {
       id: rawId,
@@ -281,6 +311,7 @@ export class MaterialService {
   }
 
   public static updateProjectBundle(id: string, data: Partial<ProjectBundleInfo>) {
+    bundleCache.clear();
     const idx = inMemoryBundles.findIndex((b) => b.id.toLowerCase() === id.toLowerCase());
     if (idx !== -1) {
       if (data.image && !data.image.startsWith('http')) {
@@ -293,6 +324,7 @@ export class MaterialService {
   }
 
   public static deleteProjectBundle(id: string) {
+    bundleCache.clear();
     const idx = inMemoryBundles.findIndex((b) => b.id.toLowerCase() === id.toLowerCase());
     if (idx !== -1) {
       const [removed] = inMemoryBundles.splice(idx, 1);
@@ -305,6 +337,7 @@ export class MaterialService {
   // MATERIALS CRUD
   // ==========================================
   public static async createMaterial(data: Partial<IMaterial> | any) {
+    materialCache.clear();
     const categoryId = (data.categoryId || data.category || 'cement').toLowerCase();
     const resolvedImage =
       data.image && typeof data.image === 'string' && data.image.startsWith('http')
@@ -361,6 +394,7 @@ export class MaterialService {
   }
 
   public static async updateMaterial(id: string, data: Partial<IMaterial> | any) {
+    materialCache.clear();
     if (data.image && typeof data.image === 'string' && !data.image.startsWith('http')) {
       delete data.image;
     }
@@ -385,6 +419,7 @@ export class MaterialService {
   }
 
   public static async deleteMaterial(id: string) {
+    materialCache.clear();
     try {
       if (mongoose.connection.readyState === 1) {
         const deleted = await Material.findOneAndDelete({
@@ -401,5 +436,4 @@ export class MaterialService {
     }
     return null;
   }
-
 }

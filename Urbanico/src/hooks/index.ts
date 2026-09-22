@@ -17,3 +17,7 @@ export * from './useNetworkStatus';
 export * from './useMediaQuery';
 export * from './useIntersectionObserver';
 export * from './useDynamicCatalog';
+export * from './useFavoritesActions';
+export * from './useCartActions';
+export * from './useModalState';
+export * from './usePhoneAuth';

@@ -7,5 +7,7 @@ const router = Router();
 router.get('/config', PaymentController.getConfig);
 router.post('/create-order', PaymentController.createOrder);
 router.post('/verify-payment', PaymentController.verifyPayment);
+router.all('/callback', PaymentController.handleCallback);
+router.get('/checkout-page', PaymentController.renderCheckoutPage);
 
 export const paymentRouter = router;

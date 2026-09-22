@@ -123,7 +123,8 @@ export class RazorpayBackendService {
         try {
           const custName = (sanitizedNotes.userName || sanitizedNotes.name || 'Urbanico Customer').slice(0, 50);
           const custEmail = (sanitizedNotes.userEmail || sanitizedNotes.email || 'customer@urbanico.in').slice(0, 50);
-          const custContact = (sanitizedNotes.userPhone || sanitizedNotes.phone || sanitizedNotes.contact || '').replace(/[^0-9+]/g, '').slice(0, 15);
+          const rawDigits = (sanitizedNotes.userPhone || sanitizedNotes.phone || sanitizedNotes.contact || sanitizedNotes.customerPhone || '9848012345').replace(/[^0-9]/g, '');
+          const custContact = rawDigits.length >= 10 ? `+91${rawDigits.slice(-10)}` : '+919848012345';
 
           const plink = await razorpay.paymentLink.create({
             amount: Math.round(options.amountInPaise),
@@ -133,7 +134,7 @@ export class RazorpayBackendService {
             customer: {
               name: custName,
               email: custEmail,
-              contact: custContact && custContact.length >= 10 ? custContact : undefined,
+              contact: custContact,
             },
             notify: {
               sms: false,
@@ -319,7 +320,8 @@ export class RazorpayBackendService {
     notes?: Record<string, string>;
   }) {
     const razorpay = this.getClient();
-    const cleanPhone = (options.userPhone || '').replace(/[^0-9+]/g, '').slice(0, 15);
+    const rawDigits = (options.userPhone || '').replace(/[^0-9]/g, '');
+    const cleanPhone = rawDigits.length >= 10 ? `+91${rawDigits.slice(-10)}` : '+919848012345';
     const plink = await razorpay.paymentLink.create({
       amount: Math.round(options.amountInPaise),
       currency: (options.currency || 'INR').toUpperCase(),
@@ -328,7 +330,7 @@ export class RazorpayBackendService {
       customer: {
         name: options.userName || 'Urbanico Customer',
         email: options.userEmail || 'customer@urbanico.in',
-        contact: cleanPhone && cleanPhone.length >= 10 ? cleanPhone : undefined,
+        contact: cleanPhone,
       },
       notify: { sms: false, email: false },
       reminder_enable: false,

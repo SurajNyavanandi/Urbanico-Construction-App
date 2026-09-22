@@ -215,16 +215,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     }, 600);
   };
 
-  // Preload critical above-the-fold assets in the background
+  // Above-the-fold hero visual priority handled via direct priority prop; catalog images lazy load on-demand via IntersectionObserver
   useEffect(() => {
+    // Only preload the single above-the-fold hero card banner
     preloadImages([
       { url: HERO_CARD_IMAGE_URL, preset: 'hero' as const },
-      ...MATERIAL_CHILD_PILLS.map((p) => ({ url: p.image, preset: 'pill' as const })),
-      ...SERVICE_CHILD_PILLS.map((p) => ({ url: p.image, preset: 'pill' as const })),
-      ...activeServices.map((s) => ({ url: s.image, preset: 'card' as const })),
-      ...activeCategories.map((c) => ({ url: c.image, preset: 'card' as const })),
     ]);
-  }, [activeServices, activeCategories]);
+  }, []);
 
   return (
     <View style={{ flex: 1 }}>
@@ -417,9 +414,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 <ProductCard
                   key={cat.id}
                   title={cat.name}
-                  subtitle={cat.subcategoriesText || cat.count || 'Direct Yard Supply'}
+                  subtitle={cat.subcategoriesText || cat.count || ''}
                   tag={cat.tag || (cat.id || '').toUpperCase()}
-                  priceLabel={cat.priceLabel || 'Direct Yard Rates'}
+                  priceLabel={cat.priceLabel || ''}
                   image={cat.image}
                   width={CARD_WIDTH}
                   showAddButton={false}

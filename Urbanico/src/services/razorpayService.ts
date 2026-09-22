@@ -879,7 +879,9 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
       !orderId!.slice(6).includes('_')
     );
 
-    const cleanPhone = (options.userPhone || '9848012345').replace(/\D/g, '').slice(-10);
+    let rawDigits = (options.userPhone || '').replace(/\D/g, '');
+    if (rawDigits.length > 10) rawDigits = rawDigits.slice(-10);
+    const cleanPhone = rawDigits.length === 10 ? rawDigits : '9848012345';
     const cleanEmail = (options.userEmail || 'orders@urbanico.in').trim();
     const cleanName = (options.userName || 'Urbanico Customer').trim();
 
@@ -929,6 +931,10 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
       ? [chosenUpiApp, ...defaultUpiApps.filter((a) => a !== chosenUpiApp)]
       : defaultUpiApps;
 
+    const currentOrigin = typeof window !== 'undefined' && window.location ? window.location.origin : 'https://urbanico.vercel.app';
+    const backendApiBase = getBaseApiUrls()[0] || 'https://urbanico.onrender.com/api';
+    const callbackUrl = `${backendApiBase}/razorpay/callback?origin=${encodeURIComponent(currentOrigin)}&amount=${options.amount}&order_id=${encodeURIComponent(orderId || '')}`;
+
     const rzpOptions: any = {
       key: keyId,
       amount: orderAmountPaise,
@@ -937,7 +943,14 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
       description: options.orderDescription || 'Building Materials & Bulk Logistics',
       image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786515724/Gemini_Generated_Image_h44ohmh44ohmh44o_jsrc6g.png',
       ...(isRealOrder && orderId ? { order_id: orderId } : {}),
+      callback_url: callbackUrl,
+      redirect: false,
       prefill: prefillData,
+      readonly: {
+        contact: true,
+        email: true,
+        name: true,
+      },
       notes: {
         app: 'Urbanico Direct',
         siteDestination: options.orderDescription || 'Site Delivery',
@@ -945,58 +958,6 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
       theme: {
         color: '#0F172A',
         hide_topbar: false,
-      },
-      config: {
-        display: {
-          blocks: {
-            upi: {
-              name: 'Pay via UPI (PhonePe, GPay, Paytm, CRED)',
-              instruments: [
-                {
-                  method: 'upi',
-                  flows: ['intent', 'qr', 'collect'],
-                  apps: sortedUpiApps,
-                },
-              ],
-            },
-            cards: {
-              name: 'Credit / Debit / ATM Cards (Visa, MasterCard, RuPay)',
-              instruments: [
-                {
-                  method: 'card',
-                },
-              ],
-            },
-            netbanking: {
-              name: 'Net Banking (All Major Indian Banks)',
-              instruments: [
-                {
-                  method: 'netbanking',
-                },
-              ],
-            },
-            wallets: {
-              name: 'Wallets (Paytm, PhonePe, Mobikwik)',
-              instruments: [
-                {
-                  method: 'wallet',
-                },
-              ],
-            },
-            emi: {
-              name: 'EMI / Pay Later',
-              instruments: [
-                {
-                  method: 'emi',
-                },
-              ],
-            },
-          },
-          sequence: displaySequence,
-          preferences: {
-            show_default_blocks: true,
-          },
-        },
       },
       modal: {
         confirm_close: true,

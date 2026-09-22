@@ -862,9 +862,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           </View>
           <View style={styles.menuRowRight}>
             {savedForLaterItems.length > 0 ? (
-              <View style={[styles.countBadge, { backgroundColor: theme.mode === 'dark' ? '#064E3B30' : '#ECFDF5' }]}>
-                <Text style={[styles.countBadgeText, { color: '#059669', fontWeight: '700' }]}>
-                  {savedForLaterItems.length} Saved
+              <View style={[styles.countBadge, { backgroundColor: theme.surfaceSecondary }]}>
+                <Text style={[styles.countBadgeText, { color: theme.textPrimary, fontWeight: '700' }]}>
+                  {savedForLaterItems.length}
                 </Text>
               </View>
             ) : (
@@ -2325,8 +2325,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   </View>
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.avatarRoleTag, { color: theme.textPrimary }]}>Verified Contractor Profile</Text>
-                  <Text style={[styles.avatarSubtext, { color: theme.textSecondary }]}>Cloudinary verified profile picture</Text>
+                  <Text style={[styles.avatarRoleTag, { color: theme.textPrimary }]}>Contractor Profile</Text>
+                  <Text style={[styles.avatarSubtext, { color: theme.textSecondary }]}>Account details & GST</Text>
                 </View>
               </View>
 

@@ -365,15 +365,15 @@ export const NikeAuthModal: React.FC<NikeAuthModalProps> = ({
                 <View style={styles.perksGrid}>
                   <View style={styles.perkItem}>
                     <CheckCircle2 size={13} color="#059669" />
-                    <Text style={styles.perkText}>Direct Yard Pricing</Text>
+                    <Text style={styles.perkText}>Wholesale Pricing</Text>
                   </View>
                   <View style={styles.perkItem}>
                     <CheckCircle2 size={13} color="#059669" />
-                    <Text style={styles.perkText}>Live GPS Site Dispatch</Text>
+                    <Text style={styles.perkText}>Site Dispatch</Text>
                   </View>
                   <View style={styles.perkItem}>
                     <CheckCircle2 size={13} color="#059669" />
-                    <Text style={styles.perkText}>E-Way Bill & GST Invoice</Text>
+                    <Text style={styles.perkText}>GST Invoices</Text>
                   </View>
                 </View>
 

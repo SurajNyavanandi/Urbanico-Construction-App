@@ -94,7 +94,7 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
             <Heart
               size={15}
               color={activeTab === 'favorites' ? '#111111' : '#6B7280'}
-              fill={activeTab === 'favorites' ? '#E11D48' : 'transparent'}
+              fill={activeTab === 'favorites' ? '#111111' : 'transparent'}
             />
             <Text style={[styles.segmentBtnText, activeTab === 'favorites' && styles.segmentBtnTextActive]}>
               Favourites ({favorites.length})
@@ -108,8 +108,8 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
           >
             <Bookmark
               size={15}
-              color={activeTab === 'saved_for_later' ? '#059669' : '#6B7280'}
-              fill={activeTab === 'saved_for_later' ? '#059669' : 'transparent'}
+              color={activeTab === 'saved_for_later' ? '#111111' : '#6B7280'}
+              fill={activeTab === 'saved_for_later' ? '#111111' : 'transparent'}
             />
             <Text style={[styles.segmentBtnText, activeTab === 'saved_for_later' && styles.segmentBtnTextActive]}>
               Saved for Later ({savedForLaterItems.length})
@@ -134,10 +134,7 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
             (activeTab === 'saved_for_later' && savedForLaterItems.length > 0)) && (
             <TouchableOpacity
               onPress={handleAddAllFavorites}
-              style={[
-                styles.addAllBtn,
-                activeTab === 'saved_for_later' && { backgroundColor: '#059669' },
-              ]}
+              style={styles.addAllBtn}
               activeOpacity={0.85}
             >
               <ShoppingCart size={14} color="#FFFFFF" />
@@ -179,7 +176,7 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
                           style={styles.heartButton}
                           activeOpacity={0.7}
                         >
-                          <Heart size={16} color="#E11D48" fill="#E11D48" />
+                          <Heart size={16} color="#111111" fill="#111111" />
                         </TouchableOpacity>
                       )}
                     </View>
@@ -192,7 +189,7 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
                         {item.name}
                       </Text>
                       <Text style={styles.productSub} numberOfLines={1}>
-                        {item.subtitle || 'Direct Yard Supply'}
+                        {item.subtitle || ''}
                       </Text>
 
                       <View style={styles.priceRow}>
@@ -383,7 +380,7 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
           ) : (
             <View style={styles.emptyContainer}>
               <View style={styles.emptyIconCircle}>
-                <Bookmark size={32} color="#059669" strokeWidth={1.5} />
+                <Bookmark size={32} color="#111111" strokeWidth={1.5} />
               </View>
 
               <Text style={styles.emptyNoticeText}>
@@ -398,7 +395,7 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
                     onNavigateHome();
                   }
                 }}
-                style={[styles.loginPill, { backgroundColor: '#059669' }]}
+                style={styles.loginPill}
                 activeOpacity={0.85}
               >
                 <Text style={styles.loginPillText}>Explore Materials</Text>

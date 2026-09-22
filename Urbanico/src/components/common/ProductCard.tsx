@@ -36,7 +36,7 @@ export interface ProductCardProps {
   searchQuery?: string;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({
+const ProductCardComponent: React.FC<ProductCardProps> = ({
   item,
   title,
   subtitle,
@@ -264,8 +264,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 <AnimatedView style={{ transform: [{ scale: favScaleAnim }] }}>
                   <Heart
                     size={14}
-                    color={isFavorite ? '#E11D48' : theme.textPrimary}
-                    fill={isFavorite ? '#E11D48' : 'transparent'}
+                    color={isFavorite ? theme.textPrimary : theme.textPrimary}
+                    fill={isFavorite ? theme.textPrimary : 'transparent'}
                   />
                 </AnimatedView>
               </TouchableOpacity>
@@ -337,8 +337,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                   <AnimatedView style={{ transform: [{ scale: favScaleAnim }] }}>
                     <Heart
                       size={14}
-                      color={isFavorite ? '#E11D48' : '#374151'}
-                      fill={isFavorite ? '#E11D48' : 'transparent'}
+                      color={isFavorite ? '#111111' : '#374151'}
+                      fill={isFavorite ? '#111111' : 'transparent'}
                     />
                   </AnimatedView>
                 </TouchableOpacity>
@@ -381,6 +381,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     </AnimatedView>
   );
 };
+
+export const ProductCard = React.memo(ProductCardComponent, (prev, next) => {
+  return (
+    prev.item?.id === next.item?.id &&
+    prev.item?.defaultPrice === next.item?.defaultPrice &&
+    prev.title === next.title &&
+    prev.subtitle === next.subtitle &&
+    prev.priceLabel === next.priceLabel &&
+    prev.image === next.image &&
+    prev.isFavorite === next.isFavorite &&
+    prev.cartQuantity === next.cartQuantity &&
+    prev.viewMode === next.viewMode &&
+    prev.showAddButton === next.showAddButton &&
+    prev.searchQuery === next.searchQuery &&
+    prev.width === next.width
+  );
+});
 
 const styles = StyleSheet.create({
   productCard: {

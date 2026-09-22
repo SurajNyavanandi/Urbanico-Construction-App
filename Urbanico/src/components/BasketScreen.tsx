@@ -54,6 +54,10 @@ import {
   Building,
   Wallet,
   Percent,
+  RotateCcw,
+  RefreshCw,
+  AlertCircle,
+  HelpCircle,
 } from 'lucide-react-native';
 import {
   GooglePayIcon,
@@ -102,7 +106,7 @@ import { openProformaQuotationPrint } from '../utils/proformaQuotationHelper';
 import { LiveDispatcherChatModal } from './common/LiveDispatcherChatModal';
 import { SupervisorHandoffModal } from './common/SupervisorHandoffModal';
 
-export type PaymentMethodType = 'upi_app' | 'upi_vpa' | 'card' | 'netbanking' | 'wallet' | 'emi' | 'pod';
+export type PaymentMethodType = 'online' | 'pod' | 'upi_app' | 'upi_vpa' | 'card' | 'netbanking' | 'wallet' | 'emi';
 
 export const POPULAR_BANKS = [
   { code: 'HDFC', name: 'HDFC Bank', color: '#004C8F' },
@@ -295,7 +299,43 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [latestPaymentResult, setLatestPaymentResult] = useState<RazorpayPaymentResult | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethodType>('upi_app');
+  const [paymentFailure, setPaymentFailure] = useState<{
+    status: 'failed' | 'cancelled' | 'error';
+    reason: string;
+    timestamp: string;
+    attemptCount: number;
+  } | null>(null);
+  const [retryAttemptCount, setRetryAttemptCount] = useState(0);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethodType>('online');
+
+  // Check URL query parameters for payment status callback (redirection flow)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.location) return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const paymentStatus = params.get('payment_status');
+      const errorMsg = params.get('error') || params.get('error_description');
+      if (paymentStatus === 'failed' || paymentStatus === 'error') {
+        setCheckoutStep('payment');
+        setPaymentFailure({
+          status: 'failed',
+          reason: errorMsg || 'Transaction was declined or interrupted by the bank gateway.',
+          timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+          attemptCount: 1,
+        });
+      } else if (paymentStatus === 'cancelled') {
+        setCheckoutStep('payment');
+        setPaymentFailure({
+          status: 'cancelled',
+          reason: 'Payment process was cancelled or closed. Your cart and delivery details remain safely saved.',
+          timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+          attemptCount: 1,
+        });
+      }
+    } catch (e) {
+      console.warn('URL payment status parser log:', e);
+    }
+  }, []);
   const [selectedUpiApp, setSelectedUpiApp] = useState<'phonepe' | 'gpay' | 'paytm' | 'cred' | 'bhim'>('phonepe');
   const [customUpiId, setCustomUpiId] = useState('');
   const [cardNumber, setCardNumber] = useState('');
@@ -1343,12 +1383,14 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     setSelectedLocation(chosenAddress);
 
     // Extract clean contact information from user profile, address or default (Amazon/Flipkart flow)
-    const cleanPhone = (
-      user?.phone?.replace(/\D/g, '') ||
-      newAddrPhone?.replace(/\D/g, '') ||
-      activeSupervisor.phone?.replace(/\D/g, '') ||
+    let rawDigits = (
+      user?.phone ||
+      newAddrPhone ||
+      activeSupervisor.phone ||
       '9848012345'
-    ).slice(-10);
+    ).replace(/\D/g, '');
+    if (rawDigits.length > 10) rawDigits = rawDigits.slice(-10);
+    const cleanPhone = rawDigits.length === 10 ? rawDigits : '9848012345';
 
     const cleanName = (
       user?.name ||
@@ -1363,9 +1405,10 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       'customer@urbanico.in'
     ).trim();
 
-    // If Pay on Delivery / Site Dispatch is selected
+    // 1. Pay on Site / Delivery
     if (selectedPaymentMethod === 'pod') {
       setIsPlacingOrder(true);
+      setPaymentFailure(null);
       const podPaymentResult: RazorpayPaymentResult = {
         razorpay_payment_id: `pay_pod_${Date.now()}`,
         razorpay_order_id: `ord_pod_${Date.now()}`,
@@ -1382,211 +1425,61 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       return;
     }
 
-    // Direct UPI (Google Pay, PhonePe, Paytm, CRED, BHIM)
-    if (selectedPaymentMethod === 'upi_app') {
-      setIsPlacingOrder(true);
-      try {
-        await openRazorpayStandardCheckout({
-          amount: payableAmount,
-          userName: cleanName,
-          userPhone: cleanPhone,
-          userEmail: cleanEmail,
-          preferredMethod: 'upi',
-          preferredUpiApp: selectedUpiApp,
-          orderDescription: isServicesOnly
-            ? `${serviceItems[0]?.itemName || 'Trade Service'} Booking - Urbanico`
-            : `Order (${cartItems.length} items) - Urbanico Direct`,
-          onSuccess: (result: any) => {
-            setIsPlacingOrder(false);
-            handlePaymentSuccess(result);
-          },
-          onFailure: (err) => {
-            setIsPlacingOrder(false);
-            setPaymentError(err);
-            showToast(err || 'Payment was not completed. Please try again.', 'error');
-          },
-          onDismiss: () => {
-            setIsPlacingOrder(false);
-          },
-        });
-      } catch (err: any) {
-        setIsPlacingOrder(false);
-        showToast(err?.message || 'Unable to open UPI payment', 'error');
-      }
-      return;
-    }
-
-    // UPI ID (VPA)
-    if (selectedPaymentMethod === 'upi_vpa') {
-      const vpa = customUpiId.trim();
-      if (!vpa || !vpa.includes('@')) {
-        showToast('Please enter a valid UPI ID (e.g., 9848012345@ybl or name@okaxis)', 'error');
-        return;
-      }
-      setIsPlacingOrder(true);
-      try {
-        await openRazorpayStandardCheckout({
-          amount: payableAmount,
-          userName: cleanName,
-          userPhone: cleanPhone,
-          userEmail: cleanEmail,
-          preferredMethod: 'upi',
-          vpa: vpa,
-          orderDescription: isServicesOnly
-            ? `${serviceItems[0]?.itemName || 'Trade Service'} Booking - Urbanico`
-            : `Order (${cartItems.length} items) - Urbanico Direct`,
-          onSuccess: (result: any) => {
-            setIsPlacingOrder(false);
-            handlePaymentSuccess(result);
-          },
-          onFailure: (err) => {
-            setIsPlacingOrder(false);
-            setPaymentError(err);
-            showToast(err || 'UPI payment was not completed.', 'error');
-          },
-          onDismiss: () => {
-            setIsPlacingOrder(false);
-          },
-        });
-      } catch (err: any) {
-        setIsPlacingOrder(false);
-        showToast(err?.message || 'Unable to initiate UPI payment', 'error');
-      }
-      return;
-    }
-
-    // Credit / Debit / ATM Card via Razorpay Gateway (prefilled for Cards)
-    if (selectedPaymentMethod === 'card') {
-      setIsPlacingOrder(true);
-      try {
-        await openRazorpayStandardCheckout({
-          amount: payableAmount,
-          userName: cardHolder || cleanName,
-          userPhone: cleanPhone,
-          userEmail: cleanEmail,
-          preferredMethod: 'card',
-          orderDescription: isServicesOnly
-            ? `${serviceItems[0]?.itemName || 'Trade Service'} Booking - Urbanico`
-            : `Order (${cartItems.length} items) - Urbanico Direct`,
-          onSuccess: (result: any) => {
-            setIsPlacingOrder(false);
-            handlePaymentSuccess(result);
-          },
-          onFailure: (err) => {
-            setIsPlacingOrder(false);
-            setPaymentError(err);
-            showToast(err || 'Card payment was not completed. Please try again.', 'error');
-          },
-          onDismiss: () => {
-            setIsPlacingOrder(false);
-          },
-        });
-      } catch (err: any) {
-        setIsPlacingOrder(false);
-        showToast(err?.message || 'Unable to initialize card checkout', 'error');
-      }
-      return;
-    }
-
-    // Net Banking via Razorpay Gateway (prefilled with user's selected bank)
-    if (selectedPaymentMethod === 'netbanking') {
-      setIsPlacingOrder(true);
-      try {
-        await openRazorpayStandardCheckout({
-          amount: payableAmount,
-          userName: cleanName,
-          userPhone: cleanPhone,
-          userEmail: cleanEmail,
-          preferredMethod: 'netbanking',
-          preferredBank: selectedBank,
-          orderDescription: isServicesOnly
-            ? `${serviceItems[0]?.itemName || 'Trade Service'} Booking - Urbanico`
-            : `Order (${cartItems.length} items) - Urbanico Direct`,
-          onSuccess: (result: any) => {
-            setIsPlacingOrder(false);
-            handlePaymentSuccess(result);
-          },
-          onFailure: (err) => {
-            setIsPlacingOrder(false);
-            setPaymentError(err);
-            showToast(err || 'Net banking payment was not completed. Please try again.', 'error');
-          },
-          onDismiss: () => {
-            setIsPlacingOrder(false);
-          },
-        });
-      } catch (err: any) {
-        setIsPlacingOrder(false);
-        showToast(err?.message || 'Unable to open Net Banking checkout', 'error');
-      }
-      return;
-    }
-
-    // Wallets via Razorpay Gateway (prefilled with user's selected wallet)
-    if (selectedPaymentMethod === 'wallet') {
-      setIsPlacingOrder(true);
-      try {
-        await openRazorpayStandardCheckout({
-          amount: payableAmount,
-          userName: cleanName,
-          userPhone: cleanPhone,
-          userEmail: cleanEmail,
-          preferredMethod: 'wallet',
-          preferredWallet: selectedWallet,
-          orderDescription: isServicesOnly
-            ? `${serviceItems[0]?.itemName || 'Trade Service'} Booking - Urbanico`
-            : `Order (${cartItems.length} items) - Urbanico Direct`,
-          onSuccess: (result: any) => {
-            setIsPlacingOrder(false);
-            handlePaymentSuccess(result);
-          },
-          onFailure: (err) => {
-            setIsPlacingOrder(false);
-            setPaymentError(err);
-            showToast(err || 'Wallet payment was not completed. Please try again.', 'error');
-          },
-          onDismiss: () => {
-            setIsPlacingOrder(false);
-          },
-        });
-      } catch (err: any) {
-        setIsPlacingOrder(false);
-        showToast(err?.message || 'Unable to open Wallet checkout', 'error');
-      }
-      return;
-    }
-
-    // EMI / Pay Later via Razorpay Gateway
-    if (selectedPaymentMethod === 'emi') {
-      setIsPlacingOrder(true);
-      try {
-        await openRazorpayStandardCheckout({
-          amount: payableAmount,
-          userName: cleanName,
-          userPhone: cleanPhone,
-          userEmail: cleanEmail,
-          preferredMethod: 'emi',
-          orderDescription: isServicesOnly
-            ? `${serviceItems[0]?.itemName || 'Trade Service'} Booking - Urbanico`
-            : `Order (${cartItems.length} items) - Urbanico Direct`,
-          onSuccess: (result: any) => {
-            setIsPlacingOrder(false);
-            handlePaymentSuccess(result);
-          },
-          onFailure: (err) => {
-            setIsPlacingOrder(false);
-            setPaymentError(err);
-            showToast(err || 'EMI checkout was not completed. Please try again.', 'error');
-          },
-          onDismiss: () => {
-            setIsPlacingOrder(false);
-          },
-        });
-      } catch (err: any) {
-        setIsPlacingOrder(false);
-        showToast(err?.message || 'Unable to open EMI checkout', 'error');
-      }
-      return;
+    // 2. Seamless Online Payment via Razorpay Gateway (UPI, Cards, Net Banking, Wallets, EMI)
+    setIsPlacingOrder(true);
+    try {
+      await openRazorpayStandardCheckout({
+        amount: payableAmount,
+        userName: cleanName,
+        userPhone: cleanPhone,
+        userEmail: cleanEmail,
+        orderDescription: isServicesOnly
+          ? `${serviceItems[0]?.itemName || 'Trade Service'} Booking - Urbanico`
+          : `Order (${cartItems.length} items) - Urbanico Direct`,
+        onSuccess: (result: any) => {
+          setIsPlacingOrder(false);
+          setPaymentFailure(null);
+          handlePaymentSuccess(result);
+        },
+        onFailure: (err: any) => {
+          setIsPlacingOrder(false);
+          const rawErr = typeof err === 'string' ? err : (err?.message || 'Payment was declined or failed.');
+          setPaymentError(rawErr);
+          setRetryAttemptCount((prev) => prev + 1);
+          setPaymentFailure({
+            status: 'failed',
+            reason: rawErr,
+            timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+            attemptCount: retryAttemptCount + 1,
+          });
+          showToast(rawErr || 'Payment was not completed. You can retry immediately.', 'error');
+          if (scrollViewRef.current) {
+            scrollViewRef.current.scrollTo({ y: 0, animated: true });
+          }
+        },
+        onDismiss: () => {
+          setIsPlacingOrder(false);
+          setRetryAttemptCount((prev) => prev + 1);
+          setPaymentFailure({
+            status: 'cancelled',
+            reason: 'Payment gateway window was closed before completion. Your materials cart is safely preserved.',
+            timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+            attemptCount: retryAttemptCount + 1,
+          });
+          showToast('Payment window closed. Tap "Retry Payment" when ready.', 'info');
+        },
+      });
+    } catch (err: any) {
+      setIsPlacingOrder(false);
+      const msg = err?.message || 'Unable to open payment gateway';
+      setPaymentError(msg);
+      setPaymentFailure({
+        status: 'error',
+        reason: msg,
+        timestamp: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+        attemptCount: retryAttemptCount + 1,
+      });
+      showToast(msg, 'error');
     }
   };
 
@@ -1974,6 +1867,50 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
               <View style={styles.cartSection}>
                 {checkoutStep === 'cart' ? (
                   <>
+                    {/* Retry Notice Banner on Cart Step if previous payment attempt failed */}
+                    {paymentFailure && cartItems.length > 0 && (
+                      <View
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          backgroundColor: theme.mode === 'dark' ? '#1F1315' : '#FFF5F5',
+                          borderWidth: 1,
+                          borderColor: '#EF4444',
+                          borderRadius: 10,
+                          padding: 12,
+                          marginBottom: 12,
+                          gap: 10,
+                        }}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                          <AlertTriangle size={18} color="#DC2626" />
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary }}>
+                              Payment {paymentFailure.status === 'cancelled' ? 'was cancelled' : 'failed'}
+                            </Text>
+                            <Text style={{ fontSize: 11.5, color: theme.textSecondary, marginTop: 1 }} numberOfLines={1}>
+                              Your items are saved. Ready to complete checkout?
+                            </Text>
+                          </View>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => {
+                            soundService.playTap();
+                            setCheckoutStep('payment');
+                          }}
+                          style={{
+                            backgroundColor: '#DC2626',
+                            paddingHorizontal: 12,
+                            paddingVertical: 6,
+                            borderRadius: 6,
+                          }}
+                        >
+                          <Text style={{ fontSize: 12, fontWeight: '700', color: '#FFFFFF' }}>Retry Payment</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+
                     {/* Cart Items List */}
                     {cartItems.length > 0 && (
                       <View style={styles.itemsCardList}>
@@ -2275,7 +2212,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                     {materialItems.length > 0 && (
                       <View style={styles.summaryRow}>
                         <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>
-                          Direct Yard Freight ({deliveryDistanceKm} km)
+                          Delivery ({deliveryDistanceKm} km)
                         </Text>
                         <Text style={[styles.summaryValue, { color: theme.textPrimary, fontWeight: '700' }]}>
                           {deliveryCharge === 0 ? 'FREE' : `₹${deliveryCharge.toLocaleString('en-IN')}`}
@@ -2358,13 +2295,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                         <ArrowRight size={17} color="#FFFFFF" strokeWidth={2.4} />
                       </View>
                     </TouchableOpacity>
-
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 10 }}>
-                      <ShieldCheck size={13} color="#059669" />
-                      <Text style={{ fontSize: 11, color: theme.textMuted, fontWeight: '600' }}>
-                        Safe & Secure Checkout • 100% Verified Direct Yard Sourcing
-                      </Text>
-                    </View>
                   </View>
                 )}
 
@@ -2414,7 +2344,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
             ) : (
               /* Payment Options Screen (Step 2) */
               <View style={{ marginTop: 2 }}>
-                {/* Top Navigation & SSL Badge */}
+                {/* Top Navigation */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                   <TouchableOpacity
                     onPress={() => {
@@ -2440,770 +2370,112 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                     <ArrowLeft size={16} color={theme.textPrimary} />
                     <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary }}>Back to Cart</Text>
                   </TouchableOpacity>
-
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE' }}>
-                    <ShieldCheck size={14} color="#0066FF" />
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#0066FF' }}>256-BIT SSL SECURED</Text>
-                  </View>
                 </View>
 
-                {/* Compact Order Overview Bar */}
-                <View style={[styles.summaryCard, { backgroundColor: theme.surface, borderColor: theme.border, marginBottom: 12, padding: 14 }]}>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <View>
-                      <Text style={{ fontSize: 10.5, color: theme.textSecondary, textTransform: 'uppercase', fontWeight: '700', letterSpacing: 0.5 }}>
-                        TOTAL AMOUNT PAYABLE
-                      </Text>
-                      <Text style={{ fontSize: 22, fontWeight: '800', color: theme.textPrimary, marginTop: 2 }}>
-                        ₹{payableAmount.toLocaleString('en-IN')}
+                {/* Sleek Minimalist Payment Notice Banner */}
+                {paymentFailure && cartItems.length > 0 && (
+                  <View
+                    style={{
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      backgroundColor: paymentFailure.status === 'cancelled'
+                        ? (theme.mode === 'dark' ? '#2A1F0D' : '#FFFBEB')
+                        : (theme.mode === 'dark' ? '#2A1417' : '#FEF2F2'),
+                      borderWidth: 1,
+                      borderColor: paymentFailure.status === 'cancelled' ? '#F59E0B' : '#EF4444',
+                      borderRadius: 10,
+                      paddingVertical: 10,
+                      paddingHorizontal: 12,
+                      marginBottom: 12,
+                      gap: 8,
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 }}>
+                      {paymentFailure.status === 'cancelled' ? (
+                        <AlertTriangle size={16} color="#D97706" />
+                      ) : (
+                        <AlertCircle size={16} color="#DC2626" />
+                      )}
+                      <Text
+                        style={{
+                          fontSize: 12.5,
+                          fontWeight: '600',
+                          color: paymentFailure.status === 'cancelled'
+                            ? (theme.mode === 'dark' ? '#FDE68A' : '#92400E')
+                            : (theme.mode === 'dark' ? '#FECACA' : '#991B1B'),
+                          flex: 1,
+                        }}
+                        numberOfLines={2}
+                      >
+                        {paymentFailure.status === 'cancelled'
+                          ? 'Payment was cancelled. Select a method below to retry.'
+                          : 'Payment was declined or incomplete. Please retry or choose another method.'}
                       </Text>
                     </View>
+
                     <TouchableOpacity
                       onPress={() => {
                         soundService.playTap();
-                        setCheckoutStep('cart');
+                        setPaymentFailure(null);
                       }}
-                      activeOpacity={0.7}
-                      style={{ paddingVertical: 5, paddingHorizontal: 10, borderRadius: 6, backgroundColor: theme.surfaceSecondary, borderWidth: 1, borderColor: theme.border }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={{
+                        padding: 4,
+                        borderRadius: 12,
+                      }}
                     >
-                      <Text style={{ fontSize: 11.5, fontWeight: '700', color: '#0066FF' }}>View Bill ({totalUnitQuantity} items)</Text>
+                      <X size={14} color={paymentFailure.status === 'cancelled' ? '#D97706' : '#DC2626'} />
                     </TouchableOpacity>
                   </View>
-                  <View style={{ borderTopWidth: 1, borderTopColor: theme.borderLight, marginTop: 10, paddingTop: 8, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <MapPin size={13} color={theme.textSecondary} />
-                    <Text style={{ fontSize: 11.5, color: theme.textSecondary, flex: 1 }} numberOfLines={1}>
-                      Delivering to: <Text style={{ fontWeight: '600', color: theme.textPrimary }}>{selectedCheckoutAddress || activeLocation}</Text>
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => {
-                        soundService.playTap();
-                        setCheckoutStep('cart');
-                      }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={{ fontSize: 11.5, fontWeight: '600', color: '#0066FF' }}>Change</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
+                )}
 
                 {/* Payment Options */}
                 {cartItems.length > 0 && (
                   <View style={[styles.summaryCard, { backgroundColor: theme.surface, borderColor: theme.border, marginTop: 0 }]}>
                     <View style={{ borderBottomWidth: 1, borderBottomColor: theme.borderLight, paddingBottom: 10, marginBottom: 12 }}>
                       <Text style={[styles.summaryTitle, { borderBottomWidth: 0, paddingBottom: 0, marginBottom: 0, color: theme.textPrimary }]}>
-                        Select Payment Option
+                        Select Payment Method
                       </Text>
                     </View>
 
-                    {/* Method 1: UPI */}
+                    {/* Method 1: Seamless Online Payment */}
                     <TouchableOpacity
                       activeOpacity={0.88}
                       onPress={() => {
                         soundService.playTap();
-                        setSelectedPaymentMethod('upi_app');
+                        setSelectedPaymentMethod('online');
                       }}
                       style={[
                         styles.paymentOptionCard,
                         {
-                          backgroundColor: (selectedPaymentMethod === 'upi_app' || selectedPaymentMethod === 'upi_vpa')
+                          backgroundColor: selectedPaymentMethod === 'online'
                             ? (theme.mode === 'dark' ? '#1E293B' : '#F0FDF4')
                             : theme.surfaceSecondary,
-                          borderColor: (selectedPaymentMethod === 'upi_app' || selectedPaymentMethod === 'upi_vpa') ? '#16A34A' : theme.border,
+                          borderColor: selectedPaymentMethod === 'online' ? '#16A34A' : theme.border,
                         },
                       ]}
                     >
-                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                         <View
                           style={[
                             styles.radioCircle,
                             {
-                              borderColor: (selectedPaymentMethod === 'upi_app' || selectedPaymentMethod === 'upi_vpa') ? '#16A34A' : theme.textMuted,
-                              marginTop: 2,
+                              borderColor: selectedPaymentMethod === 'online' ? '#16A34A' : theme.textMuted,
                             },
                           ]}
                         >
-                          {(selectedPaymentMethod === 'upi_app' || selectedPaymentMethod === 'upi_vpa') && (
+                          {selectedPaymentMethod === 'online' && (
                             <View style={[styles.radioCircleInner, { backgroundColor: '#16A34A' }]} />
                           )}
                         </View>
-                        <View style={{ flex: 1, minWidth: 0 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <Smartphone size={15} color="#16A34A" />
-                            <Text style={{ fontSize: 13.5, fontWeight: '700', color: theme.textPrimary }}>
-                              UPI (Google Pay, PhonePe, Paytm, CRED)
-                            </Text>
-                          </View>
-
-                          {/* Sub-selector: 1-Click Apps vs Enter UPI ID */}
-                          {(selectedPaymentMethod === 'upi_app' || selectedPaymentMethod === 'upi_vpa') && (
-                            <View style={{ marginTop: 10 }}>
-                              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                                {/* PhonePe */}
-                                <TouchableOpacity
-                                  activeOpacity={0.8}
-                                  onPress={() => {
-                                    soundService.playTap();
-                                    setSelectedPaymentMethod('upi_app');
-                                    setSelectedUpiApp('phonepe');
-                                  }}
-                                  style={{
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                    paddingHorizontal: 10,
-                                    paddingVertical: 6,
-                                    borderRadius: 8,
-                                    borderWidth: 1.5,
-                                    borderColor: selectedPaymentMethod === 'upi_app' && selectedUpiApp === 'phonepe' ? '#5F259F' : theme.border,
-                                    backgroundColor: selectedPaymentMethod === 'upi_app' && selectedUpiApp === 'phonepe' ? '#FAF5FF' : theme.surface,
-                                  }}
-                                >
-                                  <PhonePeIcon size={20} />
-                                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#5F259F' }}>PhonePe</Text>
-                                  {selectedPaymentMethod === 'upi_app' && selectedUpiApp === 'phonepe' && (
-                                    <Check size={13} color="#5F259F" strokeWidth={3} />
-                                  )}
-                                </TouchableOpacity>
-
-                                {/* Google Pay */}
-                                <TouchableOpacity
-                                  activeOpacity={0.8}
-                                  onPress={() => {
-                                    soundService.playTap();
-                                    setSelectedPaymentMethod('upi_app');
-                                    setSelectedUpiApp('gpay');
-                                  }}
-                                  style={{
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                    paddingHorizontal: 10,
-                                    paddingVertical: 6,
-                                    borderRadius: 8,
-                                    borderWidth: 1.5,
-                                    borderColor: selectedPaymentMethod === 'upi_app' && selectedUpiApp === 'gpay' ? '#1A73E8' : theme.border,
-                                    backgroundColor: selectedPaymentMethod === 'upi_app' && selectedUpiApp === 'gpay' ? '#EFF6FF' : theme.surface,
-                                  }}
-                                >
-                                  <GooglePayIcon size={20} />
-                                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#1A73E8' }}>Google Pay</Text>
-                                  {selectedPaymentMethod === 'upi_app' && selectedUpiApp === 'gpay' && (
-                                    <Check size={13} color="#1A73E8" strokeWidth={3} />
-                                  )}
-                                </TouchableOpacity>
-
-                                {/* Paytm */}
-                                <TouchableOpacity
-                                  activeOpacity={0.8}
-                                  onPress={() => {
-                                    soundService.playTap();
-                                    setSelectedPaymentMethod('upi_app');
-                                    setSelectedUpiApp('paytm');
-                                  }}
-                                  style={{
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                    paddingHorizontal: 10,
-                                    paddingVertical: 6,
-                                    borderRadius: 8,
-                                    borderWidth: 1.5,
-                                    borderColor: selectedPaymentMethod === 'upi_app' && selectedUpiApp === 'paytm' ? '#00B9F1' : theme.border,
-                                    backgroundColor: selectedPaymentMethod === 'upi_app' && selectedUpiApp === 'paytm' ? '#F0F9FF' : theme.surface,
-                                  }}
-                                >
-                                  <PaytmIcon size={20} />
-                                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#002E6E' }}>Paytm</Text>
-                                  {selectedPaymentMethod === 'upi_app' && selectedUpiApp === 'paytm' && (
-                                    <Check size={13} color="#00B9F1" strokeWidth={3} />
-                                  )}
-                                </TouchableOpacity>
-
-                                {/* CRED */}
-                                <TouchableOpacity
-                                  activeOpacity={0.8}
-                                  onPress={() => {
-                                    soundService.playTap();
-                                    setSelectedPaymentMethod('upi_app');
-                                    setSelectedUpiApp('cred');
-                                  }}
-                                  style={{
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                    paddingHorizontal: 10,
-                                    paddingVertical: 6,
-                                    borderRadius: 8,
-                                    borderWidth: 1.5,
-                                    borderColor: selectedPaymentMethod === 'upi_app' && selectedUpiApp === 'cred' ? '#1E293B' : theme.border,
-                                    backgroundColor: selectedPaymentMethod === 'upi_app' && selectedUpiApp === 'cred' ? '#F8FAFC' : theme.surface,
-                                  }}
-                                >
-                                  <CredIcon size={20} />
-                                  <Text style={{ fontSize: 12, fontWeight: '700', color: theme.textPrimary }}>CRED</Text>
-                                  {selectedPaymentMethod === 'upi_app' && selectedUpiApp === 'cred' && (
-                                    <Check size={13} color="#1E293B" strokeWidth={3} />
-                                  )}
-                                </TouchableOpacity>
-
-                                {/* BHIM */}
-                                <TouchableOpacity
-                                  activeOpacity={0.8}
-                                  onPress={() => {
-                                    soundService.playTap();
-                                    setSelectedPaymentMethod('upi_app');
-                                    setSelectedUpiApp('bhim');
-                                  }}
-                                  style={{
-                                    flexDirection: 'row',
-                                    alignItems: 'center',
-                                    gap: 6,
-                                    paddingHorizontal: 10,
-                                    paddingVertical: 6,
-                                    borderRadius: 8,
-                                    borderWidth: 1.5,
-                                    borderColor: selectedPaymentMethod === 'upi_app' && selectedUpiApp === 'bhim' ? '#008450' : theme.border,
-                                    backgroundColor: selectedPaymentMethod === 'upi_app' && selectedUpiApp === 'bhim' ? '#ECFDF5' : theme.surface,
-                                  }}
-                                >
-                                  <BhimIcon size={20} />
-                                  <Text style={{ fontSize: 12, fontWeight: '700', color: '#008450' }}>BHIM</Text>
-                                  {selectedPaymentMethod === 'upi_app' && selectedUpiApp === 'bhim' && (
-                                    <Check size={13} color="#008450" strokeWidth={3} />
-                                  )}
-                                </TouchableOpacity>
-                              </View>
-
-                              {/* Toggle to enter UPI ID */}
-                              <TouchableOpacity
-                                activeOpacity={0.8}
-                                onPress={() => {
-                                  soundService.playTap();
-                                  setSelectedPaymentMethod(selectedPaymentMethod === 'upi_vpa' ? 'upi_app' : 'upi_vpa');
-                                }}
-                                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10 }}
-                              >
-                                <View style={[styles.radioCircle, { width: 14, height: 14, borderColor: selectedPaymentMethod === 'upi_vpa' ? '#16A34A' : theme.textMuted }]}>
-                                  {selectedPaymentMethod === 'upi_vpa' && <View style={[styles.radioCircleInner, { width: 8, height: 8, backgroundColor: '#16A34A' }]} />}
-                                </View>
-                                <Text style={{ fontSize: 12, fontWeight: '600', color: selectedPaymentMethod === 'upi_vpa' ? theme.textPrimary : theme.textSecondary }}>
-                                  Or pay via UPI ID (e.g., 9848012345@ybl)
-                                </Text>
-                              </TouchableOpacity>
-
-                              {selectedPaymentMethod === 'upi_vpa' && (
-                                <View style={{ marginTop: 8 }}>
-                                  <TextInput
-                                    value={customUpiId}
-                                    onChangeText={setCustomUpiId}
-                                    placeholder="Enter UPI ID (e.g. mobile@upi or name@okaxis)"
-                                    placeholderTextColor={theme.textMuted}
-                                    autoCapitalize="none"
-                                    autoCorrect={false}
-                                    style={[
-                                      styles.formTextInput,
-                                      {
-                                        backgroundColor: theme.surface,
-                                        borderColor: theme.border,
-                                        color: theme.textPrimary,
-                                        height: 38,
-                                        fontSize: 12.5,
-                                      },
-                                    ]}
-                                  />
-                                </View>
-                              )}
-                            </View>
-                          )}
-                        </View>
+                        <Text style={{ fontSize: 13.5, fontWeight: '700', color: theme.textPrimary, flex: 1 }}>
+                          Online Payment (UPI / Cards)
+                        </Text>
                       </View>
                     </TouchableOpacity>
 
-                    {/* Method 2: Credit / Debit / ATM Card (Visa, Mastercard, RuPay - Amazon/Flipkart Flow) */}
-                    <TouchableOpacity
-                      activeOpacity={0.88}
-                      onPress={() => {
-                        soundService.playTap();
-                        setSelectedPaymentMethod('card');
-                      }}
-                      style={[
-                        styles.paymentOptionCard,
-                        {
-                          backgroundColor: selectedPaymentMethod === 'card'
-                            ? (theme.mode === 'dark' ? '#1E293B' : '#F0F9FF')
-                            : theme.surfaceSecondary,
-                          borderColor: selectedPaymentMethod === 'card' ? '#0284C7' : theme.border,
-                          marginTop: 10,
-                        },
-                      ]}
-                    >
-                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-                        <View
-                          style={[
-                            styles.radioCircle,
-                            {
-                              borderColor: selectedPaymentMethod === 'card' ? '#0284C7' : theme.textMuted,
-                              marginTop: 2,
-                            },
-                          ]}
-                        >
-                          {selectedPaymentMethod === 'card' && (
-                            <View style={[styles.radioCircleInner, { backgroundColor: '#0284C7' }]} />
-                          )}
-                        </View>
-                        <View style={{ flex: 1, minWidth: 0 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              <CreditCard size={15} color="#0284C7" />
-                              <Text style={{ fontSize: 13.5, fontWeight: '700', color: theme.textPrimary }}>
-                                Credit / Debit / ATM Card
-                              </Text>
-                            </View>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                              <VisaIcon size={18} />
-                              <MastercardIcon size={18} />
-                              <RupayIcon size={18} />
-                            </View>
-                          </View>
-
-                          {/* Expanded Card Fields */}
-                          {selectedPaymentMethod === 'card' && (
-                            <View style={{ marginTop: 10, gap: 8 }}>
-                              {/* Card Number with Brand Badge */}
-                              <View style={{ position: 'relative' }}>
-                                <TextInput
-                                  value={cardNumber}
-                                  onChangeText={handleCardNumberChange}
-                                  placeholder="Card Number (e.g. 4532 8901 2345 6789)"
-                                  placeholderTextColor={theme.textMuted}
-                                  keyboardType="numeric"
-                                  maxLength={19}
-                                  style={[
-                                    styles.formTextInput,
-                                    {
-                                      backgroundColor: theme.surface,
-                                      borderColor: theme.border,
-                                      color: theme.textPrimary,
-                                      height: 38,
-                                      fontSize: 13,
-                                      paddingRight: 60,
-                                    },
-                                  ]}
-                                />
-                                <View style={{ position: 'absolute', right: 8, top: 9 }}>
-                                  {detectedCardBrand === 'visa' && <VisaIcon size={20} />}
-                                  {detectedCardBrand === 'mastercard' && <MastercardIcon size={20} />}
-                                  {detectedCardBrand === 'rupay' && <RupayIcon size={20} />}
-                                </View>
-                              </View>
-
-                              {/* Expiry & CVV Row */}
-                              <View style={{ flexDirection: 'row', gap: 8 }}>
-                                <TextInput
-                                  value={cardExpiry}
-                                  onChangeText={handleCardExpiryChange}
-                                  placeholder="MM/YY"
-                                  placeholderTextColor={theme.textMuted}
-                                  keyboardType="numeric"
-                                  maxLength={5}
-                                  style={[
-                                    styles.formTextInput,
-                                    {
-                                      flex: 1,
-                                      backgroundColor: theme.surface,
-                                      borderColor: theme.border,
-                                      color: theme.textPrimary,
-                                      height: 38,
-                                      fontSize: 13,
-                                      textAlign: 'center',
-                                    },
-                                  ]}
-                                />
-                                <TextInput
-                                  value={cardCvv}
-                                  onChangeText={(t) => setCardCvv(t.replace(/\D/g, '').slice(0, 4))}
-                                  placeholder="CVV"
-                                  placeholderTextColor={theme.textMuted}
-                                  keyboardType="numeric"
-                                  secureTextEntry
-                                  maxLength={4}
-                                  style={[
-                                    styles.formTextInput,
-                                    {
-                                      flex: 1,
-                                      backgroundColor: theme.surface,
-                                      borderColor: theme.border,
-                                      color: theme.textPrimary,
-                                      height: 38,
-                                      fontSize: 13,
-                                      textAlign: 'center',
-                                    },
-                                  ]}
-                                />
-                              </View>
-
-                              {/* Name on Card */}
-                              <TextInput
-                                value={cardHolder}
-                                onChangeText={setCardHolder}
-                                placeholder="Name on Card"
-                                placeholderTextColor={theme.textMuted}
-                                autoCapitalize="words"
-                                style={[
-                                  styles.formTextInput,
-                                  {
-                                    backgroundColor: theme.surface,
-                                    borderColor: theme.border,
-                                    color: theme.textPrimary,
-                                    height: 38,
-                                    fontSize: 13,
-                                  },
-                                ]}
-                              />
-
-                              {/* Save Card Checkbox */}
-                              <TouchableOpacity
-                                activeOpacity={0.8}
-                                onPress={() => setSaveCardSecurely(!saveCardSecurely)}
-                                style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}
-                              >
-                                <View
-                                  style={{
-                                    width: 16,
-                                    height: 16,
-                                    borderRadius: 4,
-                                    borderWidth: 1.5,
-                                    borderColor: saveCardSecurely ? '#0284C7' : theme.border,
-                                    backgroundColor: saveCardSecurely ? '#0284C7' : 'transparent',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                  }}
-                                >
-                                  {saveCardSecurely && <Check size={11} color="#FFFFFF" strokeWidth={3} />}
-                                </View>
-                                <Text style={{ fontSize: 11, color: theme.textSecondary }}>
-                                  Save card for future payments
-                                </Text>
-                              </TouchableOpacity>
-                            </View>
-                          )}
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-
-                    {/* Method 3: Net Banking */}
-                    <TouchableOpacity
-                      activeOpacity={0.88}
-                      onPress={() => {
-                        soundService.playTap();
-                        setSelectedPaymentMethod('netbanking');
-                      }}
-                      style={[
-                        styles.paymentOptionCard,
-                        {
-                          backgroundColor: selectedPaymentMethod === 'netbanking'
-                            ? (theme.mode === 'dark' ? '#1E293B' : '#F0F9FF')
-                            : theme.surfaceSecondary,
-                          borderColor: selectedPaymentMethod === 'netbanking' ? '#0284C7' : theme.border,
-                          marginTop: 10,
-                        },
-                      ]}
-                    >
-                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-                        <View
-                          style={[
-                            styles.radioCircle,
-                            {
-                              borderColor: selectedPaymentMethod === 'netbanking' ? '#0284C7' : theme.textMuted,
-                              marginTop: 2,
-                            },
-                          ]}
-                        >
-                          {selectedPaymentMethod === 'netbanking' && (
-                            <View style={[styles.radioCircleInner, { backgroundColor: '#0284C7' }]} />
-                          )}
-                        </View>
-                        <View style={{ flex: 1, minWidth: 0 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <Building size={15} color="#0284C7" />
-                            <Text style={{ fontSize: 13.5, fontWeight: '700', color: theme.textPrimary }}>
-                              Net Banking
-                            </Text>
-                          </View>
-
-                          {/* Popular Bank Selector Grid */}
-                          {selectedPaymentMethod === 'netbanking' && (
-                            <View style={{ marginTop: 10 }}>
-                              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                                {POPULAR_BANKS.map((b) => {
-                                  const isSelected = selectedBank === b.code;
-                                  return (
-                                    <TouchableOpacity
-                                      key={b.code}
-                                      activeOpacity={0.8}
-                                      onPress={() => {
-                                        soundService.playTap();
-                                        setSelectedBank(b.code);
-                                      }}
-                                      style={{
-                                        flexDirection: 'row',
-                                        alignItems: 'center',
-                                        gap: 6,
-                                        paddingHorizontal: 9,
-                                        paddingVertical: 6,
-                                        borderRadius: 8,
-                                        borderWidth: 1.5,
-                                        borderColor: isSelected ? b.color : theme.border,
-                                        backgroundColor: isSelected ? (theme.mode === 'dark' ? '#1E293B' : '#F8FAFC') : theme.surface,
-                                      }}
-                                    >
-                                      <BankPillIcon bankCode={b.code} size={18} />
-                                      <Text style={{ fontSize: 11.5, fontWeight: isSelected ? '700' : '500', color: theme.textPrimary }}>
-                                        {b.name}
-                                      </Text>
-                                      {isSelected && <Check size={12} color={b.color} strokeWidth={3} />}
-                                    </TouchableOpacity>
-                                  );
-                                })}
-                              </View>
-
-                              {/* Other Banks Expander */}
-                              <TouchableOpacity
-                                activeOpacity={0.8}
-                                onPress={() => setShowOtherBanksPicker(!showOtherBanksPicker)}
-                                style={{
-                                  flexDirection: 'row',
-                                  alignItems: 'center',
-                                  justifyContent: 'space-between',
-                                  marginTop: 10,
-                                  padding: 8,
-                                  borderRadius: 8,
-                                  borderWidth: 1,
-                                  borderColor: theme.border,
-                                  backgroundColor: theme.surface,
-                                }}
-                              >
-                                <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textPrimary }}>
-                                  {OTHER_BANKS.some((b) => b.code === selectedBank)
-                                    ? `Selected: ${OTHER_BANKS.find((b) => b.code === selectedBank)?.name}`
-                                    : 'All Other Indian Banks (Select from list)'}
-                                </Text>
-                                {showOtherBanksPicker ? (
-                                  <ChevronUp size={16} color={theme.textSecondary} />
-                                ) : (
-                                  <ChevronDown size={16} color={theme.textSecondary} />
-                                )}
-                              </TouchableOpacity>
-
-                              {showOtherBanksPicker && (
-                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 8, padding: 8, borderRadius: 8, backgroundColor: theme.surfaceSecondary }}>
-                                  {OTHER_BANKS.map((b) => {
-                                    const isSelected = selectedBank === b.code;
-                                    return (
-                                      <TouchableOpacity
-                                        key={b.code}
-                                        activeOpacity={0.8}
-                                        onPress={() => {
-                                          soundService.playTap();
-                                          setSelectedBank(b.code);
-                                          setShowOtherBanksPicker(false);
-                                        }}
-                                        style={{
-                                          paddingHorizontal: 8,
-                                          paddingVertical: 5,
-                                          borderRadius: 6,
-                                          borderWidth: 1,
-                                          borderColor: isSelected ? theme.primary : theme.border,
-                                          backgroundColor: isSelected ? theme.primaryLight : theme.surface,
-                                        }}
-                                      >
-                                        <Text style={{ fontSize: 11, fontWeight: isSelected ? '700' : '500', color: isSelected ? theme.primary : theme.textPrimary }}>
-                                          {b.name}
-                                        </Text>
-                                      </TouchableOpacity>
-                                    );
-                                  })}
-                                </View>
-                              )}
-                            </View>
-                          )}
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-
-                    {/* Method 4: Wallets */}
-                    <TouchableOpacity
-                      activeOpacity={0.88}
-                      onPress={() => {
-                        soundService.playTap();
-                        setSelectedPaymentMethod('wallet');
-                      }}
-                      style={[
-                        styles.paymentOptionCard,
-                        {
-                          backgroundColor: selectedPaymentMethod === 'wallet'
-                            ? (theme.mode === 'dark' ? '#1E293B' : '#F0F9FF')
-                            : theme.surfaceSecondary,
-                          borderColor: selectedPaymentMethod === 'wallet' ? '#0284C7' : theme.border,
-                          marginTop: 10,
-                        },
-                      ]}
-                    >
-                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-                        <View
-                          style={[
-                            styles.radioCircle,
-                            {
-                              borderColor: selectedPaymentMethod === 'wallet' ? '#0284C7' : theme.textMuted,
-                              marginTop: 2,
-                            },
-                          ]}
-                        >
-                          {selectedPaymentMethod === 'wallet' && (
-                            <View style={[styles.radioCircleInner, { backgroundColor: '#0284C7' }]} />
-                          )}
-                        </View>
-                        <View style={{ flex: 1, minWidth: 0 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              <Wallet size={15} color="#0284C7" />
-                              <Text style={{ fontSize: 13.5, fontWeight: '700', color: theme.textPrimary }}>
-                                Wallets
-                              </Text>
-                            </View>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                              <PaytmIcon size={18} />
-                              <PhonePeIcon size={18} />
-                              <AmazonPayIcon size={18} />
-                            </View>
-                          </View>
-
-                          {/* Wallet Grid */}
-                          {selectedPaymentMethod === 'wallet' && (
-                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-                              {WALLET_OPTIONS.map((w) => {
-                                const isSelected = selectedWallet === w.code;
-                                return (
-                                  <TouchableOpacity
-                                    key={w.code}
-                                    activeOpacity={0.8}
-                                    onPress={() => {
-                                      soundService.playTap();
-                                      setSelectedWallet(w.code);
-                                    }}
-                                    style={{
-                                      flexDirection: 'row',
-                                      alignItems: 'center',
-                                      gap: 6,
-                                      paddingHorizontal: 9,
-                                      paddingVertical: 6,
-                                      borderRadius: 8,
-                                      borderWidth: 1.5,
-                                      borderColor: isSelected ? '#0284C7' : theme.border,
-                                      backgroundColor: isSelected ? (theme.mode === 'dark' ? '#1E293B' : '#F0F9FF') : theme.surface,
-                                    }}
-                                  >
-                                    {w.code === 'paytm' && <PaytmIcon size={18} />}
-                                    {w.code === 'phonepe' && <PhonePeIcon size={18} />}
-                                    {w.code === 'amazonpay' && <AmazonPayIcon size={18} />}
-                                    {w.code === 'mobikwik' && <MobikwikIcon size={18} />}
-                                    {w.code === 'freecharge' && <FreechargeIcon size={18} />}
-                                    {w.code === 'airtelmoney' && <AirtelIcon size={18} />}
-                                    <Text style={{ fontSize: 11.5, fontWeight: isSelected ? '700' : '500', color: theme.textPrimary }}>
-                                      {w.name}
-                                    </Text>
-                                    {isSelected && <Check size={12} color="#0284C7" strokeWidth={3} />}
-                                  </TouchableOpacity>
-                                );
-                              })}
-                            </View>
-                          )}
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-
-                    {/* Method 5: EMI */}
-                    <TouchableOpacity
-                      activeOpacity={0.88}
-                      onPress={() => {
-                        soundService.playTap();
-                        setSelectedPaymentMethod('emi');
-                      }}
-                      style={[
-                        styles.paymentOptionCard,
-                        {
-                          backgroundColor: selectedPaymentMethod === 'emi'
-                            ? (theme.mode === 'dark' ? '#1E293B' : '#F0F9FF')
-                            : theme.surfaceSecondary,
-                          borderColor: selectedPaymentMethod === 'emi' ? '#7C3AED' : theme.border,
-                          marginTop: 10,
-                        },
-                      ]}
-                    >
-                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
-                        <View
-                          style={[
-                            styles.radioCircle,
-                            {
-                              borderColor: selectedPaymentMethod === 'emi' ? '#7C3AED' : theme.textMuted,
-                              marginTop: 2,
-                            },
-                          ]}
-                        >
-                          {selectedPaymentMethod === 'emi' && (
-                            <View style={[styles.radioCircleInner, { backgroundColor: '#7C3AED' }]} />
-                          )}
-                        </View>
-                        <View style={{ flex: 1, minWidth: 0 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                            <Percent size={15} color="#7C3AED" />
-                            <Text style={{ fontSize: 13.5, fontWeight: '700', color: theme.textPrimary }}>
-                              EMI / Pay Later
-                            </Text>
-                          </View>
-
-                          {/* EMI Tenure Options */}
-                          {selectedPaymentMethod === 'emi' && (
-                            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-                              {EMI_PLANS.map((plan) => {
-                                const isSelected = selectedEmiTenure === plan.tenure;
-                                const monthlyAmount = Math.round(
-                                  (payableAmount * (1 + (plan.interestRate / 100) * (plan.tenure / 12))) / plan.tenure
-                                );
-                                return (
-                                  <TouchableOpacity
-                                    key={plan.tenure}
-                                    activeOpacity={0.8}
-                                    onPress={() => {
-                                      soundService.playTap();
-                                      setSelectedEmiTenure(plan.tenure);
-                                    }}
-                                    style={{
-                                      flex: 1,
-                                      minWidth: '45%',
-                                      padding: 8,
-                                      borderRadius: 8,
-                                      borderWidth: 1.5,
-                                      borderColor: isSelected ? '#7C3AED' : theme.border,
-                                      backgroundColor: isSelected ? (theme.mode === 'dark' ? '#1E293B' : '#FAF5FF') : theme.surface,
-                                    }}
-                                  >
-                                    <Text style={{ fontSize: 12, fontWeight: '700', color: theme.textPrimary }}>
-                                      {plan.label}
-                                    </Text>
-                                    <Text style={{ fontSize: 13, fontWeight: '800', color: '#7C3AED', marginTop: 3 }}>
-                                      ₹{monthlyAmount.toLocaleString('en-IN')}/mo
-                                    </Text>
-                                  </TouchableOpacity>
-                                );
-                              })}
-                            </View>
-                          )}
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-
-                    {/* Method 6: Pay on Site / Delivery */}
+                    {/* Method 2: Pay on Site / Delivery */}
                     <TouchableOpacity
                       activeOpacity={0.88}
                       onPress={() => {
@@ -3221,13 +2493,12 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                         },
                       ]}
                     >
-                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 12 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
                         <View
                           style={[
                             styles.radioCircle,
                             {
                               borderColor: selectedPaymentMethod === 'pod' ? theme.primary : theme.textMuted,
-                              marginTop: 2,
                             },
                           ]}
                         >
@@ -3235,19 +2506,17 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                             <View style={[styles.radioCircleInner, { backgroundColor: theme.primary }]} />
                           )}
                         </View>
-                        <View style={{ flex: 1, minWidth: 0 }}>
-                          <Text style={{ fontSize: 13.5, fontWeight: '700', color: theme.textPrimary }}>
-                            Pay on Site / Delivery
-                          </Text>
-                        </View>
+                        <Text style={{ fontSize: 13.5, fontWeight: '700', color: theme.textPrimary, flex: 1 }}>
+                          Pay on Delivery (POD)
+                        </Text>
                       </View>
                     </TouchableOpacity>
                   </View>
                 )}
 
-                {/* Single Minimalist Pay Button */}
+                {/* Single Minimalist Pay / Retry Button */}
                 {cartItems.length > 0 && (
-                  <View style={{ marginTop: 12 }}>
+                  <View style={{ marginTop: 14 }}>
                     <TouchableOpacity
                       onPress={handleStartCheckout}
                       disabled={isPlacingOrder}
@@ -3255,7 +2524,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                       style={[
                         styles.nikeCheckoutPill,
                         {
-                          backgroundColor: '#0F172A',
+                          backgroundColor: paymentFailure && selectedPaymentMethod === 'online' ? '#DC2626' : '#0F172A',
                           height: 52,
                           borderRadius: 26,
                           flexDirection: 'row',
@@ -3270,18 +2539,8 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                           <ActivityIndicator size="small" color="#FFFFFF" />
                           <Text style={[styles.nikeCheckoutPillText, { fontSize: 15, fontWeight: '600', textAlign: 'center' }]}>
                             {selectedPaymentMethod === 'pod'
-                              ? 'Confirming Dispatch...'
-                              : selectedPaymentMethod === 'upi_app'
-                              ? `Opening ${selectedUpiApp === 'phonepe' ? 'PhonePe' : selectedUpiApp === 'gpay' ? 'Google Pay' : selectedUpiApp === 'paytm' ? 'Paytm' : selectedUpiApp === 'cred' ? 'CRED' : 'BHIM'}...`
-                              : selectedPaymentMethod === 'upi_vpa'
-                              ? 'Sending UPI Request...'
-                              : selectedPaymentMethod === 'card'
-                              ? 'Connecting Card Gateway...'
-                              : selectedPaymentMethod === 'netbanking'
-                              ? `Connecting ${POPULAR_BANKS.find((b) => b.code === selectedBank)?.name || 'Bank'}...`
-                              : selectedPaymentMethod === 'wallet'
-                              ? `Opening ${WALLET_OPTIONS.find((w) => w.code === selectedWallet)?.name || 'Wallet'}...`
-                              : 'Connecting EMI Portal...'}
+                              ? 'Confirming Site Order...'
+                              : 'Connecting to Payment Gateway...'}
                           </Text>
                         </View>
                       ) : (
@@ -3295,62 +2554,49 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                             paddingHorizontal: 8,
                           }}
                         >
-                          <Lock size={15} color="#FFFFFF" />
-                          <Text
-                            style={[
-                              styles.nikeCheckoutPillText,
-                              {
-                                fontSize: 15,
-                                fontWeight: '700',
-                                letterSpacing: 0.1,
-                                textAlign: 'center',
-                                flexShrink: 1,
-                              },
-                            ]}
-                          >
-                            {selectedPaymentMethod === 'pod'
-                              ? `Place Order (Pay on Site ₹${payableAmount.toLocaleString('en-IN')})`
-                              : selectedPaymentMethod === 'upi_app'
-                              ? `Pay ₹${payableAmount.toLocaleString('en-IN')} via ${
-                                  selectedUpiApp === 'phonepe'
-                                    ? 'PhonePe'
-                                    : selectedUpiApp === 'gpay'
-                                    ? 'Google Pay'
-                                    : selectedUpiApp === 'paytm'
-                                    ? 'Paytm'
-                                    : selectedUpiApp === 'cred'
-                                    ? 'CRED'
-                                    : 'BHIM'
-                                }`
-                              : selectedPaymentMethod === 'upi_vpa'
-                              ? `Request ₹${payableAmount.toLocaleString('en-IN')} on UPI ID`
-                              : selectedPaymentMethod === 'card'
-                              ? `Pay ₹${payableAmount.toLocaleString('en-IN')} via Card`
-                              : selectedPaymentMethod === 'netbanking'
-                              ? `Pay ₹${payableAmount.toLocaleString('en-IN')} via ${POPULAR_BANKS.find((b) => b.code === selectedBank)?.name || selectedBank}`
-                              : selectedPaymentMethod === 'wallet'
-                              ? `Pay ₹${payableAmount.toLocaleString('en-IN')} via ${WALLET_OPTIONS.find((w) => w.code === selectedWallet)?.name || 'Wallet'}`
-                              : `Proceed to Pay with EMI (₹${payableAmount.toLocaleString('en-IN')})`}
-                          </Text>
-                          <ArrowRight size={17} color="#FFFFFF" strokeWidth={2.4} />
+                          {paymentFailure && selectedPaymentMethod === 'online' ? (
+                            <>
+                              <RotateCcw size={16} color="#FFFFFF" strokeWidth={2.4} />
+                              <Text
+                                style={[
+                                  styles.nikeCheckoutPillText,
+                                  {
+                                    fontSize: 15,
+                                    fontWeight: '700',
+                                    letterSpacing: 0.1,
+                                    textAlign: 'center',
+                                    flexShrink: 1,
+                                  },
+                                ]}
+                              >
+                                Retry Payment (₹{payableAmount.toLocaleString('en-IN')})
+                              </Text>
+                              <ArrowRight size={17} color="#FFFFFF" strokeWidth={2.4} />
+                            </>
+                          ) : (
+                            <>
+                              <Lock size={15} color="#FFFFFF" />
+                              <Text
+                                style={[
+                                  styles.nikeCheckoutPillText,
+                                  {
+                                    fontSize: 15,
+                                    fontWeight: '700',
+                                    letterSpacing: 0.1,
+                                    textAlign: 'center',
+                                    flexShrink: 1,
+                                  },
+                                ]}
+                              >
+                                {selectedPaymentMethod === 'pod'
+                                  ? `Place Order (Pay on Site ₹${payableAmount.toLocaleString('en-IN')})`
+                                  : `Pay ₹${payableAmount.toLocaleString('en-IN')}`}
+                              </Text>
+                              <ArrowRight size={17} color="#FFFFFF" strokeWidth={2.4} />
+                            </>
+                          )}
                         </View>
                       )}
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      onPress={() => {
-                        soundService.playTap();
-                        setCheckoutStep('cart');
-                        if (scrollViewRef.current) {
-                          scrollViewRef.current.scrollTo({ y: 0, animated: true });
-                        }
-                      }}
-                      style={{ alignItems: 'center', paddingVertical: 12, marginTop: 4 }}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={{ fontSize: 13, fontWeight: '600', color: theme.textSecondary }}>
-                        ← Return to Cart & Modify Order
-                      </Text>
                     </TouchableOpacity>
                   </View>
                 )}

@@ -643,7 +643,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                 <span>₹${sgstAmount.toLocaleString('en-IN')}</span>
               </div>
               <div class="calc-row">
-                <span>Direct Yard Freight:</span>
+                <span>Delivery Freight:</span>
                 <span style="color: #059669; font-weight: 700;">INCLUDED (FREE)</span>
               </div>
               ${hasLaborAssistance ? `
@@ -1057,7 +1057,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                       <Text style={styles.calcVal}>₹{sgstAmount.toLocaleString('en-IN')}</Text>
                     </View>
                     <View style={styles.calcRow}>
-                      <Text style={styles.calcLabel}>Direct Yard Freight</Text>
+                      <Text style={styles.calcLabel}>Delivery Freight</Text>
                       <Text style={[styles.calcVal, { color: '#059669', fontWeight: '800' }]}>INCLUDED</Text>
                     </View>
                     <View style={styles.calcRow}>

@@ -9,12 +9,14 @@ import { soundService } from '../utils/soundHelper';
 interface BottomNavProps {
   activeScreen: ScreenType;
   onSelectTab: (screen: ScreenType) => void;
+  onPreloadTab?: (screen: ScreenType) => void;
   cartCount: number;
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({
   activeScreen,
   onSelectTab,
+  onPreloadTab,
   cartCount,
 }) => {
   const { theme, isAppleDesign } = useTheme();
@@ -105,6 +107,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           {/* 1. Home Tab */}
           <TouchableOpacity
             onPress={() => handleTabPress('home')}
+            onPressIn={() => onPreloadTab?.('home')}
             activeOpacity={0.7}
             style={styles.tabButton}
             accessibilityRole="button"
@@ -134,6 +137,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           {/* 2. Shop Tab */}
           <TouchableOpacity
             onPress={() => handleTabPress('shop')}
+            onPressIn={() => onPreloadTab?.('shop')}
             activeOpacity={0.7}
             style={styles.tabButton}
             accessibilityRole="button"
@@ -163,6 +167,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           {/* 3. Favourites Tab */}
           <TouchableOpacity
             onPress={() => handleTabPress('favorites')}
+            onPressIn={() => onPreloadTab?.('favorites')}
             activeOpacity={0.7}
             style={styles.tabButton}
             accessibilityRole="button"
@@ -193,6 +198,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           {/* 4. Cart Tab */}
           <TouchableOpacity
             onPress={() => handleTabPress('basket')}
+            onPressIn={() => onPreloadTab?.('basket')}
             activeOpacity={0.7}
             style={styles.tabButton}
             accessibilityRole="button"
@@ -239,6 +245,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
           {/* 5. Profile Tab */}
           <TouchableOpacity
             onPress={() => handleTabPress('profile')}
+            onPressIn={() => onPreloadTab?.('profile')}
             activeOpacity={0.7}
             style={styles.tabButton}
             accessibilityRole="button"

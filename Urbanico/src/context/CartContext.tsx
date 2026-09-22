@@ -68,22 +68,32 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [couponDiscount, setCouponDiscount] = useState<number>(0);
 
-  // Sync cart items to storage
+  // Debounced auto-save mechanism for cart state to minimize storage I/O during rapid quantity adjustments
   useEffect(() => {
     try {
       const authSaved = safeStorage.getItem('urbanico_auth_session');
       const phone = authSaved ? JSON.parse(authSaved).phone : null;
       const key = phone ? `urbanico_cart_${phone}` : 'urbanico_cart_guest';
-      safeStorage.setItem(key, JSON.stringify(cartItems));
+      safeStorage.setDebouncedItem(key, JSON.stringify(cartItems), 400);
     } catch {
       // ignore
     }
+
+    return () => {
+      // Flush immediately on unmount
+      try {
+        const authSaved = safeStorage.getItem('urbanico_auth_session');
+        const phone = authSaved ? JSON.parse(authSaved).phone : null;
+        const key = phone ? `urbanico_cart_${phone}` : 'urbanico_cart_guest';
+        safeStorage.flushDebounced(key);
+      } catch {}
+    };
   }, [cartItems]);
 
-  // Sync saved items to storage
+  // Debounced auto-save for saved-for-later items
   useEffect(() => {
     try {
-      safeStorage.setItem('urbanico_saved_for_later', JSON.stringify(savedForLaterItems));
+      safeStorage.setDebouncedItem('urbanico_saved_for_later', JSON.stringify(savedForLaterItems), 400);
     } catch {
       // ignore
     }
