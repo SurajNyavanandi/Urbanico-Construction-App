@@ -3,6 +3,8 @@ import { View, Text, StyleSheet } from 'react-native';
 
 interface IconProps {
   size?: number;
+  width?: number;
+  height?: number;
   className?: string;
 }
 

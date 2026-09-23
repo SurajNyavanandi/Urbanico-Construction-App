@@ -8,11 +8,13 @@ import {
   RefreshControl,
   Platform,
 } from 'react-native';
-import { Heart, Plus, ShoppingCart, ArrowRight, Bookmark, Trash2 } from 'lucide-react-native';
+import { Heart, Plus, ShoppingCart, Bookmark, Trash2 } from 'lucide-react-native';
 import { MaterialItem } from '../types';
 import { MATERIAL_ITEMS } from '../data/materialsData';
 import { useToast } from '../context/ToastContext';
 import { useCart } from '../context/CartContext';
+import { useCartActions } from '../hooks/useCartActions';
+import { useTheme, useTypography, useSpacing, useRadius } from '../theme';
 import { ShimmerImage } from './common/ShimmerImage';
 import { soundService } from '../utils/soundHelper';
 import { ProductCardSkeleton } from './common/SkeletonLoader';
@@ -40,8 +42,14 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
   isLoggedIn = true,
   onOpenLoginModal,
 }) => {
+  const { theme } = useTheme();
+  const typography = useTypography();
+  const spacing = useSpacing();
+  const radius = useRadius();
+
   const { showToast } = useToast();
   const { savedForLaterItems, moveToCart, removeSavedForLater } = useCart();
+  const { addMaterialWithFeedback } = useCartActions();
   const [activeTab, setActiveTab] = useState<'favorites' | 'saved_for_later'>('favorites');
   const sourceItems = items && items.length > 0 ? items : MATERIAL_ITEMS;
   const favorites = sourceItems.filter((item) => favoriteIds.includes(item.id));
@@ -60,7 +68,7 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
       if (onAddAllToCart) {
         onAddAllToCart(favorites);
       } else {
-        favorites.forEach((fav) => onSelectItemModal(fav));
+        favorites.forEach((fav) => addMaterialWithFeedback(fav, undefined, 1, { silent: true }));
       }
       showToast(`Added ${favorites.length} saved supplies to Cart!`, 'success');
     } else {
@@ -71,7 +79,7 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -79,39 +87,57 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor="#111111"
-            colors={['#111111']}
+            tintColor={theme.primary}
+            colors={[theme.primary]}
           />
         }
       >
         {/* Segmented Switcher for Favourites & Saved for Later */}
-        <View style={styles.segmentedContainer}>
+        <View style={[styles.segmentedContainer, { backgroundColor: theme.surfaceSecondary, borderRadius: radius.lg }]}>
           <TouchableOpacity
             onPress={() => setActiveTab('favorites')}
-            style={[styles.segmentBtn, activeTab === 'favorites' && styles.segmentBtnActive]}
+            style={[
+              styles.segmentBtn,
+              activeTab === 'favorites' && [styles.segmentBtnActive, { backgroundColor: theme.surface }],
+            ]}
             activeOpacity={0.8}
           >
             <Heart
               size={15}
-              color={activeTab === 'favorites' ? '#111111' : '#6B7280'}
-              fill={activeTab === 'favorites' ? '#111111' : 'transparent'}
+              color={activeTab === 'favorites' ? theme.primary : theme.textSecondary}
+              fill={activeTab === 'favorites' ? theme.primary : 'transparent'}
             />
-            <Text style={[styles.segmentBtnText, activeTab === 'favorites' && styles.segmentBtnTextActive]}>
+            <Text
+              style={[
+                styles.segmentBtnText,
+                { color: activeTab === 'favorites' ? theme.textPrimary : theme.textSecondary },
+                activeTab === 'favorites' && styles.segmentBtnTextActive,
+              ]}
+            >
               Favourites ({favorites.length})
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             onPress={() => setActiveTab('saved_for_later')}
-            style={[styles.segmentBtn, activeTab === 'saved_for_later' && styles.segmentBtnActive]}
+            style={[
+              styles.segmentBtn,
+              activeTab === 'saved_for_later' && [styles.segmentBtnActive, { backgroundColor: theme.surface }],
+            ]}
             activeOpacity={0.8}
           >
             <Bookmark
               size={15}
-              color={activeTab === 'saved_for_later' ? '#111111' : '#6B7280'}
-              fill={activeTab === 'saved_for_later' ? '#111111' : 'transparent'}
+              color={activeTab === 'saved_for_later' ? theme.primary : theme.textSecondary}
+              fill={activeTab === 'saved_for_later' ? theme.primary : 'transparent'}
             />
-            <Text style={[styles.segmentBtnText, activeTab === 'saved_for_later' && styles.segmentBtnTextActive]}>
+            <Text
+              style={[
+                styles.segmentBtnText,
+                { color: activeTab === 'saved_for_later' ? theme.textPrimary : theme.textSecondary },
+                activeTab === 'saved_for_later' && styles.segmentBtnTextActive,
+              ]}
+            >
               Saved for Later ({savedForLaterItems.length})
             </Text>
           </TouchableOpacity>
@@ -120,10 +146,10 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
         {/* Header */}
         <View style={styles.headerRow}>
           <View>
-            <Text style={styles.headerTitle}>
+            <Text style={[styles.headerTitle, { color: theme.textPrimary, fontSize: typography.fontSize['3xl'] }]}>
               {activeTab === 'favorites' ? 'Favourites' : 'Saved for Later'}
             </Text>
-            <Text style={styles.headerSubtitle}>
+            <Text style={[styles.headerSubtitle, { color: theme.textSecondary, fontSize: typography.fontSize.sm }]}>
               {activeTab === 'favorites'
                 ? `${favorites.length} Saved ${favorites.length === 1 ? 'Material' : 'Materials'}`
                 : `${savedForLaterItems.length} ${savedForLaterItems.length === 1 ? 'Item' : 'Items'} kept from Cart`}
@@ -134,11 +160,11 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
             (activeTab === 'saved_for_later' && savedForLaterItems.length > 0)) && (
             <TouchableOpacity
               onPress={handleAddAllFavorites}
-              style={styles.addAllBtn}
+              style={[styles.addAllBtn, { backgroundColor: theme.buttonBg || theme.primary }]}
               activeOpacity={0.85}
             >
-              <ShoppingCart size={14} color="#FFFFFF" />
-              <Text style={styles.addAllBtnText}>
+              <ShoppingCart size={14} color={theme.buttonText || '#18181B'} />
+              <Text style={[styles.addAllBtnText, { color: theme.buttonText || '#18181B' }]}>
                 {activeTab === 'favorites' ? 'Add All to Cart' : 'Move All to Cart'}
               </Text>
             </TouchableOpacity>
@@ -158,8 +184,22 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
               {favorites.map((item) => {
                 const price = item.defaultPrice || item.options[0]?.price || 0;
                 return (
-                  <View key={item.id} style={styles.productCard}>
-                    <View style={styles.imageContainer}>
+                  <View
+                    key={item.id}
+                    style={[
+                      styles.productCard,
+                      {
+                        backgroundColor: theme.surface,
+                        borderColor: theme.border,
+                        borderRadius: radius.xl,
+                      },
+                    ]}
+                  >
+                    <TouchableOpacity
+                      onPress={() => onSelectItemModal(item)}
+                      style={[styles.imageContainer, { backgroundColor: theme.surfaceSecondary }]}
+                      activeOpacity={0.8}
+                    >
                       <ShimmerImage
                         source={{ uri: item.image }}
                         style={styles.productImage}
@@ -169,43 +209,43 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
                       />
                       {onToggleFavorite && (
                         <TouchableOpacity
-                          onPress={() => {
+                          onPress={(e) => {
+                            e.stopPropagation?.();
                             soundService.playFavorite();
                             onToggleFavorite(item.id);
                           }}
-                          style={styles.heartButton}
+                          style={[styles.heartButton, { backgroundColor: theme.surface }]}
                           activeOpacity={0.7}
                         >
-                          <Heart size={16} color="#111111" fill="#111111" />
+                          <Heart size={16} color={theme.primary} fill={theme.primary} />
                         </TouchableOpacity>
                       )}
-                    </View>
+                    </TouchableOpacity>
 
                     <View style={styles.cardBody}>
-                      <Text style={styles.productTag}>
+                      <Text style={[styles.productTag, { color: theme.textMuted, fontSize: typography.fontSize['2xs'] }]}>
                         {(item?.categoryId || 'MATERIALS').toUpperCase()}
                       </Text>
-                      <Text style={styles.productName} numberOfLines={2}>
+                      <Text style={[styles.productName, { color: theme.textPrimary, fontSize: typography.fontSize.base }]} numberOfLines={2}>
                         {item.name}
                       </Text>
-                      <Text style={styles.productSub} numberOfLines={1}>
+                      <Text style={[styles.productSub, { color: theme.textSecondary, fontSize: typography.fontSize.xs }]} numberOfLines={1}>
                         {item.subtitle || ''}
                       </Text>
 
-                      <View style={styles.priceRow}>
-                        <Text style={styles.priceText}>
+                      <View style={[styles.priceRow, { borderTopColor: theme.borderLight }]}>
+                        <Text style={[styles.priceText, { color: theme.textPrimary, fontSize: typography.fontSize.base }]}>
                           ₹{price.toLocaleString('en-IN')}
                         </Text>
                         <TouchableOpacity
                           onPress={() => {
-                            soundService.playTap();
-                            onSelectItemModal(item);
+                            addMaterialWithFeedback(item);
                           }}
-                          style={styles.addBtn}
+                          style={[styles.addBtn, { backgroundColor: theme.buttonBg || theme.primary }]}
                           activeOpacity={0.8}
                         >
-                          <Plus size={14} color="#FFFFFF" />
-                          <Text style={styles.addBtnText}>Add</Text>
+                          <Plus size={14} color={theme.buttonText || '#18181B'} />
+                          <Text style={[styles.addBtnText, { color: theme.buttonText || '#18181B' }]}>Add</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -216,11 +256,11 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
           ) : !isLoggedIn ? (
             /* Guest Empty State */
             <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconCircle}>
-                <Heart size={32} color="#111111" strokeWidth={1.5} />
+              <View style={[styles.emptyIconCircle, { backgroundColor: theme.surfaceSecondary }]}>
+                <Heart size={32} color={theme.primary} strokeWidth={1.5} />
               </View>
 
-              <Text style={styles.emptyNoticeText}>
+              <Text style={[styles.emptyNoticeText, { color: theme.textSecondary }]}>
                 Log in to start adding and managing your favourite supplies here.
               </Text>
 
@@ -232,10 +272,10 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
                     onNavigateHome();
                   }
                 }}
-                style={styles.loginPill}
+                style={[styles.loginPill, { backgroundColor: theme.buttonBg || theme.primary }]}
                 activeOpacity={0.85}
               >
-                <Text style={styles.loginPillText}>Log In or Sign Up</Text>
+                <Text style={[styles.loginPillText, { color: theme.buttonText || '#18181B' }]}>Log In or Sign Up</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -249,17 +289,17 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
                 style={styles.exploreLink}
                 activeOpacity={0.7}
               >
-                <Text style={styles.exploreLinkText}>Explore Catalog</Text>
+                <Text style={[styles.exploreLinkText, { color: theme.primary }]}>Explore Catalog</Text>
               </TouchableOpacity>
             </View>
           ) : (
             /* Logged In Empty State */
             <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconCircle}>
-                <Heart size={32} color="#111111" strokeWidth={1.5} />
+              <View style={[styles.emptyIconCircle, { backgroundColor: theme.surfaceSecondary }]}>
+                <Heart size={32} color={theme.primary} strokeWidth={1.5} />
               </View>
 
-              <Text style={styles.emptyNoticeText}>
+              <Text style={[styles.emptyNoticeText, { color: theme.textSecondary }]}>
                 You haven't saved any favourites yet. Tap the heart icon on any product to save it here for fast re-ordering.
               </Text>
 
@@ -271,17 +311,17 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
                     onNavigateHome();
                   }
                 }}
-                style={styles.loginPill}
+                style={[styles.loginPill, { backgroundColor: theme.buttonBg || theme.primary }]}
                 activeOpacity={0.85}
               >
-                <Text style={styles.loginPillText}>Explore Materials & Services</Text>
+                <Text style={[styles.loginPillText, { color: theme.buttonText || '#18181B' }]}>Explore Materials & Services</Text>
               </TouchableOpacity>
             </View>
           )
         ) : (
           /* Saved for Later Tab Content */
           savedForLaterItems.length > 0 ? (
-            <View style={{ gap: 12 }}>
+            <View style={{ gap: spacing.md }}>
               {savedForLaterItems.map((item) => {
                 const price = item.unitPrice || 0;
                 const total = price * (item.quantity || 1);
@@ -289,66 +329,66 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
                   <View
                     key={item.id}
                     style={{
-                      backgroundColor: '#FFFFFF',
-                      borderRadius: 14,
+                      backgroundColor: theme.surface,
+                      borderRadius: radius.xl,
                       borderWidth: 1,
-                      borderColor: '#E5E7EB',
-                      padding: 12,
+                      borderColor: theme.border,
+                      padding: spacing.md,
                       flexDirection: 'row',
-                      gap: 12,
+                      gap: spacing.md,
                       alignItems: 'center',
                     }}
                   >
-                    <View style={{ width: 72, height: 72, borderRadius: 10, overflow: 'hidden', backgroundColor: '#F3F4F6' }}>
+                    <View style={{ width: 72, height: 72, borderRadius: radius.md, overflow: 'hidden', backgroundColor: theme.surfaceSecondary }}>
                       <ShimmerImage
                         source={{ uri: item.image }}
                         style={{ width: '100%', height: '100%' }}
                         resizeMode="cover"
                         preset="thumbnail"
-                        borderRadius={10}
+                        borderRadius={radius.md}
                       />
                     </View>
 
                     <View style={{ flex: 1, minWidth: 0 }}>
                       <Text
-                        style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}
+                        style={{ fontSize: typography.fontSize.md, fontWeight: '700', color: theme.textPrimary }}
                         numberOfLines={1}
                       >
                         {item.itemName}
                       </Text>
                       <Text
-                        style={{ fontSize: 11.5, color: '#6B7280', marginTop: 2 }}
+                        style={{ fontSize: typography.fontSize.xs, color: theme.textSecondary, marginTop: 2 }}
                         numberOfLines={1}
                       >
                         {item.selectedOptionLabel || item.categoryName || 'Standard Supply'} • Qty: {item.quantity || 1}
                       </Text>
-                      <Text style={{ fontSize: 13.5, fontWeight: '800', color: '#111827', marginTop: 4 }}>
+                      <Text style={{ fontSize: typography.fontSize.base, fontWeight: '800', color: theme.textPrimary, marginTop: 4 }}>
                         ₹{total.toLocaleString('en-IN')}
-                        <Text style={{ fontSize: 11, fontWeight: '500', color: '#6B7280' }}>
+                        <Text style={{ fontSize: typography.fontSize.xs, fontWeight: '500', color: theme.textSecondary }}>
                           {' '}(₹{price}/unit)
                         </Text>
                       </Text>
                     </View>
 
-                    <View style={{ gap: 6, alignItems: 'flex-end' }}>
+                    <View style={{ gap: spacing.xs, alignItems: 'flex-end' }}>
                       <TouchableOpacity
                         onPress={() => {
                           moveToCart(item);
                           showToast(`Moved ${item.itemName} to Cart`, 'success');
                         }}
                         style={{
-                          backgroundColor: '#111827',
-                          paddingHorizontal: 12,
+                          backgroundColor: theme.buttonBg || theme.primary,
+                          paddingHorizontal: spacing.md,
                           paddingVertical: 7,
-                          borderRadius: 8,
+                          borderRadius: radius.md,
                           flexDirection: 'row',
                           alignItems: 'center',
                           gap: 5,
                         }}
                         activeOpacity={0.85}
                       >
-                        <ShoppingCart size={13} color="#FFFFFF" />
-                        <Text style={{ color: '#FFFFFF', fontSize: 11.5, fontWeight: '700' }}>
+                        <ShoppingCart size={13} color={theme.buttonText || '#FFFFFF'} />
+                        <Text style={{ color: theme.buttonText || '#FFFFFF', fontSize: typography.fontSize.xs, fontWeight: '700' }}>
                           Move to Cart
                         </Text>
                       </TouchableOpacity>
@@ -359,7 +399,7 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
                           showToast(`Removed from saved for later`, 'info');
                         }}
                         style={{
-                          paddingHorizontal: 8,
+                          paddingHorizontal: spacing.sm,
                           paddingVertical: 4,
                           flexDirection: 'row',
                           alignItems: 'center',
@@ -367,8 +407,8 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
                         }}
                         activeOpacity={0.7}
                       >
-                        <Trash2 size={13} color="#EF4444" />
-                        <Text style={{ color: '#EF4444', fontSize: 11, fontWeight: '600' }}>
+                        <Trash2 size={13} color={theme.error} />
+                        <Text style={{ color: theme.error, fontSize: typography.fontSize.xs, fontWeight: '600' }}>
                           Remove
                         </Text>
                       </TouchableOpacity>
@@ -379,11 +419,11 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
             </View>
           ) : (
             <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconCircle}>
-                <Bookmark size={32} color="#111111" strokeWidth={1.5} />
+              <View style={[styles.emptyIconCircle, { backgroundColor: theme.surfaceSecondary }]}>
+                <Bookmark size={32} color={theme.primary} strokeWidth={1.5} />
               </View>
 
-              <Text style={styles.emptyNoticeText}>
+              <Text style={[styles.emptyNoticeText, { color: theme.textSecondary }]}>
                 No items saved for later. When you save supplies in your cart, they will be kept here for easy ordering anytime.
               </Text>
 
@@ -395,10 +435,10 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
                     onNavigateHome();
                   }
                 }}
-                style={styles.loginPill}
+                style={[styles.loginPill, { backgroundColor: theme.buttonBg || theme.primary }]}
                 activeOpacity={0.85}
               >
-                <Text style={styles.loginPillText}>Explore Materials</Text>
+                <Text style={[styles.loginPillText, { color: theme.buttonText || '#FFFFFF' }]}>Explore Materials</Text>
               </TouchableOpacity>
             </View>
           )
@@ -461,7 +501,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#111111',
+    color: '#FFFFFF',
     letterSpacing: -0.4,
   },
   headerSubtitle: {
@@ -471,7 +511,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   addAllBtn: {
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -480,7 +520,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   addAllBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -544,7 +584,7 @@ const styles = StyleSheet.create({
   productName: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#111111',
+    color: '#FFFFFF',
     lineHeight: 17,
     marginBottom: 2,
     height: 34,
@@ -565,19 +605,19 @@ const styles = StyleSheet.create({
   priceText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#111111',
+    color: '#FFFFFF',
   },
   addBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
   },
   addBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 11,
     fontWeight: '700',
   },
@@ -605,7 +645,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   loginPill: {
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     paddingVertical: 12,
     paddingHorizontal: 36,
     borderRadius: 24,
@@ -613,7 +653,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loginPillText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 14,
     fontWeight: '700',
   },
@@ -623,7 +663,7 @@ const styles = StyleSheet.create({
   },
   exploreLinkText: {
     fontSize: 13,
-    color: '#111111',
+    color: '#FCB026',
     fontWeight: '600',
     textDecorationLine: 'underline',
   },

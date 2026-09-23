@@ -582,7 +582,6 @@ function MainAppContent() {
     if (updatedData.siteLocation) {
       setSelectedLocation(updatedData.siteLocation);
     }
-    showToast('Profile details updated successfully', 'success');
   };
 
 
@@ -959,8 +958,6 @@ function MainAppContent() {
         setSelectedInvoiceDelivery(pendingIntent.delivery);
       }
       setPendingIntent(null);
-    } else {
-      showToast('Account verified! Welcome to Urbanico.', 'success');
     }
 
     // Exit full-screen auth routes after successful authentication

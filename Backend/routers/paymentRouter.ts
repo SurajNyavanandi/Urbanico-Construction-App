@@ -10,4 +10,11 @@ router.post('/verify-payment', PaymentController.verifyPayment);
 router.all('/callback', PaymentController.handleCallback);
 router.get('/checkout-page', PaymentController.renderCheckoutPage);
 
+// Razorpay Tokenization & 1-Tap Payment routes
+router.post('/customer', PaymentController.getOrCreateCustomer);
+router.get('/tokens', PaymentController.getCustomerTokens);
+router.post('/tokenize-card', PaymentController.tokenizeCard);
+router.delete('/tokens/:tokenId', PaymentController.deleteToken);
+router.post('/one-tap-order', PaymentController.createOneTapOrder);
+
 export const paymentRouter = router;

@@ -11,11 +11,12 @@ import {
 import { Heart, Plus, Share2 } from 'lucide-react-native';
 import { MaterialItem } from '../../types';
 import { ShimmerImage } from './ShimmerImage';
-import { useTheme } from '../../context/ThemeContext';
+import { useTheme, useTypography } from '../../theme';
 import { parseSanitizedPrice, formatInr } from '../../utils/priceHelper';
 import { soundService } from '../../utils/soundHelper';
 import { getHighlightedSegments } from '../../services/searchService';
 import { useClipboard } from '../../hooks';
+import { useCartActions } from '../../hooks/useCartActions';
 
 export interface ProductCardProps {
   item?: MaterialItem;
@@ -54,6 +55,8 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
   searchQuery = '',
 }) => {
   const { theme } = useTheme();
+  const typography = useTypography();
+  const { addMaterialWithFeedback } = useCartActions();
   const lastClickTimeRef = React.useRef<number>(0);
 
   // Micro-interaction animation references (Animations 1, 2, 4)
@@ -122,6 +125,8 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
     handleSafeAction(() => {
       if (onAddToCartPress) {
         onAddToCartPress();
+      } else if (item) {
+        addMaterialWithFeedback(item);
       } else {
         onPress();
       }
@@ -275,13 +280,13 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
           {showAddButton && (
             <TouchableOpacity
               onPress={handleAddPress}
-              style={[styles.addPill, { backgroundColor: theme.primary }]}
+              style={[styles.addPill, { backgroundColor: theme.buttonBg || theme.primary }]}
               activeOpacity={0.8}
               accessibilityLabel="Add to Cart"
             >
               <AnimatedView style={{ flexDirection: 'row', alignItems: 'center', gap: 4, transform: [{ scale: addBtnScaleAnim }] }}>
-                <Plus size={14} color="#FFFFFF" />
-                <Text style={styles.addPillText}>Add</Text>
+                <Plus size={14} color={theme.buttonText || '#FFFFFF'} />
+                <Text style={[styles.addPillText, { color: theme.buttonText || '#FFFFFF', fontFamily: typography.fontFamily }]}>Add</Text>
               </AnimatedView>
             </TouchableOpacity>
           )}
@@ -330,15 +335,15 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
               {Boolean(onToggleFavorite) && (
                 <TouchableOpacity
                   onPress={handleFavoritePress}
-                  style={[styles.gridMiniBtn, { backgroundColor: 'rgba(255,255,255,0.85)' }]}
+                  style={[styles.gridMiniBtn, { backgroundColor: theme.surface }]}
                   activeOpacity={0.7}
                   accessibilityLabel="Toggle Favorite"
                 >
                   <AnimatedView style={{ transform: [{ scale: favScaleAnim }] }}>
                     <Heart
                       size={14}
-                      color={isFavorite ? '#111111' : '#374151'}
-                      fill={isFavorite ? '#111111' : 'transparent'}
+                      color={isFavorite ? theme.primary : theme.textMuted}
+                      fill={isFavorite ? theme.primary : 'transparent'}
                     />
                   </AnimatedView>
                 </TouchableOpacity>
@@ -348,30 +353,30 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
         </View>
 
         <View style={styles.productInfo}>
-          <Text style={[styles.productTag, { color: theme.textSecondary }]}>
+          <Text style={[styles.productTag, { color: theme.textSecondary, fontFamily: typography.fontFamily }]}>
             {(displayTag || 'MATERIALS').toUpperCase()}
           </Text>
-          {renderHighlightedTitle([styles.productTitle, { color: theme.textPrimary }], 2)}
-          <Text style={[styles.productSubtitle, { color: theme.textSecondary }]} numberOfLines={1}>
+          {renderHighlightedTitle([styles.productTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }], 2)}
+          <Text style={[styles.productSubtitle, { color: theme.textSecondary, fontFamily: typography.fontFamily }]} numberOfLines={1}>
             {displaySubtitle}
           </Text>
 
           <View style={[styles.cardFooter, { borderTopColor: theme.borderLight }]}>
             <View style={styles.priceContainer}>
-              <Text style={[styles.productPrice, { color: theme.textPrimary }]} numberOfLines={1}>
+              <Text style={[styles.productPrice, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]} numberOfLines={1}>
                 {displayPrice}
               </Text>
             </View>
             {showAddButton && (
               <TouchableOpacity
                 onPress={handleAddPress}
-                style={[styles.addPill, { backgroundColor: theme.primary }]}
+                style={[styles.addPill, { backgroundColor: theme.buttonBg || theme.primary }]}
                 activeOpacity={0.8}
                 accessibilityLabel="Add to Cart"
               >
                 <AnimatedView style={{ flexDirection: 'row', alignItems: 'center', gap: 4, transform: [{ scale: addBtnScaleAnim }] }}>
-                  <Plus size={14} color="#FFFFFF" />
-                  <Text style={styles.addPillText}>Add</Text>
+                  <Plus size={14} color={theme.buttonText || '#18181B'} />
+                  <Text style={[styles.addPillText, { color: theme.buttonText || '#18181B', fontFamily: typography.fontFamily }]}>Add</Text>
                 </AnimatedView>
               </TouchableOpacity>
             )}
@@ -516,7 +521,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   addPillText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 11.5,
     fontWeight: '700',
   },

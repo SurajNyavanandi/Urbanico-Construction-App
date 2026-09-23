@@ -1,59 +1,36 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { safeStorage } from '../utils/safeStorage';
+import {
+  ThemeColorTokens,
+  ThemePresetKey,
+  resolveThemeColors,
+  ACTIVE_THEME_PRESET,
+} from '../theme/colors';
+import {
+  TypographyTokens,
+  resolveTypographyTokens,
+  GLOBAL_TYPOGRAPHY_TOKENS,
+} from '../theme/typography';
+import {
+  SpacingTokens,
+  RadiusTokens,
+  LayoutTokens,
+  GLOBAL_SPACING_TOKENS,
+  GLOBAL_RADIUS_TOKENS,
+  GLOBAL_LAYOUT_TOKENS,
+} from '../theme/spacing';
+import { injectGlobalCssTokens } from '../theme/tokens';
 
 export type ThemeMode = 'light' | 'dark';
-export type AccentColor = 'blue' | 'black' | 'amber' | 'violet' | 'green';
+export type AccentColor = 'yellow' | 'black' | 'blue' | 'amber' | 'violet' | 'green' | 'red' | 'purple';
 export type TypographyFontFamily = 'system' | 'inter' | 'jakarta' | 'mono';
 
-export interface ThemeColors {
-  mode: ThemeMode;
+export interface ThemeColors extends ThemeColorTokens {
   accent: AccentColor;
-  isAppleDesign: boolean;
-  background: string;
-  surface: string;
-  surfaceSecondary: string;
-  surfaceTertiary: string;
-  textPrimary: string;
-  textSecondary: string;
-  textMuted: string;
-  primary: string;
-  primaryLight: string;
-  primaryDark: string;
-  border: string;
-  borderLight: string;
-  cardShadow: string;
-  headerBg: string;
-  headerText: string;
-  statusBarStyle: 'light' | 'dark';
 }
 
-export interface TypographyConfig {
-  fontFamily: string;
-  fontFamilyHeading: string;
-  fontFamilyMono: string;
-  fontSize: {
-    xs: number;
-    sm: number;
-    base: number;
-    lg: number;
-    xl: number;
-    '2xl': number;
-    '3xl': number;
-  };
-  fontWeight: {
-    normal: '400';
-    medium: '500';
-    semibold: '600';
-    bold: '700';
-    extraBold: '800';
-    black: '900';
-  };
-  letterSpacing: {
-    tight: number;
-    normal: number;
-    wide: number;
-  };
-}
+export type TypographyConfig = TypographyTokens;
+
 
 export interface AccentDefinition {
   name: string;
@@ -75,39 +52,57 @@ export interface AccentDefinition {
 }
 
 export const ACCENT_DEFINITIONS: Record<AccentColor, AccentDefinition> = {
-  black: {
-    name: 'Onyx Monochrome',
-    hex: '#111111',
+  yellow: {
+    name: 'Urbanico Yellow & Black',
+    hex: '#FCB026',
     light: {
-      primary: '#111111',
-      primaryLight: '#F4F4F5',
-      primaryDark: '#000000',
-      cardShadow: 'rgba(0, 0, 0, 0.04)',
-      surfaceSecondary: '#F4F4F5',
-      surfaceTertiary: '#E5E7EB',
+      primary: '#FCB026',
+      primaryLight: '#FFF8EB',
+      primaryDark: '#B45309',
+      cardShadow: 'rgba(252, 176, 38, 0.12)',
+      surfaceSecondary: '#F8FAFC',
+      surfaceTertiary: '#F1F5F9',
+    },
+    dark: {
+      primary: '#FCB026',
+      primaryLight: '#2D1F00',
+      primaryDark: '#FDBA74',
+      cardShadow: 'rgba(252, 176, 38, 0.25)',
+    },
+  },
+  black: {
+    name: 'Modern Onyx',
+    hex: '#0F172A',
+    light: {
+      primary: '#0F172A',
+      primaryLight: '#F1F5F9',
+      primaryDark: '#020617',
+      cardShadow: 'rgba(0, 0, 0, 0.05)',
+      surfaceSecondary: '#F9FAFB',
+      surfaceTertiary: '#F3F4F6',
     },
     dark: {
       primary: '#FFFFFF',
-      primaryLight: '#27272A',
-      primaryDark: '#F4F4F5',
+      primaryLight: '#1E293B',
+      primaryDark: '#F8FAFC',
       cardShadow: 'rgba(0, 0, 0, 0.4)',
     },
   },
   blue: {
-    name: 'Onyx Monochrome',
-    hex: '#111111',
+    name: 'Deep Navy',
+    hex: '#1E3A8A',
     light: {
-      primary: '#111111',
-      primaryLight: '#F4F4F5',
-      primaryDark: '#000000',
-      cardShadow: 'rgba(0, 0, 0, 0.04)',
-      surfaceSecondary: '#F4F4F5',
-      surfaceTertiary: '#E5E7EB',
+      primary: '#1E3A8A',
+      primaryLight: '#EFF6FF',
+      primaryDark: '#172554',
+      cardShadow: 'rgba(30, 58, 138, 0.08)',
+      surfaceSecondary: '#F8FAFC',
+      surfaceTertiary: '#EDF2F7',
     },
     dark: {
-      primary: '#FFFFFF',
-      primaryLight: '#27272A',
-      primaryDark: '#F4F4F5',
+      primary: '#60A5FA',
+      primaryLight: '#1E293B',
+      primaryDark: '#93C5FD',
       cardShadow: 'rgba(0, 0, 0, 0.4)',
     },
   },
@@ -165,6 +160,42 @@ export const ACCENT_DEFINITIONS: Record<AccentColor, AccentDefinition> = {
       cardShadow: 'rgba(5, 150, 105, 0.25)',
     },
   },
+  red: {
+    name: 'Crimson Red',
+    hex: '#DC2626',
+    light: {
+      primary: '#DC2626',
+      primaryLight: '#FEF2F2',
+      primaryDark: '#991B1B',
+      cardShadow: 'rgba(220, 38, 38, 0.12)',
+      surfaceSecondary: '#F8FAFC',
+      surfaceTertiary: '#F1F5F9',
+    },
+    dark: {
+      primary: '#EF4444',
+      primaryLight: '#450A0A',
+      primaryDark: '#FCA5A5',
+      cardShadow: 'rgba(220, 38, 38, 0.25)',
+    },
+  },
+  purple: {
+    name: 'Royal Purple',
+    hex: '#7C3AED',
+    light: {
+      primary: '#7C3AED',
+      primaryLight: '#F5F3FF',
+      primaryDark: '#5B21B6',
+      cardShadow: 'rgba(124, 58, 237, 0.12)',
+      surfaceSecondary: '#F8FAFC',
+      surfaceTertiary: '#F1F5F9',
+    },
+    dark: {
+      primary: '#A78BFA',
+      primaryLight: '#2E1065',
+      primaryDark: '#DDD6FE',
+      cardShadow: 'rgba(124, 58, 237, 0.25)',
+    },
+  },
 };
 
 export const FONT_CONFIGS: Record<TypographyFontFamily, { name: string; family: string; headingFamily: string }> = {
@@ -192,172 +223,37 @@ export const FONT_CONFIGS: Record<TypographyFontFamily, { name: string; family: 
 
 export function getThemeColors(
   mode: ThemeMode,
-  accent: AccentColor,
+  accent: AccentColor = 'yellow',
   isAppleDesign: boolean = false
 ): ThemeColors {
-  const isLight = mode === 'light';
+  let presetKey: ThemePresetKey = 'urbanico_yellow';
+  if (accent === 'yellow') presetKey = 'urbanico_yellow';
+  else if (accent === 'amber') presetKey = 'construction_amber';
+  else if (accent === 'green') presetKey = 'emerald_pro';
+  else if (accent === 'blue') presetKey = 'deep_navy';
+  else if (accent === 'black') presetKey = 'modern_onyx';
 
-  // 1. Apple-Inspired Design System Palette
-  if (isAppleDesign) {
-    if (isLight) {
-      return {
-        mode: 'light',
-        accent,
-        isAppleDesign: true,
-        background: '#F4F5F7', // Clean neutral light grey for all screens
-        surface: '#FFFFFF', // Pure White for cards & popups
-        surfaceSecondary: '#F9FAFB',
-        surfaceTertiary: '#F3F4F6',
-        textPrimary: '#111111', // Deep rich black
-        textSecondary: '#6B7280', // Slate neutral
-        textMuted: '#9CA3AF',
-        primary: '#111111', // Black & white theme
-        primaryLight: '#F3F4F6',
-        primaryDark: '#000000',
-        border: '#E5E7EB', // 1px hairline border
-        borderLight: '#F3F4F6',
-        cardShadow: 'rgba(0, 0, 0, 0.06)',
-        headerBg: '#FFFFFF',
-        headerText: '#111111',
-        statusBarStyle: 'dark',
-      };
-    } else {
-      return {
-        mode: 'dark',
-        accent,
-        isAppleDesign: true,
-        background: '#000000', // Pure Black
-        surface: '#1C1C1E',
-        surfaceSecondary: '#2C2C2E',
-        surfaceTertiary: '#3A3A3C',
-        textPrimary: '#F5F5F7',
-        textSecondary: '#86868B',
-        textMuted: '#636366',
-        primary: '#FFFFFF',
-        primaryLight: '#27272A',
-        primaryDark: '#F4F4F5',
-        border: '#38383A',
-        borderLight: '#2C2C2E',
-        cardShadow: 'rgba(0, 0, 0, 0.4)',
-        headerBg: '#000000',
-        headerText: '#F5F5F7',
-        statusBarStyle: 'light',
-      };
-    }
-  }
-
-  // 2. Black & White Theme with Light Grey Screen Background
-  if (isLight) {
-    return {
-      mode: 'light',
-      accent,
-      isAppleDesign: false,
-      background: '#F4F5F7', // Clean neutral light grey for all screens
-      surface: '#FFFFFF', // Pure White for cards, popups, and dialogs
-      surfaceSecondary: '#F9FAFB',
-      surfaceTertiary: '#F3F4F6',
-      textPrimary: '#111111', // Deep crisp black
-      textSecondary: '#6B7280', // Refined neutral slate gray
-      textMuted: '#9CA3AF',
-      primary: '#111111', // Black & white primary
-      primaryLight: '#F3F4F6',
-      primaryDark: '#000000',
-      border: '#E5E7EB', // Crisp hairline border
-      borderLight: '#F3F4F6',
-      cardShadow: 'rgba(0, 0, 0, 0.06)',
-      headerBg: '#FFFFFF',
-      headerText: '#111111',
-      statusBarStyle: 'dark',
-    };
-  } else {
-    return {
-      mode: 'dark',
-      accent,
-      isAppleDesign: false,
-      background: '#000000',
-      surface: '#121212',
-      surfaceSecondary: '#1C1C1E',
-      surfaceTertiary: '#2C2C2E',
-      textPrimary: '#F5F5F7',
-      textSecondary: '#A1A1A6',
-      textMuted: '#636366',
-      primary: '#FFFFFF',
-      primaryLight: '#27272A',
-      primaryDark: '#F4F4F5',
-      border: '#2C2C2E',
-      borderLight: '#1C1C1E',
-      cardShadow: 'rgba(0, 0, 0, 0.4)',
-      headerBg: '#000000',
-      headerText: '#F5F5F7',
-      statusBarStyle: 'light',
-    };
-  }
+  const tokens = resolveThemeColors(mode, presetKey, isAppleDesign);
+  return {
+    ...tokens,
+    accent,
+  };
 }
 
 export function getTypographyConfig(
-  fontFamilyKey: TypographyFontFamily,
+  fontFamilyKey: TypographyFontFamily = 'jakarta',
   isAppleDesign: boolean = false
 ): TypographyConfig {
-  if (isAppleDesign) {
-    const appleFamily =
-      '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "SF Pro", "Helvetica Neue", Inter, sans-serif';
+  const baseTokens = resolveTypographyTokens(isAppleDesign);
+  const fontConf = FONT_CONFIGS[fontFamilyKey];
+  if (fontConf && !isAppleDesign) {
     return {
-      fontFamily: appleFamily,
-      fontFamilyHeading: appleFamily,
-      fontFamilyMono: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-      fontSize: {
-        xs: 11,
-        sm: 12,
-        base: 13,
-        lg: 14,
-        xl: 16,
-        '2xl': 18,
-        '3xl': 20,
-      },
-      fontWeight: {
-        normal: '400',
-        medium: '500',
-        semibold: '600',
-        bold: '700',
-        extraBold: '800',
-        black: '900',
-      },
-      letterSpacing: {
-        tight: -0.4,
-        normal: -0.1,
-        wide: 0.1,
-      },
+      ...baseTokens,
+      fontFamily: fontConf.family,
+      fontFamilyHeading: fontConf.headingFamily,
     };
   }
-
-  const fontConf = FONT_CONFIGS[fontFamilyKey] || FONT_CONFIGS.system;
-  return {
-    fontFamily: fontConf.family,
-    fontFamilyHeading: fontConf.headingFamily,
-    fontFamilyMono: FONT_CONFIGS.mono.family,
-    fontSize: {
-      xs: 11,
-      sm: 12,
-      base: 13,
-      lg: 14,
-      xl: 16,
-      '2xl': 18,
-      '3xl': 20,
-    },
-    fontWeight: {
-      normal: '400',
-      medium: '500',
-      semibold: '600',
-      bold: '700',
-      extraBold: '800',
-      black: '900',
-    },
-    letterSpacing: {
-      tight: -0.3,
-      normal: 0,
-      wide: 0.2,
-    },
-  };
+  return baseTokens;
 }
 
 export type ThemeKey = string;
@@ -374,30 +270,36 @@ interface ThemeContextType {
   typography: TypographyConfig;
   typographyFont: TypographyFontFamily;
   setTypographyFont: (font: TypographyFontFamily) => void;
+  spacing: SpacingTokens;
+  radius: RadiusTokens;
+  layout: LayoutTokens;
   // Backwards compatibility props
   themeKey: ThemeKey;
   setThemeKey: (key: string) => void;
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: getThemeColors('light', 'black', false),
+  theme: getThemeColors('light', 'yellow', false),
   themeMode: 'light',
   setThemeMode: () => {},
   isAppleDesign: false,
   setAppleDesign: () => {},
   toggleAppleDesign: () => {},
-  accentColor: 'black',
+  accentColor: 'yellow',
   setAccentColor: () => {},
   typography: getTypographyConfig('jakarta', false),
   typographyFont: 'jakarta',
   setTypographyFont: () => {},
-  themeKey: 'black',
+  spacing: GLOBAL_SPACING_TOKENS,
+  radius: GLOBAL_RADIUS_TOKENS,
+  layout: GLOBAL_LAYOUT_TOKENS,
+  themeKey: 'yellow',
   setThemeKey: () => {},
 });
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [themeMode, setThemeMode] = useState<ThemeMode>('light');
-  const [accentColor, setAccentColor] = useState<AccentColor>('black');
+  const [accentColor, setAccentColor] = useState<AccentColor>('yellow');
   const [typographyFont, setTypographyFont] = useState<TypographyFontFamily>('jakarta');
   const [isAppleDesign, setIsAppleDesignState] = useState<boolean>(() => {
     return safeStorage.getItem('apple_design_mode') === 'true';
@@ -427,6 +329,21 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const theme = getThemeColors(themeMode, accentColor, isAppleDesign);
   const typography = getTypographyConfig(typographyFont, isAppleDesign);
+  const spacing = GLOBAL_SPACING_TOKENS;
+  const radius = GLOBAL_RADIUS_TOKENS;
+  const layout = GLOBAL_LAYOUT_TOKENS;
+
+  // Apply complete theme design tokens (colors, fonts, sizes, weights, spacing, radii) to CSS variables (:root)
+  useEffect(() => {
+    injectGlobalCssTokens({
+      colors: theme,
+      typography,
+      spacing,
+      radius,
+      layout,
+      isDark: themeMode === 'dark',
+    });
+  }, [theme, typography, spacing, radius, layout, themeMode]);
 
   // Backwards compatibility handler for legacy setThemeKey callers
   const setThemeKey = (key: string) => {
@@ -455,6 +372,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         typography,
         typographyFont,
         setTypographyFont,
+        spacing,
+        radius,
+        layout,
         themeKey,
         setThemeKey,
       }}
@@ -465,3 +385,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 };
 
 export const useTheme = () => useContext(ThemeContext);
+export const useThemeColors = () => useContext(ThemeContext).theme;
+export const useTypography = () => useContext(ThemeContext).typography;
+export const useSpacing = () => useContext(ThemeContext).spacing;
+export const useRadius = () => useContext(ThemeContext).radius;
+export const useLayout = () => useContext(ThemeContext).layout;

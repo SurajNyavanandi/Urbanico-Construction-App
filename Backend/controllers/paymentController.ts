@@ -279,6 +279,11 @@ export class PaymentController {
         email: ${JSON.stringify(email)},
         contact: ${JSON.stringify(phone)}
       },
+      readonly: {
+        contact: true,
+        email: true,
+        name: true
+      },
       notes: {
         platform: "urbanico_mobile_app"
       },
@@ -334,4 +339,139 @@ export class PaymentController {
       return res.status(500).send('<h1>Checkout Error</h1><p>' + (err?.message || 'Server error') + '</p>');
     }
   }
+
+  // ============================================================================
+  // RAZORPAY TOKENIZATION & ONE-TAP CHECKOUT CONTROLLER ENDPOINTS
+  // ============================================================================
+
+  // POST /api/razorpay/customer
+  public static getOrCreateCustomer = asyncHandler(async (req: Request, res: Response) => {
+    const { name, email, contact, phone, notes } = req.body;
+    const cleanPhone = (contact || phone || '').replace(/[^0-9]/g, '');
+
+    if (!cleanPhone || cleanPhone.length < 10) {
+      return sendError(res, 'Valid 10-digit mobile number required for customer record', 400);
+    }
+
+    const customer = await RazorpayBackendService.getOrCreateCustomer({
+      name: name || 'Urbanico Customer',
+      email: email || `${cleanPhone}@urbanico.in`,
+      contact: cleanPhone,
+      notes,
+    });
+
+    return sendSuccess(res, { customer });
+  });
+
+  // GET /api/razorpay/tokens
+  public static getCustomerTokens = asyncHandler(async (req: Request, res: Response) => {
+    const customerId = (req.query.customerId as string) || (req.query.customer_id as string) || '';
+    const phone = (req.query.phone as string) || '';
+
+    if (!customerId && !phone) {
+      return sendError(res, 'Customer ID or phone number required to retrieve saved card tokens', 400);
+    }
+
+    const tokens = await RazorpayBackendService.fetchCustomerTokens(customerId, phone);
+    return sendSuccess(res, { tokens, count: tokens.length });
+  });
+
+  // POST /api/razorpay/tokenize-card
+  public static tokenizeCard = asyncHandler(async (req: Request, res: Response) => {
+    const { customerId, phone, cardNumber, cardHolder, expiryMonth, expiryYear, cvv } = req.body;
+
+    if (!cardNumber || !cardHolder || !expiryMonth || !expiryYear || !cvv) {
+      return sendError(res, 'Missing card details for tokenization', 400);
+    }
+
+    const cleanNum = String(cardNumber).replace(/\D/g, '');
+    if (cleanNum.length < 15 || cleanNum.length > 19) {
+      return sendError(res, 'Invalid card number length', 400);
+    }
+
+    let activeCustId = customerId;
+    if (!activeCustId && phone) {
+      const cust = await RazorpayBackendService.getOrCreateCustomer({
+        name: cardHolder,
+        email: `${phone.replace(/\D/g, '')}@urbanico.in`,
+        contact: phone,
+      });
+      activeCustId = cust.id;
+    }
+
+    const tokenRecord = await RazorpayBackendService.tokenizeCard({
+      customerId: activeCustId || `cust_${Date.now()}`,
+      phone: phone || '',
+      cardNumber: cleanNum,
+      cardHolder: String(cardHolder).trim(),
+      expiryMonth,
+      expiryYear,
+      cvv: String(cvv).trim(),
+    });
+
+    return sendSuccess(res, {
+      token: tokenRecord,
+      message: 'Card securely tokenized per RBI guidelines (Razorpay CoFT)',
+    });
+  });
+
+  // DELETE /api/razorpay/tokens/:tokenId
+  public static deleteToken = asyncHandler(async (req: Request, res: Response) => {
+    const tokenId = Array.isArray(req.params.tokenId) ? req.params.tokenId[0] : (req.params.tokenId || '');
+    const customerId = (req.query.customerId as string) || '';
+    const phone = (req.query.phone as string) || '';
+
+    if (!tokenId) {
+      return sendError(res, 'Token ID required', 400);
+    }
+
+    await RazorpayBackendService.deleteCustomerToken(customerId, tokenId, phone);
+    return sendSuccess(res, { success: true, message: 'Card token successfully removed' });
+  });
+
+  // POST /api/razorpay/one-tap-order
+  public static createOneTapOrder = asyncHandler(async (req: Request, res: Response) => {
+    const { customerId, tokenId, phone, name, email, notes } = req.body;
+    const amountInPaise = parsePaiseAmount(req.body);
+
+    if (amountInPaise < 100) {
+      return sendError(res, 'Minimum amount is ₹1.00 (100 paise)', 400);
+    }
+
+    if (!tokenId) {
+      return sendError(res, 'Saved card token ID is required for one-tap checkout', 400);
+    }
+
+    const cleanPhone = (phone || '').replace(/[^0-9]/g, '');
+    let activeCustId = customerId;
+    if (!activeCustId && cleanPhone) {
+      const cust = await RazorpayBackendService.getOrCreateCustomer({
+        name: name || 'Customer',
+        email: email || `${cleanPhone}@urbanico.in`,
+        contact: cleanPhone,
+      });
+      activeCustId = cust.id;
+    }
+
+    const orderResult = await RazorpayBackendService.createOrder({
+      amountInPaise,
+      currency: 'INR',
+      receipt: `1tap_${Date.now().toString().slice(-6)}`,
+      notes: {
+        ...(notes || {}),
+        oneTapPayment: 'true',
+        tokenId,
+        customerId: activeCustId,
+      },
+    });
+
+    return sendSuccess(res, {
+      order: orderResult,
+      order_id: orderResult.order_id || orderResult.id,
+      amount: orderResult.amount,
+      customerId: activeCustId,
+      tokenId,
+      key_id: RazorpayBackendService.getKeyId(),
+    });
+  });
 }

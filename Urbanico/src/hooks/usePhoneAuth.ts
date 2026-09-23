@@ -90,7 +90,6 @@ export function usePhoneAuth(options?: UsePhoneAuthOptions) {
       // Accept test code or standard '1234' / '123456'
       if (otp === generatedTestOtp || otp === '1234' || otp === '123456') {
         soundService.playTap();
-        showToast('Mobile number verified successfully!', 'success');
         if (options?.onSuccess) {
           options.onSuccess(cleanPhone);
         }

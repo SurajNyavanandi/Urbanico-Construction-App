@@ -311,7 +311,7 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
       />
       {loading && (
         <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="small" color="#111111" />
+          <ActivityIndicator size="small" color="#FCB026" />
           <Text style={styles.loadingText}>Loading Map (OpenStreetMap)...</Text>
         </View>
       )}
@@ -319,7 +319,7 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
       <View style={styles.nativeBottomBar}>
         <View style={styles.addressContainer}>
           <View style={styles.addressHeaderRow}>
-            <Compass size={12} color="#111111" />
+            <Compass size={12} color="#18181B" />
             <Text style={styles.addressHeaderLabel}>Site Location</Text>
           </View>
           <Text style={styles.addressText} numberOfLines={1}>
@@ -331,9 +331,9 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
           style={styles.openMapsButton}
           activeOpacity={0.8}
         >
-          <Navigation size={14} color="#FFFFFF" />
+          <Navigation size={14} color="#18181B" />
           <Text style={styles.openMapsButtonText}>Navigate</Text>
-          <ExternalLink size={12} color="#FFFFFF" />
+          <ExternalLink size={12} color="#18181B" />
         </TouchableOpacity>
       </View>
     </View>
@@ -507,14 +507,14 @@ const styles = StyleSheet.create({
   openMapsButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
     gap: 4,
   },
   openMapsButtonText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 11,
     fontWeight: '700',
   },

@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
   amountValue: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#F59E0B',
+    color: '#FCB026',
     marginTop: 2,
   },
   amountSubtext: {
@@ -543,7 +543,7 @@ const styles = StyleSheet.create({
     color: '#334155',
   },
   primaryPayBtn: {
-    backgroundColor: '#F59E0B',
+    backgroundColor: '#FCB026',
     borderRadius: 14,
     paddingVertical: 15,
     paddingHorizontal: 18,
@@ -551,7 +551,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    shadowColor: '#F59E0B',
+    shadowColor: '#FCB026',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,

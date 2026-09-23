@@ -8,6 +8,7 @@ import {
   Switch,
   Modal,
   Pressable,
+  Platform,
 } from 'react-native';
 import {
   Palette,
@@ -37,7 +38,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   viewMode = 'grid',
   onViewModeChange,
 }) => {
-  const { theme, themeMode, setThemeMode } = useTheme();
+  const { theme, themeMode, setThemeMode, accentColor, setAccentColor } = useTheme();
   const { language, setLanguage, languageOptions, currentLanguageOption, t } = useLanguage();
 
   const [activeSubView, setActiveSubView] = useState<'main' | 'language'>('main');
@@ -210,9 +211,66 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       const nextMode = val ? 'dark' : 'light';
                       setThemeMode(nextMode);
                     }}
-                    trackColor={{ false: '#E4E4E7', true: '#111111' }}
+                    trackColor={{ false: '#E4E4E7', true: theme.primary || '#FCB026' }}
                     thumbColor="#FFFFFF"
                   />
+                </View>
+
+                {/* Brand Color Theme Palette Selector */}
+                <View style={[styles.switchRow, { flexDirection: 'column', alignItems: 'flex-start', gap: 10 }]}>
+                  <View style={styles.switchRowLeft}>
+                    <Palette size={16} color={theme.textPrimary} strokeWidth={2} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Brand Theme Color</Text>
+                      <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
+                        Switch primary brand accent & button styling
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 10, width: '100%', paddingTop: 6, justifyContent: 'space-between' }}>
+                    {[
+                      { id: 'yellow', hex: '#FCB026' },
+                      { id: 'black', hex: '#0F172A' },
+                      { id: 'blue', hex: '#1E3A8A' },
+                      { id: 'amber', hex: '#D97706' },
+                      { id: 'green', hex: '#059669' },
+                      { id: 'red', hex: '#DC2626' },
+                      { id: 'purple', hex: '#7C3AED' },
+                    ].map((pal) => {
+                      const isSelected = accentColor === pal.id;
+                      return (
+                        <TouchableOpacity
+                          key={pal.id}
+                          onPress={() => setAccentColor(pal.id as any)}
+                          activeOpacity={0.8}
+                          accessibilityLabel={`Theme color ${pal.id}`}
+                          style={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: 19,
+                            backgroundColor: pal.hex,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            borderWidth: isSelected ? 3 : 1,
+                            borderColor: isSelected ? (themeMode === 'dark' ? '#FFFFFF' : '#18181B') : 'rgba(0,0,0,0.12)',
+                            transform: [{ scale: isSelected ? 1.1 : 1 }],
+                            ...Platform.select({
+                              web: {
+                                boxShadow: isSelected ? '0 3px 10px rgba(0,0,0,0.25)' : '0 1px 3px rgba(0,0,0,0.1)',
+                              },
+                              default: {
+                                elevation: isSelected ? 4 : 1,
+                              },
+                            }),
+                          }}
+                        >
+                          {isSelected && (
+                            <Check size={18} color="#FFFFFF" strokeWidth={3} />
+                          )}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
                 </View>
 
                 {/* Grid Mode Switch */}
@@ -232,7 +290,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       const nextMode = val ? 'grid' : 'list';
                       if (onViewModeChange) onViewModeChange(nextMode);
                     }}
-                    trackColor={{ false: '#E4E4E7', true: '#111111' }}
+                    trackColor={{ false: '#E4E4E7', true: theme.primary || '#FCB026' }}
                     thumbColor="#FFFFFF"
                   />
                 </View>
@@ -253,14 +311,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {activeSubView === 'language' ? (
               <TouchableOpacity
                 onPress={() => setActiveSubView('main')}
-                style={styles.primaryDoneBtn}
+                style={[styles.primaryDoneBtn, { backgroundColor: theme.buttonBg || theme.primary }]}
                 activeOpacity={0.85}
               >
-                <Text style={styles.primaryDoneBtnText}>Back to Settings</Text>
+                <Text style={[styles.primaryDoneBtnText, { color: theme.buttonText || '#18181B' }]}>Back to Settings</Text>
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity onPress={handleModalClose} style={styles.primaryDoneBtn} activeOpacity={0.85}>
-                <Text style={styles.primaryDoneBtnText}>Done</Text>
+              <TouchableOpacity
+                onPress={handleModalClose}
+                style={[styles.primaryDoneBtn, { backgroundColor: theme.buttonBg || theme.primary }]}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.primaryDoneBtnText, { color: theme.buttonText || '#18181B' }]}>Done</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -407,14 +469,14 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   primaryDoneBtn: {
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryDoneBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 13.5,
     fontWeight: '700',
   },

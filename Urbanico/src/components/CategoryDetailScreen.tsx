@@ -31,6 +31,7 @@ import { TopNavTab } from './common/TopNavTab';
 import { EmptyState } from './common/EmptyState';
 import { CatalogSkeleton } from './common/SkeletonLoader';
 import { soundService } from '../utils/soundHelper';
+import { useCartActions } from '../hooks/useCartActions';
 import {
   normalizeSearchQuery,
   searchAndRankMaterials,
@@ -69,6 +70,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
   services,
 }) => {
   const { theme, typography } = useTheme();
+  const { addMaterialWithFeedback } = useCartActions();
   const [refreshing, setRefreshing] = useState(false);
 
   const activeMaterials = (materials && materials.length > 0) ? materials : MATERIAL_ITEMS;
@@ -521,7 +523,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                               viewMode="grid"
                               searchQuery={searchQuery}
                               onPress={() => onSelectItem(item)}
-                              onAddToCartPress={() => onSelectItem(item)}
+                              onAddToCartPress={() => addMaterialWithFeedback(item)}
                               isFavorite={favoriteIds.includes(item.id)}
                               onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
                             />
@@ -536,7 +538,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                               viewMode="list"
                               searchQuery={searchQuery}
                               onPress={() => onSelectItem(item)}
-                              onAddToCartPress={() => onSelectItem(item)}
+                              onAddToCartPress={() => addMaterialWithFeedback(item)}
                               isFavorite={favoriteIds.includes(item.id)}
                               onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
                             />
@@ -577,7 +579,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                               viewMode="grid"
                               searchQuery={searchQuery}
                               onPress={() => onSelectItem(item)}
-                              onAddToCartPress={() => onSelectItem(item)}
+                              onAddToCartPress={() => addMaterialWithFeedback(item)}
                               isFavorite={favoriteIds.includes(item.id)}
                               onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
                             />
@@ -592,7 +594,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                               viewMode="list"
                               searchQuery={searchQuery}
                               onPress={() => onSelectItem(item)}
-                              onAddToCartPress={() => onSelectItem(item)}
+                              onAddToCartPress={() => addMaterialWithFeedback(item)}
                               isFavorite={favoriteIds.includes(item.id)}
                               onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
                             />
@@ -619,7 +621,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                               viewMode="grid"
                               searchQuery={searchQuery}
                               onPress={() => onSelectItem(item)}
-                              onAddToCartPress={() => onSelectItem(item)}
+                              onAddToCartPress={() => addMaterialWithFeedback(item)}
                               isFavorite={favoriteIds.includes(item.id)}
                               onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
                             />
@@ -634,7 +636,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                               viewMode="list"
                               searchQuery={searchQuery}
                               onPress={() => onSelectItem(item)}
-                              onAddToCartPress={() => onSelectItem(item)}
+                              onAddToCartPress={() => addMaterialWithFeedback(item)}
                               isFavorite={favoriteIds.includes(item.id)}
                               onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
                             />
@@ -654,7 +656,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                         item={item}
                         viewMode="grid"
                         onPress={() => onSelectItem(item)}
-                        onAddToCartPress={() => onSelectItem(item)}
+                        onAddToCartPress={() => addMaterialWithFeedback(item)}
                         isFavorite={favoriteIds.includes(item.id)}
                         onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
                       />
@@ -668,7 +670,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                         item={item}
                         viewMode="list"
                         onPress={() => onSelectItem(item)}
-                        onAddToCartPress={() => onSelectItem(item)}
+                        onAddToCartPress={() => addMaterialWithFeedback(item)}
                         isFavorite={favoriteIds.includes(item.id)}
                         onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
                       />
@@ -719,7 +721,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                       item={item}
                       viewMode="grid"
                       onPress={() => onSelectItem(item)}
-                      onAddToCartPress={() => onSelectItem(item)}
+                      onAddToCartPress={() => addMaterialWithFeedback(item)}
                       isFavorite={favoriteIds.includes(item.id)}
                       onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
                     />
@@ -733,7 +735,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                       item={item}
                       viewMode="list"
                       onPress={() => onSelectItem(item)}
-                      onAddToCartPress={() => onSelectItem(item)}
+                      onAddToCartPress={() => addMaterialWithFeedback(item)}
                       isFavorite={favoriteIds.includes(item.id)}
                       onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
                     />
@@ -794,7 +796,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                   item={recItem}
                   viewMode="grid"
                   onPress={() => onSelectItem(recItem)}
-                  onAddToCartPress={() => onSelectItem(recItem)}
+                  onAddToCartPress={() => addMaterialWithFeedback(recItem)}
                   isFavorite={favoriteIds.includes(recItem.id)}
                   onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(recItem.id) : undefined}
                 />
@@ -853,7 +855,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                           if (matchingItem) onSelectItem(matchingItem);
                           else onSelectCategoryTab(srv.id as any);
                         }}
-                        onAddToCartPress={matchingItem ? () => onSelectItem(matchingItem) : undefined}
+                        onAddToCartPress={matchingItem ? () => addMaterialWithFeedback(matchingItem) : undefined}
                         isFavorite={matchingItem ? favoriteIds.includes(matchingItem.id) : false}
                         onToggleFavorite={matchingItem && onToggleFavorite ? () => onToggleFavorite(matchingItem.id) : undefined}
                       />
@@ -877,7 +879,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                           if (matchingItem) onSelectItem(matchingItem);
                           else onSelectCategoryTab(srv.id as any);
                         }}
-                        onAddToCartPress={matchingItem ? () => onSelectItem(matchingItem) : undefined}
+                        onAddToCartPress={matchingItem ? () => addMaterialWithFeedback(matchingItem) : undefined}
                         isFavorite={matchingItem ? favoriteIds.includes(matchingItem.id) : false}
                         onToggleFavorite={matchingItem && onToggleFavorite ? () => onToggleFavorite(matchingItem.id) : undefined}
                       />
@@ -905,7 +907,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                       item={item}
                       viewMode="grid"
                       onPress={() => onSelectItem(item)}
-                      onAddToCartPress={() => onSelectItem(item)}
+                      onAddToCartPress={() => addMaterialWithFeedback(item)}
                       isFavorite={favoriteIds.includes(item.id)}
                       onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
                     />
@@ -919,7 +921,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                       item={item}
                       viewMode="list"
                       onPress={() => onSelectItem(item)}
-                      onAddToCartPress={() => onSelectItem(item)}
+                      onAddToCartPress={() => addMaterialWithFeedback(item)}
                       isFavorite={favoriteIds.includes(item.id)}
                       onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
                     />
@@ -954,7 +956,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                         if (matchingItem) onSelectItem(matchingItem);
                         else onSelectCategoryTab(srv.id as any);
                       }}
-                      onAddToCartPress={matchingItem ? () => onSelectItem(matchingItem) : undefined}
+                      onAddToCartPress={matchingItem ? () => addMaterialWithFeedback(matchingItem) : undefined}
                       isFavorite={matchingItem ? favoriteIds.includes(matchingItem.id) : false}
                       onToggleFavorite={matchingItem && onToggleFavorite ? () => onToggleFavorite(matchingItem.id) : undefined}
                     />
@@ -978,7 +980,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                         if (matchingItem) onSelectItem(matchingItem);
                         else onSelectCategoryTab(srv.id as any);
                       }}
-                      onAddToCartPress={matchingItem ? () => onSelectItem(matchingItem) : undefined}
+                      onAddToCartPress={matchingItem ? () => addMaterialWithFeedback(matchingItem) : undefined}
                       isFavorite={matchingItem ? favoriteIds.includes(matchingItem.id) : false}
                       onToggleFavorite={matchingItem && onToggleFavorite ? () => onToggleFavorite(matchingItem.id) : undefined}
                     />
@@ -1104,7 +1106,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                           viewMode="grid"
                           searchQuery={searchQuery}
                           onPress={() => onSelectItem(item)}
-                          onAddToCartPress={() => onSelectItem(item)}
+                          onAddToCartPress={() => addMaterialWithFeedback(item)}
                           isFavorite={favoriteIds.includes(item.id)}
                           onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
                         />
@@ -1119,7 +1121,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                           viewMode="list"
                           searchQuery={searchQuery}
                           onPress={() => onSelectItem(item)}
-                          onAddToCartPress={() => onSelectItem(item)}
+                          onAddToCartPress={() => addMaterialWithFeedback(item)}
                           isFavorite={favoriteIds.includes(item.id)}
                           onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
                         />
@@ -1154,7 +1156,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                           item={item}
                           viewMode="grid"
                           onPress={() => onSelectItem(item)}
-                          onAddToCartPress={() => onSelectItem(item)}
+                          onAddToCartPress={() => addMaterialWithFeedback(item)}
                           isFavorite={favoriteIds.includes(item.id)}
                           onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
                         />
@@ -1168,7 +1170,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                           item={item}
                           viewMode="list"
                           onPress={() => onSelectItem(item)}
-                          onAddToCartPress={() => onSelectItem(item)}
+                          onAddToCartPress={() => addMaterialWithFeedback(item)}
                           isFavorite={favoriteIds.includes(item.id)}
                           onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
                         />
@@ -1227,7 +1229,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                       item={recItem}
                       viewMode="grid"
                       onPress={() => onSelectItem(recItem)}
-                      onAddToCartPress={() => onSelectItem(recItem)}
+                      onAddToCartPress={() => addMaterialWithFeedback(recItem)}
                       isFavorite={favoriteIds.includes(recItem.id)}
                       onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(recItem.id) : undefined}
                     />
@@ -1244,7 +1246,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                   item={item}
                   viewMode="grid"
                   onPress={() => onSelectItem(item)}
-                  onAddToCartPress={() => onSelectItem(item)}
+                  onAddToCartPress={() => addMaterialWithFeedback(item)}
                   isFavorite={favoriteIds.includes(item.id)}
                   onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
                 />
@@ -1259,7 +1261,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                   item={item}
                   viewMode="list"
                   onPress={() => onSelectItem(item)}
-                  onAddToCartPress={() => onSelectItem(item)}
+                  onAddToCartPress={() => addMaterialWithFeedback(item)}
                   isFavorite={favoriteIds.includes(item.id)}
                   onToggleFavorite={onToggleFavorite ? () => onToggleFavorite(item.id) : undefined}
                 />
