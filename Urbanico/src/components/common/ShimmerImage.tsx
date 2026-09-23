@@ -198,7 +198,7 @@ const ShimmerImageComponent: React.FC<ShimmerImageProps> = ({
             style={styles.retryBtn}
             activeOpacity={0.7}
           >
-            <RefreshCw size={12} color="#FFFFFF" />
+            <RefreshCw size={12} color="#18181B" />
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
         )}
@@ -272,7 +272,7 @@ const styles = StyleSheet.create({
   retryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FCB026',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   retryText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 10,
     fontWeight: '700',
   },

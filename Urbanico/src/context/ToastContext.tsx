@@ -60,6 +60,48 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       actionLabel?: string,
       onAction?: () => void
     ) => {
+      const lower = (message || '').toLowerCase();
+
+      // Suppress noisy/unnecessary toasts (account status, login, logout, profile updates)
+      if (
+        lower.includes('logged in') ||
+        lower.includes('logged out') ||
+        lower.includes('log in') ||
+        lower.includes('login') ||
+        lower.includes('logout') ||
+        lower.includes('account verified') ||
+        lower.includes('welcome') ||
+        lower.includes('profile updated') ||
+        lower.includes('profile details')
+      ) {
+        return;
+      }
+
+      // Keep only cart additions/removals, favorites toasts, or critical alerts
+      const isCart =
+        lower.includes('cart') ||
+        lower.includes('basket') ||
+        lower.includes('requisition') ||
+        lower.includes('saved for later') ||
+        lower.includes('coupon') ||
+        lower.includes('order');
+
+      const isFavorite =
+        type === 'favorite' ||
+        lower.includes('favorite') ||
+        lower.includes('favourite');
+
+      const isCriticalNotice =
+        type === 'error' ||
+        lower.includes('failed') ||
+        lower.includes('invalid') ||
+        lower.includes('declined');
+
+      // Drop any toast that is not Cart, Favorites, or critical notice
+      if (!isCart && !isFavorite && !isCriticalNotice) {
+        return;
+      }
+
       setToast({
         visible: true,
         message,

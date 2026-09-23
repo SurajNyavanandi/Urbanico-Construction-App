@@ -348,11 +348,11 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
 
                   <TouchableOpacity
                     onPress={() => setShowSupervisorModal(true)}
-                    style={[styles.actionBtn, { backgroundColor: '#111111' }]}
+                    style={[styles.actionBtn, { backgroundColor: theme.buttonBg || '#FCB026' }]}
                     activeOpacity={0.8}
                   >
-                    <ShieldCheck size={13} color="#FFFFFF" />
-                    <Text style={styles.actionBtnTextWhite}>Supervisor</Text>
+                    <ShieldCheck size={13} color={theme.buttonText || '#18181B'} />
+                    <Text style={[styles.actionBtnTextWhite, { color: theme.buttonText || '#18181B' }]}>Supervisor</Text>
                   </TouchableOpacity>
 
                   {/* Cancel Button */}
@@ -843,7 +843,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   reorderBtn: {
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -852,7 +852,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   reorderBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 11,
     fontWeight: '700',
   },

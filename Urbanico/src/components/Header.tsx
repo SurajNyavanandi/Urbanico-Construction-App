@@ -356,7 +356,7 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Top Search Input Bar */}
           <View style={[styles.searchModalHeader, { backgroundColor: theme.surface, borderBottomColor: theme.borderLight }]}>
             <View style={[styles.modalInputWrapper, { backgroundColor: theme.mode === 'dark' ? theme.surfaceSecondary : '#F4F4F5' }]}>
-              <Search color={theme.mode === 'dark' ? theme.textSecondary : '#111111'} size={18} strokeWidth={2.2} />
+              <Search color={theme.textPrimary} size={18} strokeWidth={2.2} />
               <TextInput
                 ref={searchInputRef}
                 value={searchInputText}
@@ -412,8 +412,8 @@ export const Header: React.FC<HeaderProps> = ({
                   <View style={styles.searchBlock}>
                     <View style={styles.searchSectionHeader}>
                       <View style={styles.sectionTitleRow}>
-                        <History size={15} color="#111111" strokeWidth={2.2} />
-                        <Text style={styles.searchSectionTitle}>Recent Searches</Text>
+                        <History size={15} color={theme.primary} strokeWidth={2.2} />
+                        <Text style={[styles.searchSectionTitle, { color: theme.textPrimary }]}>Recent Searches</Text>
                       </View>
                       <TouchableOpacity
                         onPress={onClearRecentSearches}
@@ -461,11 +461,11 @@ export const Header: React.FC<HeaderProps> = ({
                       <TouchableOpacity
                         key={term}
                         onPress={() => handleExecuteSearch(term)}
-                        style={styles.trendingPill}
+                        style={[styles.trendingPill, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
                         activeOpacity={0.75}
                       >
-                        <TrendingUp size={12} color="#111111" strokeWidth={2} />
-                        <Text style={styles.trendingPillText}>{term}</Text>
+                        <TrendingUp size={12} color={theme.primary} strokeWidth={2} />
+                        <Text style={[styles.trendingPillText, { color: theme.textPrimary }]}>{term}</Text>
                       </TouchableOpacity>
                     ))}
                   </View>
@@ -474,8 +474,8 @@ export const Header: React.FC<HeaderProps> = ({
                 {/* Quick Browse Categories */}
                 <View style={styles.searchBlock}>
                   <View style={styles.sectionTitleRow}>
-                    <Tag size={15} color="#111111" strokeWidth={2.2} />
-                    <Text style={styles.searchSectionTitle}>Explore Categories</Text>
+                    <Tag size={15} color={theme.primary} strokeWidth={2.2} />
+                    <Text style={[styles.searchSectionTitle, { color: theme.textPrimary }]}>Explore Categories</Text>
                   </View>
 
                   <View style={styles.categoryChipsGrid}>
@@ -529,8 +529,8 @@ export const Header: React.FC<HeaderProps> = ({
                 {matchingItems.length > 0 && (
                   <View style={styles.searchBlock}>
                     <View style={styles.sectionTitleRow}>
-                      <Package size={15} color="#111111" strokeWidth={2.2} />
-                      <Text style={styles.searchSectionTitle}>
+                      <Package size={15} color={theme.primary} strokeWidth={2.2} />
+                      <Text style={[styles.searchSectionTitle, { color: theme.textPrimary }]}>
                         Materials & Products ({matchingItems.length})
                       </Text>
                     </View>
@@ -582,8 +582,8 @@ export const Header: React.FC<HeaderProps> = ({
                 {relatedCategoryItems.length > 0 && (
                   <View style={styles.searchBlock}>
                     <View style={styles.sectionTitleRow}>
-                      <Tag size={15} color="#111111" strokeWidth={2.2} />
-                      <Text style={styles.searchSectionTitle}>
+                      <Tag size={15} color={theme.primary} strokeWidth={2.2} />
+                      <Text style={[styles.searchSectionTitle, { color: theme.textPrimary }]}>
                         All Other {primaryMatchedCategoryObj?.name || 'Category'} Bags & Options ({relatedCategoryItems.length})
                       </Text>
                     </View>
@@ -681,8 +681,8 @@ export const Header: React.FC<HeaderProps> = ({
                 {matchingCategories.length > 0 && (
                   <View style={styles.searchBlock}>
                     <View style={styles.sectionTitleRow}>
-                      <Tag size={15} color="#111111" strokeWidth={2.2} />
-                      <Text style={styles.searchSectionTitle}>Categories</Text>
+                      <Tag size={15} color={theme.primary} strokeWidth={2.2} />
+                      <Text style={[styles.searchSectionTitle, { color: theme.textPrimary }]}>Categories</Text>
                     </View>
 
                     <View style={styles.categoryChipsGrid}>
@@ -734,7 +734,7 @@ export const Header: React.FC<HeaderProps> = ({
                   style={styles.searchAllCatalogBtn}
                   activeOpacity={0.85}
                 >
-                  <Search size={16} color="#FFFFFF" strokeWidth={2.2} />
+                  <Search size={16} color="#18181B" strokeWidth={2.2} />
                   <Text style={styles.searchAllCatalogBtnText}>
                     Search Entire Catalog for "{searchInputText}"
                   </Text>
@@ -1130,7 +1130,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     borderRadius: 999,
     paddingVertical: 12,
     paddingHorizontal: 20,
@@ -1139,7 +1139,7 @@ const styles = StyleSheet.create({
   searchAllCatalogBtnText: {
     fontSize: 13.5,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#18181B',
   },
   correctionBanner: {
     flexDirection: 'row',

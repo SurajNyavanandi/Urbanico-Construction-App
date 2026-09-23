@@ -657,7 +657,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     setGstError('');
     onUpdateUser(validation.sanitized);
     setIsEditProfileModalOpen(false);
-    showToast('Profile updated successfully', 'success');
   };
 
   const handleAddNewAddress = () => {
@@ -1232,13 +1231,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                         styles.addressItem,
                         {
                           backgroundColor: isSelected ? theme.surfaceSecondary : 'transparent',
-                          borderColor: isSelected ? '#111111' : theme.border,
+                          borderColor: isSelected ? theme.primary : theme.border,
                         },
                       ]}
                       activeOpacity={0.75}
                     >
                       <View style={styles.addressItemLeft}>
-                        <MapPin size={16} color={isSelected ? '#111111' : theme.textSecondary} />
+                        <MapPin size={16} color={isSelected ? theme.primary : theme.textSecondary} />
                         <View style={{ flex: 1 }}>
                           <Text style={[styles.addressText, { color: theme.textPrimary, fontWeight: isSelected ? '700' : '400' }]}>
                             {locStr}
@@ -1658,10 +1657,10 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 {/* Save Address Button */}
                 <TouchableOpacity
                   onPress={handleAddNewAddress}
-                  style={[styles.cleanSaveBtn, { backgroundColor: '#0F172A', marginTop: 4 }]}
+                  style={[styles.cleanSaveBtn, { backgroundColor: theme.buttonBg || '#FCB026', marginTop: 4 }]}
                   activeOpacity={0.85}
                 >
-                  <Text style={styles.cleanSaveBtnText}>+ Save Delivery Address</Text>
+                  <Text style={[styles.cleanSaveBtnText, { color: theme.buttonText || '#18181B' }]}>+ Save Delivery Address</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
@@ -1785,7 +1784,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                             styles.verifiedPayCard,
                             {
                               backgroundColor: theme.surfaceSecondary,
-                              borderColor: isDefault ? '#111111' : theme.border,
+                              borderColor: isDefault ? theme.primary : theme.border,
                             },
                           ]}
                         >
@@ -2741,7 +2740,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                               showToast(`Moved ${item.itemName} to Cart`, 'success');
                             }}
                             style={{
-                              backgroundColor: theme.mode === 'dark' ? '#3B82F6' : '#111111',
+                              backgroundColor: theme.buttonBg || theme.primary,
                               paddingHorizontal: 10,
                               paddingVertical: 6,
                               borderRadius: 6,
@@ -2751,8 +2750,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                             }}
                             activeOpacity={0.85}
                           >
-                            <ShoppingCart size={12} color="#FFFFFF" />
-                            <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '700' }}>
+                            <ShoppingCart size={12} color="#18181B" />
+                            <Text style={{ color: '#18181B', fontSize: 11, fontWeight: '700' }}>
                               Move to Cart
                             </Text>
                           </TouchableOpacity>
@@ -2954,13 +2953,13 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   verifiedTag: {
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
   verifiedTagText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -2985,7 +2984,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   mainAuthBtn: {
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     borderRadius: 14,
     paddingVertical: 14,
     flexDirection: 'row',
@@ -2999,7 +2998,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   mainAuthBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: -0.2,
@@ -3128,14 +3127,14 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   modalPrimaryBtn: {
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     borderRadius: 8,
     paddingHorizontal: 18,
     paddingVertical: 10,
     alignItems: 'center',
   },
   modalPrimaryBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -3282,7 +3281,7 @@ const styles = StyleSheet.create({
     right: 6,
     top: 5,
     bottom: 5,
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
@@ -3290,7 +3289,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   verifyEmailInlineBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 11,
     fontWeight: '700',
   },
@@ -3401,7 +3400,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   activePill: {
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     paddingHorizontal: 6,
     paddingVertical: 3,
     borderRadius: 4,
@@ -3409,7 +3408,7 @@ const styles = StyleSheet.create({
   activePillText: {
     fontSize: 9,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#18181B',
   },
   addAddressBox: {
     marginTop: 12,
@@ -3429,7 +3428,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   cleanSaveBtn: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FCB026',
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
@@ -3437,7 +3436,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   cleanSaveBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 13.5,
     fontWeight: '700',
     letterSpacing: -0.2,
@@ -3743,13 +3742,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   defaultMethodPill: {
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
   defaultMethodPillText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 9,
     fontWeight: '800',
   },

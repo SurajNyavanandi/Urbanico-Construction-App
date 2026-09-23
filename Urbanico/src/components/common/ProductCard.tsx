@@ -16,6 +16,7 @@ import { parseSanitizedPrice, formatInr } from '../../utils/priceHelper';
 import { soundService } from '../../utils/soundHelper';
 import { getHighlightedSegments } from '../../services/searchService';
 import { useClipboard } from '../../hooks';
+import { useCartActions } from '../../hooks/useCartActions';
 
 export interface ProductCardProps {
   item?: MaterialItem;
@@ -55,6 +56,7 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
 }) => {
   const { theme } = useTheme();
   const typography = useTypography();
+  const { addMaterialWithFeedback } = useCartActions();
   const lastClickTimeRef = React.useRef<number>(0);
 
   // Micro-interaction animation references (Animations 1, 2, 4)
@@ -123,6 +125,8 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
     handleSafeAction(() => {
       if (onAddToCartPress) {
         onAddToCartPress();
+      } else if (item) {
+        addMaterialWithFeedback(item);
       } else {
         onPress();
       }
@@ -371,8 +375,8 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
                 accessibilityLabel="Add to Cart"
               >
                 <AnimatedView style={{ flexDirection: 'row', alignItems: 'center', gap: 4, transform: [{ scale: addBtnScaleAnim }] }}>
-                  <Plus size={14} color={theme.buttonText || '#FFFFFF'} />
-                  <Text style={[styles.addPillText, { color: theme.buttonText || '#FFFFFF', fontFamily: typography.fontFamily }]}>Add</Text>
+                  <Plus size={14} color={theme.buttonText || '#18181B'} />
+                  <Text style={[styles.addPillText, { color: theme.buttonText || '#18181B', fontFamily: typography.fontFamily }]}>Add</Text>
                 </AnimatedView>
               </TouchableOpacity>
             )}
@@ -517,7 +521,7 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   addPillText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 11.5,
     fontWeight: '700',
   },

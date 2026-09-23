@@ -56,7 +56,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 onPress={this.handleReset}
                 activeOpacity={0.8}
               >
-                <RefreshCw size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <RefreshCw size={16} color="#18181B" style={{ marginRight: 6 }} />
                 <Text style={styles.retryButtonText}>Try Again</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -138,13 +138,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FCB026',
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 10,
   },
   retryButtonText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontWeight: '700',
     fontSize: 13,
   },

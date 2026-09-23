@@ -19,6 +19,7 @@ import { X, ChevronLeft, ShieldCheck, CheckCircle2, Sparkles, Phone, Lock, Arrow
 import { BRAND_LOGO_URL } from '../constants';
 import { ShimmerImage } from './common/ShimmerImage';
 import { apiService } from '../services/apiService';
+import { useTheme } from '../context/ThemeContext';
 
 const DEFAULT_DEV_MOBILE = '';
 const DEFAULT_DEV_OTP = '261125';
@@ -38,6 +39,7 @@ export const NikeAuthModal: React.FC<NikeAuthModalProps> = ({
   onSuccessAuth,
   initialStep = 'mobile',
 }) => {
+  const { theme } = useTheme();
   const { height: windowHeight } = useWindowDimensions();
   // Ensure the sheet occupies at least 75% of the screen height
   const modalSheetHeight = Math.max(Math.round(windowHeight * 0.76), 540);
@@ -230,7 +232,7 @@ export const NikeAuthModal: React.FC<NikeAuthModalProps> = ({
                 style={styles.iconButton}
                 activeOpacity={0.7}
               >
-                <ChevronLeft size={22} color="#111111" />
+                <ChevronLeft size={22} color={theme.textPrimary} />
               </TouchableOpacity>
             ) : (
               <View style={styles.iconPlaceholder} />
@@ -252,7 +254,7 @@ export const NikeAuthModal: React.FC<NikeAuthModalProps> = ({
               style={styles.iconButton}
               activeOpacity={0.7}
             >
-              <X size={20} color="#111111" />
+              <X size={20} color={theme.textPrimary} />
             </TouchableOpacity>
           </View>
 
@@ -411,9 +413,9 @@ export const NikeAuthModal: React.FC<NikeAuthModalProps> = ({
                   </View>
                 </View>
 
-                <Text style={styles.otpHeadingTitle}>Enter Verification Code</Text>
+                <Text style={[styles.otpHeadingTitle, { color: theme.textPrimary }]}>Enter Verification Code</Text>
                 <Text style={styles.otpSubHeading}>
-                  Sent to <Text style={{ fontWeight: '700', color: '#111111' }}>+91 {phoneNumber || DEFAULT_DEV_MOBILE}</Text>
+                  Sent to <Text style={{ fontWeight: '700', color: theme.textPrimary }}>+91 {phoneNumber || DEFAULT_DEV_MOBILE}</Text>
                 </Text>
 
                 {/* Quick OTP Helper Pill */}
@@ -678,7 +680,7 @@ const styles = StyleSheet.create({
   contractorTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   contractorSubtitle: {
     fontSize: 11,
@@ -691,7 +693,7 @@ const styles = StyleSheet.create({
   headingTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
     letterSpacing: -0.4,
     marginBottom: 6,
     textAlign: 'left',
@@ -724,7 +726,7 @@ const styles = StyleSheet.create({
   otpHeadingTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 4,
     letterSpacing: -0.3,
@@ -764,7 +766,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   inputFieldFocused: {
-    borderColor: '#0F172A',
+    borderColor: '#FCB026',
   },
   floatingLabelWrapper: {
     position: 'absolute',
@@ -786,13 +788,13 @@ const styles = StyleSheet.create({
   countryCode: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   phoneTextInput: {
     flex: 1,
     fontSize: 16,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#FFFFFF',
     paddingVertical: 2,
   },
   errorText: {
@@ -811,7 +813,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   actionButtonActive: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FCB026',
   },
   actionButtonDisabled: {
     backgroundColor: '#E2E8F0',
@@ -827,7 +829,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   actionButtonTextActive: {
-    color: '#FFFFFF',
+    color: '#18181B',
   },
   actionButtonTextDisabled: {
     color: '#94A3B8',
@@ -863,7 +865,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   disclaimerLink: {
-    color: '#0F172A',
+    color: '#FCB026',
     fontWeight: '700',
     textDecorationLine: 'underline',
   },
@@ -885,17 +887,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   otpBoxFocused: {
-    borderColor: '#0F172A',
+    borderColor: '#FCB026',
     borderWidth: 2,
   },
   otpBoxFilled: {
-    borderColor: '#0F172A',
-    backgroundColor: '#F8FAFC',
+    borderColor: '#FCB026',
+    backgroundColor: '#FFFDF5',
   },
   otpInputText: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#FFFFFF',
     textAlign: 'center',
     width: '100%',
     height: '100%',

@@ -551,7 +551,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     preset="card"
                   />
                   <View style={[styles.bundleTagBadge, { backgroundColor: theme.primary }]}>
-                    <Text style={[styles.bundleTagText, { color: theme.primaryText || '#FFFFFF' }]}>{bundle.tag}</Text>
+                    <Text style={[styles.bundleTagText, { color: theme.primaryText || '#18181B' }]}>{bundle.tag}</Text>
                   </View>
                   <View style={styles.bundleSavingsTopBadge}>
                     <Tag size={10} color="#047857" />
@@ -607,8 +607,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                         }
                       }}
                     >
-                      <Text style={[styles.bundleExploreBtnText, { color: theme.buttonText || '#FFFFFF' }]}>Explore</Text>
-                      <ArrowRight size={13} color={theme.buttonText || '#FFFFFF'} strokeWidth={2.5} />
+                      <Text style={[styles.bundleExploreBtnText, { color: theme.buttonText || '#18181B' }]}>Explore</Text>
+                      <ArrowRight size={13} color={theme.buttonText || '#18181B'} strokeWidth={2.5} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -687,7 +687,7 @@ const styles = StyleSheet.create({
   childNavSectionTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#FFFFFF',
     letterSpacing: -0.2,
   },
   childNavScroll: {
@@ -739,7 +739,7 @@ const styles = StyleSheet.create({
   sectionHeading: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111111',
+    color: '#FFFFFF',
     letterSpacing: -0.3,
   },
   sectionSubtitle: {
@@ -787,7 +787,7 @@ const styles = StyleSheet.create({
   viewAllText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#111111',
+    color: '#FCB026',
   },
   horizontalScrollWrapper: {
     marginHorizontal: 0,
@@ -854,7 +854,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     left: 8,
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     paddingHorizontal: 8,
     paddingVertical: 3.5,
     borderRadius: 6,
@@ -862,7 +862,7 @@ const styles = StyleSheet.create({
   bundleTagText: {
     fontSize: 8.5,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#18181B',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
@@ -892,7 +892,7 @@ const styles = StyleSheet.create({
   bundleTitle: {
     fontSize: 15,
     fontWeight: '900',
-    color: '#111111',
+    color: '#FFFFFF',
     letterSpacing: -0.3,
   },
   bundleSubtitle: {
@@ -956,7 +956,7 @@ const styles = StyleSheet.create({
   bundlePrice: {
     fontSize: 16,
     fontWeight: '900',
-    color: '#111111',
+    color: '#FCB026',
     letterSpacing: -0.4,
   },
   bundleOriginalPrice: {
@@ -969,7 +969,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     paddingVertical: 9,
     paddingHorizontal: 16,
     borderRadius: 999,
@@ -977,7 +977,7 @@ const styles = StyleSheet.create({
   bundleExploreBtnText: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#18181B',
     letterSpacing: 0.2,
   },
 });

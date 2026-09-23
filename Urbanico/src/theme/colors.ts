@@ -10,7 +10,7 @@
  */
 
 export type ThemeMode = 'light' | 'dark';
-export type ThemePresetKey = 'modern_onyx' | 'deep_navy' | 'construction_amber' | 'emerald_pro' | 'custom';
+export type ThemePresetKey = 'urbanico_yellow' | 'modern_onyx' | 'deep_navy' | 'construction_amber' | 'emerald_pro' | 'custom';
 
 export interface ThemeColorTokens {
   // Brand & Identity
@@ -69,9 +69,9 @@ export interface ThemeColorTokens {
 /**
  * 🛠️ ACTIVE THEME SELECTION:
  * Change this string to quickly switch the active theme preset:
- * Options: 'modern_onyx' | 'deep_navy' | 'construction_amber' | 'emerald_pro' | 'custom'
+ * Options: 'urbanico_yellow' | 'modern_onyx' | 'deep_navy' | 'construction_amber' | 'emerald_pro' | 'custom'
  */
-export const ACTIVE_THEME_PRESET: ThemePresetKey = 'modern_onyx';
+export const ACTIVE_THEME_PRESET: ThemePresetKey = 'urbanico_yellow';
 
 /**
  * 🎨 PRESET PALETTES:
@@ -86,6 +86,81 @@ export const THEME_PRESETS: Record<
     dark: Omit<ThemeColorTokens, 'mode' | 'statusBarStyle' | 'isAppleDesign'>;
   }
 > = {
+  // 1. URBANICO YELLOW & BLACK (Official Brand Scheme: Hex #FCB026, RGB 252, 176, 38 & Bold Contrast Black)
+  urbanico_yellow: {
+    name: 'Urbanico Yellow & Black',
+    description: 'Official Urbanico brand palette with #FCB026 safety yellow and high-contrast black',
+    light: {
+      primary: '#FCB026',
+      primaryLight: '#FFF8EB',
+      primaryDark: '#B45309',
+      primaryText: '#18181B',
+      accent: '#FCB026',
+      background: '#F8F9FA',
+      surface: '#FFFFFF',
+      surfaceSecondary: '#F8FAFC',
+      surfaceTertiary: '#F1F5F9',
+      headerBg: '#FFFFFF',
+      headerText: '#18181B',
+      overlay: 'rgba(24, 24, 27, 0.45)',
+      textPrimary: '#18181B',
+      textSecondary: '#64748B',
+      textMuted: '#94A3B8',
+      textInverse: '#FFFFFF',
+      border: '#E4E4E7',
+      borderLight: '#F4F4F5',
+      borderFocus: '#FCB026',
+      success: '#059669',
+      successBg: '#ECFDF5',
+      warning: '#FCB026',
+      warningBg: '#FFF8EB',
+      error: '#DC2626',
+      errorBg: '#FEF2F2',
+      info: '#2563EB',
+      infoBg: '#EFF6FF',
+      buttonBg: '#FCB026',
+      buttonText: '#18181B',
+      buttonSecondaryBg: '#FFF8EB',
+      buttonSecondaryText: '#92400E',
+      cardShadow: 'rgba(252, 176, 38, 0.08)',
+      elevationShadow: 'rgba(24, 24, 27, 0.12)',
+    },
+    dark: {
+      primary: '#FCB026',
+      primaryLight: '#2D1F00',
+      primaryDark: '#FDBA74',
+      primaryText: '#18181B',
+      accent: '#FCB026',
+      background: '#121214',
+      surface: '#18181B',
+      surfaceSecondary: '#27272A',
+      surfaceTertiary: '#3F3F46',
+      headerBg: '#151518',
+      headerText: '#FAFAFA',
+      overlay: 'rgba(0, 0, 0, 0.75)',
+      textPrimary: '#FAFAFA',
+      textSecondary: '#A1A1AA',
+      textMuted: '#71717A',
+      textInverse: '#18181B',
+      border: '#27272A',
+      borderLight: '#1F1F22',
+      borderFocus: '#FCB026',
+      success: '#10B981',
+      successBg: '#064E3B',
+      warning: '#FCB026',
+      warningBg: '#2D1F00',
+      error: '#EF4444',
+      errorBg: '#450A0A',
+      info: '#3B82F6',
+      infoBg: '#172554',
+      buttonBg: '#FCB026',
+      buttonText: '#18181B',
+      buttonSecondaryBg: '#27272A',
+      buttonSecondaryText: '#FAFAFA',
+      cardShadow: 'rgba(0, 0, 0, 0.4)',
+      elevationShadow: 'rgba(0, 0, 0, 0.65)',
+    },
+  },
   // 1. MODERN ONYX (Architectural luxury monochrome - Crisp slate & clean black)
   modern_onyx: {
     name: 'Modern Onyx',
@@ -477,7 +552,7 @@ export function resolveThemeColors(
   isAppleDesign: boolean = false,
   overrides?: Partial<ThemeColorTokens>
 ): ThemeColorTokens {
-  const preset = THEME_PRESETS[presetKey] || THEME_PRESETS.modern_onyx;
+  const preset = THEME_PRESETS[presetKey] || THEME_PRESETS.urbanico_yellow;
   const baseTokens = mode === 'light' ? preset.light : preset.dark;
 
   // Apple Design mode refinement (clean iOS-grade surface separation)

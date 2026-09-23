@@ -1283,7 +1283,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                   height: 36,
                   paddingHorizontal: 14,
                   borderRadius: 8,
-                  backgroundColor: promoInput.trim() ? '#111111' : (theme.mode === 'dark' ? '#334155' : '#E2E8F0'),
+                  backgroundColor: promoInput.trim() ? (theme.primary || '#FCB026') : (theme.mode === 'dark' ? '#334155' : '#E2E8F0'),
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
@@ -1294,7 +1294,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                   style={{
                     fontSize: 12,
                     fontWeight: '700',
-                    color: promoInput.trim() ? '#FFFFFF' : theme.textMuted,
+                    color: promoInput.trim() ? '#18181B' : theme.textMuted,
                   }}
                 >
                   Apply
@@ -2381,18 +2381,18 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                     >
                       {isPlacingOrder ? (
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                          <ActivityIndicator size="small" color={theme.buttonText || '#FFFFFF'} />
-                          <Text style={[styles.nikeCheckoutPillText, { fontSize: 15, fontWeight: '600', color: theme.buttonText || '#FFFFFF' }]}>
+                          <ActivityIndicator size="small" color={theme.buttonText || '#18181B'} />
+                          <Text style={[styles.nikeCheckoutPillText, { fontSize: 15, fontWeight: '600', color: theme.buttonText || '#18181B' }]}>
                             Opening Razorpay Checkout...
                           </Text>
                         </View>
                       ) : (
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                          <Lock size={15} color={theme.buttonText || '#FFFFFF'} />
-                          <Text style={[styles.nikeCheckoutPillText, { fontSize: 15.5, fontWeight: '700', letterSpacing: 0.2, textAlign: 'center', color: theme.buttonText || '#FFFFFF' }]}>
+                          <Lock size={15} color={theme.buttonText || '#18181B'} />
+                          <Text style={[styles.nikeCheckoutPillText, { fontSize: 15.5, fontWeight: '700', letterSpacing: 0.2, textAlign: 'center', color: theme.buttonText || '#18181B' }]}>
                             Pay ₹{payableAmount.toLocaleString('en-IN')}
                           </Text>
-                          <ArrowRight size={17} color={theme.buttonText || '#FFFFFF'} strokeWidth={2.4} />
+                          <ArrowRight size={17} color={theme.buttonText || '#18181B'} strokeWidth={2.4} />
                         </View>
                       )}
                     </TouchableOpacity>
@@ -2558,11 +2558,11 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
 
                       <TouchableOpacity
                         onPress={() => setShowSupervisorModal(true)}
-                        style={[styles.actionChipBtn, { backgroundColor: '#111111' }]}
+                        style={[styles.actionChipBtn, { backgroundColor: theme.primary || '#FCB026' }]}
                         activeOpacity={0.8}
                       >
-                        <ShieldCheck size={13} color="#FFFFFF" />
-                        <Text style={[styles.actionChipBtnText, { color: '#FFFFFF' }]}>Supervisor</Text>
+                        <ShieldCheck size={13} color="#18181B" />
+                        <Text style={[styles.actionChipBtnText, { color: '#18181B' }]}>Supervisor</Text>
                       </TouchableOpacity>
 
                       {/* Cancel button */}
@@ -3176,7 +3176,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   nikeCheckoutPill: {
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -3187,7 +3187,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   nikeCheckoutPillText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 14.5,
     fontWeight: '700',
     letterSpacing: -0.2,
@@ -3523,14 +3523,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   promoApplyBtn: {
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     paddingHorizontal: 16,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   promoApplyBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -3552,13 +3552,13 @@ const styles = StyleSheet.create({
   },
   offerCodeBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
   offerCodeBadgeText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 10,
     fontWeight: '800',
   },

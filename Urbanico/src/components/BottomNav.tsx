@@ -222,7 +222,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                     },
                   ]}
                 >
-                  <Text style={[styles.badgeText, { color: theme.buttonText || '#FFFFFF' }]}>
+                  <Text style={[styles.badgeText, { color: theme.buttonText || '#18181B' }]}>
                     {cartCount > 99 ? '99+' : cartCount}
                   </Text>
                 </AnimatedView>
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     marginTop: 1,
   },
   tabLabel: {

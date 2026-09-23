@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
   headingTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#111111',
+    color: '#FFFFFF',
     letterSpacing: -0.4,
     marginBottom: 6,
   },
@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
   otpHeadingTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#111111',
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 6,
     letterSpacing: -0.3,
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   inputFieldFocused: {
-    borderColor: '#111111',
+    borderColor: '#FCB026',
   },
   floatingLabelWrapper: {
     position: 'absolute',
@@ -527,13 +527,13 @@ const styles = StyleSheet.create({
   countryCode: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#111111',
+    color: '#FFFFFF',
   },
   phoneTextInput: {
     flex: 1,
     fontSize: 16,
     fontWeight: '600',
-    color: '#111111',
+    color: '#FFFFFF',
     paddingVertical: 2,
   },
   errorText: {
@@ -551,7 +551,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   actionButtonActive: {
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
   },
   actionButtonDisabled: {
     backgroundColor: '#EFEFEF',
@@ -562,7 +562,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
   },
   actionButtonTextActive: {
-    color: '#FFFFFF',
+    color: '#18181B',
   },
   actionButtonTextDisabled: {
     color: '#8E8E93',
@@ -578,7 +578,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   disclaimerLink: {
-    color: '#111111',
+    color: '#FCB026',
     fontWeight: '700',
     textDecorationLine: 'underline',
   },
@@ -600,16 +600,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   otpBoxFocused: {
-    borderColor: '#111111',
+    borderColor: '#FCB026',
   },
   otpBoxFilled: {
-    borderColor: '#111111',
-    backgroundColor: '#FAFAFA',
+    borderColor: '#FCB026',
+    backgroundColor: '#FFFDF5',
   },
   otpInputText: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111111',
+    color: '#FFFFFF',
     textAlign: 'center',
     width: '100%',
     height: '100%',
@@ -625,7 +625,7 @@ const styles = StyleSheet.create({
   },
   resendActionLink: {
     fontSize: 13,
-    color: '#111111',
+    color: '#FCB026',
     fontWeight: '700',
     textDecorationLine: 'underline',
   },

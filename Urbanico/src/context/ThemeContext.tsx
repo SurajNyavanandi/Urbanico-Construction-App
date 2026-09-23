@@ -22,7 +22,7 @@ import {
 import { injectGlobalCssTokens } from '../theme/tokens';
 
 export type ThemeMode = 'light' | 'dark';
-export type AccentColor = 'blue' | 'black' | 'amber' | 'violet' | 'green';
+export type AccentColor = 'yellow' | 'black' | 'blue' | 'amber' | 'violet' | 'green';
 export type TypographyFontFamily = 'system' | 'inter' | 'jakarta' | 'mono';
 
 export interface ThemeColors extends ThemeColorTokens {
@@ -52,6 +52,24 @@ export interface AccentDefinition {
 }
 
 export const ACCENT_DEFINITIONS: Record<AccentColor, AccentDefinition> = {
+  yellow: {
+    name: 'Urbanico Yellow & Black',
+    hex: '#FCB026',
+    light: {
+      primary: '#FCB026',
+      primaryLight: '#FFF8EB',
+      primaryDark: '#B45309',
+      cardShadow: 'rgba(252, 176, 38, 0.12)',
+      surfaceSecondary: '#F8FAFC',
+      surfaceTertiary: '#F1F5F9',
+    },
+    dark: {
+      primary: '#FCB026',
+      primaryLight: '#2D1F00',
+      primaryDark: '#FDBA74',
+      cardShadow: 'rgba(252, 176, 38, 0.25)',
+    },
+  },
   black: {
     name: 'Modern Onyx',
     hex: '#0F172A',
@@ -169,11 +187,12 @@ export const FONT_CONFIGS: Record<TypographyFontFamily, { name: string; family: 
 
 export function getThemeColors(
   mode: ThemeMode,
-  accent: AccentColor = 'black',
+  accent: AccentColor = 'yellow',
   isAppleDesign: boolean = false
 ): ThemeColors {
-  let presetKey: ThemePresetKey = ACTIVE_THEME_PRESET;
-  if (accent === 'amber') presetKey = 'construction_amber';
+  let presetKey: ThemePresetKey = 'urbanico_yellow';
+  if (accent === 'yellow') presetKey = 'urbanico_yellow';
+  else if (accent === 'amber') presetKey = 'construction_amber';
   else if (accent === 'green') presetKey = 'emerald_pro';
   else if (accent === 'blue') presetKey = 'deep_navy';
   else if (accent === 'black') presetKey = 'modern_onyx';
@@ -224,13 +243,13 @@ interface ThemeContextType {
 }
 
 const ThemeContext = createContext<ThemeContextType>({
-  theme: getThemeColors('light', 'black', false),
+  theme: getThemeColors('light', 'yellow', false),
   themeMode: 'light',
   setThemeMode: () => {},
   isAppleDesign: false,
   setAppleDesign: () => {},
   toggleAppleDesign: () => {},
-  accentColor: 'black',
+  accentColor: 'yellow',
   setAccentColor: () => {},
   typography: getTypographyConfig('jakarta', false),
   typographyFont: 'jakarta',
@@ -238,13 +257,13 @@ const ThemeContext = createContext<ThemeContextType>({
   spacing: GLOBAL_SPACING_TOKENS,
   radius: GLOBAL_RADIUS_TOKENS,
   layout: GLOBAL_LAYOUT_TOKENS,
-  themeKey: 'black',
+  themeKey: 'yellow',
   setThemeKey: () => {},
 });
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [themeMode, setThemeMode] = useState<ThemeMode>('light');
-  const [accentColor, setAccentColor] = useState<AccentColor>('black');
+  const [accentColor, setAccentColor] = useState<AccentColor>('yellow');
   const [typographyFont, setTypographyFont] = useState<TypographyFontFamily>('jakarta');
   const [isAppleDesign, setIsAppleDesignState] = useState<boolean>(() => {
     return safeStorage.getItem('apple_design_mode') === 'true';

@@ -286,7 +286,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
         activeOpacity={0.8}
         accessibilityLabel="Close item options"
       >
-        <X size={20} color={theme.buttonText || '#FFFFFF'} />
+        <X size={20} color={theme.buttonText || '#18181B'} />
       </TouchableOpacity>
 
       <AnimatedView
@@ -771,7 +771,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -835,13 +835,13 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   serviceBadge: {
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
   serviceBadgeText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 10,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -914,13 +914,13 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   pincodeCheckBtn: {
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
   },
   pincodeCheckBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 11,
     fontWeight: '700',
   },
@@ -1049,13 +1049,13 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
   },
   stepNumberText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 11,
     fontWeight: '800',
   },
@@ -1369,7 +1369,7 @@ const styles = StyleSheet.create({
   },
   certTableRowHeader: {
     flexDirection: 'row',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FCB026',
     paddingVertical: 6,
     paddingHorizontal: 8,
   },
@@ -1377,7 +1377,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 9.5,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#18181B',
     textTransform: 'uppercase',
   },
   certTableRow: {
@@ -1433,7 +1433,7 @@ const styles = StyleSheet.create({
     borderTopColor: '#E2E8F0',
   },
   certDownloadBtn: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FCB026',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1442,7 +1442,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   certDownloadBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 12,
     fontWeight: '700',
   },

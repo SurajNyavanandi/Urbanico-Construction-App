@@ -745,7 +745,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                 activeOpacity={0.8}
                 accessibilityLabel="Download PDF invoice"
               >
-                <Download size={14} color="#FFFFFF" strokeWidth={2.2} />
+                <Download size={14} color="#18181B" strokeWidth={2.2} />
                 <Text style={styles.printActionText}>Download PDF</Text>
               </TouchableOpacity>
 
@@ -1203,7 +1203,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               activeOpacity={0.85}
               accessibilityLabel="Download or print invoice"
             >
-              <Download size={16} color="#FFFFFF" strokeWidth={2.2} />
+              <Download size={16} color="#18181B" strokeWidth={2.2} />
               <Text style={styles.downloadPdfBtnText}>
                 Download PDF
               </Text>
@@ -1296,7 +1296,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 8,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FCB026',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1340,13 +1340,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FCB026',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
   },
   printActionText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 11.5,
     fontWeight: '700',
   },
@@ -1706,19 +1706,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FCB026',
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
   calcGrandTotalLabel: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#18181B',
   },
   calcGrandTotalVal: {
     fontSize: 13,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: '#18181B',
   },
   signatureFooterRow: {
     flexDirection: 'row',
@@ -1846,7 +1846,7 @@ const styles = StyleSheet.create({
   },
   downloadPdfBtn: {
     flex: 1.5,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FCB026',
     paddingVertical: 12,
     borderRadius: 10,
     flexDirection: 'row',
@@ -1855,7 +1855,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   downloadPdfBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 13,
     fontWeight: '700',
   },

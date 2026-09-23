@@ -210,7 +210,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       const nextMode = val ? 'dark' : 'light';
                       setThemeMode(nextMode);
                     }}
-                    trackColor={{ false: '#E4E4E7', true: '#111111' }}
+                    trackColor={{ false: '#E4E4E7', true: theme.primary || '#FCB026' }}
                     thumbColor="#FFFFFF"
                   />
                 </View>
@@ -228,6 +228,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </View>
                   <View style={{ flexDirection: 'row', gap: 8, width: '100%', paddingTop: 4 }}>
                     {[
+                      { id: 'yellow', label: 'Yellow', hex: '#FCB026' },
                       { id: 'black', label: 'Onyx', hex: '#0F172A' },
                       { id: 'blue', label: 'Navy', hex: '#1E3A8A' },
                       { id: 'amber', label: 'Amber', hex: '#D97706' },
@@ -293,7 +294,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       const nextMode = val ? 'grid' : 'list';
                       if (onViewModeChange) onViewModeChange(nextMode);
                     }}
-                    trackColor={{ false: '#E4E4E7', true: '#111111' }}
+                    trackColor={{ false: '#E4E4E7', true: theme.primary || '#FCB026' }}
                     thumbColor="#FFFFFF"
                   />
                 </View>
@@ -314,14 +315,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {activeSubView === 'language' ? (
               <TouchableOpacity
                 onPress={() => setActiveSubView('main')}
-                style={styles.primaryDoneBtn}
+                style={[styles.primaryDoneBtn, { backgroundColor: theme.buttonBg || theme.primary }]}
                 activeOpacity={0.85}
               >
-                <Text style={styles.primaryDoneBtnText}>Back to Settings</Text>
+                <Text style={[styles.primaryDoneBtnText, { color: theme.buttonText || '#18181B' }]}>Back to Settings</Text>
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity onPress={handleModalClose} style={styles.primaryDoneBtn} activeOpacity={0.85}>
-                <Text style={styles.primaryDoneBtnText}>Done</Text>
+              <TouchableOpacity
+                onPress={handleModalClose}
+                style={[styles.primaryDoneBtn, { backgroundColor: theme.buttonBg || theme.primary }]}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.primaryDoneBtnText, { color: theme.buttonText || '#18181B' }]}>Done</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -468,14 +473,14 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   primaryDoneBtn: {
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryDoneBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 13.5,
     fontWeight: '700',
   },

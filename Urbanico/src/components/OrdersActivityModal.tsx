@@ -473,7 +473,7 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
                             style={styles.reorderBtn}
                             activeOpacity={0.8}
                           >
-                            <Repeat size={13} color="#FFFFFF" />
+                            <Repeat size={13} color="#18181B" />
                             <Text style={styles.reorderBtnText}>Buy Again</Text>
                           </TouchableOpacity>
                         )}
@@ -871,7 +871,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
@@ -879,7 +879,7 @@ const styles = StyleSheet.create({
   reorderBtnText: {
     fontSize: 11.5,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#18181B',
   },
   modalFooter: {
     padding: 14,
@@ -887,14 +887,14 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   primaryDoneBtn: {
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     borderRadius: 10,
     paddingHorizontal: 22,
     paddingVertical: 9,
     alignItems: 'center',
   },
   primaryDoneBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 13,
     fontWeight: '700',
   },

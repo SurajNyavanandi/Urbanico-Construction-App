@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
   amountDisplay: {
     fontSize: 24,
     fontWeight: '900',
-    color: '#0F172A',
+    color: '#FCB026',
     letterSpacing: -0.5,
   },
   paymentMethodNotice: {
@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
   },
   emailNoticeBold: {
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#FFFFFF',
   },
   businessEntityRow: {
     flexDirection: 'row',
@@ -374,17 +374,17 @@ const styles = StyleSheet.create({
   },
   receiptValue: {
     fontSize: 12,
-    color: '#0F172A',
+    color: '#FFFFFF',
     fontWeight: '600',
   },
   receiptValueBold: {
     fontSize: 12,
-    color: '#0F172A',
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   receiptValueMono: {
     fontSize: 12,
-    color: '#0F172A',
+    color: '#FFFFFF',
     fontFamily: 'monospace',
     fontWeight: '600',
   },
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
   },
   destinationText: {
     fontSize: 12,
-    color: '#0F172A',
+    color: '#FFFFFF',
     fontWeight: '600',
   },
   divider: {

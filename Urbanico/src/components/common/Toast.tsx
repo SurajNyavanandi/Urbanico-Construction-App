@@ -16,10 +16,7 @@ import {
   Bell,
   X,
   ArrowRight,
-  LogOut,
-  Sparkles,
-  MapPin,
-  RefreshCw,
+  ShoppingBag,
 } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -122,35 +119,17 @@ export const Toast: React.FC<ToastProps> = ({
   let badgeColor = theme.primary;
   let BadgeIcon = Check;
 
-  if (type === 'favorite' || lowerMsg.includes('favorite')) {
+  if (type === 'favorite' || lowerMsg.includes('favorite') || lowerMsg.includes('favourite')) {
     defaultTitle = lowerMsg.includes('removed') ? 'Favorites Updated' : 'Saved to Favorites';
     IconComponent = Heart;
     iconColor = '#EF4444';
     badgeColor = '#EF4444';
     BadgeIcon = Heart;
-  } else if (lowerMsg.includes('logout') || lowerMsg.includes('logged out')) {
-    defaultTitle = 'Account Status';
-    IconComponent = LogOut;
-    iconColor = theme.textSecondary;
-    badgeColor = theme.textSecondary;
-    BadgeIcon = LogOut;
-  } else if (lowerMsg.includes('verified') || lowerMsg.includes('welcome')) {
-    defaultTitle = 'Account Verified';
-    IconComponent = Sparkles;
-    iconColor = '#10B981';
-    badgeColor = '#10B981';
-    BadgeIcon = Check;
-  } else if (lowerMsg.includes('address') || lowerMsg.includes('location')) {
-    defaultTitle = 'Delivery Location';
-    IconComponent = MapPin;
+  } else if (lowerMsg.includes('cart') || lowerMsg.includes('basket') || lowerMsg.includes('saved for later')) {
+    defaultTitle = lowerMsg.includes('removed') ? 'Cart Updated' : 'Cart';
+    IconComponent = ShoppingBag;
     iconColor = theme.primary;
-    badgeColor = '#10B981';
-    BadgeIcon = Check;
-  } else if (lowerMsg.includes('refreshed') || lowerMsg.includes('updated')) {
-    defaultTitle = 'Status Updated';
-    IconComponent = RefreshCw;
-    iconColor = theme.primary;
-    badgeColor = '#10B981';
+    badgeColor = theme.primary;
     BadgeIcon = Check;
   } else if (type === 'error' || lowerMsg.includes('error') || lowerMsg.includes('failed')) {
     defaultTitle = 'Notice';
