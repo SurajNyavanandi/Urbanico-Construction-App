@@ -161,4 +161,10 @@ export interface SavedPaymentMethod {
   cardHolder?: string;
   cardBrand?: 'visa' | 'mastercard' | 'rupay' | 'card';
   bankName?: string;
+  // Razorpay RBI Card-on-File Tokenization (CoFT)
+  tokenId?: string;
+  cardToken?: string;
+  razorpayCustomerId?: string;
+  isTokenized?: boolean;
+  coftCompliant?: boolean;
 }
