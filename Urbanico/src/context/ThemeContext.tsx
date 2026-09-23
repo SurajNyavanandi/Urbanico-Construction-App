@@ -22,7 +22,7 @@ import {
 import { injectGlobalCssTokens } from '../theme/tokens';
 
 export type ThemeMode = 'light' | 'dark';
-export type AccentColor = 'yellow' | 'black' | 'blue' | 'amber' | 'violet' | 'green';
+export type AccentColor = 'yellow' | 'black' | 'blue' | 'amber' | 'violet' | 'green' | 'red' | 'purple';
 export type TypographyFontFamily = 'system' | 'inter' | 'jakarta' | 'mono';
 
 export interface ThemeColors extends ThemeColorTokens {
@@ -158,6 +158,42 @@ export const ACCENT_DEFINITIONS: Record<AccentColor, AccentDefinition> = {
       primaryLight: '#064E3B',
       primaryDark: '#34D399',
       cardShadow: 'rgba(5, 150, 105, 0.25)',
+    },
+  },
+  red: {
+    name: 'Crimson Red',
+    hex: '#DC2626',
+    light: {
+      primary: '#DC2626',
+      primaryLight: '#FEF2F2',
+      primaryDark: '#991B1B',
+      cardShadow: 'rgba(220, 38, 38, 0.12)',
+      surfaceSecondary: '#F8FAFC',
+      surfaceTertiary: '#F1F5F9',
+    },
+    dark: {
+      primary: '#EF4444',
+      primaryLight: '#450A0A',
+      primaryDark: '#FCA5A5',
+      cardShadow: 'rgba(220, 38, 38, 0.25)',
+    },
+  },
+  purple: {
+    name: 'Royal Purple',
+    hex: '#7C3AED',
+    light: {
+      primary: '#7C3AED',
+      primaryLight: '#F5F3FF',
+      primaryDark: '#5B21B6',
+      cardShadow: 'rgba(124, 58, 237, 0.12)',
+      surfaceSecondary: '#F8FAFC',
+      surfaceTertiary: '#F1F5F9',
+    },
+    dark: {
+      primary: '#A78BFA',
+      primaryLight: '#2E1065',
+      primaryDark: '#DDD6FE',
+      cardShadow: 'rgba(124, 58, 237, 0.25)',
     },
   },
 };

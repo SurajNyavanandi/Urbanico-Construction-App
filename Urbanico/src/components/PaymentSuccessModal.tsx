@@ -19,7 +19,7 @@ import {
   MailCheck,
   Building2,
 } from 'lucide-react-native';
-import { RazorpayPaymentResult } from './RazorpayModal';
+import { RazorpayPaymentResult } from './common/RazorpayModal';
 import { soundService } from '../utils/soundHelper';
 import { ActivityDelivery } from '../types';
 import { buildTaxInvoiceData, openTaxInvoicePrint } from '../utils/invoiceHelper';

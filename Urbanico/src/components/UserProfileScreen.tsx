@@ -78,6 +78,7 @@ import {
   verifyCardOnline,
   detectCardBrand,
   MAX_SAVED_PAYMENT_METHODS,
+  POPULAR_UPI_HANDLES,
 } from '../utils/paymentMethodsHelper';
 import { openRazorpayStandardCheckout, tokenizeCardAPI } from '../services/razorpayService';
 import {
@@ -235,43 +236,23 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
     setIsVerifyingUpi(true);
     try {
-      const res = await verifyUPIIdOnline(upiVpa, user?.name);
+      const res = await verifyUPIIdOnline(upiVpa, user?.name, user?.phone);
       if (!res.success) {
         setUpiError(res.error || 'UPI verification failed with banking gateway.');
         setIsVerifyingUpi(false);
         return;
       }
       const trimmed = upiVpa.trim().toLowerCase();
-      let upiApp: 'gpay' | 'phonepe' | 'paytm' | 'bhim' | 'custom' = 'custom';
-      let title = 'Verified UPI ID';
-      if (
-        trimmed.includes('okhdfcbank') ||
-        trimmed.includes('okaxis') ||
-        trimmed.includes('okicici') ||
-        trimmed.includes('oksbi')
-      ) {
-        upiApp = 'gpay';
-        title = 'Google Pay UPI';
-      } else if (trimmed.includes('@ybl') || trimmed.includes('@ibl') || trimmed.includes('@axl')) {
-        upiApp = 'phonepe';
-        title = 'PhonePe UPI';
-      } else if (trimmed.includes('@paytm')) {
-        upiApp = 'paytm';
-        title = 'Paytm UPI';
-      } else {
-        title = `${res.bankName || 'Bank'} UPI`;
-      }
-
       const newMethod: SavedPaymentMethod = {
         id: `upi_${Date.now()}`,
         type: 'upi',
-        title,
-        subtitle: upiVpa.trim(),
-        details: upiVpa.trim(),
+        title: res.title || `${res.bankName || 'Bank'} UPI`,
+        subtitle: trimmed,
+        details: trimmed,
         isDefault: savedPaymentMethods.length === 0,
         isVerified: true,
         verifiedAccountName: res.accountName || user?.name || 'Verified Account',
-        upiApp,
+        upiApp: res.upiApp || 'custom',
         bankName: res.bankName,
       };
 
@@ -279,7 +260,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       setSavedPaymentMethods(updated);
       setUpiVpa('');
       setIsAddingPaymentMethod(false);
-      showToast(`UPI ID verified for ${res.accountName || 'Account'}!`, 'success');
+      showToast(`UPI ID verified: ${res.accountName || 'Account'} (${res.bankName || 'Bank'})`, 'success');
     } catch (err: any) {
       setUpiError(err?.message || 'Error verifying UPI ID.');
     } finally {
@@ -581,11 +562,12 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   };
 
   const handleVerifyEmailOtp = () => {
-    if (!emailOtp.trim()) {
+    const entered = emailOtp.trim();
+    if (!entered || entered.length !== 4) {
       showToast('Please enter the 4-digit verification code', 'error');
       return;
     }
-    if (emailOtp.trim() === testOtpCode || emailOtp.trim() === '8821' || emailOtp.trim().length === 4) {
+    if (entered === testOtpCode) {
       setIsEmailVerified(true);
       setShowEmailOtpBox(false);
       setEmailOtp('');
@@ -1957,6 +1939,39 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                               {upiError ? (
                                 <Text style={styles.fieldErrorText}>⚠️ {upiError}</Text>
                               ) : null}
+
+                              {/* Popular NPCI Bank Handle Quick Chips */}
+                              <View style={{ marginTop: 8 }}>
+                                <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textMuted, marginBottom: 5 }}>
+                                  Tap to append verified bank handle:
+                                </Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: 2 }}>
+                                  {POPULAR_UPI_HANDLES.map((handle) => (
+                                    <TouchableOpacity
+                                      key={handle}
+                                      onPress={() => {
+                                        const cleanInput = upiVpa.trim();
+                                        const base = cleanInput.includes('@')
+                                          ? cleanInput.split('@')[0]
+                                          : (cleanInput || (user?.phone ? user.phone.replace(/\D/g, '').slice(-10) : ''));
+                                        setUpiVpa(base ? `${base}${handle}` : handle);
+                                        if (upiError) setUpiError('');
+                                      }}
+                                      style={{
+                                        paddingHorizontal: 8,
+                                        paddingVertical: 5,
+                                        borderRadius: 6,
+                                        backgroundColor: theme.surfaceSecondary,
+                                        borderWidth: 1,
+                                        borderColor: theme.border,
+                                      }}
+                                      activeOpacity={0.7}
+                                    >
+                                      <Text style={{ fontSize: 11, fontWeight: '700', color: theme.primary }}>{handle}</Text>
+                                    </TouchableOpacity>
+                                  ))}
+                                </ScrollView>
+                              </View>
                             </View>
 
                             <View style={{ flexDirection: 'row', gap: 8 }}>

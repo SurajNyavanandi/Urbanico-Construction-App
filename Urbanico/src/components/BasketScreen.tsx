@@ -79,7 +79,8 @@ import { INITIAL_DELIVERIES } from '../data/materialsData';
 import { useTheme } from '../context/ThemeContext';
 import { useLocation } from '../context/LocationContext';
 import { lookupCityStateFromPincode, formatSiteAddress } from '../utils/addressHelper';
-import { RazorpayPaymentResult } from './RazorpayModal';
+import { validateName, validatePhone } from '../utils/sanitizationHelper';
+import { RazorpayPaymentResult } from './common/RazorpayModal';
 import {
   openRazorpayStandardCheckout,
   openRazorpayOneTapPayment,
@@ -386,28 +387,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
 
       const local = getSavedPaymentMethods(cleanPhone);
       let cardList = local.filter((m) => m.type === 'card');
-
-      if (cardList.length === 0) {
-        const demoCard: SavedPaymentMethod = {
-          id: 'card_token_hdfc_4321',
-          tokenId: 'tok_visa_hdfc_4321',
-          type: 'card',
-          title: 'HDFC Bank Credit Card',
-          subtitle: '•••• 4321 • Expires 08/28',
-          details: '•••• •••• •••• 4321',
-          cardLast4: '4321',
-          cardExpiry: '08/28',
-          cardHolder: user?.name ? user.name.toUpperCase() : 'KUMAR INFRA',
-          cardBrand: 'visa',
-          bankName: 'HDFC Bank',
-          isVerified: true,
-          isTokenized: true,
-          coftCompliant: true,
-          isDefault: true,
-        };
-        addSavedPaymentMethod(demoCard, cleanPhone);
-        cardList = [demoCard];
-      }
 
       try {
         const remoteTokens = await fetchCustomerTokensAPI(cleanPhone);
@@ -1420,12 +1399,14 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   };
 
   const handleSaveAndSelectNewAddress = () => {
-    if (!newAddrName.trim()) {
-      setAddrFormError('Please enter full name or site incharge');
+    const nameVal = validateName(newAddrName, 'Site Incharge / Contact Name');
+    if (!nameVal.isValid) {
+      setAddrFormError(nameVal.error || 'Please enter full name or site incharge');
       return;
     }
-    if (!newAddrPhone.trim() || newAddrPhone.trim().length < 10) {
-      setAddrFormError('Please enter a valid 10-digit mobile number');
+    const phoneVal = validatePhone(newAddrPhone, 'Mobile Number');
+    if (!phoneVal.isValid) {
+      setAddrFormError(phoneVal.error || 'Please enter a valid 10-digit mobile number');
       return;
     }
     if (!newAddrPincode.trim() || newAddrPincode.trim().length !== 6) {
@@ -1437,12 +1418,12 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       setAddrFormError('Currently delivering exclusively across Hyderabad & Telangana regions (PIN: 500xxx - 509xxx). Out-of-zone freight is unavailable.');
       return;
     }
-    if (!newAddrFlat.trim()) {
-      setAddrFormError('Please enter flat/plot/building or site name');
+    if (!newAddrFlat.trim() || newAddrFlat.trim().length < 2) {
+      setAddrFormError('Please enter flat/plot/building or site name (at least 2 characters)');
       return;
     }
-    if (!newAddrStreet.trim()) {
-      setAddrFormError('Please enter street or area name');
+    if (!newAddrStreet.trim() || newAddrStreet.trim().length < 3) {
+      setAddrFormError('Please enter street or area name (at least 3 characters)');
       return;
     }
 

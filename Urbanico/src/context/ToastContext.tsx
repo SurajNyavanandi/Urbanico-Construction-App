@@ -97,8 +97,14 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         lower.includes('invalid') ||
         lower.includes('declined');
 
-      // Drop any toast that is not Cart, Favorites, or critical notice
-      if (!isCart && !isFavorite && !isCriticalNotice) {
+      const isPayment =
+        lower.includes('upi') ||
+        lower.includes('card') ||
+        lower.includes('payment') ||
+        lower.includes('tokenized');
+
+      // Drop any toast that is not Cart, Favorites, Payment, or critical notice
+      if (!isCart && !isFavorite && !isPayment && !isCriticalNotice) {
         return;
       }
 

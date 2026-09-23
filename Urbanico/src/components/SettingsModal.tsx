@@ -8,6 +8,7 @@ import {
   Switch,
   Modal,
   Pressable,
+  Platform,
 } from 'react-native';
 import {
   Palette,
@@ -226,13 +227,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       </Text>
                     </View>
                   </View>
-                  <View style={{ flexDirection: 'row', gap: 8, width: '100%', paddingTop: 4 }}>
+                  <View style={{ flexDirection: 'row', gap: 10, width: '100%', paddingTop: 6, justifyContent: 'space-between' }}>
                     {[
-                      { id: 'yellow', label: 'Yellow', hex: '#FCB026' },
-                      { id: 'black', label: 'Onyx', hex: '#0F172A' },
-                      { id: 'blue', label: 'Navy', hex: '#1E3A8A' },
-                      { id: 'amber', label: 'Amber', hex: '#D97706' },
-                      { id: 'green', label: 'Emerald', hex: '#059669' },
+                      { id: 'yellow', hex: '#FCB026' },
+                      { id: 'black', hex: '#0F172A' },
+                      { id: 'blue', hex: '#1E3A8A' },
+                      { id: 'amber', hex: '#D97706' },
+                      { id: 'green', hex: '#059669' },
+                      { id: 'red', hex: '#DC2626' },
+                      { id: 'purple', hex: '#7C3AED' },
                     ].map((pal) => {
                       const isSelected = accentColor === pal.id;
                       return (
@@ -240,37 +243,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           key={pal.id}
                           onPress={() => setAccentColor(pal.id as any)}
                           activeOpacity={0.8}
+                          accessibilityLabel={`Theme color ${pal.id}`}
                           style={{
-                            flex: 1,
-                            paddingVertical: 8,
-                            paddingHorizontal: 6,
-                            borderRadius: 10,
-                            backgroundColor: isSelected ? theme.surface : theme.surfaceSecondary,
-                            borderWidth: isSelected ? 2 : 1,
-                            borderColor: isSelected ? pal.hex : theme.border,
+                            width: 38,
+                            height: 38,
+                            borderRadius: 19,
+                            backgroundColor: pal.hex,
                             alignItems: 'center',
                             justifyContent: 'center',
-                            flexDirection: 'row',
-                            gap: 5,
+                            borderWidth: isSelected ? 3 : 1,
+                            borderColor: isSelected ? (themeMode === 'dark' ? '#FFFFFF' : '#18181B') : 'rgba(0,0,0,0.12)',
+                            transform: [{ scale: isSelected ? 1.1 : 1 }],
+                            ...Platform.select({
+                              web: {
+                                boxShadow: isSelected ? '0 3px 10px rgba(0,0,0,0.25)' : '0 1px 3px rgba(0,0,0,0.1)',
+                              },
+                              default: {
+                                elevation: isSelected ? 4 : 1,
+                              },
+                            }),
                           }}
                         >
-                          <View
-                            style={{
-                              width: 10,
-                              height: 10,
-                              borderRadius: 5,
-                              backgroundColor: pal.hex,
-                            }}
-                          />
-                          <Text
-                            style={{
-                              fontSize: 11.5,
-                              fontWeight: isSelected ? '700' : '500',
-                              color: isSelected ? theme.textPrimary : theme.textSecondary,
-                            }}
-                          >
-                            {pal.label}
-                          </Text>
+                          {isSelected && (
+                            <Check size={18} color="#FFFFFF" strokeWidth={3} />
+                          )}
                         </TouchableOpacity>
                       );
                     })}
