@@ -810,8 +810,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             </View>
           </View>
           <View style={styles.menuRowRight}>
-            <View style={[styles.countBadge, { backgroundColor: activeOrdersCount > 0 ? '#111111' : theme.surfaceSecondary }]}>
-              <Text style={[styles.countBadgeText, { color: activeOrdersCount > 0 ? '#FFFFFF' : theme.textPrimary }]}>
+            <View style={[styles.countBadge, { backgroundColor: activeOrdersCount > 0 ? (theme.buttonBg || theme.primary) : theme.surfaceSecondary }]}>
+              <Text style={[styles.countBadgeText, { color: activeOrdersCount > 0 ? (theme.buttonText || '#FFFFFF') : theme.textPrimary }]}>
                 {activeOrdersCount}
               </Text>
             </View>
@@ -1122,11 +1122,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 onNavigateScreen('auth_mobile');
               }
             }}
-            style={styles.mainAuthBtn}
+            style={[styles.mainAuthBtn, { backgroundColor: theme.buttonBg || theme.primary }]}
             activeOpacity={0.85}
           >
-            <LogIn size={18} color="#FFFFFF" strokeWidth={2.2} />
-            <Text style={styles.mainAuthBtnText}>Log In or Sign Up</Text>
+            <LogIn size={18} color={theme.buttonText || '#FFFFFF'} strokeWidth={2.2} />
+            <Text style={[styles.mainAuthBtnText, { color: theme.buttonText || '#FFFFFF' }]}>Log In or Sign Up</Text>
           </TouchableOpacity>
         </View>
       )}

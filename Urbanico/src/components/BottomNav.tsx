@@ -97,8 +97,8 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         style={[
           styles.navContainer,
           {
-            backgroundColor: '#FFFFFF',
-            borderColor: '#E5E7EB',
+            backgroundColor: navBgColor,
+            borderColor: navBorderColor,
             paddingBottom: 6,
           },
         ]}
@@ -116,7 +116,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             <View style={[styles.iconWrapper, isHomeActive && styles.activeIconPill]}>
               <Home
                 size={22}
-                color={isHomeActive ? '#111111' : '#6B7280'}
+                color={isHomeActive ? activeColor : inactiveColor}
                 strokeWidth={isHomeActive ? 2.5 : 1.8}
               />
             </View>
@@ -124,14 +124,14 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               style={[
                 styles.tabLabel,
                 {
-                  color: isHomeActive ? '#111111' : '#6B7280',
+                  color: isHomeActive ? activeColor : inactiveColor,
                   fontWeight: isHomeActive ? '800' : '600',
                 },
               ]}
             >
               Home
             </Text>
-            {isHomeActive && <View style={styles.activeDot} />}
+            {isHomeActive && <View style={[styles.activeDot, { backgroundColor: activeColor }]} />}
           </TouchableOpacity>
 
           {/* 2. Shop Tab */}
@@ -146,7 +146,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             <View style={[styles.iconWrapper, isShopActive && styles.activeIconPill]}>
               <Search
                 size={22}
-                color={isShopActive ? '#111111' : '#6B7280'}
+                color={isShopActive ? activeColor : inactiveColor}
                 strokeWidth={isShopActive ? 2.5 : 1.8}
               />
             </View>
@@ -154,14 +154,14 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               style={[
                 styles.tabLabel,
                 {
-                  color: isShopActive ? '#111111' : '#6B7280',
+                  color: isShopActive ? activeColor : inactiveColor,
                   fontWeight: isShopActive ? '800' : '600',
                 },
               ]}
             >
               Shop
             </Text>
-            {isShopActive && <View style={styles.activeDot} />}
+            {isShopActive && <View style={[styles.activeDot, { backgroundColor: activeColor }]} />}
           </TouchableOpacity>
 
           {/* 3. Favourites Tab */}
@@ -176,23 +176,23 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             <View style={[styles.iconWrapper, isFavoritesActive && styles.activeIconPill]}>
               <Heart
                 size={22}
-                color={isFavoritesActive ? '#111111' : '#6B7280'}
+                color={isFavoritesActive ? activeColor : inactiveColor}
                 strokeWidth={isFavoritesActive ? 2.5 : 1.8}
-                fill={isFavoritesActive ? '#111111' : 'transparent'}
+                fill={isFavoritesActive ? activeColor : 'transparent'}
               />
             </View>
             <Text
               style={[
                 styles.tabLabel,
                 {
-                  color: isFavoritesActive ? '#111111' : '#6B7280',
+                  color: isFavoritesActive ? activeColor : inactiveColor,
                   fontWeight: isFavoritesActive ? '800' : '600',
                 },
               ]}
             >
               Favourites
             </Text>
-            {isFavoritesActive && <View style={styles.activeDot} />}
+            {isFavoritesActive && <View style={[styles.activeDot, { backgroundColor: activeColor }]} />}
           </TouchableOpacity>
 
           {/* 4. Cart Tab */}
@@ -208,7 +208,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               <View style={[styles.iconWrapper, isCartActive && styles.activeIconPill]}>
                 <ShoppingCart
                   size={22}
-                  color={isCartActive ? '#111111' : '#6B7280'}
+                  color={isCartActive ? activeColor : inactiveColor}
                   strokeWidth={isCartActive ? 2.5 : 1.8}
                 />
               </View>
@@ -217,12 +217,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                   style={[
                     styles.badge,
                     {
-                      backgroundColor: '#111111',
+                      backgroundColor: theme.buttonBg || activeColor,
                       transform: [{ scale: cartScaleAnim }],
                     },
                   ]}
                 >
-                  <Text style={styles.badgeText}>
+                  <Text style={[styles.badgeText, { color: theme.buttonText || '#FFFFFF' }]}>
                     {cartCount > 99 ? '99+' : cartCount}
                   </Text>
                 </AnimatedView>
@@ -232,14 +232,14 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               style={[
                 styles.tabLabel,
                 {
-                  color: isCartActive ? '#111111' : '#6B7280',
+                  color: isCartActive ? activeColor : inactiveColor,
                   fontWeight: isCartActive ? '800' : '600',
                 },
               ]}
             >
               Cart
             </Text>
-            {isCartActive && <View style={styles.activeDot} />}
+            {isCartActive && <View style={[styles.activeDot, { backgroundColor: activeColor }]} />}
           </TouchableOpacity>
 
           {/* 5. Profile Tab */}
@@ -259,7 +259,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                   height: 22,
                   borderRadius: 11,
                   borderWidth: isProfileActive ? 2 : 1,
-                  borderColor: isProfileActive ? '#111111' : '#9CA3AF',
+                  borderColor: isProfileActive ? activeColor : (theme.border || '#9CA3AF'),
                 }}
                 resizeMode="cover"
               />
@@ -268,14 +268,14 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               style={[
                 styles.tabLabel,
                 {
-                  color: isProfileActive ? '#111111' : '#6B7280',
+                  color: isProfileActive ? activeColor : inactiveColor,
                   fontWeight: isProfileActive ? '800' : '600',
                 },
               ]}
             >
               Profile
             </Text>
-            {isProfileActive && <View style={styles.activeDot} />}
+            {isProfileActive && <View style={[styles.activeDot, { backgroundColor: activeColor }]} />}
           </TouchableOpacity>
         </View>
       </View>

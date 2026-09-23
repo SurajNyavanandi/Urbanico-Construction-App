@@ -1,6 +1,6 @@
 export const APP_NAME = 'Urbanico';
 
-export const BRAND_LOGO_URL = 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1787204500/logo2_z8tqzp.jpg';
+export const BRAND_LOGO_URL = 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1790148105/logolatest_avkcr1.jpg';
 
 export const INDIAN_STATES = [
   'Telangana',

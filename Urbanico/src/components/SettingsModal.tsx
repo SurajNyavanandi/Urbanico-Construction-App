@@ -37,7 +37,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   viewMode = 'grid',
   onViewModeChange,
 }) => {
-  const { theme, themeMode, setThemeMode } = useTheme();
+  const { theme, themeMode, setThemeMode, accentColor, setAccentColor } = useTheme();
   const { language, setLanguage, languageOptions, currentLanguageOption, t } = useLanguage();
 
   const [activeSubView, setActiveSubView] = useState<'main' | 'language'>('main');
@@ -213,6 +213,67 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     trackColor={{ false: '#E4E4E7', true: '#111111' }}
                     thumbColor="#FFFFFF"
                   />
+                </View>
+
+                {/* Brand Color Theme Palette Selector */}
+                <View style={[styles.switchRow, { flexDirection: 'column', alignItems: 'flex-start', gap: 10 }]}>
+                  <View style={styles.switchRowLeft}>
+                    <Palette size={16} color={theme.textPrimary} strokeWidth={2} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Brand Theme Color</Text>
+                      <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
+                        Switch primary brand accent & button styling
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={{ flexDirection: 'row', gap: 8, width: '100%', paddingTop: 4 }}>
+                    {[
+                      { id: 'black', label: 'Onyx', hex: '#0F172A' },
+                      { id: 'blue', label: 'Navy', hex: '#1E3A8A' },
+                      { id: 'amber', label: 'Amber', hex: '#D97706' },
+                      { id: 'green', label: 'Emerald', hex: '#059669' },
+                    ].map((pal) => {
+                      const isSelected = accentColor === pal.id;
+                      return (
+                        <TouchableOpacity
+                          key={pal.id}
+                          onPress={() => setAccentColor(pal.id as any)}
+                          activeOpacity={0.8}
+                          style={{
+                            flex: 1,
+                            paddingVertical: 8,
+                            paddingHorizontal: 6,
+                            borderRadius: 10,
+                            backgroundColor: isSelected ? theme.surface : theme.surfaceSecondary,
+                            borderWidth: isSelected ? 2 : 1,
+                            borderColor: isSelected ? pal.hex : theme.border,
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexDirection: 'row',
+                            gap: 5,
+                          }}
+                        >
+                          <View
+                            style={{
+                              width: 10,
+                              height: 10,
+                              borderRadius: 5,
+                              backgroundColor: pal.hex,
+                            }}
+                          />
+                          <Text
+                            style={{
+                              fontSize: 11.5,
+                              fontWeight: isSelected ? '700' : '500',
+                              color: isSelected ? theme.textPrimary : theme.textSecondary,
+                            }}
+                          >
+                            {pal.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
                 </View>
 
                 {/* Grid Mode Switch */}

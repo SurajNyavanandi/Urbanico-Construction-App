@@ -24,7 +24,7 @@ import {
 } from 'lucide-react-native';
 import { CATEGORIES, SERVICES, MATERIAL_ITEMS, ServiceItem } from '../data/materialsData';
 import { CategoryId, MaterialItem } from '../types';
-import { useTheme } from '../context/ThemeContext';
+import { useTheme, useTypography, useSpacing, useRadius } from '../theme';
 import { ProductCard } from './common/ProductCard';
 import { ShimmerImage } from './common/ShimmerImage';
 import { PromotionalVideoPlayer } from './common/PromotionalVideoPlayer';
@@ -389,8 +389,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           {/* Section Header */}
           <View style={styles.sectionHeader}>
             <View style={styles.sectionHeaderLeft}>
-              <Text style={styles.sectionHeading}>Building Materials</Text>
-              <Text style={styles.sectionSubtitle}>
+              <Text style={[styles.sectionHeading, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>Building Materials</Text>
+              <Text style={[styles.sectionSubtitle, { color: theme.textSecondary, fontFamily: typography.fontFamily }]}>
                 Materials & supplies
               </Text>
             </View>
@@ -399,7 +399,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               style={styles.viewAllButton}
               activeOpacity={0.7}
             >
-              <Text style={styles.viewAllText}>View All</Text>
+              <Text style={[styles.viewAllText, { color: theme.primary, fontFamily: typography.fontFamily }]}>View All</Text>
             </TouchableOpacity>
           </View>
 
@@ -441,8 +441,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           {/* Section Header */}
           <View style={styles.sectionHeader}>
             <View style={styles.sectionHeaderLeft}>
-              <Text style={styles.sectionHeading}>Trade Services</Text>
-              <Text style={styles.sectionSubtitle}>
+              <Text style={[styles.sectionHeading, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>Trade Services</Text>
+              <Text style={[styles.sectionSubtitle, { color: theme.textSecondary, fontFamily: typography.fontFamily }]}>
                 Trade & equipment assistance
               </Text>
             </View>
@@ -454,7 +454,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               style={styles.viewAllButton}
               activeOpacity={0.7}
             >
-              <Text style={styles.viewAllText}>View All</Text>
+              <Text style={[styles.viewAllText, { color: theme.primary, fontFamily: typography.fontFamily }]}>View All</Text>
             </TouchableOpacity>
           </View>
 
@@ -500,8 +500,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeader}>
             <View style={styles.sectionHeaderLeft}>
-              <Text style={styles.sectionHeading}>Project Bundles</Text>
-              <Text style={styles.sectionSubtitle}>
+              <Text style={[styles.sectionHeading, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>Project Bundles</Text>
+              <Text style={[styles.sectionSubtitle, { color: theme.textSecondary, fontFamily: typography.fontFamily }]}>
                 Pre-calibrated material packages with direct yard bulk savings
               </Text>
             </View>
@@ -512,7 +512,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               style={styles.viewAllButton}
               activeOpacity={0.7}
             >
-              <Text style={styles.viewAllText}>Explore</Text>
+              <Text style={[styles.viewAllText, { color: theme.primary, fontFamily: typography.fontFamily }]}>Explore</Text>
             </TouchableOpacity>
           </View>
 
@@ -532,7 +532,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     onSelectCategory(bundle.targetCategory);
                   }
                 }}
-                style={[styles.bundleCard, { width: BUNDLE_CARD_WIDTH }]}
+                style={[
+                  styles.bundleCard,
+                  {
+                    width: BUNDLE_CARD_WIDTH,
+                    backgroundColor: theme.surface,
+                    borderColor: theme.border,
+                  },
+                ]}
               >
                 {/* Image & Badges */}
                 <View style={styles.bundleImageWrapper}>
@@ -543,8 +550,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                     borderRadius={14}
                     preset="card"
                   />
-                  <View style={styles.bundleTagBadge}>
-                    <Text style={styles.bundleTagText}>{bundle.tag}</Text>
+                  <View style={[styles.bundleTagBadge, { backgroundColor: theme.primary }]}>
+                    <Text style={[styles.bundleTagText, { color: theme.primaryText || '#FFFFFF' }]}>{bundle.tag}</Text>
                   </View>
                   <View style={styles.bundleSavingsTopBadge}>
                     <Tag size={10} color="#047857" />
@@ -554,7 +561,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
                 {/* Bundle Header */}
                 <View style={styles.bundleBody}>
-                  <Text style={styles.bundleTitle} numberOfLines={1}>
+                  <Text style={[styles.bundleTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]} numberOfLines={1}>
                     {bundle.title}
                   </Text>
                   <Text style={styles.bundleSubtitle} numberOfLines={1}>
@@ -562,16 +569,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   </Text>
 
                   {/* Clean concise description */}
-                  <Text style={styles.bundleCleanDescription} numberOfLines={2}>
+                  <Text style={[styles.bundleCleanDescription, { color: theme.textSecondary, fontFamily: typography.fontFamily }]} numberOfLines={2}>
                     {bundle.description}
                   </Text>
 
                   {/* Items Included List */}
-                  <View style={styles.bundleItemsList}>
+                  <View style={[styles.bundleItemsList, { backgroundColor: theme.surfaceSecondary, borderColor: theme.borderLight }]}>
                     {bundle.itemsIncluded.map((itemStr, idx) => (
                       <View key={idx} style={styles.bundleItemRow}>
                         <CheckCircle2 size={12} color="#059669" strokeWidth={2.5} />
-                        <Text style={styles.bundleItemRowText} numberOfLines={1}>
+                        <Text style={[styles.bundleItemRowText, { color: theme.textPrimary }]} numberOfLines={1}>
                           {itemStr}
                         </Text>
                       </View>
@@ -579,17 +586,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   </View>
 
                   {/* Pricing and Direct Explore CTA */}
-                  <View style={styles.bundleActionSection}>
+                  <View style={[styles.bundleActionSection, { borderTopColor: theme.borderLight }]}>
                     <View style={styles.bundlePriceCol}>
-                      <Text style={styles.bundlePriceLabel}>PACKAGE PRICE</Text>
+                      <Text style={[styles.bundlePriceLabel, { color: theme.textMuted }]}>PACKAGE PRICE</Text>
                       <View style={styles.bundlePriceRow}>
-                        <Text style={styles.bundlePrice}>₹{bundle.price.toLocaleString('en-IN')}</Text>
-                        <Text style={styles.bundleOriginalPrice}>₹{bundle.originalPrice.toLocaleString('en-IN')}</Text>
+                        <Text style={[styles.bundlePrice, { color: theme.textPrimary }]}>₹{bundle.price.toLocaleString('en-IN')}</Text>
+                        <Text style={[styles.bundleOriginalPrice, { color: theme.textMuted }]}>₹{bundle.originalPrice.toLocaleString('en-IN')}</Text>
                       </View>
                     </View>
 
                     <TouchableOpacity
-                      style={styles.bundleExploreBtn}
+                      style={[styles.bundleExploreBtn, { backgroundColor: theme.buttonBg || theme.primary }]}
                       activeOpacity={0.85}
                       onPress={(e) => {
                         e.stopPropagation();
@@ -600,8 +607,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                         }
                       }}
                     >
-                      <Text style={styles.bundleExploreBtnText}>Explore</Text>
-                      <ArrowRight size={13} color="#FFFFFF" strokeWidth={2.5} />
+                      <Text style={[styles.bundleExploreBtnText, { color: theme.buttonText || '#FFFFFF' }]}>Explore</Text>
+                      <ArrowRight size={13} color={theme.buttonText || '#FFFFFF'} strokeWidth={2.5} />
                     </TouchableOpacity>
                   </View>
                 </View>

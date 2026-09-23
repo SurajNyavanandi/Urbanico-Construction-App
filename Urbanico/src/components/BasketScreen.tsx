@@ -2368,7 +2368,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                       style={[
                         styles.nikeCheckoutPill,
                         {
-                          backgroundColor: '#0F172A',
+                          backgroundColor: theme.buttonBg || theme.primary,
                           height: 52,
                           borderRadius: 26,
                           flexDirection: 'row',
@@ -2381,18 +2381,18 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                     >
                       {isPlacingOrder ? (
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                          <ActivityIndicator size="small" color="#FFFFFF" />
-                          <Text style={[styles.nikeCheckoutPillText, { fontSize: 15, fontWeight: '600' }]}>
+                          <ActivityIndicator size="small" color={theme.buttonText || '#FFFFFF'} />
+                          <Text style={[styles.nikeCheckoutPillText, { fontSize: 15, fontWeight: '600', color: theme.buttonText || '#FFFFFF' }]}>
                             Opening Razorpay Checkout...
                           </Text>
                         </View>
                       ) : (
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                          <Lock size={15} color="#FFFFFF" />
-                          <Text style={[styles.nikeCheckoutPillText, { fontSize: 15.5, fontWeight: '700', letterSpacing: 0.2, textAlign: 'center' }]}>
+                          <Lock size={15} color={theme.buttonText || '#FFFFFF'} />
+                          <Text style={[styles.nikeCheckoutPillText, { fontSize: 15.5, fontWeight: '700', letterSpacing: 0.2, textAlign: 'center', color: theme.buttonText || '#FFFFFF' }]}>
                             Pay ₹{payableAmount.toLocaleString('en-IN')}
                           </Text>
-                          <ArrowRight size={17} color="#FFFFFF" strokeWidth={2.4} />
+                          <ArrowRight size={17} color={theme.buttonText || '#FFFFFF'} strokeWidth={2.4} />
                         </View>
                       )}
                     </TouchableOpacity>

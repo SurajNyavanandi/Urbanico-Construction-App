@@ -15,6 +15,7 @@ import { ChevronLeft, X } from 'lucide-react-native';
 import { BRAND_LOGO_URL } from '../constants';
 import { ShimmerImage } from './common/ShimmerImage';
 import { apiService } from '../services/apiService';
+import { useTheme, useTypography } from '../theme';
 
 const DEFAULT_DEV_MOBILE = '';
 const DEFAULT_DEV_OTP = '261125';
@@ -30,6 +31,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   onSuccessAuth,
   onBack,
 }) => {
+  const { theme } = useTheme();
+  const typography = useTypography();
   const [step, setStep] = useState<'mobile' | 'otp'>(initialStep);
   const [phoneNumber, setPhoneNumber] = useState(DEFAULT_DEV_MOBILE);
   const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
@@ -166,7 +169,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={styles.screenContainer}
+      style={[styles.screenContainer, { backgroundColor: theme.background }]}
     >
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -184,7 +187,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               style={styles.iconButton}
               activeOpacity={0.7}
             >
-              <ChevronLeft size={24} color="#111111" />
+              <ChevronLeft size={24} color={theme.textPrimary} />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
@@ -192,7 +195,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               style={styles.iconButton}
               activeOpacity={0.7}
             >
-              <ChevronLeft size={24} color="#111111" />
+              <ChevronLeft size={24} color={theme.textPrimary} />
             </TouchableOpacity>
           )}
 
@@ -212,15 +215,15 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             style={styles.iconButton}
             activeOpacity={0.7}
           >
-            <X size={20} color="#111111" />
+            <X size={20} color={theme.textPrimary} />
           </TouchableOpacity>
         </View>
 
         {step === 'mobile' ? (
           /* STEP 1: Mobile entry */
           <View style={styles.mainCard}>
-            <Text style={styles.headingTitle}>Log in or Sign up</Text>
-            <Text style={styles.subHeading}>
+            <Text style={[styles.headingTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>Log in or Sign up</Text>
+            <Text style={[styles.subHeading, { color: theme.textSecondary, fontFamily: typography.fontFamily }]}>
               Enter your mobile number to continue
             </Text>
 
@@ -228,16 +231,19 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             <View
               style={[
                 styles.inputFieldContainer,
-                isPhoneFocused && styles.inputFieldFocused,
+                {
+                  backgroundColor: theme.surface,
+                  borderColor: isPhoneFocused ? theme.primary : theme.border,
+                },
               ]}
             >
-              <View style={styles.floatingLabelWrapper}>
-                <Text style={styles.fieldFloatingLabel}>
+              <View style={[styles.floatingLabelWrapper, { backgroundColor: theme.surface }]}>
+                <Text style={[styles.fieldFloatingLabel, { color: isPhoneFocused ? theme.primary : theme.textSecondary, fontFamily: typography.fontFamily }]}>
                   Enter 10-digit mobile no.
                 </Text>
               </View>
               <View style={styles.phoneInputRow}>
-                <Text style={styles.countryCode}>+91</Text>
+                <Text style={[styles.countryCode, { color: theme.textPrimary }]}>+91</Text>
                 <TextInput
                   value={phoneNumber}
                   onChangeText={(text) => {
@@ -245,10 +251,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                     setErrorMessage(null);
                   }}
                   placeholder="96666 35009"
-                  placeholderTextColor="#AEAEB2"
+                  placeholderTextColor={theme.textMuted}
                   keyboardType="phone-pad"
                   maxLength={10}
-                  style={styles.phoneTextInput}
+                  style={[styles.phoneTextInput, { color: theme.textPrimary }]}
                   onFocus={() => setIsPhoneFocused(true)}
                   onBlur={() => setIsPhoneFocused(false)}
                 />
@@ -266,16 +272,20 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               activeOpacity={0.85}
               style={[
                 styles.actionButton,
-                isPhoneValid ? styles.actionButtonActive : styles.actionButtonDisabled,
+                isPhoneValid
+                  ? { backgroundColor: theme.buttonBg || theme.primary }
+                  : { backgroundColor: theme.surfaceSecondary },
               ]}
             >
               {isSending ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={theme.buttonText || '#FFFFFF'} />
               ) : (
                 <Text
                   style={[
                     styles.actionButtonText,
-                    isPhoneValid ? styles.actionButtonTextActive : styles.actionButtonTextDisabled,
+                    isPhoneValid
+                      ? { color: theme.buttonText || '#FFFFFF', fontFamily: typography.fontFamilyHeading }
+                      : { color: theme.textMuted, fontFamily: typography.fontFamilyHeading },
                   ]}
                 >
                   Get OTP
@@ -285,17 +295,17 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
             {/* Legal Disclaimer */}
             <View style={styles.disclaimerContainer}>
-              <Text style={styles.disclaimerText}>
+              <Text style={[styles.disclaimerText, { color: theme.textSecondary, fontFamily: typography.fontFamily }]}>
                 By entering this site, you agree to the{'\n'}
                 <Text
-                  style={styles.disclaimerLink}
+                  style={[styles.disclaimerLink, { color: theme.primary }]}
                   onPress={() => Linking.openURL('https://urbanico.in/terms')}
                 >
                   Terms & Conditions
                 </Text>{' '}
                 and{' '}
                 <Text
-                  style={styles.disclaimerLink}
+                  style={[styles.disclaimerLink, { color: theme.primary }]}
                   onPress={() => Linking.openURL('https://urbanico.in/privacy')}
                 >
                   Privacy Policy
@@ -306,8 +316,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         ) : (
           /* STEP 2: OTP Verification */
           <View style={styles.mainCardCenter}>
-            <Text style={styles.otpHeadingTitle}>Enter OTP</Text>
-            <Text style={styles.otpSubHeading}>
+            <Text style={[styles.otpHeadingTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>Enter OTP</Text>
+            <Text style={[styles.otpSubHeading, { color: theme.textSecondary, fontFamily: typography.fontFamily }]}>
               Sent to +91 {phoneNumber || DEFAULT_DEV_MOBILE}
             </Text>
 
@@ -325,8 +335,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                     key={idx}
                     style={[
                       styles.otpBox,
-                      isFocused && styles.otpBoxFocused,
-                      isFilled && styles.otpBoxFilled,
+                      {
+                        backgroundColor: theme.surface,
+                        borderColor: isFocused ? theme.primary : (isFilled ? theme.primary : theme.border),
+                      },
                     ]}
                   >
                     <TextInput
@@ -340,7 +352,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                       keyboardType="number-pad"
                       maxLength={6}
                       selectTextOnFocus
-                      style={styles.otpInputText}
+                      style={[styles.otpInputText, { color: theme.textPrimary }]}
                     />
                   </View>
                 );
@@ -350,12 +362,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             {/* Resend Timer */}
             <View style={styles.resendContainer}>
               {timer > 0 ? (
-                <Text style={styles.timerText}>
+                <Text style={[styles.timerText, { color: theme.textSecondary, fontFamily: typography.fontFamily }]}>
                   Resend in 00:{timer < 10 ? `0${timer}` : timer}
                 </Text>
               ) : (
                 <TouchableOpacity onPress={handleResend} activeOpacity={0.7}>
-                  <Text style={styles.resendActionLink}>Resend OTP</Text>
+                  <Text style={[styles.resendActionLink, { color: theme.primary, fontFamily: typography.fontFamilyHeading }]}>Resend OTP</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -371,17 +383,21 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               activeOpacity={0.85}
               style={[
                 styles.actionButton,
-                isOtpComplete ? styles.actionButtonActive : styles.actionButtonDisabled,
+                isOtpComplete
+                  ? { backgroundColor: theme.buttonBg || theme.primary }
+                  : { backgroundColor: theme.surfaceSecondary },
                 { marginTop: 20 },
               ]}
             >
               {isVerifying ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={theme.buttonText || '#FFFFFF'} />
               ) : (
                 <Text
                   style={[
                     styles.actionButtonText,
-                    isOtpComplete ? styles.actionButtonTextActive : styles.actionButtonTextDisabled,
+                    isOtpComplete
+                      ? { color: theme.buttonText || '#FFFFFF', fontFamily: typography.fontFamilyHeading }
+                      : { color: theme.textMuted, fontFamily: typography.fontFamilyHeading },
                   ]}
                 >
                   Verify OTP

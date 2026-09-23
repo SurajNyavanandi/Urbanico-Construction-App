@@ -1,6 +1,7 @@
 import { Platform, Linking } from 'react-native';
 import { getBaseApiUrls, getActiveApiBase, setActiveApiBase } from './apiService';
 import { safeStorage } from '../utils/safeStorage';
+import { GLOBAL_THEME_COLORS } from '../theme';
 
 export interface CreateOrderParams {
   amount: number; // in Rupees or Paise
@@ -939,7 +940,7 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
         siteDestination: options.orderDescription || 'Site Delivery',
       },
       theme: {
-        color: '#0F172A',
+        color: GLOBAL_THEME_COLORS.primary || '#0F172A',
         hide_topbar: false,
       },
       modal: {
@@ -1149,7 +1150,7 @@ export async function openRazorpayOneTapPayment(options: RazorpayOneTapOptions):
       name: true,
     },
     theme: {
-      color: '#0F172A',
+      color: GLOBAL_THEME_COLORS.primary || '#0F172A',
     },
     modal: {
       confirm_close: true,
