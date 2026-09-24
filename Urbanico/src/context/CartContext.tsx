@@ -19,6 +19,7 @@ interface CartContextType {
   updateQuantity: (cartId: string, quantity: number) => void;
   removeFromCart: (cartId: string) => void;
   clearCart: () => void;
+  setCartItems: React.Dispatch<React.SetStateAction<CartItem[]>>;
   applyCoupon: (code: string) => { success: boolean; message: string };
   removeCoupon: () => void;
   saveForLater: (item: CartItem) => void;
@@ -33,6 +34,8 @@ interface CartContextType {
     quantity: number;
     image: string;
   }>) => void;
+  mergeGuestCartOnAuth: (phone: string) => void;
+  resetCartOnLogout: () => void;
 }
 
 const CartContext = createContext<CartContextType | null>(null);
@@ -46,9 +49,13 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const authSaved = safeStorage.getItem('urbanico_auth_session');
       const phone = authSaved ? JSON.parse(authSaved).phone : null;
-      const key = phone ? `urbanico_cart_${phone}` : 'urbanico_cart_guest';
+      const cleanPhone = phone ? phone.replace(/[^0-9]/g, '') : null;
+      const key = cleanPhone ? `urbanico_cart_${cleanPhone}` : 'urbanico_cart_guest';
       const saved = safeStorage.getItem(key);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
     } catch {
       // ignore
     }
@@ -73,8 +80,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const authSaved = safeStorage.getItem('urbanico_auth_session');
       const phone = authSaved ? JSON.parse(authSaved).phone : null;
-      const key = phone ? `urbanico_cart_${phone}` : 'urbanico_cart_guest';
-      safeStorage.setDebouncedItem(key, JSON.stringify(cartItems), 400);
+      const cleanPhone = phone ? phone.replace(/[^0-9]/g, '') : null;
+      const key = cleanPhone ? `urbanico_cart_${cleanPhone}` : 'urbanico_cart_guest';
+      safeStorage.setDebouncedItem(key, JSON.stringify(cartItems), 250);
     } catch {
       // ignore
     }
@@ -84,7 +92,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       try {
         const authSaved = safeStorage.getItem('urbanico_auth_session');
         const phone = authSaved ? JSON.parse(authSaved).phone : null;
-        const key = phone ? `urbanico_cart_${phone}` : 'urbanico_cart_guest';
+        const cleanPhone = phone ? phone.replace(/[^0-9]/g, '') : null;
+        const key = cleanPhone ? `urbanico_cart_${cleanPhone}` : 'urbanico_cart_guest';
         safeStorage.flushDebounced(key);
       } catch {}
     };
@@ -277,6 +286,57 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     []
   );
 
+  const mergeGuestCartOnAuth = useCallback((phone: string) => {
+    if (!phone) return;
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    const userKey = `urbanico_cart_${cleanPhone}`;
+    const guestKey = 'urbanico_cart_guest';
+
+    try {
+      // 1. Read existing saved cart for this user
+      const existingUserCartRaw = safeStorage.getItem(userKey);
+      const existingUserCart: CartItem[] = existingUserCartRaw ? JSON.parse(existingUserCartRaw) : [];
+
+      // 2. Read guest cart from storage as well as current in-memory cartItems
+      const guestCartRaw = safeStorage.getItem(guestKey);
+      const guestStoredItems: CartItem[] = guestCartRaw ? JSON.parse(guestCartRaw) : [];
+
+      setCartItems((prev) => {
+        const itemsToMerge = prev.length > 0 ? prev : guestStoredItems;
+        const merged = [...existingUserCart];
+
+        itemsToMerge.forEach((guestItem) => {
+          const matchIdx = merged.findIndex(
+            (ci) => ci.itemId === guestItem.itemId && ci.selectedOptionLabel === guestItem.selectedOptionLabel
+          );
+          if (matchIdx >= 0) {
+            merged[matchIdx] = {
+              ...merged[matchIdx],
+              quantity: Math.max(merged[matchIdx].quantity, guestItem.quantity),
+            };
+          } else {
+            merged.push(guestItem);
+          }
+        });
+
+        // Persist immediately to user partition
+        safeStorage.setItem(userKey, JSON.stringify(merged));
+        safeStorage.removeItem(guestKey);
+
+        return merged;
+      });
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const resetCartOnLogout = useCallback(() => {
+    setCartItems([]);
+    setAppliedCoupon(null);
+    setCouponDiscount(0);
+    safeStorage.removeItem('urbanico_cart_guest');
+  }, []);
+
   const value = useMemo(
     () => ({
       cartItems,
@@ -288,12 +348,15 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       updateQuantity,
       removeFromCart,
       clearCart,
+      setCartItems,
       applyCoupon,
       removeCoupon,
       saveForLater,
       moveToCart,
       removeSavedForLater,
       addBundleToCart,
+      mergeGuestCartOnAuth,
+      resetCartOnLogout,
     }),
     [
       cartItems,
@@ -311,6 +374,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       moveToCart,
       removeSavedForLater,
       addBundleToCart,
+      mergeGuestCartOnAuth,
+      resetCartOnLogout,
     ]
   );
 
@@ -342,12 +407,15 @@ const fallbackCartContext: CartContextType = {
   updateQuantity: () => {},
   removeFromCart: () => {},
   clearCart: () => {},
+  setCartItems: () => {},
   applyCoupon: () => ({ success: false, message: 'Cart not initialized' }),
   removeCoupon: () => {},
   saveForLater: () => {},
   moveToCart: () => {},
   removeSavedForLater: () => {},
   addBundleToCart: () => {},
+  mergeGuestCartOnAuth: () => {},
+  resetCartOnLogout: () => {},
 };
 
 export const useCart = (): CartContextType => {

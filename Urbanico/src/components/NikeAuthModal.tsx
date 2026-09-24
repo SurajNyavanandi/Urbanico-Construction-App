@@ -347,7 +347,7 @@ export const NikeAuthModal: React.FC<NikeAuthModalProps> = ({
                   ]}
                 >
                   {isSending ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <ActivityIndicator size="small" color="#18181B" />
                   ) : (
                     <View style={styles.buttonInnerRow}>
                       <Text
@@ -358,7 +358,7 @@ export const NikeAuthModal: React.FC<NikeAuthModalProps> = ({
                       >
                         Get OTP
                       </Text>
-                      <ArrowRight size={16} color={isPhoneValid ? '#FFFFFF' : '#8E8E93'} />
+                      <ArrowRight size={16} color={isPhoneValid ? '#18181B' : '#8E8E93'} />
                     </View>
                   )}
                 </TouchableOpacity>
@@ -495,7 +495,7 @@ export const NikeAuthModal: React.FC<NikeAuthModalProps> = ({
                   ]}
                 >
                   {isVerifying ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
+                    <ActivityIndicator size="small" color="#18181B" />
                   ) : (
                     <Text
                       style={[
@@ -680,7 +680,7 @@ const styles = StyleSheet.create({
   contractorTitle: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#0F172A',
   },
   contractorSubtitle: {
     fontSize: 11,
@@ -693,7 +693,7 @@ const styles = StyleSheet.create({
   headingTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0F172A',
     letterSpacing: -0.4,
     marginBottom: 6,
     textAlign: 'left',
@@ -726,7 +726,7 @@ const styles = StyleSheet.create({
   otpHeadingTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0F172A',
     textAlign: 'center',
     marginBottom: 4,
     letterSpacing: -0.3,
@@ -788,13 +788,13 @@ const styles = StyleSheet.create({
   countryCode: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#0F172A',
   },
   phoneTextInput: {
     flex: 1,
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#0F172A',
     paddingVertical: 2,
   },
   errorText: {
@@ -897,7 +897,7 @@ const styles = StyleSheet.create({
   otpInputText: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#0F172A',
     textAlign: 'center',
     width: '100%',
     height: '100%',

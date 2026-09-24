@@ -238,31 +238,16 @@ export class PaymentController {
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background: #0B0F19; color: #F8FAFC; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
-    .card { background: #131B2E; border: 1px solid #1E293B; border-radius: 20px; max-width: 420px; width: 100%; padding: 28px 24px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
-    .shield-icon { width: 56px; height: 56px; background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; color: #38BDF8; font-size: 24px; }
-    h1 { font-size: 20px; font-weight: 700; margin-bottom: 6px; color: #FFFFFF; }
-    .sub { font-size: 13px; color: #94A3B8; margin-bottom: 24px; line-height: 1.4; }
-    .amount-box { background: #1E293B; border-radius: 12px; padding: 14px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }
-    .amount-label { font-size: 12px; font-weight: 600; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px; }
-    .amount-value { font-size: 22px; font-weight: 800; color: #F59E0B; }
-    .btn-pay { background: #F59E0B; color: #000000; border: none; border-radius: 12px; width: 100%; padding: 15px; font-size: 15px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease; }
-    .btn-pay:hover { background: #D97706; }
-    .btn-pay:active { transform: scale(0.98); }
+    .loader-container { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+    .spinner { width: 44px; height: 44px; border: 3.5px solid rgba(245, 158, 11, 0.2); border-top-color: #F59E0B; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-size: 15px; font-weight: 600; color: #94A3B8; letter-spacing: -0.2px; }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>Payment</h1>
-    <p class="sub">Urbanico Direct materials & trade services</p>
-    
-    <div class="amount-box">
-      <span class="amount-label">Total Payable</span>
-      <span class="amount-value">₹${formattedAmount}</span>
-    </div>
-
-    <button id="pay-btn" class="btn-pay" onclick="launchRazorpay()">
-      <span id="btn-text">Open Razorpay Gateway</span>
-    </button>
+  <div class="loader-container">
+    <div class="spinner"></div>
+    <p class="loading-text">Loading Payment Options...</p>
   </div>
 
   <script>
@@ -284,14 +269,38 @@ export class PaymentController {
         email: true,
         name: true
       },
+      config: {
+        display: {
+          preferences: {
+            show_default_blocks: true
+          },
+          sequence: ["block.upi", "block.cards", "block.netbanking", "block.wallets"]
+        }
+      },
+      display: {
+        preferences: {
+          show_default_blocks: true
+        },
+        sequence: ["block.upi", "block.cards", "block.netbanking", "block.wallets"]
+      },
       notes: {
         platform: "urbanico_mobile_app"
       },
       theme: {
         color: "#111111"
       },
+      modal: {
+        ondismiss: function() {
+          if (window.history.length > 1) {
+            window.history.back();
+          }
+        }
+      },
       handler: function(response) {
-        document.getElementById('btn-text').innerText = 'Verifying Payment...';
+        var btn = document.getElementById('btn-text');
+        if (btn) btn.innerText = 'Verifying Payment...';
+        var loadingText = document.querySelector('.loading-text');
+        if (loadingText) loadingText.innerText = 'Verifying Payment...';
         fetch('/api/razorpay/verify-payment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -308,11 +317,13 @@ export class PaymentController {
             const separator = callback.includes('?') ? '&' : '?';
             window.location.href = callback + separator + 'razorpay_payment_id=' + response.razorpay_payment_id + '&razorpay_order_id=' + response.razorpay_order_id + '&razorpay_signature=' + response.razorpay_signature + '&status=success';
           } else {
-            document.body.innerHTML = '<div class="card"><h1 style="color:#10B981">Payment Successful!</h1><p class="sub">Payment ID: ' + response.razorpay_payment_id + '</p></div>';
+            document.body.innerHTML = '<div style="background:#1E293B;border-radius:16px;padding:32px;text-align:center;max-width:380px;border:1px solid #334155;"><h1 style="color:#10B981;font-size:22px;margin-bottom:8px;">Payment Successful!</h1><p style="color:#94A3B8;font-size:14px;">Payment ID: ' + response.razorpay_payment_id + '</p></div>';
           }
         })
         .catch(function(err) {
-          alert('Payment verification error: ' + err.message);
+          console.error('Payment verification error: ', err);
+          var lt = document.querySelector('.loading-text');
+          if (lt) lt.innerText = 'Payment received. Redirecting...';
         });
       }
     };
@@ -327,7 +338,7 @@ export class PaymentController {
     }
 
     window.addEventListener('DOMContentLoaded', function() {
-      setTimeout(launchRazorpay, 300);
+      launchRazorpay();
     });
   </script>
 </body>

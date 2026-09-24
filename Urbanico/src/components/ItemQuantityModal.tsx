@@ -244,13 +244,14 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
     setIsAdding(true);
     soundService.playAddToCart();
 
-    setTimeout(() => {
-      setIsAdding(false);
-      const effectiveQty = isTradeService ? 1 : quantity;
-      const effectiveTotal = isTradeService ? 99 : totalPrice;
-      onAddToCart(item, selectedOption, effectiveQty, effectiveTotal);
-      handleAnimatedClose();
-    }, 250);
+    // Dispatch immediately with 0ms delay so cart state and badge update instantly
+    const effectiveQty = isTradeService ? 1 : quantity;
+    const effectiveTotal = isTradeService ? 99 : totalPrice;
+    onAddToCart(item, selectedOption, effectiveQty, effectiveTotal);
+
+    // Smoothly close sheet in parallel
+    handleAnimatedClose();
+    setIsAdding(false);
   };
 
   const handleBuyNowClick = () => {
@@ -580,7 +581,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
                               : { borderColor: theme.border, backgroundColor: 'transparent' },
                           ]}
                         >
-                          {isSelected && <Check size={10} color="#FFFFFF" strokeWidth={3} />}
+                          {isSelected && <Check size={10} color={theme.primaryText || '#18181B'} strokeWidth={3} />}
                         </View>
                         <Text
                           style={[
@@ -709,12 +710,12 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
               },
             ]}
           >
-            <Zap size={16} color={theme.buttonText || '#FFFFFF'} strokeWidth={2} />
+            <Zap size={16} color={theme.buttonText || '#18181B'} strokeWidth={2} />
             <Text
               numberOfLines={1}
               style={[
                 styles.primaryBtnText,
-                { color: theme.buttonText || '#FFFFFF' },
+                { color: theme.buttonText || '#18181B' },
               ]}
             >
               {isTradeService

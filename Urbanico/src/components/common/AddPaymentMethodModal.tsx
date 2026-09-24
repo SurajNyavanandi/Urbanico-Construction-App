@@ -168,6 +168,14 @@ export const AddPaymentMethodModal: React.FC<AddPaymentMethodModalProps> = ({
             {/* Tab 1: UPI Form */}
             {activeTab === 'upi' && (
               <View style={{ gap: 10 }}>
+                {/* Info Box */}
+                <View style={[styles.infoBanner, { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' }]}>
+                  <ShieldCheck size={14} color="#16A34A" />
+                  <Text style={{ fontSize: 11, color: '#166534', flex: 1, lineHeight: 15 }}>
+                    Zero-Transfer VPA Verification: No money is sent or received. Urbanico checks your VPA with the NPCI bank directory for fast checkout. Money is only debited when you approve an order with your secret UPI PIN.
+                  </Text>
+                </View>
+
                 <Text style={[styles.fieldLabel, { color: theme.textSecondary }]}>Enter UPI ID / VPA</Text>
                 <TextInput
                   value={upiVpa}
@@ -227,12 +235,12 @@ export const AddPaymentMethodModal: React.FC<AddPaymentMethodModalProps> = ({
                 >
                   {isVerifyingUpi ? (
                     <View style={styles.btnInner}>
-                      <ActivityIndicator size="small" color="#FFFFFF" />
+                      <ActivityIndicator size="small" color={theme.primaryText || '#18181B'} />
                       <Text style={styles.submitBtnText}>Verifying with NPCI...</Text>
                     </View>
                   ) : (
                     <View style={styles.btnInner}>
-                      <ShieldCheck size={16} color="#FFFFFF" />
+                      <ShieldCheck size={16} color={theme.primaryText || '#18181B'} />
                       <Text style={styles.submitBtnText}>Verify & Save UPI</Text>
                     </View>
                   )}
@@ -361,12 +369,12 @@ export const AddPaymentMethodModal: React.FC<AddPaymentMethodModalProps> = ({
                 >
                   {isVerifyingCard ? (
                     <View style={styles.btnInner}>
-                      <ActivityIndicator size="small" color="#FFFFFF" />
+                      <ActivityIndicator size="small" color={theme.primaryText || '#18181B'} />
                       <Text style={styles.submitBtnText}>Authorizing ₹1 Charge...</Text>
                     </View>
                   ) : (
                     <View style={styles.btnInner}>
-                      <Sparkles size={15} color="#FFFFFF" />
+                      <Sparkles size={15} color={theme.primaryText || '#18181B'} />
                       <Text style={styles.submitBtnText}>Verify & Save Card (₹1 Refundable)</Text>
                     </View>
                   )}
@@ -492,7 +500,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   submitBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 13,
     fontWeight: '700',
   },

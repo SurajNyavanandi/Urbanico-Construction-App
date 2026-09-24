@@ -123,7 +123,7 @@ export const LanguagePromptModal: React.FC<LanguagePromptModalProps> = ({
                         : { borderColor: theme.border, backgroundColor: theme.surface },
                     ]}
                   >
-                    {isSelected && <Check size={14} color="#FFFFFF" strokeWidth={3} />}
+                    {isSelected && <Check size={14} color={theme.primaryText || '#18181B'} strokeWidth={3} />}
                   </View>
                 </TouchableOpacity>
               );

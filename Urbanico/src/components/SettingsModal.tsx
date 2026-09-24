@@ -151,7 +151,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             : { borderColor: theme.border, backgroundColor: theme.surface },
                         ]}
                       >
-                        {isSelected && <Check size={14} color="#FFFFFF" strokeWidth={3} />}
+                        {isSelected && <Check size={14} color={theme.primaryText || '#18181B'} strokeWidth={3} />}
                       </View>
                     </TouchableOpacity>
                   );
@@ -265,7 +265,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                           }}
                         >
                           {isSelected && (
-                            <Check size={18} color="#FFFFFF" strokeWidth={3} />
+                            <Check size={18} color={pal.id === 'yellow' ? '#18181B' : '#FFFFFF'} strokeWidth={3} />
                           )}
                         </TouchableOpacity>
                       );

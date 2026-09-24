@@ -117,6 +117,7 @@ import { buildTaxInvoiceData, sendTaxInvoiceEmail } from '../utils/invoiceHelper
 import { openProformaQuotationPrint } from '../utils/proformaQuotationHelper';
 import { LiveDispatcherChatModal } from './common/LiveDispatcherChatModal';
 import { SupervisorHandoffModal } from './common/SupervisorHandoffModal';
+import { useCart } from '../context/CartContext';
 
 export type PaymentMethodType = 'online' | 'pod' | 'upi_app' | 'upi_vpa' | 'card' | 'netbanking' | 'wallet' | 'emi';
 
@@ -236,24 +237,13 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     if (user?.phone && !newAddrPhone) setNewAddrPhone(user.phone.replace(/\D/g, ''));
   }, [user]);
 
-  // Saved for Later state
-  const [savedForLaterItems, setSavedForLaterItems] = useState<CartItem[]>(() => {
-    try {
-      const saved = safeStorage.getItem('urbanico_saved_for_later');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed.map((item: any, idx: number) => ({
-            ...item,
-            id: item.id || `saved-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`,
-          }));
-        }
-      }
-      return [];
-    } catch {
-      return [];
-    }
-  });
+  // Saved for Later state from unified CartContext
+  const {
+    savedForLaterItems,
+    saveForLater,
+    moveToCart,
+    removeSavedForLater,
+  } = useCart();
 
   // Stock Reservation 10-Minute Expiry Countdown (Item 3)
   const [reservationSeconds, setReservationSeconds] = useState<number>(() => {
@@ -548,7 +538,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
               style={{
                 fontSize: 12,
                 fontWeight: '700',
-                color: isChangingAddress ? '#FFFFFF' : theme.primary,
+                color: isChangingAddress ? (theme.primaryText || '#18181B') : theme.primary,
               }}
             >
               {isChangingAddress ? 'Done' : 'Change'}
@@ -588,7 +578,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                   <Text
                     style={[
                       styles.addressTypeBadgeText,
-                      { color: '#FFFFFF' },
+                      { color: theme.primaryText || '#18181B' },
                     ]}
                   >
                     DELIVERY SITE
@@ -695,7 +685,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                               style={[
                                 styles.addressTypeBadgeText,
                                 {
-                                  color: isSelected ? '#FFFFFF' : theme.textSecondary,
+                                  color: isSelected ? (theme.primaryText || '#18181B') : theme.textSecondary,
                                 },
                               ]}
                             >
@@ -915,7 +905,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                           style={[
                             styles.typeChipText,
                             {
-                              color: newAddrType === typ ? '#FFFFFF' : theme.textPrimary,
+                              color: newAddrType === typ ? (theme.primaryText || '#18181B') : theme.textPrimary,
                               fontWeight: newAddrType === typ ? '700' : '500',
                             },
                           ]}
@@ -1330,38 +1320,18 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   };
 
   const handleSaveForLater = (item: CartItem) => {
-    onRemoveItem(item.id);
-    const updated = [...savedForLaterItems.filter((i) => i.id !== item.id), item];
-    setSavedForLaterItems(updated);
-    try {
-      safeStorage.setItem('urbanico_saved_for_later', JSON.stringify(updated));
-      syncManager.broadcast('SAVED_FOR_LATER_UPDATED', updated);
-    } catch {}
+    saveForLater(item);
+    showToast(`Saved "${item.itemName}" for later`, 'info');
   };
 
   const handleMoveToCart = (item: CartItem) => {
-    const updatedSaved = savedForLaterItems.filter((i) => i.id !== item.id);
-    setSavedForLaterItems(updatedSaved);
-    try {
-      safeStorage.setItem('urbanico_saved_for_later', JSON.stringify(updatedSaved));
-      syncManager.broadcast('SAVED_FOR_LATER_UPDATED', updatedSaved);
-    } catch {}
-    // trigger adding back to cart
-    if (onAddToCart) {
-      onAddToCart(item);
-    } else {
-      onUpdateQuantity(item.id, 1);
-    }
+    moveToCart(item);
     showToast(`Moved "${item.itemName}" back to cart`, 'success');
   };
 
   const handleRemoveSavedItem = (id: string) => {
-    const updated = savedForLaterItems.filter((i) => i.id !== id);
-    setSavedForLaterItems(updated);
-    try {
-      safeStorage.setItem('urbanico_saved_for_later', JSON.stringify(updated));
-      syncManager.broadcast('SAVED_FOR_LATER_UPDATED', updated);
-    } catch {}
+    removeSavedForLater(id);
+    showToast('Removed item from saved list', 'info');
   };
 
   // Saved Delivery Addresses list (E-commerce Flipkart / Amazon style)
@@ -1491,6 +1461,15 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     if (!rawDigits && activeSupervisor.phone) {
       rawDigits = activeSupervisor.phone.replace(/\D/g, '');
     }
+    // Edge case check: If user is not logged in and hasn't provided a valid delivery mobile number, prompt 1-tap OTP verification
+    if (!isLoggedIn && (!rawDigits || rawDigits.length < 10)) {
+      if (onOpenLoginModal) {
+        showToast('Please enter your mobile number to receive site delivery OTP and live tracking', 'info');
+        onOpenLoginModal();
+        return;
+      }
+    }
+
     if (rawDigits.length > 10) rawDigits = rawDigits.slice(-10);
     const cleanPhone = rawDigits.length === 10 ? rawDigits : '9848012345';
 
@@ -3458,7 +3437,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   nikeShopNowPillText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 13.5,
     fontWeight: '700',
   },
@@ -3605,7 +3584,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   continueShoppingPrimaryText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 13.5,
     fontWeight: '800',
   },
@@ -3914,7 +3893,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   saveNewAddressBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 12.5,
     fontWeight: '700',
   },
@@ -4000,7 +3979,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   checkoutProceedBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 13.5,
     fontWeight: '700',
     letterSpacing: -0.2,

@@ -9,7 +9,7 @@ import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { LocationProvider, useLocation } from './context/LocationContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { ToastProvider, useToast } from './context/ToastContext';
-import { CartProvider } from './context/CartContext';
+import { CartProvider, useCart } from './context/CartContext';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 import { ProjectBundle, PROJECT_BUNDLES } from './components/HomeScreen';
@@ -257,44 +257,18 @@ function MainAppContent() {
     }
   }, [isAnyModalOpen]);
 
-  // Cart State (Persisted and partition-scoped per user / guest)
-  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
-    try {
-      const authSaved = safeStorage.getItem('urbanico_auth_session');
-      const phone = authSaved ? JSON.parse(authSaved).phone : null;
-      const key = phone ? `urbanico_cart_${phone}` : 'urbanico_cart_guest';
-      const savedCart = safeStorage.getItem(key);
-      if (savedCart) {
-        const parsed = JSON.parse(savedCart);
-        if (Array.isArray(parsed)) {
-          return parsed.map((item: any, idx: number) => ({
-            ...item,
-            id: item.id || `cart-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`,
-          }));
-        }
-      }
-    } catch {
-      // ignore
-    }
-    return [];
-  });
-
-  // Debounced auto-save mechanism for cart state to reduce storage write operations during frequent quantity adjustments
-  useEffect(() => {
-    const key = isLoggedIn && user.phone ? `urbanico_cart_${user.phone}` : 'urbanico_cart_guest';
-    try {
-      safeStorage.setDebouncedItem(key, JSON.stringify(cartItems), 400);
-    } catch {
-      // ignore
-    }
-
-    return () => {
-      // Flush immediately on unmount or before switching account partition
-      try {
-        safeStorage.flushDebounced(key);
-      } catch {}
-    };
-  }, [cartItems, isLoggedIn, user.phone]);
+  // Unified Cart State & Actions from CartContext (Single Source of Truth)
+  const {
+    cartItems,
+    addToCart,
+    updateQuantity: handleUpdateCartQty,
+    removeFromCart: handleRemoveCartItem,
+    clearCart: handleClearCart,
+    addBundleToCart,
+    setCartItems,
+    mergeGuestCartOnAuth,
+    resetCartOnLogout,
+  } = useCart();
 
   // Deliveries data (persisted for live production app)
   const [deliveries, setDeliveries] = useState<ActivityDelivery[]>(() => {
@@ -643,32 +617,8 @@ function MainAppContent() {
   ) => {
     const isService = item.categoryId === 'services' || item.id.startsWith('service-');
     const unitPrice = isService ? 99 : option.price;
-    const newItem: CartItem = {
-      id: generateCartItemId(),
-      itemId: item.id,
-      itemName: item.name,
-      categoryName: item.categoryId,
-      selectedOptionLabel: option.label,
-      unitPrice,
-      quantity,
-      image: item.image,
-    };
 
-    setCartItems((prev) => {
-      // If item with same option already in cart, increment quantity
-      const existingIdx = prev.findIndex(
-        (ci) => ci.itemId === item.id && ci.selectedOptionLabel === option.label
-      );
-      if (existingIdx >= 0) {
-        const updated = [...prev];
-        updated[existingIdx] = {
-          ...updated[existingIdx],
-          quantity: updated[existingIdx].quantity + quantity,
-        };
-        return updated;
-      }
-      return [newItem, ...prev];
-    });
+    addToCart(item, option, quantity, unitPrice);
 
     showAddToCartToast({
       name: item.name,
@@ -688,103 +638,45 @@ function MainAppContent() {
   ) => {
     const isService = item.categoryId === 'services' || item.id.startsWith('service-');
     const unitPrice = isService ? 99 : option.price;
-    const newItem: CartItem = {
-      id: generateCartItemId(),
-      itemId: item.id,
-      itemName: item.name,
-      categoryName: item.categoryId,
-      selectedOptionLabel: option.label,
-      unitPrice,
-      quantity,
-      image: item.image,
-    };
 
-    setCartItems((prev) => {
-      const existingIdx = prev.findIndex(
-        (ci) => ci.itemId === item.id && ci.selectedOptionLabel === option.label
-      );
-      if (existingIdx >= 0) {
-        const updated = [...prev];
-        updated[existingIdx] = {
-          ...updated[existingIdx],
-          quantity: updated[existingIdx].quantity + quantity,
-        };
-        return updated;
-      }
-      return [newItem, ...prev];
-    });
-
+    addToCart(item, option, quantity, unitPrice);
     setSelectedItemForModal(null);
     setCurrentScreen('basket');
   };
 
   const handleAddBundleToCartAndNavigate = (bundle: ProjectBundle) => {
-    const itemsToAdd: CartItem[] = bundle.bundleItems.map((bi) => ({
-      id: generateCartItemId(),
+    const bundleItems = bundle.bundleItems.map((bi) => ({
       itemId: bi.itemId,
       itemName: bi.itemName,
       categoryName: bi.categoryName,
-      selectedOptionLabel: bi.optionLabel,
+      optionLabel: bi.optionLabel,
       unitPrice: bi.unitPrice,
       quantity: bi.quantity,
       image: bi.image,
     }));
 
-    setCartItems((prev) => {
-      const updated = [...prev];
-      itemsToAdd.forEach((newItem) => {
-        const existingIdx = updated.findIndex(
-          (ci) => ci.itemId === newItem.itemId && ci.selectedOptionLabel === newItem.selectedOptionLabel
-        );
-        if (existingIdx >= 0) {
-          updated[existingIdx] = {
-            ...updated[existingIdx],
-            quantity: updated[existingIdx].quantity + newItem.quantity,
-          };
-        } else {
-          updated.unshift(newItem);
-        }
-      });
-      return updated;
-    });
-
+    addBundleToCart(bundleItems);
     showToast(`Added ${bundle.bundleItems.length} items from ${bundle.title} to Cart!`, 'success');
     setCurrentScreen('basket');
   };
 
-  const handleUpdateCartQty = (cartId: string, newQty: number) => {
-    if (newQty <= 0) {
-      handleRemoveCartItem(cartId);
-      return;
-    }
-    setCartItems((prev) =>
-      prev.map((item) => (item.id === cartId ? { ...item, quantity: newQty } : item))
-    );
-  };
-
-  const handleRemoveCartItem = (cartId: string) => {
-    setCartItems((prev) => prev.filter((item) => item.id !== cartId));
-  };
-
-  const handleClearCart = () => {
-    setCartItems([]);
-  };
-
   const handleAddToCartItem = (item: CartItem) => {
-    setCartItems((prev) => {
-      const existingIdx = prev.findIndex(
-        (ci) => ci.itemId === item.itemId && ci.selectedOptionLabel === item.selectedOptionLabel
-      );
-      if (existingIdx >= 0) {
-        const updated = [...prev];
-        updated[existingIdx] = {
-          ...updated[existingIdx],
-          quantity: updated[existingIdx].quantity + (item.quantity || 1),
-        };
-        return updated;
-      }
-      return [{ ...item, id: generateCartItemId(), quantity: item.quantity || 1 }, ...prev];
-    });
+    const option: UnitOption = {
+      id: 'opt-unit',
+      label: item.selectedOptionLabel,
+      price: item.unitPrice,
+      type: 'stepper',
+    };
+    const materialItem: MaterialItem = {
+      id: item.itemId,
+      name: item.itemName,
+      categoryId: (item.categoryName || 'all') as any,
+      defaultPrice: item.unitPrice,
+      image: item.image || '',
+      actionType: 'add_to_cart',
+      options: [option],
+    };
+    addToCart(materialItem, option, item.quantity || 1, item.unitPrice);
   };
 
   const handleAuthSuccess = (phoneNum: string) => {
@@ -873,40 +765,14 @@ function MainAppContent() {
     // 2. Load user addresses
     loadUserLocations(validPhone);
 
-    // 3. Merge guest cart with existing user cart
+    // 3. Merge guest cart with existing user cart via unified CartContext
     try {
       safeStorage.setItem(
         'urbanico_auth_session',
         JSON.stringify({ isLoggedIn: true, phone: validPhone })
       );
 
-      // Read current guest cart from storage as well as in-memory state
-      const guestCartRaw = safeStorage.getItem('urbanico_cart_guest');
-      const guestStoredItems: CartItem[] = guestCartRaw ? JSON.parse(guestCartRaw) : [];
-      const currentItemsToMerge = cartItems.length > 0 ? cartItems : guestStoredItems;
-
-      // Merge with any pre-existing cart for this user phone
-      const userSavedCartRaw = safeStorage.getItem(`urbanico_cart_${validPhone}`);
-      const userSavedCart: CartItem[] = userSavedCartRaw ? JSON.parse(userSavedCartRaw) : [];
-
-      let mergedCart = [...userSavedCart];
-      currentItemsToMerge.forEach((guestItem) => {
-        const matchIdx = mergedCart.findIndex(
-          (ci) => ci.itemId === guestItem.itemId && ci.selectedOptionLabel === guestItem.selectedOptionLabel
-        );
-        if (matchIdx >= 0) {
-          mergedCart[matchIdx] = {
-            ...mergedCart[matchIdx],
-            quantity: Math.max(mergedCart[matchIdx].quantity, guestItem.quantity),
-          };
-        } else {
-          mergedCart.push(guestItem);
-        }
-      });
-
-      setCartItems(mergedCart);
-      safeStorage.setItem(`urbanico_cart_${validPhone}`, JSON.stringify(mergedCart));
-      safeStorage.removeItem('urbanico_cart_guest');
+      mergeGuestCartOnAuth(validPhone);
 
       // Merge favorites
       const userSavedFavsRaw = safeStorage.getItem(`urbanico_favorite_ids_${validPhone}`);
@@ -970,7 +836,7 @@ function MainAppContent() {
     setIsLoggedIn(false);
     setUser(INITIAL_USER);
     setDeliveries([]);
-    setCartItems([]);
+    resetCartOnLogout();
     setFavoriteIds([]);
     resetLocationsToDefault();
     setIsAuthModalOpen(false);

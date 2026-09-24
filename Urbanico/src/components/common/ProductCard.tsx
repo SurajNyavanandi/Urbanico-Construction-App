@@ -135,8 +135,8 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
 
   const handleSafeAction = (callback?: () => void) => {
     const now = Date.now();
-    if (now - lastClickTimeRef.current < 450) {
-      return; // prevent rapid double dispatch
+    if (now - lastClickTimeRef.current < 100) {
+      return; // prevent ghost multi-touch
     }
     lastClickTimeRef.current = now;
     if (callback) {
@@ -285,8 +285,8 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
               accessibilityLabel="Add to Cart"
             >
               <AnimatedView style={{ flexDirection: 'row', alignItems: 'center', gap: 4, transform: [{ scale: addBtnScaleAnim }] }}>
-                <Plus size={14} color={theme.buttonText || '#FFFFFF'} />
-                <Text style={[styles.addPillText, { color: theme.buttonText || '#FFFFFF', fontFamily: typography.fontFamily }]}>Add</Text>
+                <Plus size={14} color={theme.buttonText || '#18181B'} />
+                <Text style={[styles.addPillText, { color: theme.buttonText || '#18181B', fontFamily: typography.fontFamily }]}>Add</Text>
               </AnimatedView>
             </TouchableOpacity>
           )}

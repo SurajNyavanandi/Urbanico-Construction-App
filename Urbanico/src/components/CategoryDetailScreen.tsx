@@ -464,7 +464,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                     style={[
                       styles.sortChipText,
                       {
-                        color: sortBy === 'default' ? '#FFFFFF' : theme.textSecondary,
+                        color: sortBy === 'default' ? (theme.primaryText || '#18181B') : theme.textSecondary,
                         fontWeight: sortBy === 'default' ? '700' : '500',
                       },
                     ]}
@@ -489,15 +489,15 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                       style={[
                         styles.sortChipText,
                         {
-                          color: isPriceSortActive ? '#FFFFFF' : theme.textSecondary,
+                          color: isPriceSortActive ? (theme.primaryText || '#18181B') : theme.textSecondary,
                           fontWeight: isPriceSortActive ? '700' : '500',
                         },
                       ]}
                     >
                       {sortBy === 'price-desc' ? 'Price: High to Low' : 'Price: Low to High'}
                     </Text>
-                    {sortBy === 'price-asc' && <ArrowUp size={12} color="#FFFFFF" strokeWidth={2.4} />}
-                    {sortBy === 'price-desc' && <ArrowDown size={12} color="#FFFFFF" strokeWidth={2.4} />}
+                    {sortBy === 'price-asc' && <ArrowUp size={12} color={theme.primaryText || '#18181B'} strokeWidth={2.4} />}
+                    {sortBy === 'price-desc' && <ArrowDown size={12} color={theme.primaryText || '#18181B'} strokeWidth={2.4} />}
                     {!isPriceSortActive && <ArrowUpDown size={11} color={theme.textMuted} strokeWidth={2} />}
                   </View>
                 </TouchableOpacity>
@@ -1037,7 +1037,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                 style={[
                   styles.sortChipText,
                   {
-                    color: sortBy === 'default' ? '#FFFFFF' : theme.textSecondary,
+                    color: sortBy === 'default' ? (theme.primaryText || '#18181B') : theme.textSecondary,
                     fontWeight: sortBy === 'default' ? '700' : '500',
                   },
                 ]}
@@ -1062,15 +1062,15 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                   style={[
                     styles.sortChipText,
                     {
-                      color: isPriceSortActive ? '#FFFFFF' : theme.textSecondary,
+                      color: isPriceSortActive ? (theme.primaryText || '#18181B') : theme.textSecondary,
                       fontWeight: isPriceSortActive ? '700' : '500',
                     },
                   ]}
                 >
                   {sortBy === 'price-desc' ? 'Price: High to Low' : 'Price: Low to High'}
                 </Text>
-                {sortBy === 'price-asc' && <ArrowUp size={12} color="#FFFFFF" strokeWidth={2.4} />}
-                {sortBy === 'price-desc' && <ArrowDown size={12} color="#FFFFFF" strokeWidth={2.4} />}
+                {sortBy === 'price-asc' && <ArrowUp size={12} color={theme.primaryText || '#18181B'} strokeWidth={2.4} />}
+                {sortBy === 'price-desc' && <ArrowDown size={12} color={theme.primaryText || '#18181B'} strokeWidth={2.4} />}
                 {!isPriceSortActive && <ArrowUpDown size={11} color={theme.textMuted} strokeWidth={2} />}
               </View>
             </TouchableOpacity>
@@ -1213,7 +1213,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                 style={[styles.resetFiltersBtn, { backgroundColor: theme.primary }]}
                 activeOpacity={0.85}
               >
-                <RotateCcw size={14} color="#FFFFFF" strokeWidth={2} />
+                <RotateCcw size={14} color={theme.primaryText || '#18181B'} strokeWidth={2} />
                 <Text style={styles.resetFiltersBtnText}>Clear Filters & Browse All Catalog</Text>
               </TouchableOpacity>
 
@@ -1631,7 +1631,7 @@ const styles = StyleSheet.create({
   resetFiltersBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#18181B',
   },
   recommendedSection: {
     width: '100%',

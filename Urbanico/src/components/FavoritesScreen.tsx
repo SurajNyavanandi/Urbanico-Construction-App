@@ -387,8 +387,8 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
                         }}
                         activeOpacity={0.85}
                       >
-                        <ShoppingCart size={13} color={theme.buttonText || '#FFFFFF'} />
-                        <Text style={{ color: theme.buttonText || '#FFFFFF', fontSize: typography.fontSize.xs, fontWeight: '700' }}>
+                        <ShoppingCart size={13} color={theme.buttonText || '#18181B'} />
+                        <Text style={{ color: theme.buttonText || '#18181B', fontSize: typography.fontSize.xs, fontWeight: '700' }}>
                           Move to Cart
                         </Text>
                       </TouchableOpacity>
@@ -438,7 +438,7 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
                 style={[styles.loginPill, { backgroundColor: theme.buttonBg || theme.primary }]}
                 activeOpacity={0.85}
               >
-                <Text style={[styles.loginPillText, { color: theme.buttonText || '#FFFFFF' }]}>Explore Materials</Text>
+                <Text style={[styles.loginPillText, { color: theme.buttonText || '#18181B' }]}>Explore Materials</Text>
               </TouchableOpacity>
             </View>
           )

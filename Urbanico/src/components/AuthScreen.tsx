@@ -278,13 +278,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               ]}
             >
               {isSending ? (
-                <ActivityIndicator size="small" color={theme.buttonText || '#FFFFFF'} />
+                <ActivityIndicator size="small" color={theme.buttonText || '#18181B'} />
               ) : (
                 <Text
                   style={[
                     styles.actionButtonText,
                     isPhoneValid
-                      ? { color: theme.buttonText || '#FFFFFF', fontFamily: typography.fontFamilyHeading }
+                      ? { color: theme.buttonText || '#18181B', fontFamily: typography.fontFamilyHeading }
                       : { color: theme.textMuted, fontFamily: typography.fontFamilyHeading },
                   ]}
                 >
@@ -390,13 +390,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               ]}
             >
               {isVerifying ? (
-                <ActivityIndicator size="small" color={theme.buttonText || '#FFFFFF'} />
+                <ActivityIndicator size="small" color={theme.buttonText || '#18181B'} />
               ) : (
                 <Text
                   style={[
                     styles.actionButtonText,
                     isOtpComplete
-                      ? { color: theme.buttonText || '#FFFFFF', fontFamily: typography.fontFamilyHeading }
+                      ? { color: theme.buttonText || '#18181B', fontFamily: typography.fontFamilyHeading }
                       : { color: theme.textMuted, fontFamily: typography.fontFamilyHeading },
                   ]}
                 >

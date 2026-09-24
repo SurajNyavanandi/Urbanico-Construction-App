@@ -32,8 +32,8 @@ export const LoadingButton: React.FC<LoadingButtonProps> = ({
 }) => {
   const { theme, typography } = useTheme();
 
-  let bg = theme.primary;
-  let textColor = '#FFFFFF';
+  let bg = theme.buttonBg || theme.primary;
+  let textColor = theme.buttonText || theme.primaryText || '#18181B';
   let borderWidth = 0;
   let borderColor = 'transparent';
 
@@ -71,7 +71,7 @@ export const LoadingButton: React.FC<LoadingButtonProps> = ({
       {isLoading ? (
         <ActivityIndicator
           size="small"
-          color={variant === 'primary' ? '#FFFFFF' : theme.primary}
+          color={variant === 'primary' ? (theme.buttonText || '#18181B') : theme.primary}
         />
       ) : (
         <>

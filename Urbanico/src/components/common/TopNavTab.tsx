@@ -43,7 +43,7 @@ export const TopNavTab: React.FC<TopNavTabProps> = ({
         </Text>
         {typeof badgeCount === 'number' && badgeCount > 0 ? (
           <View style={[styles.badge, { backgroundColor: isActive ? theme.primary : theme.surfaceSecondary }]}>
-            <Text style={[styles.badgeText, { color: isActive ? '#FFFFFF' : theme.textSecondary }]}>
+            <Text style={[styles.badgeText, { color: isActive ? (theme.primaryText || '#18181B') : theme.textSecondary }]}>
               {badgeCount}
             </Text>
           </View>

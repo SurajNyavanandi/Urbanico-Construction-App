@@ -234,6 +234,23 @@ export function getThemeColors(
   else if (accent === 'black') presetKey = 'modern_onyx';
 
   const tokens = resolveThemeColors(mode, presetKey, isAppleDesign);
+  const accentDef = ACCENT_DEFINITIONS[accent];
+
+  if (accentDef) {
+    const accentTheme = mode === 'dark' ? accentDef.dark : accentDef.light;
+    const isLightAccent = accent === 'yellow';
+    return {
+      ...tokens,
+      primary: accentTheme.primary,
+      primaryLight: accentTheme.primaryLight,
+      primaryDark: accentTheme.primaryDark,
+      primaryText: isLightAccent ? '#18181B' : '#FFFFFF',
+      buttonBg: accentTheme.primary,
+      buttonText: isLightAccent ? '#18181B' : '#FFFFFF',
+      accent,
+    };
+  }
+
   return {
     ...tokens,
     accent,

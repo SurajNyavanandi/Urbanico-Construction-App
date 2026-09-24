@@ -943,6 +943,20 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
         color: GLOBAL_THEME_COLORS.primary || '#0F172A',
         hide_topbar: false,
       },
+      config: {
+        display: {
+          preferences: {
+            show_default_blocks: true,
+          },
+          sequence: displaySequence,
+        },
+      },
+      display: {
+        preferences: {
+          show_default_blocks: true,
+        },
+        sequence: displaySequence,
+      },
       modal: {
         confirm_close: true,
         backdropclose: false,

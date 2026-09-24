@@ -792,7 +792,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           </View>
           <View style={styles.menuRowRight}>
             <View style={[styles.countBadge, { backgroundColor: activeOrdersCount > 0 ? (theme.buttonBg || theme.primary) : theme.surfaceSecondary }]}>
-              <Text style={[styles.countBadgeText, { color: activeOrdersCount > 0 ? (theme.buttonText || '#FFFFFF') : theme.textPrimary }]}>
+              <Text style={[styles.countBadgeText, { color: activeOrdersCount > 0 ? (theme.buttonText || '#18181B') : theme.textPrimary }]}>
                 {activeOrdersCount}
               </Text>
             </View>
@@ -1750,7 +1750,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                           style={[styles.addFirstPayBtn, { backgroundColor: theme.primary }]}
                           activeOpacity={0.85}
                         >
-                          <Plus size={15} color="#FFFFFF" strokeWidth={2.5} />
+                          <Plus size={15} color={theme.primaryText || '#18181B'} strokeWidth={2.5} />
                           <Text style={styles.addFirstPayBtnText}>Add Payment Method</Text>
                         </TouchableOpacity>
                       </View>
@@ -1877,11 +1877,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                               paymentActiveTab === 'upi' && [styles.payTabBtnActive, { backgroundColor: theme.primary }],
                             ]}
                           >
-                            <Smartphone size={13} color={paymentActiveTab === 'upi' ? '#FFFFFF' : theme.textSecondary} />
+                            <Smartphone size={13} color={paymentActiveTab === 'upi' ? (theme.primaryText || '#18181B') : theme.textSecondary} />
                             <Text
                               style={[
                                 styles.payTabBtnText,
-                                { color: paymentActiveTab === 'upi' ? '#FFFFFF' : theme.textSecondary },
+                                { color: paymentActiveTab === 'upi' ? (theme.primaryText || '#18181B') : theme.textSecondary },
                               ]}
                             >
                               UPI ID (VPA)
@@ -1898,11 +1898,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                               paymentActiveTab === 'card' && [styles.payTabBtnActive, { backgroundColor: theme.primary }],
                             ]}
                           >
-                            <CardIcon size={13} color={paymentActiveTab === 'card' ? '#FFFFFF' : theme.textSecondary} />
+                            <CardIcon size={13} color={paymentActiveTab === 'card' ? (theme.primaryText || '#18181B') : theme.textSecondary} />
                             <Text
                               style={[
                                 styles.payTabBtnText,
-                                { color: paymentActiveTab === 'card' ? '#FFFFFF' : theme.textSecondary },
+                                { color: paymentActiveTab === 'card' ? (theme.primaryText || '#18181B') : theme.textSecondary },
                               ]}
                             >
                               Debit / Credit Card
@@ -1913,6 +1913,14 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                         {/* Tab 1: UPI Form */}
                         {paymentActiveTab === 'upi' && (
                           <View style={{ marginTop: 12, gap: 10 }}>
+                            {/* Verification info banner */}
+                            <View style={{ padding: 8, borderRadius: 6, backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#BBF7D0', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <ShieldCheck size={14} color="#16A34A" />
+                              <Text style={{ fontSize: 11, color: '#166534', flex: 1, lineHeight: 15 }}>
+                                Zero-Transfer VPA Verification: No money is sent or received. Urbanico validates your UPI address with the NPCI directory so you can checkout in 1 tap. Money is only debited when you approve an order with your secret UPI PIN.
+                              </Text>
+                            </View>
+
                             <View>
                               <Text style={[styles.inputLabelMicro, { color: theme.textSecondary }]}>
                                 UPI ID / Virtual Payment Address <Text style={{ color: '#EF4444' }}>*</Text>
@@ -2010,12 +2018,12 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                               >
                                 {isVerifyingUpi ? (
                                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                    <ActivityIndicator size="small" color="#FFFFFF" />
+                                    <ActivityIndicator size="small" color={theme.primaryText || '#18181B'} />
                                     <Text style={styles.verifySubmitBtnText}>Verifying...</Text>
                                   </View>
                                 ) : (
                                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                    <ShieldCheck size={15} color="#FFFFFF" />
+                                    <ShieldCheck size={15} color={theme.primaryText || '#18181B'} />
                                     <Text style={styles.verifySubmitBtnText}>Verify & Save UPI</Text>
                                   </View>
                                 )}
@@ -2178,12 +2186,12 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                               >
                                 {isVerifyingCard ? (
                                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                    <ActivityIndicator size="small" color="#FFFFFF" />
+                                    <ActivityIndicator size="small" color={theme.primaryText || '#18181B'} />
                                     <Text style={styles.verifySubmitBtnText}>Verifying ₹1 Auth...</Text>
                                   </View>
                                 ) : (
                                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                    <CreditCard size={15} color="#FFFFFF" />
+                                    <CreditCard size={15} color={theme.primaryText || '#18181B'} />
                                     <Text style={styles.verifySubmitBtnText}>Verify & Save (₹1)</Text>
                                   </View>
                                 )}
@@ -3644,7 +3652,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyBoxActionBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 12.5,
     fontWeight: '700',
   },
@@ -3691,7 +3699,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   guestSignInBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 13,
     fontWeight: '700',
   },
@@ -3726,7 +3734,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   addFirstPayBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -3884,7 +3892,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   verifySubmitBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 12.5,
     fontWeight: '700',
   },

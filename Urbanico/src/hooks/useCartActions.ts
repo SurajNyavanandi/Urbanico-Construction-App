@@ -10,7 +10,7 @@ import { soundService } from '../utils/soundHelper';
  */
 export function useCartActions() {
   const { addToCart, cartItems, totals, removeFromCart, updateQuantity } = useCart();
-  const { showToast } = useToast();
+  const { showToast, showAddToCartToast } = useToast();
 
   const addMaterialWithFeedback = useCallback(
     (
@@ -26,17 +26,28 @@ export function useCartActions() {
         type: 'stepper',
       };
 
+      const unitPrice = options?.customUnitPrice !== undefined ? options.customUnitPrice : (optionToUse.price || item.defaultPrice || 0);
       addToCart(item, optionToUse, quantity, options?.customUnitPrice);
 
       if (!options?.silent) {
         soundService.playAddToCart();
-        showToast(
-          options?.customMessage || `Added ${quantity}x ${item.name} to Cart`,
-          'success'
-        );
+        if (showAddToCartToast) {
+          showAddToCartToast({
+            name: item.name,
+            optionLabel: optionToUse.label,
+            price: unitPrice * quantity,
+            image: item.image,
+            quantity,
+          });
+        } else {
+          showToast(
+            options?.customMessage || `Added ${quantity}x ${item.name} to Cart`,
+            'success'
+          );
+        }
       }
     },
-    [addToCart, showToast]
+    [addToCart, showAddToCartToast, showToast]
   );
 
   return {

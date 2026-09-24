@@ -188,7 +188,7 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
                     style={{ backgroundColor: theme.primary, paddingVertical: 12, paddingHorizontal: 28, borderRadius: 10, width: '100%', alignItems: 'center', marginBottom: 12 }}
                     activeOpacity={0.85}
                   >
-                    <Text style={{ color: '#FFFFFF', fontWeight: '700', fontSize: 14 }}>Log In or Sign Up</Text>
+                    <Text style={{ color: theme.primaryText || '#18181B', fontWeight: '700', fontSize: 14 }}>Log In or Sign Up</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => {
@@ -689,7 +689,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   activeStageTagText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 8.5,
     fontWeight: '800',
     letterSpacing: 0.4,

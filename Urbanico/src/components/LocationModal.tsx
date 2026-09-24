@@ -772,7 +772,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   saveBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 14,
     fontWeight: '700',
   },
