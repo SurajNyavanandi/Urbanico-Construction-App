@@ -80,7 +80,12 @@ import {
   MAX_SAVED_PAYMENT_METHODS,
   POPULAR_UPI_HANDLES,
 } from '../utils/paymentMethodsHelper';
-import { openRazorpayStandardCheckout, tokenizeCardAPI } from '../services/razorpayService';
+import {
+  openRazorpayStandardCheckout,
+  tokenizeCardAPI,
+  verifyAndRefundPennyDropAPI,
+} from '../services/razorpayService';
+import { UpiQrVerificationModal } from './common/UpiQrVerificationModal';
 import {
   INDIAN_STATES,
   ADDRESS_TYPE_OPTIONS,
@@ -201,6 +206,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [upiVpa, setUpiVpa] = useState<string>('');
   const [isVerifyingUpi, setIsVerifyingUpi] = useState<boolean>(false);
   const [upiError, setUpiError] = useState<string>('');
+  const [isUpiQrModalOpen, setIsUpiQrModalOpen] = useState<boolean>(false);
+  const [pendingVerifyVpa, setPendingVerifyVpa] = useState<string>('');
 
   // Card Form State
   const [cardNumber, setCardNumber] = useState<string>('');
@@ -219,12 +226,12 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     }
   }, [isLoggedIn, user?.phone]);
 
-  // Handle UPI Verification and Save
+  // Handle UPI Verification with ₹1 Refundable Authorization via Dynamic UPI QR & Heartbeat Polling
   const handleVerifyAndSaveUPI = async () => {
     setUpiError('');
     const validation = validateUPIId(upiVpa);
     if (!validation.valid) {
-      setUpiError(validation.message || 'Please enter a valid UPI ID');
+      setUpiError(validation.message || 'Please enter a valid UPI ID (e.g. name@okhdfcbank)');
       return;
     }
 
@@ -234,38 +241,41 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       return;
     }
 
-    setIsVerifyingUpi(true);
-    try {
-      const res = await verifyUPIIdOnline(upiVpa, user?.name, user?.phone);
-      if (!res.success) {
-        setUpiError(res.error || 'UPI verification failed with banking gateway.');
-        setIsVerifyingUpi(false);
-        return;
-      }
-      const trimmed = upiVpa.trim().toLowerCase();
-      const newMethod: SavedPaymentMethod = {
-        id: `upi_${Date.now()}`,
-        type: 'upi',
-        title: res.title || `${res.bankName || 'Bank'} UPI`,
-        subtitle: trimmed,
-        details: trimmed,
-        isDefault: savedPaymentMethods.length === 0,
-        isVerified: true,
-        verifiedAccountName: res.accountName || user?.name || 'Verified Account',
-        upiApp: res.upiApp || 'custom',
-        bankName: res.bankName,
-      };
+    const trimmed = upiVpa.trim().toLowerCase();
+    setPendingVerifyVpa(trimmed);
+    setIsUpiQrModalOpen(true);
+  };
 
-      const updated = addSavedPaymentMethod(newMethod, user?.phone);
-      setSavedPaymentMethods(updated);
-      setUpiVpa('');
-      setIsAddingPaymentMethod(false);
-      showToast(`UPI ID verified: ${res.accountName || 'Account'} (${res.bankName || 'Bank'})`, 'success');
-    } catch (err: any) {
-      setUpiError(err?.message || 'Error verifying UPI ID.');
-    } finally {
-      setIsVerifyingUpi(false);
-    }
+  const handleUpiQrSuccess = async (qrResult: {
+    vpa: string;
+    paymentId: string;
+    orderId: string;
+    refundId: string;
+    message: string;
+  }) => {
+    setIsUpiQrModalOpen(false);
+    const trimmed = qrResult.vpa.toLowerCase();
+    const validation = validateUPIId(trimmed);
+    const res = await verifyUPIIdOnline(trimmed, user?.name, user?.phone);
+
+    const newMethod: SavedPaymentMethod = {
+      id: `upi_${Date.now()}`,
+      type: 'upi',
+      title: res.title || validation.pspInfo?.title || `${validation.pspInfo?.bankName || 'Bank'} UPI`,
+      subtitle: trimmed,
+      details: trimmed,
+      isDefault: savedPaymentMethods.length === 0,
+      isVerified: true,
+      verifiedAccountName: res.accountName || user?.name || 'Verified Account',
+      upiApp: res.upiApp || validation.pspInfo?.app || 'custom',
+      bankName: res.bankName || validation.pspInfo?.bankName,
+    };
+
+    const updated = addSavedPaymentMethod(newMethod, user?.phone);
+    setSavedPaymentMethods(updated);
+    setUpiVpa('');
+    setIsAddingPaymentMethod(false);
+    showToast(qrResult.message || 'Payment Method Verified • ₹1 Refund Initiated', 'success');
   };
 
   // Format Card Number (XXXX XXXX XXXX XXXX)
@@ -314,7 +324,27 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         ? 'RuPay'
         : 'Credit/Debit';
 
-    const saveCardLocally = async () => {
+    const cleanProfilePhone = (user?.phone || '9848012345').replace(/\D/g, '').slice(-10) || '9848012345';
+
+    const saveCardLocally = async (payResult?: any) => {
+      let refundNotice = 'Payment Method Verified • ₹1 Refund Initiated';
+      if (payResult?.razorpay_payment_id) {
+        try {
+          const pennyRes = await verifyAndRefundPennyDropAPI({
+            razorpay_order_id: payResult?.razorpay_order_id,
+            razorpay_payment_id: payResult?.razorpay_payment_id,
+            razorpay_signature: payResult?.razorpay_signature,
+            methodType: 'card',
+            methodDetails: `•••• ${rawNum.slice(-4)}`,
+            userName: cardHolder.trim(),
+            userPhone: cleanProfilePhone,
+          });
+          if (pennyRes.message) refundNotice = pennyRes.message;
+        } catch (e) {
+          console.warn('Penny-drop refund notice:', e);
+        }
+      }
+
       let tokenId = `tok_${brand}_${Date.now().toString(36)}`;
       let bankName = brandTitle;
       try {
@@ -325,7 +355,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           expiryMonth: parts[0] || '12',
           expiryYear: parts[1] || '28',
           cvv: cardCvv.trim(),
-          phone: user?.phone || '9848012345',
+          phone: cleanProfilePhone,
           name: cardHolder.trim().toUpperCase(),
         });
         if (tokResult?.tokenId) {
@@ -362,12 +392,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       setCardCvv('');
       setIsAddingPaymentMethod(false);
       setIsVerifyingCard(false);
-      showToast('Card verified & tokenized securely as per RBI guidelines!', 'success');
+      showToast(refundNotice, 'success');
     };
 
     try {
       // Launch standard ₹1 verification charge with Razorpay gateway
-      const cleanProfilePhone = (user?.phone || '9848012345').replace(/\D/g, '').slice(-10) || '9848012345';
       await openRazorpayStandardCheckout({
         amount: 1, // ₹1.00 refundable auth
         userName: cardHolder.trim() || user?.name || 'Cardholder',
@@ -376,7 +405,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         preferredMethod: 'card',
         orderDescription: '₹1 Card Verification (Refundable) - Urbanico',
         onSuccess: (result: any) => {
-          saveCardLocally();
+          saveCardLocally(result);
         },
         onFailure: (err) => {
           setIsVerifyingCard(false);
@@ -388,14 +417,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         },
       });
     } catch (err: any) {
-      // Direct gateway simulation fallback if needed
-      try {
-        const res = await verifyCardOnline(rawNum, cardHolder, cardExpiry, cardCvv);
-        if (res.success) {
-          saveCardLocally();
-          return;
-        }
-      } catch {}
       setIsVerifyingCard(false);
       setCardError(err?.message || 'Error verifying card.');
     }
@@ -1914,10 +1935,10 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                         {paymentActiveTab === 'upi' && (
                           <View style={{ marginTop: 12, gap: 10 }}>
                             {/* Verification info banner */}
-                            <View style={{ padding: 8, borderRadius: 6, backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#BBF7D0', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              <ShieldCheck size={14} color="#16A34A" />
-                              <Text style={{ fontSize: 11, color: '#166534', flex: 1, lineHeight: 15 }}>
-                                Zero-Transfer VPA Verification: No money is sent or received. Urbanico validates your UPI address with the NPCI directory so you can checkout in 1 tap. Money is only debited when you approve an order with your secret UPI PIN.
+                            <View style={{ padding: 10, borderRadius: 8, backgroundColor: '#F0FDF4', borderWidth: 1, borderColor: '#BBF7D0', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                              <ShieldCheck size={16} color="#16A34A" />
+                              <Text style={{ fontSize: 11, color: '#166534', flex: 1, lineHeight: 15, fontWeight: '500' }}>
+                                A refundable fee of ₹1 will be charged to verify that your account/card is active and authentic. This ₹1 will be automatically refunded immediately.
                               </Text>
                             </View>
 
@@ -2024,7 +2045,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                                 ) : (
                                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                                     <ShieldCheck size={15} color={theme.primaryText || '#18181B'} />
-                                    <Text style={styles.verifySubmitBtnText}>Verify & Save UPI</Text>
+                                    <Text style={styles.verifySubmitBtnText}>Verify & Save UPI (₹1 Refundable)</Text>
                                   </View>
                                 )}
                               </TouchableOpacity>
@@ -2036,10 +2057,10 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                         {paymentActiveTab === 'card' && (
                           <View style={{ marginTop: 12, gap: 10 }}>
                             {/* Verification info banner */}
-                            <View style={{ padding: 8, borderRadius: 6, backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              <ShieldCheck size={14} color="#2563EB" />
-                              <Text style={{ fontSize: 11, color: '#1E40AF', flex: 1, lineHeight: 15 }}>
-                                ₹1 refundable authorization charge is processed via Razorpay to verify card ownership under RBI tokenization rules.
+                            <View style={{ padding: 10, borderRadius: 8, backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                              <ShieldCheck size={16} color="#2563EB" />
+                              <Text style={{ fontSize: 11, color: '#1E40AF', flex: 1, lineHeight: 15, fontWeight: '500' }}>
+                                A refundable fee of ₹1 will be charged to verify that your account/card is active and authentic. This ₹1 will be automatically refunded immediately.
                               </Text>
                             </View>
 
@@ -2192,7 +2213,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                                 ) : (
                                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                                     <CreditCard size={15} color={theme.primaryText || '#18181B'} />
-                                    <Text style={styles.verifySubmitBtnText}>Verify & Save (₹1)</Text>
+                                    <Text style={styles.verifySubmitBtnText}>Verify & Save Card (₹1 Refundable)</Text>
                                   </View>
                                 )}
                               </TouchableOpacity>
@@ -2208,6 +2229,20 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           </KeyboardAvoidingView>
         </View>
       </Modal>
+
+      {/* ======================================================== */}
+      {/* ₹1 UPI QR MICRO-DEBIT & REAL-TIME VERIFICATION MODAL     */}
+      {/* Real-time 2-second heartbeat polling & instant auto-refund*/}
+      {/* ======================================================== */}
+      <UpiQrVerificationModal
+        visible={isUpiQrModalOpen}
+        onClose={() => setIsUpiQrModalOpen(false)}
+        vpa={pendingVerifyVpa}
+        userName={user?.name}
+        userPhone={user?.phone}
+        userEmail={user?.email}
+        onSuccess={handleUpiQrSuccess}
+      />
 
       {/* ======================================================== */}
       {/* POPUP MODAL 5: REFER & EARN                              */}

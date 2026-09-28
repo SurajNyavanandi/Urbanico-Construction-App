@@ -23,6 +23,11 @@ apiRouter.get('/razorpay-config', PaymentController.getConfig);
 apiRouter.get('/config', PaymentController.getConfig);
 apiRouter.post('/create-order', PaymentController.createOrder);
 apiRouter.post('/verify-payment', PaymentController.verifyPayment);
+apiRouter.post('/penny-drop-verify', PaymentController.pennyDropVerifyAndRefund);
+apiRouter.post('/refund', PaymentController.processRefund);
+apiRouter.get('/order-status/:order_id', PaymentController.getOrderStatus);
+apiRouter.get('/order-status', PaymentController.getOrderStatus);
+apiRouter.post('/check-status', PaymentController.getOrderStatus);
 
 // Database & Backend System Health check
 apiRouter.get('/health', (req, res) => {

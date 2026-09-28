@@ -315,9 +315,52 @@ const ThemeContext = createContext<ThemeContextType>({
 });
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [themeMode, setThemeMode] = useState<ThemeMode>('light');
-  const [accentColor, setAccentColor] = useState<AccentColor>('yellow');
-  const [typographyFont, setTypographyFont] = useState<TypographyFontFamily>('jakarta');
+  const [themeMode, setThemeModeState] = useState<ThemeMode>(() => {
+    try {
+      const stored = safeStorage.getItem('urbanico_theme_mode');
+      if (stored === 'light' || stored === 'dark') return stored;
+    } catch {}
+    return 'light';
+  });
+
+  const [accentColor, setAccentColorState] = useState<AccentColor>(() => {
+    try {
+      const stored = safeStorage.getItem('urbanico_accent_color');
+      if (stored && stored in ACCENT_DEFINITIONS) return stored as AccentColor;
+    } catch {}
+    return 'yellow';
+  });
+
+  const [typographyFont, setTypographyFontState] = useState<TypographyFontFamily>(() => {
+    try {
+      const stored = safeStorage.getItem('urbanico_typography_font');
+      if (stored === 'system' || stored === 'inter' || stored === 'jakarta' || stored === 'mono') {
+        return stored;
+      }
+    } catch {}
+    return 'jakarta';
+  });
+
+  const setThemeMode = (mode: ThemeMode) => {
+    setThemeModeState(mode);
+    try {
+      safeStorage.setItem('urbanico_theme_mode', mode);
+    } catch {}
+  };
+
+  const setAccentColor = (accent: AccentColor) => {
+    setAccentColorState(accent);
+    try {
+      safeStorage.setItem('urbanico_accent_color', accent);
+    } catch {}
+  };
+
+  const setTypographyFont = (font: TypographyFontFamily) => {
+    setTypographyFontState(font);
+    try {
+      safeStorage.setItem('urbanico_typography_font', font);
+    } catch {}
+  };
   const [isAppleDesign, setIsAppleDesignState] = useState<boolean>(() => {
     return safeStorage.getItem('apple_design_mode') === 'true';
   });

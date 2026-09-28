@@ -14,10 +14,13 @@ import { apiRouter } from './routers';
 import { ServiceService } from './services/serviceService';
 import { paymentRouter } from './routers/paymentRouter';
 import { PaymentController } from './controllers/paymentController';
+import { errorHandler, requestLogger, createRateLimiter } from './middleware';
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
+app.use(requestLogger);
+app.use(createRateLimiter({ windowMs: 60 * 1000, maxRequests: 120 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -61,14 +64,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  if (err instanceof SyntaxError && 'body' in err) {
-    return res.status(400).json({ success: false, error: 'Malformed JSON payload' });
-  }
-  console.error('[Backend] Error:', err?.message || err);
-  if (res.headersSent) return next(err);
-  return res.status(500).json({ success: false, error: 'Internal server error' });
-});
+app.use(errorHandler);
 
 export async function startServer() {
   connectDB()

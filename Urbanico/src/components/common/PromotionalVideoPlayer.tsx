@@ -21,10 +21,10 @@ interface PromotionalVideoPlayerProps {
 }
 
 export const PROMO_VIDEO_URL =
-  'https://res.cloudinary.com/dfr0zghtc/video/upload/v1789123565/now_generate_video_ratio_vvcmc2.mp4';
+  'https://res.cloudinary.com/dfr0zghtc/video/upload/v1790580018/yardvideo_xwzmd5.mp4';
 const POSTER_IMAGE =
   'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614394/ironbars2_t1ktel.jpg';
-const DEFAULT_PROMO_DURATION = 15;
+const DEFAULT_PROMO_DURATION = 10;
 
 export const PromotionalVideoPlayer: React.FC<PromotionalVideoPlayerProps> = ({
   videoUrl = PROMO_VIDEO_URL,

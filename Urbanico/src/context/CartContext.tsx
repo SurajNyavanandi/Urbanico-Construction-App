@@ -65,7 +65,10 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [savedForLaterItems, setSavedForLaterItems] = useState<CartItem[]>(() => {
     try {
       const saved = safeStorage.getItem('urbanico_saved_for_later');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
     } catch {
       // ignore
     }
@@ -295,11 +298,23 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       // 1. Read existing saved cart for this user
       const existingUserCartRaw = safeStorage.getItem(userKey);
-      const existingUserCart: CartItem[] = existingUserCartRaw ? JSON.parse(existingUserCartRaw) : [];
+      let existingUserCart: CartItem[] = [];
+      if (existingUserCartRaw) {
+        try {
+          const parsed = JSON.parse(existingUserCartRaw);
+          if (Array.isArray(parsed)) existingUserCart = parsed;
+        } catch {}
+      }
 
       // 2. Read guest cart from storage as well as current in-memory cartItems
       const guestCartRaw = safeStorage.getItem(guestKey);
-      const guestStoredItems: CartItem[] = guestCartRaw ? JSON.parse(guestCartRaw) : [];
+      let guestStoredItems: CartItem[] = [];
+      if (guestCartRaw) {
+        try {
+          const parsed = JSON.parse(guestCartRaw);
+          if (Array.isArray(parsed)) guestStoredItems = parsed;
+        } catch {}
+      }
 
       setCartItems((prev) => {
         const itemsToMerge = prev.length > 0 ? prev : guestStoredItems;

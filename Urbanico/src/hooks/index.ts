@@ -2,7 +2,7 @@
  * Urbanico Reusable React Hooks
  * 
  * Central hub for all custom hooks used across the application.
- * Designed to eliminate boilerplate code and make complex logic intuitive for beginners.
+ * Designed to eliminate boilerplate code and make complex logic intuitive.
  */
 
 export * from './useFormatters';
@@ -24,3 +24,14 @@ export * from './usePhoneAuth';
 export * from './useAddressForm';
 export * from './usePaymentMethods';
 export * from './useOtpVerification';
+export * from './useAuthSession';
+export * from './useOrderManager';
+export * from './useFavoritesManager';
+export * from './useSearchManager';
+export * from './useNavigationRouter';
+export * from './useScrollLock';
+export * from './useUrbanicoApp';
+export * from './useBasket';
+export * from './useHomeFeed';
+export * from './useUserProfile';
+export * from './useCatalogFilter';

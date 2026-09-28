@@ -7,6 +7,8 @@ const router = Router();
 router.get('/config', PaymentController.getConfig);
 router.post('/create-order', PaymentController.createOrder);
 router.post('/verify-payment', PaymentController.verifyPayment);
+router.post('/penny-drop-verify', PaymentController.pennyDropVerifyAndRefund);
+router.post('/refund', PaymentController.processRefund);
 router.all('/callback', PaymentController.handleCallback);
 router.get('/checkout-page', PaymentController.renderCheckoutPage);
 
@@ -16,5 +18,11 @@ router.get('/tokens', PaymentController.getCustomerTokens);
 router.post('/tokenize-card', PaymentController.tokenizeCard);
 router.delete('/tokens/:tokenId', PaymentController.deleteToken);
 router.post('/one-tap-order', PaymentController.createOneTapOrder);
+
+// Real-Time Heartbeat Order Status Polling & Webhooks
+router.get('/order-status/:order_id', PaymentController.getOrderStatus);
+router.get('/order-status', PaymentController.getOrderStatus);
+router.post('/check-status', PaymentController.getOrderStatus);
+router.post('/webhook', PaymentController.handleWebhook);
 
 export const paymentRouter = router;

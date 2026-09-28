@@ -152,6 +152,83 @@ export class PaymentController {
     }, 'Payment signature verified successfully');
   });
 
+  // POST /api/razorpay/penny-drop-verify -> Verifies ₹1 authorization & triggers automatic refund
+  public static pennyDropVerifyAndRefund = asyncHandler(async (req: Request, res: Response) => {
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      methodType,
+      methodDetails,
+      userName,
+      userPhone,
+    } = req.body;
+
+    if (!razorpay_payment_id) {
+      return sendError(res, 'Payment ID is required to verify and refund payment method.', 400);
+    }
+
+    console.log(`[Payment Backend] Penny-Drop verification request: payment_id=${razorpay_payment_id}, method=${methodType || 'unknown'}`);
+
+    // If order_id and signature provided, perform HMAC verification
+    if (razorpay_order_id && razorpay_signature) {
+      const { isValid, mode } = RazorpayBackendService.verifySignature({
+        razorpay_order_id,
+        razorpay_payment_id,
+        razorpay_signature,
+      });
+
+      if (!isValid) {
+        return res.status(400).json({
+          success: false,
+          verified: false,
+          error: 'Penny drop signature verification failed. Untrusted authorization.',
+          mode,
+        });
+      }
+    }
+
+    // Trigger instant auto-refund of the ₹1 charge
+    const refundResult = await RazorpayBackendService.processRefund({
+      paymentId: razorpay_payment_id,
+      amountInPaise: 100, // ₹1.00
+      notes: {
+        methodType: String(methodType || 'payment_method'),
+        details: String(methodDetails || ''),
+        userPhone: String(userPhone || ''),
+        purpose: 'Penny-Drop Micro-Debit Verification Auto-Refund',
+      },
+    });
+
+    console.log(`[Payment Backend] Penny-drop refund completed:`, refundResult);
+
+    return sendSuccess(res, {
+      verified: true,
+      refundInitiated: true,
+      paymentId: razorpay_payment_id,
+      refundId: refundResult.refundId,
+      refundStatus: refundResult.status,
+      amountRefunded: 1, // in INR
+      currency: 'INR',
+      message: 'Payment Method Verified • ₹1 Refund Initiated',
+      verifiedAt: new Date().toISOString(),
+    }, 'Payment method verified successfully and ₹1 refund initiated');
+  });
+
+  // POST /api/razorpay/refund -> General refund endpoint
+  public static processRefund = asyncHandler(async (req: Request, res: Response) => {
+    const { paymentId, amountInPaise = 100, notes } = req.body;
+    if (!paymentId) {
+      return sendError(res, 'paymentId is required', 400);
+    }
+    const result = await RazorpayBackendService.processRefund({
+      paymentId: String(paymentId),
+      amountInPaise: Number(amountInPaise),
+      notes,
+    });
+    return sendSuccess(res, result, result.message);
+  });
+
   // POST & GET /api/razorpay/callback -> Native Web Redirection Callback
   public static async handleCallback(req: Request, res: Response) {
     try {
@@ -484,5 +561,29 @@ export class PaymentController {
       tokenId,
       key_id: RazorpayBackendService.getKeyId(),
     });
+  });
+
+  // GET /api/razorpay/order-status/:order_id or GET /api/razorpay/order-status?order_id=... or POST /api/razorpay/check-status
+  public static getOrderStatus = asyncHandler(async (req: Request, res: Response) => {
+    const rawOrderId = req.params.order_id || req.query.order_id || req.body?.order_id || req.query.orderId || req.body?.orderId || '';
+    const orderId = String(rawOrderId || '').trim();
+    const utr = String(req.query.utr || req.body?.utr || '').trim();
+
+    if (!orderId) {
+      return sendError(res, 'order_id is required to check payment status', 400);
+    }
+
+    console.log(`[Payment Backend] Checking order status for: ${orderId}${utr ? ` with UTR: ${utr}` : ''}`);
+
+    const statusResult = await RazorpayBackendService.checkOrderStatus(orderId, utr);
+
+    return sendSuccess(res, statusResult, statusResult.paid ? 'Payment confirmed' : 'Payment pending');
+  });
+
+  // POST /api/razorpay/webhook
+  public static handleWebhook = asyncHandler(async (req: Request, res: Response) => {
+    const signature = (req.headers['x-razorpay-signature'] || '') as string;
+    const result = RazorpayBackendService.handleWebhook(req.body, signature);
+    return res.status(200).json({ status: 'ok', ...result });
   });
 }

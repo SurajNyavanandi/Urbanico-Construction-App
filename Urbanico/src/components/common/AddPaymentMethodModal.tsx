@@ -170,9 +170,9 @@ export const AddPaymentMethodModal: React.FC<AddPaymentMethodModalProps> = ({
               <View style={{ gap: 10 }}>
                 {/* Info Box */}
                 <View style={[styles.infoBanner, { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' }]}>
-                  <ShieldCheck size={14} color="#16A34A" />
-                  <Text style={{ fontSize: 11, color: '#166534', flex: 1, lineHeight: 15 }}>
-                    Zero-Transfer VPA Verification: No money is sent or received. Urbanico checks your VPA with the NPCI bank directory for fast checkout. Money is only debited when you approve an order with your secret UPI PIN.
+                  <ShieldCheck size={16} color="#16A34A" />
+                  <Text style={{ fontSize: 11, color: '#166534', flex: 1, lineHeight: 15, fontWeight: '500' }}>
+                    A refundable fee of ₹1 will be charged to verify that your account/card is active and authentic. This ₹1 will be automatically refunded immediately.
                   </Text>
                 </View>
 
@@ -236,12 +236,12 @@ export const AddPaymentMethodModal: React.FC<AddPaymentMethodModalProps> = ({
                   {isVerifyingUpi ? (
                     <View style={styles.btnInner}>
                       <ActivityIndicator size="small" color={theme.primaryText || '#18181B'} />
-                      <Text style={styles.submitBtnText}>Verifying with NPCI...</Text>
+                      <Text style={styles.submitBtnText}>Authorizing ₹1 Charge (Auto-Refunded)...</Text>
                     </View>
                   ) : (
                     <View style={styles.btnInner}>
                       <ShieldCheck size={16} color={theme.primaryText || '#18181B'} />
-                      <Text style={styles.submitBtnText}>Verify & Save UPI</Text>
+                      <Text style={styles.submitBtnText}>Verify & Save UPI (₹1 Refundable)</Text>
                     </View>
                   )}
                 </TouchableOpacity>
@@ -253,9 +253,9 @@ export const AddPaymentMethodModal: React.FC<AddPaymentMethodModalProps> = ({
               <View style={{ gap: 10 }}>
                 {/* Info Box */}
                 <View style={[styles.infoBanner, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}>
-                  <ShieldCheck size={14} color="#2563EB" />
-                  <Text style={{ fontSize: 11, color: '#1E40AF', flex: 1, lineHeight: 15 }}>
-                    ₹1 refundable authorization charge is processed via Razorpay to verify card ownership under RBI tokenization rules.
+                  <ShieldCheck size={16} color="#2563EB" />
+                  <Text style={{ fontSize: 11, color: '#1E40AF', flex: 1, lineHeight: 15, fontWeight: '500' }}>
+                    A refundable fee of ₹1 will be charged to verify that your account/card is active and authentic. This ₹1 will be automatically refunded immediately.
                   </Text>
                 </View>
 

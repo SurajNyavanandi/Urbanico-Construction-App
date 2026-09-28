@@ -108,8 +108,21 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
       // Preserve guest or checkout addresses added before login
       const guestKey = 'urbanico_saved_locations_guest';
       const guestStored = safeStorage.getItem(guestKey);
-      const guestList: string[] = guestStored ? JSON.parse(guestStored) : [];
-      let userList: string[] = stored ? JSON.parse(stored) : [];
+      let guestList: string[] = [];
+      if (guestStored) {
+        try {
+          const parsed = JSON.parse(guestStored);
+          if (Array.isArray(parsed)) guestList = parsed;
+        } catch {}
+      }
+
+      let userList: string[] = [];
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) userList = parsed;
+        } catch {}
+      }
 
       const merged = Array.from(new Set([...userList, ...guestList, ...savedLocations]))
         .filter((l) => Boolean(l) && !isDummyAddress(l));

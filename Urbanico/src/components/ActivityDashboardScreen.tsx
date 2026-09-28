@@ -120,9 +120,9 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+    <View style={{ flex: 1, backgroundColor: theme.background }}>
       {/* Top Nav Bar */}
-      <View style={styles.topNavBar}>
+      <View style={[styles.topNavBar, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
         {onBack && (
           <TouchableOpacity
             onPress={onBack}
@@ -130,10 +130,10 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
             activeOpacity={0.7}
             accessibilityLabel="Go back"
           >
-            <ArrowLeft color="#111111" size={20} strokeWidth={2.2} />
+            <ArrowLeft color={theme.textPrimary} size={20} strokeWidth={2.2} />
           </TouchableOpacity>
         )}
-        <Text style={styles.navBarTitle}>Activity & Orders</Text>
+        <Text style={[styles.navBarTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>Activity & Orders</Text>
         <View style={{ width: 36 }} />
       </View>
 
@@ -450,7 +450,7 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
                     ₹{totalSpent.toLocaleString('en-IN')}
                   </Text>
                 </View>
-                <View style={styles.metricDividerVertical} />
+                <View style={[styles.metricDividerVertical, { backgroundColor: theme.border }]} />
                 <View style={styles.metricItem}>
                   <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Dispatches Cleared</Text>
                   <Text style={[styles.metricValue, { color: theme.textPrimary }]}>
@@ -513,11 +513,11 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
                         {Boolean(onViewInvoice) && (
                           <TouchableOpacity
                             onPress={() => onViewInvoice(del)}
-                            style={styles.invoiceActionBtn}
+                            style={[styles.invoiceActionBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, borderWidth: 1 }]}
                             activeOpacity={0.7}
                           >
-                            <FileText size={11} color="#111111" />
-                            <Text style={styles.invoiceActionText}>GST Invoice</Text>
+                            <FileText size={11} color={theme.textPrimary} />
+                            <Text style={[styles.invoiceActionText, { color: theme.textPrimary }]}>GST Invoice</Text>
                           </TouchableOpacity>
                         )}
                       </View>
