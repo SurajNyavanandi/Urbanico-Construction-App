@@ -213,4 +213,9 @@ export class UserController {
       savedLocations: updated?.savedLocations || savedLocs,
     });
   });
+
+  public static deleteAllUsers = asyncHandler(async (_req: Request, res: Response) => {
+    await UserService.purgeAllUsers();
+    return sendSuccess(res, { count: 0 }, 'All user profiles, carts, and delivery sites purged successfully');
+  });
 }

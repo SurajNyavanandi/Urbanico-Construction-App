@@ -108,5 +108,17 @@ export class UserService {
     }
     return null;
   }
+
+  public static async purgeAllUsers() {
+    try {
+      if (mongoose.connection.readyState === 1) {
+        await User.deleteMany({}).exec();
+      }
+    } catch (err) {
+      console.warn('[User] Purge database error:', err);
+    }
+    inMemoryUsers.length = 0;
+    return { success: true, message: 'All user data wiped completely' };
+  }
 }
 

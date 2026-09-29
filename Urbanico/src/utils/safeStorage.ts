@@ -67,6 +67,38 @@ export const safeStorage = {
   },
 
   /**
+   * Non-blocking object persistence in background idle frame
+   */
+  setAsyncObject: <T>(key: string, obj: T, delayMs = 200): void => {
+    if (debounceTimers.has(key)) {
+      clearTimeout(debounceTimers.get(key));
+    }
+    const timer = setTimeout(() => {
+      debounceTimers.delete(key);
+      const executeWrite = () => {
+        try {
+          const serialized = JSON.stringify(obj);
+          pendingDebouncedValues.delete(key);
+          if (typeof window !== 'undefined' && window.localStorage && typeof window.localStorage.setItem === 'function') {
+            window.localStorage.setItem(key, serialized);
+            return;
+          }
+          memoryFallback.set(key, serialized);
+        } catch {
+          // ignore
+        }
+      };
+
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        (window as any).requestIdleCallback(executeWrite, { timeout: 150 });
+      } else {
+        setTimeout(executeWrite, 0);
+      }
+    }, delayMs);
+    debounceTimers.set(key, timer);
+  },
+
+  /**
    * Immediately commits any pending debounced writes to storage without waiting for timer expiry.
    */
   flushDebounced: (key?: string): void => {

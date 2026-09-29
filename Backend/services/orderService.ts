@@ -273,5 +273,17 @@ export class OrderService {
     }
     return null;
   }
+
+  public static async purgeAllOrders() {
+    try {
+      if (mongoose.connection.readyState === 1) {
+        await Order.deleteMany({}).exec();
+      }
+    } catch (err) {
+      console.warn('[Order] Purge database error:', err);
+    }
+    inMemoryOrders.length = 0;
+    return { success: true, message: 'All orders wiped completely' };
+  }
 }
 

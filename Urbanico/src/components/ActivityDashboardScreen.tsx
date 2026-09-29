@@ -27,6 +27,7 @@ import {
 import { ActivityDelivery } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { EmptyState } from './common/EmptyState';
+import { TrackingSkeleton } from './common/skeletons';
 import { useToast } from '../context/ToastContext';
 const SupervisorHandoffModal = React.lazy(() => import('./common/SupervisorHandoffModal').then((m) => ({ default: m.SupervisorHandoffModal })));
 import { formatSiteAddress } from '../utils/addressHelper';
@@ -150,7 +151,9 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
           />
         }
       >
-        {validDeliveries.length === 0 ? (
+        {refreshing ? (
+          <TrackingSkeleton />
+        ) : validDeliveries.length === 0 ? (
           !isLoggedIn ? (
             <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.border, alignItems: 'center', padding: 24 }]}>
               <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: theme.surfaceSecondary, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>

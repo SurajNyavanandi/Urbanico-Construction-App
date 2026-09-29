@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Animated, Platform, Image } from 'react-native';
+import { View, Text, StyleSheet, Animated, Platform, Image, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, Search, Heart, ShoppingCart, User } from 'lucide-react-native';
+import { Home, Search, Heart, ShoppingCart } from 'lucide-react-native';
 import { ScreenType } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { soundService } from '../utils/soundHelper';
@@ -12,6 +12,85 @@ interface BottomNavProps {
   onPreloadTab?: (screen: ScreenType) => void;
   cartCount: number;
 }
+
+interface NavTabItemProps {
+  screen: ScreenType;
+  isActive: boolean;
+  label: string;
+  activeColor: string;
+  inactiveColor: string;
+  children: React.ReactNode;
+  onPress: (screen: ScreenType) => void;
+  onPreload?: (screen: ScreenType) => void;
+}
+
+const NavTabItem: React.FC<NavTabItemProps> = React.memo(({
+  screen,
+  isActive,
+  label,
+  activeColor,
+  inactiveColor,
+  children,
+  onPress,
+  onPreload,
+}) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    onPreload?.(screen);
+    Animated.spring(scaleAnim, {
+      toValue: 0.90,
+      friction: 8,
+      tension: 200,
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 5,
+      tension: 140,
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+  };
+
+  const handlePress = () => {
+    soundService.playTap();
+    onPress(screen);
+  };
+
+  const AnimatedView = Animated.View as any;
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={styles.tabButton}
+      accessibilityRole="button"
+      accessibilityLabel={`${label} Tab`}
+    >
+      <AnimatedView style={{ alignItems: 'center', transform: [{ scale: scaleAnim }] }}>
+        <View style={[styles.iconWrapper, isActive && styles.activeIconPill]}>
+          {children}
+        </View>
+        <Text
+          style={[
+            styles.tabLabel,
+            {
+              color: isActive ? activeColor : inactiveColor,
+              fontWeight: isActive ? '800' : '600',
+            },
+          ]}
+        >
+          {label}
+        </Text>
+        {isActive && <View style={[styles.activeDot, { backgroundColor: activeColor }]} />}
+      </AnimatedView>
+    </Pressable>
+  );
+});
 
 export const BottomNav: React.FC<BottomNavProps> = ({
   activeScreen,
@@ -59,37 +138,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
     prevCartCountRef.current = cartCount;
   }, [cartCount, cartScaleAnim]);
 
-  // Tab index calculation for smooth horizontal sliding pill indicator (Animation 9)
-  const getActiveTabIndex = () => {
-    if (isHomeActive) return 0;
-    if (isShopActive) return 1;
-    if (isFavoritesActive) return 2;
-    if (isCartActive) return 3;
-    if (isProfileActive) return 4;
-    return 0;
-  };
-
-  const activeIndex = getActiveTabIndex();
-  const indicatorAnim = useRef(new Animated.Value(activeIndex)).current;
-
-  useEffect(() => {
-    Animated.spring(indicatorAnim, {
-      toValue: activeIndex,
-      friction: 8,
-      tension: 60,
-      useNativeDriver: false,
-    }).start();
-  }, [activeIndex, indicatorAnim]);
-
-  // Dynamic bottom padding taking device safe area into account
-  const bottomPadding = Math.max(8, (insets.bottom || 0) + 4);
-
   const AnimatedView = Animated.View as any;
-
-  const handleTabPress = (tab: ScreenType) => {
-    soundService.playTap();
-    onSelectTab(tab);
-  };
 
   return (
     <View style={[styles.navWrapper, { backgroundColor: theme.background }]}>
@@ -105,113 +154,73 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       >
         <View style={styles.navContent}>
           {/* 1. Home Tab */}
-          <TouchableOpacity
-            onPress={() => handleTabPress('home')}
-            onPressIn={() => onPreloadTab?.('home')}
-            activeOpacity={0.7}
-            style={styles.tabButton}
-            accessibilityRole="button"
-            accessibilityLabel="Home Tab"
+          <NavTabItem
+            screen="home"
+            isActive={isHomeActive}
+            label="Home"
+            activeColor={activeColor}
+            inactiveColor={inactiveColor}
+            onPress={onSelectTab}
+            onPreload={onPreloadTab}
           >
-            <View style={[styles.iconWrapper, isHomeActive && styles.activeIconPill]}>
-              <Home
-                size={22}
-                color={isHomeActive ? activeColor : inactiveColor}
-                strokeWidth={isHomeActive ? 2.5 : 1.8}
-              />
-            </View>
-            <Text
-              style={[
-                styles.tabLabel,
-                {
-                  color: isHomeActive ? activeColor : inactiveColor,
-                  fontWeight: isHomeActive ? '800' : '600',
-                },
-              ]}
-            >
-              Home
-            </Text>
-            {isHomeActive && <View style={[styles.activeDot, { backgroundColor: activeColor }]} />}
-          </TouchableOpacity>
+            <Home
+              size={22}
+              color={isHomeActive ? activeColor : inactiveColor}
+              strokeWidth={isHomeActive ? 2.5 : 1.8}
+            />
+          </NavTabItem>
 
           {/* 2. Shop Tab */}
-          <TouchableOpacity
-            onPress={() => handleTabPress('shop')}
-            onPressIn={() => onPreloadTab?.('shop')}
-            activeOpacity={0.7}
-            style={styles.tabButton}
-            accessibilityRole="button"
-            accessibilityLabel="Shop Tab"
+          <NavTabItem
+            screen="shop"
+            isActive={isShopActive}
+            label="Shop"
+            activeColor={activeColor}
+            inactiveColor={inactiveColor}
+            onPress={onSelectTab}
+            onPreload={onPreloadTab}
           >
-            <View style={[styles.iconWrapper, isShopActive && styles.activeIconPill]}>
-              <Search
-                size={22}
-                color={isShopActive ? activeColor : inactiveColor}
-                strokeWidth={isShopActive ? 2.5 : 1.8}
-              />
-            </View>
-            <Text
-              style={[
-                styles.tabLabel,
-                {
-                  color: isShopActive ? activeColor : inactiveColor,
-                  fontWeight: isShopActive ? '800' : '600',
-                },
-              ]}
-            >
-              Shop
-            </Text>
-            {isShopActive && <View style={[styles.activeDot, { backgroundColor: activeColor }]} />}
-          </TouchableOpacity>
+            <Search
+              size={22}
+              color={isShopActive ? activeColor : inactiveColor}
+              strokeWidth={isShopActive ? 2.5 : 1.8}
+            />
+          </NavTabItem>
 
           {/* 3. Favourites Tab */}
-          <TouchableOpacity
-            onPress={() => handleTabPress('favorites')}
-            onPressIn={() => onPreloadTab?.('favorites')}
-            activeOpacity={0.7}
-            style={styles.tabButton}
-            accessibilityRole="button"
-            accessibilityLabel="Favourites Tab"
+          <NavTabItem
+            screen="favorites"
+            isActive={isFavoritesActive}
+            label="Favourites"
+            activeColor={activeColor}
+            inactiveColor={inactiveColor}
+            onPress={onSelectTab}
+            onPreload={onPreloadTab}
           >
-            <View style={[styles.iconWrapper, isFavoritesActive && styles.activeIconPill]}>
-              <Heart
-                size={22}
-                color={isFavoritesActive ? activeColor : inactiveColor}
-                strokeWidth={isFavoritesActive ? 2.5 : 1.8}
-                fill={isFavoritesActive ? activeColor : 'transparent'}
-              />
-            </View>
-            <Text
-              style={[
-                styles.tabLabel,
-                {
-                  color: isFavoritesActive ? activeColor : inactiveColor,
-                  fontWeight: isFavoritesActive ? '800' : '600',
-                },
-              ]}
-            >
-              Favourites
-            </Text>
-            {isFavoritesActive && <View style={[styles.activeDot, { backgroundColor: activeColor }]} />}
-          </TouchableOpacity>
+            <Heart
+              size={22}
+              color={isFavoritesActive ? activeColor : inactiveColor}
+              strokeWidth={isFavoritesActive ? 2.5 : 1.8}
+              fill={isFavoritesActive ? activeColor : 'transparent'}
+            />
+          </NavTabItem>
 
           {/* 4. Cart Tab */}
-          <TouchableOpacity
-            onPress={() => handleTabPress('basket')}
-            onPressIn={() => onPreloadTab?.('basket')}
-            activeOpacity={0.7}
-            style={styles.tabButton}
-            accessibilityRole="button"
-            accessibilityLabel="Cart Tab"
+          <NavTabItem
+            screen="basket"
+            isActive={isCartActive}
+            label="Cart"
+            activeColor={activeColor}
+            inactiveColor={inactiveColor}
+            onPress={onSelectTab}
+            onPreload={onPreloadTab}
           >
             <View style={styles.iconBadgeWrapper}>
-              <View style={[styles.iconWrapper, isCartActive && styles.activeIconPill]}>
-                <ShoppingCart
-                  size={22}
-                  color={isCartActive ? activeColor : inactiveColor}
-                  strokeWidth={isCartActive ? 2.5 : 1.8}
-                />
-              </View>
+              <ShoppingCart
+                size={22}
+                color={isCartActive ? activeColor : inactiveColor}
+                strokeWidth={isCartActive ? 2.5 : 1.8}
+              />
               {cartCount > 0 && (
                 <AnimatedView
                   style={[
@@ -228,55 +237,30 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                 </AnimatedView>
               )}
             </View>
-            <Text
-              style={[
-                styles.tabLabel,
-                {
-                  color: isCartActive ? activeColor : inactiveColor,
-                  fontWeight: isCartActive ? '800' : '600',
-                },
-              ]}
-            >
-              Cart
-            </Text>
-            {isCartActive && <View style={[styles.activeDot, { backgroundColor: activeColor }]} />}
-          </TouchableOpacity>
+          </NavTabItem>
 
           {/* 5. Profile Tab */}
-          <TouchableOpacity
-            onPress={() => handleTabPress('profile')}
-            onPressIn={() => onPreloadTab?.('profile')}
-            activeOpacity={0.7}
-            style={styles.tabButton}
-            accessibilityRole="button"
-            accessibilityLabel="Profile Tab"
+          <NavTabItem
+            screen="profile"
+            isActive={isProfileActive}
+            label="Profile"
+            activeColor={activeColor}
+            inactiveColor={inactiveColor}
+            onPress={onSelectTab}
+            onPreload={onPreloadTab}
           >
-            <View style={[styles.iconWrapper, isProfileActive && styles.activeIconPill]}>
-              <Image
-                source={{ uri: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg' }}
-                style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 11,
-                  borderWidth: isProfileActive ? 2 : 1,
-                  borderColor: isProfileActive ? activeColor : (theme.border || '#9CA3AF'),
-                }}
-                resizeMode="cover"
-              />
-            </View>
-            <Text
-              style={[
-                styles.tabLabel,
-                {
-                  color: isProfileActive ? activeColor : inactiveColor,
-                  fontWeight: isProfileActive ? '800' : '600',
-                },
-              ]}
-            >
-              Profile
-            </Text>
-            {isProfileActive && <View style={[styles.activeDot, { backgroundColor: activeColor }]} />}
-          </TouchableOpacity>
+            <Image
+              source={{ uri: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg' }}
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: 11,
+                borderWidth: isProfileActive ? 2 : 1,
+                borderColor: isProfileActive ? activeColor : (theme.border || '#9CA3AF'),
+              }}
+              resizeMode="cover"
+            />
+          </NavTabItem>
         </View>
       </View>
     </View>
@@ -318,7 +302,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 4,
-    gap: 3,
     position: 'relative',
   },
   iconWrapper: {
@@ -367,4 +350,3 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 });
-

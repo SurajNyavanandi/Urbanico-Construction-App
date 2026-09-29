@@ -166,14 +166,14 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
     } catch {}
   }, []);
 
-  // Persist changes with user partition and universal backup
+  // Persist changes with user partition and universal backup asynchronously
   useEffect(() => {
     try {
       const authSaved = safeStorage.getItem('urbanico_auth_session');
       const phone = authSaved ? JSON.parse(authSaved).phone : null;
       const key = phone ? `urbanico_saved_locations_${phone.replace(/\D/g, '')}` : 'urbanico_saved_locations_guest';
-      safeStorage.setItem(key, JSON.stringify(savedLocations));
-      safeStorage.setItem('urbanico_universal_saved_locations', JSON.stringify(savedLocations));
+      safeStorage.setAsyncObject(key, savedLocations, 150);
+      safeStorage.setAsyncObject('urbanico_universal_saved_locations', savedLocations, 150);
     } catch {
       // ignore
     }
@@ -184,8 +184,8 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
       const authSaved = safeStorage.getItem('urbanico_auth_session');
       const phone = authSaved ? JSON.parse(authSaved).phone : null;
       const key = phone ? `urbanico_selected_location_${phone.replace(/\D/g, '')}` : 'urbanico_selected_location_guest';
-      safeStorage.setItem(key, selectedLocation);
-      safeStorage.setItem('urbanico_universal_selected_location', selectedLocation);
+      safeStorage.setDebouncedItem(key, selectedLocation, 150);
+      safeStorage.setDebouncedItem('urbanico_universal_selected_location', selectedLocation, 150);
     } catch {
       // ignore
     }
@@ -193,7 +193,7 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   useEffect(() => {
     try {
-      safeStorage.setItem('urbanico_coords_map', JSON.stringify(coordsMap));
+      safeStorage.setAsyncObject('urbanico_coords_map', coordsMap, 200);
     } catch {
       // ignore
     }

@@ -38,6 +38,7 @@ import { BrandLogo } from './common/BrandLogo';
 import { ShimmerImage } from './common/ShimmerImage';
 import { NotificationsModal } from './NotificationsModal';
 import { soundService } from '../utils/soundHelper';
+import { useDebounce } from '../hooks/useDebounce';
 import {
   normalizeSearchQuery,
   searchAndRankMaterials,
@@ -112,17 +113,25 @@ export const Header: React.FC<HeaderProps> = ({
   // Notification Center Modal State
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
+  // Debounced search text (200ms) to prevent heavy re-filtering on every keystroke
+  const debouncedSearchText = useDebounce(searchInputText, 200);
+
   // Sync external search query
   useEffect(() => {
     setSearchInputText(searchQuery);
   }, [searchQuery]);
+
+  // Sync debounced search query to parent handler
+  useEffect(() => {
+    onSearchChange(debouncedSearchText);
+  }, [debouncedSearchText, onSearchChange]);
 
   // Close search overlay if screen changes
   useEffect(() => {
     setIsSearchOpen(false);
   }, [currentScreen]);
 
-  const queryLower = searchInputText.toLowerCase().trim();
+  const queryLower = debouncedSearchText.toLowerCase().trim();
 
   const { cleanQuery, normalizedQuery, wasCorrected, correctionNotice } = normalizeSearchQuery(queryLower);
 
@@ -362,7 +371,6 @@ export const Header: React.FC<HeaderProps> = ({
                 value={searchInputText}
                 onChangeText={(txt) => {
                   setSearchInputText(txt);
-                  onSearchChange(txt);
                 }}
                 placeholder="Search materials, grades, trades..."
                 placeholderTextColor={theme.textMuted || '#8E8E93'}

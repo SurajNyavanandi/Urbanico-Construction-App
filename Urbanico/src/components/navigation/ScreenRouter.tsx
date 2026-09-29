@@ -1,7 +1,7 @@
-import React, { Suspense } from 'react';
+import React from 'react';
 import { ErrorBoundary } from '../common/ErrorBoundary';
-import { ScreenSkeletonLoader } from '../common/ScreenSkeletonLoader';
-import { HomeScreen, ProjectBundle } from '../HomeScreen';
+import { ScreenSuspense } from '../common/ScreenSuspense';
+import type { ProjectBundle } from '../HomeScreen';
 import {
   ScreenType,
   CategoryId,
@@ -13,28 +13,47 @@ import {
 } from '../../types';
 import { ServiceItem, MATERIAL_ITEMS } from '../../data/materialsData';
 
-// Dynamic route prefetchers & lazy screen components
+// Dynamic route loaders for screen-level code splitting
+const loadHome = () => import('../HomeScreen').then((m) => ({ default: m.HomeScreen }));
 const loadBasket = () => import('../BasketScreen').then((m) => ({ default: m.BasketScreen }));
 const loadFavorites = () => import('../FavoritesScreen').then((m) => ({ default: m.FavoritesScreen }));
 const loadShop = () => import('../ShopScreen').then((m) => ({ default: m.ShopScreen }));
+const loadMaterialsCatalog = () => import('../MaterialsCatalogScreen').then((m) => ({ default: m.MaterialsCatalogScreen }));
+const loadServicesCatalog = () => import('../ServicesCatalogScreen').then((m) => ({ default: m.ServicesCatalogScreen }));
+const loadTradeServicesDetail = () => import('../TradeServicesDetailScreen').then((m) => ({ default: m.TradeServicesDetailScreen }));
 const loadProfile = () => import('../UserProfileScreen').then((m) => ({ default: m.UserProfileScreen }));
 const loadActivity = () => import('../ActivityDashboardScreen').then((m) => ({ default: m.ActivityDashboardScreen }));
+const loadLiveTracking = () => import('../LiveTrackingScreen').then((m) => ({ default: m.LiveTrackingScreen }));
+const loadInvoice = () => import('../InvoiceScreen').then((m) => ({ default: m.InvoiceScreen }));
 const loadAuth = () => import('../AuthScreen').then((m) => ({ default: m.AuthScreen }));
 
-const BasketScreen = React.lazy(loadBasket);
-const FavoritesScreen = React.lazy(loadFavorites);
-const ShopScreen = React.lazy(loadShop);
-const UserProfileScreen = React.lazy(loadProfile);
-const ActivityDashboardScreen = React.lazy(loadActivity);
-const AuthScreen = React.lazy(loadAuth);
+// Lazy route components
+export const HomeScreen = React.lazy(loadHome);
+export const BasketScreen = React.lazy(loadBasket);
+export const FavoritesScreen = React.lazy(loadFavorites);
+export const ShopScreen = React.lazy(loadShop);
+export const MaterialsCatalogScreen = React.lazy(loadMaterialsCatalog);
+export const ServicesCatalogScreen = React.lazy(loadServicesCatalog);
+export const TradeServicesDetailScreen = React.lazy(loadTradeServicesDetail);
+export const UserProfileScreen = React.lazy(loadProfile);
+export const ActivityDashboardScreen = React.lazy(loadActivity);
+export const LiveTrackingScreen = React.lazy(loadLiveTracking);
+export const InvoiceScreen = React.lazy(loadInvoice);
+export const AuthScreen = React.lazy(loadAuth);
 
 export const SCREEN_PRELOADERS = {
+  home: loadHome,
   basket: loadBasket,
   favorites: loadFavorites,
   shop: loadShop,
   category: loadShop,
+  materialsCatalog: loadMaterialsCatalog,
+  servicesCatalog: loadServicesCatalog,
+  tradeServices: loadTradeServicesDetail,
   profile: loadProfile,
   activity: loadActivity,
+  tracking: loadLiveTracking,
+  invoice: loadInvoice,
   auth: loadAuth,
 };
 
@@ -124,7 +143,7 @@ export const ScreenRouter: React.FC<ScreenRouterProps> = ({
   return (
     <ErrorBoundary>
       {(currentScreen === 'shop' || currentScreen === 'category') && (
-        <Suspense fallback={<ScreenSkeletonLoader type="catalog" />}>
+        <ScreenSuspense type="catalog">
           <ShopScreen
             selectedCategoryId={selectedCategoryId}
             onSelectCategoryTab={onSelectCategory}
@@ -140,35 +159,37 @@ export const ScreenRouter: React.FC<ScreenRouterProps> = ({
             categories={categories}
             services={services}
           />
-        </Suspense>
+        </ScreenSuspense>
       )}
 
       {currentScreen === 'home' && (
-        <HomeScreen
-          headerComponent={headerComponent}
-          onSelectCategory={onSelectCategory}
-          onNavigateAllMaterials={() => {
-            onSelectCategory('materials');
-            onNavigateScreen('shop');
-          }}
-          onNavigateAllServices={() => {
-            onSelectCategory('services-catalog');
-            onNavigateScreen('shop');
-          }}
-          onSelectItem={onSelectItemModal}
-          searchQuery={searchQuery}
-          favoriteIds={favoriteIds}
-          onToggleFavorite={onToggleFavorite}
-          onAddBundleToCartAndNavigate={onAddBundleToCartAndNavigate}
-          materials={materials}
-          categories={categories}
-          services={services}
-          bundles={bundles}
-        />
+        <ScreenSuspense type="home">
+          <HomeScreen
+            headerComponent={headerComponent}
+            onSelectCategory={onSelectCategory}
+            onNavigateAllMaterials={() => {
+              onSelectCategory('materials');
+              onNavigateScreen('shop');
+            }}
+            onNavigateAllServices={() => {
+              onSelectCategory('services-catalog');
+              onNavigateScreen('shop');
+            }}
+            onSelectItem={onSelectItemModal}
+            searchQuery={searchQuery}
+            favoriteIds={favoriteIds}
+            onToggleFavorite={onToggleFavorite}
+            onAddBundleToCartAndNavigate={onAddBundleToCartAndNavigate}
+            materials={materials}
+            categories={categories}
+            services={services}
+            bundles={bundles}
+          />
+        </ScreenSuspense>
       )}
 
       {currentScreen === 'basket' && (
-        <Suspense fallback={<ScreenSkeletonLoader type="cart" />}>
+        <ScreenSuspense type="basket">
           <BasketScreen
             user={user}
             cartItems={cartItems}
@@ -188,11 +209,11 @@ export const ScreenRouter: React.FC<ScreenRouterProps> = ({
             isLoggedIn={isLoggedIn}
             onOpenLoginModal={onOpenAuthModal}
           />
-        </Suspense>
+        </ScreenSuspense>
       )}
 
       {currentScreen === 'favorites' && (
-        <Suspense fallback={<ScreenSkeletonLoader type="catalog" />}>
+        <ScreenSuspense type="catalog">
           <FavoritesScreen
             items={materials}
             onSelectItemModal={onSelectItemModal}
@@ -206,11 +227,11 @@ export const ScreenRouter: React.FC<ScreenRouterProps> = ({
             isLoggedIn={isLoggedIn}
             onOpenLoginModal={onOpenAuthModal}
           />
-        </Suspense>
+        </ScreenSuspense>
       )}
 
       {currentScreen === 'profile' && (
-        <Suspense fallback={<ScreenSkeletonLoader type="profile" />}>
+        <ScreenSuspense type="profile">
           <UserProfileScreen
             user={user}
             onUpdateUser={onUpdateUser}
@@ -256,11 +277,11 @@ export const ScreenRouter: React.FC<ScreenRouterProps> = ({
               }
             }}
           />
-        </Suspense>
+        </ScreenSuspense>
       )}
 
       {currentScreen === 'activity' && (
-        <Suspense fallback={<ScreenSkeletonLoader type="profile" />}>
+        <ScreenSuspense type="tracking">
           <ActivityDashboardScreen
             deliveries={deliveries}
             isLoggedIn={isLoggedIn}
@@ -291,11 +312,11 @@ export const ScreenRouter: React.FC<ScreenRouterProps> = ({
               }
             }}
           />
-        </Suspense>
+        </ScreenSuspense>
       )}
 
       {(currentScreen === 'auth_mobile' || currentScreen === 'auth_otp') && (
-        <Suspense fallback={<ScreenSkeletonLoader type="profile" />}>
+        <ScreenSuspense type="profile">
           <AuthScreen
             initialStep={currentScreen === 'auth_otp' ? 'otp' : 'mobile'}
             onSuccessAuth={onAuthSuccess}
@@ -303,7 +324,7 @@ export const ScreenRouter: React.FC<ScreenRouterProps> = ({
               onNavigateScreen('home');
             }}
           />
-        </Suspense>
+        </ScreenSuspense>
       )}
     </ErrorBoundary>
   );

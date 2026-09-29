@@ -19,6 +19,44 @@ apiRouter.use('/users', userRouter);
 apiRouter.use('/user', userRouter);
 apiRouter.use('/deliveries', deliveryRouter);
 
+// Administrative Purge & Clean Slate API
+apiRouter.post('/purge-all-data', async (req, res) => {
+  try {
+    const { UserService } = await import('../services/userService');
+    const { OrderService } = await import('../services/orderService');
+    const { DeliveryService } = await import('../services/deliveryService');
+
+    await UserService.purgeAllUsers();
+    await OrderService.purgeAllOrders();
+    await DeliveryService.purgeAllDeliveries();
+
+    return res.json({
+      success: true,
+      message: 'All user profiles, order histories, and deliveries have been purged cleanly. Ready for real users.',
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to purge data: ' + (err?.message || err),
+    });
+  }
+});
+apiRouter.post('/admin/purge', async (req, res) => {
+  const { UserService } = await import('../services/userService');
+  const { OrderService } = await import('../services/orderService');
+  const { DeliveryService } = await import('../services/deliveryService');
+
+  await UserService.purgeAllUsers();
+  await OrderService.purgeAllOrders();
+  await DeliveryService.purgeAllDeliveries();
+
+  return res.json({
+    success: true,
+    message: 'System purged successfully.',
+  });
+});
+
 // Flat aliases for backwards compatibility with existing frontend calls
 apiRouter.get('/razorpay-config', PaymentController.getConfig);
 apiRouter.get('/config', PaymentController.getConfig);

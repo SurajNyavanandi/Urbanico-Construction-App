@@ -70,5 +70,12 @@ export class OrderController {
       `Tax Invoice successfully generated and emailed to ${recipientEmail}`
     );
   });
+
+  public static deleteAllOrders = asyncHandler(async (_req: Request, res: Response) => {
+    await OrderService.purgeAllOrders();
+    const { DeliveryService } = await import('../services/deliveryService');
+    await DeliveryService.purgeAllDeliveries();
+    return sendSuccess(res, { count: 0 }, 'All orders and delivery tracking records wiped successfully');
+  });
 }
 

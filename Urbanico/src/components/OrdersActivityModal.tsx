@@ -27,6 +27,7 @@ import {
 import { ActivityDelivery } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { EmptyState } from './common/EmptyState';
+import { OrdersSkeleton } from './common/skeletons';
 import { useToast } from '../context/ToastContext';
 import { SupervisorHandoffModal } from './common/SupervisorHandoffModal';
 import { formatSiteAddress } from '../utils/addressHelper';
@@ -168,7 +169,9 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
               />
             }
           >
-            {validDeliveries.length === 0 ? (
+            {refreshing ? (
+              <OrdersSkeleton />
+            ) : validDeliveries.length === 0 ? (
               !isLoggedIn ? (
                 <View style={[styles.card, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, alignItems: 'center', padding: 24 }]}>
                   <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: theme.surface, alignItems: 'center', justifyContent: 'center', marginBottom: 16 }}>

@@ -8,6 +8,7 @@ const router = Router();
 router.use(authenticateToken);
 router.get('/', OrderController.getOrders);
 router.post('/', OrderController.createOrder);
+router.delete('/', OrderController.deleteAllOrders);
 router.post('/email-invoice', OrderController.emailInvoice);
 router.get('/:id', OrderController.getOrderById);
 router.get('/number/:orderNumber', OrderController.getOrderByOrderNumber);

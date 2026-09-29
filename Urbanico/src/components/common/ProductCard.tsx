@@ -14,6 +14,7 @@ import { ShimmerImage } from './ShimmerImage';
 import { useTheme, useTypography } from '../../theme';
 import { parseSanitizedPrice, formatInr } from '../../utils/priceHelper';
 import { soundService } from '../../utils/soundHelper';
+import { preloadImage } from '../../utils/imageOptimization';
 import { getHighlightedSegments } from '../../services/searchService';
 import { useClipboard } from '../../hooks';
 import { useCartActions } from '../../hooks/useCartActions';
@@ -65,6 +66,12 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
   const addBtnScaleAnim = useRef(new Animated.Value(1)).current;
 
   const handleCardPressIn = () => {
+    // Pre-cache full fidelity detail image on user intent/hover
+    const targetImage = image || item?.image;
+    if (targetImage) {
+      preloadImage(targetImage, 'detail');
+    }
+
     Animated.spring(cardScaleAnim, {
       toValue: 0.975,
       friction: 8,

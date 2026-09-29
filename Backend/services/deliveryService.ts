@@ -107,5 +107,17 @@ export class DeliveryService {
     delivery.status = 'delivered';
     return { success: true, message: 'Delivery verified successfully and marked as delivered', delivery };
   }
+
+  public static async purgeAllDeliveries() {
+    try {
+      if (mongoose.connection.readyState === 1) {
+        await Delivery.deleteMany({}).exec();
+      }
+    } catch (err) {
+      console.warn('[Delivery] Purge database error:', err);
+    }
+    inMemoryDeliveries.length = 0;
+    return { success: true, message: 'All deliveries wiped completely' };
+  }
 }
 

@@ -1,6 +1,22 @@
-import React, { useEffect, useRef } from 'react';
-import { View, Animated, StyleSheet, ViewStyle } from 'react-native';
-import { useTheme } from '../../context/ThemeContext';
+import React from 'react';
+import { View, StyleSheet, ViewStyle } from 'react-native';
+import {
+  SkeletonItem,
+  useSkeletonAnimation,
+  CatalogSkeleton,
+  DetailScreenSkeleton,
+  OrdersSkeleton,
+  TrackingSkeleton,
+} from './skeletons';
+
+export {
+  useSkeletonAnimation,
+  SkeletonItem,
+  CatalogSkeleton,
+  DetailScreenSkeleton,
+  OrdersSkeleton,
+  TrackingSkeleton,
+};
 
 interface SkeletonProps {
   width?: number | string;
@@ -15,43 +31,12 @@ export const Skeleton: React.FC<SkeletonProps> = ({
   borderRadius = 8,
   style,
 }) => {
-  const { theme } = useTheme();
-  const pulseAnim = useRef(new Animated.Value(0.3)).current;
-
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 0.8,
-          duration: 750,
-          useNativeDriver: false,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 0.3,
-          duration: 750,
-          useNativeDriver: false,
-        }),
-      ])
-    );
-    animation.start();
-    return () => animation.stop();
-  }, [pulseAnim]);
-
-  const bg = theme.mode === 'dark' ? '#27272A' : '#E4E4E7';
-  const AnimatedView = Animated.View as any;
-
   return (
-    <AnimatedView
-      style={[
-        {
-          width: width as any,
-          height: height as any,
-          borderRadius,
-          backgroundColor: bg,
-          opacity: pulseAnim,
-        },
-        style,
-      ]}
+    <SkeletonItem
+      width={width}
+      height={height}
+      borderRadius={borderRadius}
+      style={style}
     />
   );
 };
@@ -121,28 +106,6 @@ export const HomeSkeleton: React.FC = () => {
   );
 };
 
-/* Catalog Skeleton */
-export const CatalogSkeleton: React.FC = () => {
-  return (
-    <View style={styles.container}>
-      {/* Top Nav Tabs */}
-      <View style={styles.horizontalRow}>
-        <Skeleton width={90} height={28} borderRadius={14} />
-        <Skeleton width={90} height={28} borderRadius={14} />
-        <Skeleton width={90} height={28} borderRadius={14} />
-      </View>
-
-      {/* Grid Cards */}
-      <View style={[styles.gridRow, { marginTop: 20 }]}>
-        <ProductCardSkeleton />
-        <ProductCardSkeleton />
-        <ProductCardSkeleton />
-        <ProductCardSkeleton />
-      </View>
-    </View>
-  );
-};
-
 /* Profile Skeleton */
 export const ProfileSkeleton: React.FC = () => {
   return (
@@ -161,15 +124,77 @@ export const ProfileSkeleton: React.FC = () => {
   );
 };
 
-/* Order History Skeleton */
-export const OrderHistorySkeleton: React.FC = () => {
+/* Basket / Cart Skeleton */
+export const BasketSkeleton: React.FC = () => {
   return (
     <View style={styles.container}>
-      <Skeleton width="100%" height={90} borderRadius={14} style={{ marginBottom: 12 }} />
-      <Skeleton width="100%" height={90} borderRadius={14} style={{ marginBottom: 12 }} />
-      <Skeleton width="100%" height={90} borderRadius={14} style={{ marginBottom: 12 }} />
+      {/* Delivery address banner */}
+      <Skeleton width="100%" height={70} borderRadius={16} style={{ marginBottom: 12 }} />
+      {/* Cart items */}
+      <View style={styles.listSkeleton}>
+        <Skeleton width={80} height={80} borderRadius={12} />
+        <View style={{ flex: 1, gap: 8 }}>
+          <Skeleton width="60%" height={16} />
+          <Skeleton width="35%" height={14} />
+          <Skeleton width="45%" height={12} />
+        </View>
+      </View>
+      <View style={styles.listSkeleton}>
+        <Skeleton width={80} height={80} borderRadius={12} />
+        <View style={{ flex: 1, gap: 8 }}>
+          <Skeleton width="70%" height={16} />
+          <Skeleton width="40%" height={14} />
+          <Skeleton width="45%" height={12} />
+        </View>
+      </View>
+      {/* Bill summary & CTA */}
+      <Skeleton width="100%" height={120} borderRadius={16} style={{ marginTop: 8 }} />
+      <Skeleton width="100%" height={52} borderRadius={14} style={{ marginTop: 12 }} />
     </View>
   );
+};
+
+/* Live Tracking Skeleton */
+export const LiveTrackingSkeleton: React.FC = () => {
+  return <TrackingSkeleton />;
+};
+
+/* Invoice Skeleton */
+export const InvoiceSkeleton: React.FC = () => {
+  return (
+    <View style={styles.container}>
+      <View style={[styles.rowBetween, { marginBottom: 16 }]}>
+        <Skeleton width="40%" height={24} />
+        <Skeleton width={80} height={32} borderRadius={8} />
+      </View>
+      <Skeleton width="100%" height={140} borderRadius={14} style={{ marginBottom: 16 }} />
+      <Skeleton width="100%" height={200} borderRadius={14} style={{ marginBottom: 16 }} />
+      <Skeleton width="100%" height={90} borderRadius={14} />
+    </View>
+  );
+};
+
+/* Trade Services Skeleton */
+export const TradeServicesSkeleton: React.FC = () => {
+  return (
+    <View style={styles.container}>
+      <View style={styles.horizontalRow}>
+        <Skeleton width={110} height={32} borderRadius={16} />
+        <Skeleton width={110} height={32} borderRadius={16} />
+        <Skeleton width={110} height={32} borderRadius={16} />
+      </View>
+      <Skeleton width="100%" height={160} borderRadius={16} style={{ marginTop: 16 }} />
+      <View style={[styles.gridRow, { marginTop: 16 }]}>
+        <ProductCardSkeleton />
+        <ProductCardSkeleton />
+      </View>
+    </View>
+  );
+};
+
+/* Order History Skeleton */
+export const OrderHistorySkeleton: React.FC = () => {
+  return <OrdersSkeleton />;
 };
 
 const styles = StyleSheet.create({

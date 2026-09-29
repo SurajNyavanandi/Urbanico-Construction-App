@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { MaterialItem, MaterialCategory } from '../types';
 import { apiService } from '../services/apiService';
 import { safeStorage } from '../utils/safeStorage';
+import { MATERIAL_ITEMS, CATEGORIES as STATIC_CATEGORIES, SERVICES as STATIC_SERVICES } from '../data/materialsData';
 
 interface DynamicCatalogState {
   materials: MaterialItem[];
@@ -31,7 +32,7 @@ export const INITIAL_CATEGORIES: MaterialCategory[] = [
 ];
 
 export function useDynamicCatalog(): DynamicCatalogState {
-  // Synchronous cache hydration for instant zero-wait first paint
+  // Synchronous instant initialization with fallback materials
   const [materials, setMaterials] = useState<MaterialItem[]>(() => {
     try {
       const cached = safeStorage.getItem(CACHE_KEY_MATERIALS);
@@ -40,7 +41,7 @@ export function useDynamicCatalog(): DynamicCatalogState {
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
-    return [];
+    return MATERIAL_ITEMS && MATERIAL_ITEMS.length > 0 ? MATERIAL_ITEMS : [];
   });
 
   const [categories, setCategories] = useState<MaterialCategory[]>(() => {
@@ -51,7 +52,7 @@ export function useDynamicCatalog(): DynamicCatalogState {
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
-    return INITIAL_CATEGORIES;
+    return STATIC_CATEGORIES && STATIC_CATEGORIES.length > 0 ? STATIC_CATEGORIES : INITIAL_CATEGORIES;
   });
 
   const [services, setServices] = useState<any[]>(() => {
@@ -62,7 +63,7 @@ export function useDynamicCatalog(): DynamicCatalogState {
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch {}
-    return [];
+    return STATIC_SERVICES && STATIC_SERVICES.length > 0 ? STATIC_SERVICES : [];
   });
 
   const [bundles, setBundles] = useState<any[]>([]);

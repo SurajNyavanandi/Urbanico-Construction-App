@@ -344,21 +344,21 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const setThemeMode = (mode: ThemeMode) => {
     setThemeModeState(mode);
     try {
-      safeStorage.setItem('urbanico_theme_mode', mode);
+      safeStorage.setDebouncedItem('urbanico_theme_mode', mode, 150);
     } catch {}
   };
 
   const setAccentColor = (accent: AccentColor) => {
     setAccentColorState(accent);
     try {
-      safeStorage.setItem('urbanico_accent_color', accent);
+      safeStorage.setDebouncedItem('urbanico_accent_color', accent, 150);
     } catch {}
   };
 
   const setTypographyFont = (font: TypographyFontFamily) => {
     setTypographyFontState(font);
     try {
-      safeStorage.setItem('urbanico_typography_font', font);
+      safeStorage.setDebouncedItem('urbanico_typography_font', font, 150);
     } catch {}
   };
   const [isAppleDesign, setIsAppleDesignState] = useState<boolean>(() => {
@@ -367,7 +367,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const setAppleDesign = (val: boolean) => {
     setIsAppleDesignState(val);
-    safeStorage.setItem('apple_design_mode', val ? 'true' : 'false');
+    try {
+      safeStorage.setDebouncedItem('apple_design_mode', val ? 'true' : 'false', 150);
+    } catch {}
   };
 
   const toggleAppleDesign = () => {

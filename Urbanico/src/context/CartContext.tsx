@@ -95,14 +95,14 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch {}
   }, []);
 
-  // Debounced auto-save mechanism for cart state to minimize storage I/O during rapid quantity adjustments
+  // Non-blocking debounced auto-save mechanism for cart state to eliminate UI thread serialization lag
   useEffect(() => {
     try {
       const authSaved = safeStorage.getItem('urbanico_auth_session');
       const phone = authSaved ? JSON.parse(authSaved).phone : null;
       const cleanPhone = phone ? phone.replace(/[^0-9]/g, '') : null;
       const key = cleanPhone ? `urbanico_cart_${cleanPhone}` : 'urbanico_cart_guest';
-      safeStorage.setDebouncedItem(key, JSON.stringify(cartItems), 250);
+      safeStorage.setAsyncObject(key, cartItems, 200);
       if (cleanPhone) {
         apiService.saveUserCart(cartItems, cleanPhone).catch(() => {});
       }
@@ -122,10 +122,10 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
   }, [cartItems]);
 
-  // Debounced auto-save for saved-for-later items
+  // Non-blocking auto-save for saved-for-later items
   useEffect(() => {
     try {
-      safeStorage.setDebouncedItem('urbanico_saved_for_later', JSON.stringify(savedForLaterItems), 400);
+      safeStorage.setAsyncObject('urbanico_saved_for_later', savedForLaterItems, 300);
     } catch {
       // ignore
     }

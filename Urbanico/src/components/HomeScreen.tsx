@@ -10,6 +10,8 @@ import {
   RefreshControl,
   ImageBackground,
   Platform,
+  Pressable,
+  Animated,
 } from 'react-native';
 import {
   ArrowRight,
@@ -28,10 +30,12 @@ import { useTheme, useTypography, useSpacing, useRadius } from '../theme';
 import { ProductCard } from './common/ProductCard';
 import { ShimmerImage } from './common/ShimmerImage';
 import { AmbujaVideoAd } from './common/AmbujaVideoAd';
+import { ProjectShowcaseCarousel } from './common/ProjectShowcaseCarousel';
 import { preloadImages } from '../utils/imageOptimization';
 import { BRAND_LOGO_URL } from '../constants';
 import { soundService } from '../utils/soundHelper';
 import { HomeSkeleton } from './common/SkeletonLoader';
+import { useImagePrefetch } from '../hooks/useImagePrefetch';
 
 interface HomeScreenProps {
   headerComponent?: React.ReactNode;
@@ -179,6 +183,79 @@ export interface ProjectBundle {
 
 export const PROJECT_BUNDLES: ProjectBundle[] = [];
 
+interface InteractivePillProps {
+  label: string;
+  image: string;
+  theme: any;
+  onPress: () => void;
+}
+
+const InteractivePillItem: React.FC<InteractivePillProps> = React.memo(({
+  label,
+  image,
+  theme,
+  onPress,
+}) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.90,
+      friction: 8,
+      tension: 200,
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 5,
+      tension: 140,
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+  };
+
+  const AnimatedView = Animated.View as any;
+
+  return (
+    <Pressable
+      onPress={() => {
+        soundService.playTap();
+        onPress();
+      }}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      style={styles.childPillItem}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+    >
+      <AnimatedView style={{ alignItems: 'center', transform: [{ scale: scaleAnim }] }}>
+        <View
+          style={[
+            styles.childPillAvatarBox,
+            {
+              backgroundColor: theme.mode === 'dark' ? '#1E293B' : '#F8FAFC',
+              borderColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.08)' : '#E2E8F0',
+            },
+          ]}
+        >
+          <ShimmerImage
+            source={{ uri: image }}
+            style={styles.childPillAvatarImage}
+            resizeMode="cover"
+            preset="pill"
+            borderRadius={18}
+          />
+        </View>
+        <Text style={[styles.childPillLabel, { color: theme.textPrimary }]} numberOfLines={1}>
+          {label}
+        </Text>
+      </AnimatedView>
+    </Pressable>
+  );
+});
+
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   headerComponent,
   onSelectCategory,
@@ -200,6 +277,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   const activeCategories = (categories && categories.length > 0) ? categories : CATEGORIES;
   const activeServices = (services && services.length > 0) ? services : SERVICES;
   const activeBundles = (bundles && bundles.length > 0) ? bundles : PROJECT_BUNDLES;
+
+  // Intelligent multi-tier image prefetching
+  const { prefetchCategoryImages } = useImagePrefetch({
+    currentScreen: 'home',
+    items: activeMaterials,
+  });
 
   const { width: windowWidth } = useWindowDimensions();
   const maxAppWidth = Platform.OS === 'web' ? Math.min(windowWidth, 480) : windowWidth;
@@ -292,36 +375,13 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               contentContainerStyle={styles.childNavScroll}
             >
               {MATERIAL_CHILD_PILLS.map((item) => (
-                <TouchableOpacity
+                <InteractivePillItem
                   key={item.id}
-                  onPress={() => {
-                    soundService.playTap();
-                    onSelectCategory(item.categoryId || (item.id as CategoryId));
-                  }}
-                  activeOpacity={0.7}
-                  style={styles.childPillItem}
-                >
-                  <View
-                    style={[
-                      styles.childPillAvatarBox,
-                      {
-                        backgroundColor: theme.mode === 'dark' ? '#1E293B' : '#F8FAFC',
-                        borderColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.08)' : '#E2E8F0',
-                      },
-                    ]}
-                  >
-                    <ShimmerImage
-                      source={{ uri: item.image }}
-                      style={styles.childPillAvatarImage}
-                      resizeMode="cover"
-                      preset="pill"
-                      borderRadius={18}
-                    />
-                  </View>
-                  <Text style={[styles.childPillLabel, { color: theme.textPrimary }]} numberOfLines={1}>
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
+                  label={item.label}
+                  image={item.image}
+                  theme={theme}
+                  onPress={() => onSelectCategory(item.categoryId || (item.id as CategoryId))}
+                />
               ))}
             </ScrollView>
           </View>
@@ -339,10 +399,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               {SERVICE_CHILD_PILLS.map((item) => {
                 const matchingItem = activeMaterials.find((m) => m.id === `service-${item.id}`);
                 return (
-                  <TouchableOpacity
+                  <InteractivePillItem
                     key={item.id}
+                    label={item.label}
+                    image={item.image}
+                    theme={theme}
                     onPress={() => {
-                      soundService.playTap();
                       if (matchingItem && onSelectItem) {
                         onSelectItem(matchingItem);
                       } else if (onNavigateAllServices) {
@@ -351,30 +413,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                         onSelectCategory('services-catalog');
                       }
                     }}
-                    activeOpacity={0.7}
-                    style={styles.childPillItem}
-                  >
-                    <View
-                      style={[
-                        styles.childPillAvatarBox,
-                        {
-                          backgroundColor: theme.mode === 'dark' ? '#1E293B' : '#F8FAFC',
-                          borderColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.08)' : '#E2E8F0',
-                        },
-                      ]}
-                    >
-                      <ShimmerImage
-                        source={{ uri: item.image }}
-                        style={styles.childPillAvatarImage}
-                        resizeMode="cover"
-                        preset="pill"
-                        borderRadius={18}
-                      />
-                    </View>
-                    <Text style={[styles.childPillLabel, { color: theme.textPrimary }]} numberOfLines={1}>
-                      {item.label}
-                    </Text>
-                  </TouchableOpacity>
+                  />
                 );
               })}
             </ScrollView>
@@ -492,6 +531,19 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </ScrollView>
           </View>
         </View>
+
+        {/* ========================================================================= */}
+        {/* 7. PROJECT SHOWCASE 4:3 CAROUSEL (Minimalist Smooth Transition Slider)    */}
+        {/* ========================================================================= */}
+        <ProjectShowcaseCarousel
+          onPressImage={() => {
+            if (onNavigateAllMaterials) {
+              onNavigateAllMaterials();
+            } else {
+              onSelectCategory('cement');
+            }
+          }}
+        />
           </>
         )}
       </ScrollView>
@@ -670,3 +722,5 @@ const styles = StyleSheet.create({
     paddingBottom: 4,
   },
 });
+
+export default HomeScreen;

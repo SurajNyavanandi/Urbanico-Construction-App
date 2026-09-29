@@ -620,13 +620,24 @@ class ApiService {
     }
   }
 
-  // ==================== SYSTEM HEALTH ====================
+  // ==================== SYSTEM HEALTH & PURGE ====================
 
   public async getHealth(): Promise<{ status: string; database?: any }> {
     try {
       return await this.request('/api/health');
     } catch (err) {
       return { status: 'offline' };
+    }
+  }
+
+  public async purgeAllData(): Promise<boolean> {
+    try {
+      const res = await this.request<{ success: boolean }>('/api/purge-all-data', {
+        method: 'POST',
+      });
+      return res?.success || false;
+    } catch {
+      return false;
     }
   }
 }

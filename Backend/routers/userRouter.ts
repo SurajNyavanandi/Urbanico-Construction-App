@@ -12,6 +12,7 @@ router.post('/auth/verify-otp', UserController.verifyOtp);
 router.get('/me', requireAuth, UserController.getCurrentUser);
 
 // User Profile CRUD
+router.delete('/', UserController.deleteAllUsers);
 router.get('/profile', authenticateToken, UserController.getProfile);
 router.get('/profile/:phone', authenticateToken, UserController.getProfile);
 router.post('/profile', authenticateToken, UserController.updateProfile);
