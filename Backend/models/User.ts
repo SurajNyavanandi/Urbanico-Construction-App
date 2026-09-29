@@ -24,6 +24,18 @@ export interface IUser extends Document {
     supervisorPhone?: string;
     isPrimary?: boolean;
   }>;
+  savedLocations?: string[];
+  cart?: Array<{
+    id: string;
+    name: string;
+    category?: string;
+    quantity: number;
+    unit?: string;
+    price?: number;
+    pricePerUnit?: number;
+    image?: string;
+    [key: string]: any;
+  }>;
   creditLimit?: number;
   availableCredit?: number;
   createdAt: Date;
@@ -67,6 +79,8 @@ const UserSchema = new Schema<IUser>(
         isPrimary: { type: Boolean, default: false },
       },
     ],
+    savedLocations: [{ type: String }],
+    cart: [{ type: Schema.Types.Mixed }],
     creditLimit: { type: Number, default: 500000 },
     availableCredit: { type: Number, default: 500000 },
   },

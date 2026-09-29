@@ -1,13 +1,7 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { ErrorBoundary } from '../common/ErrorBoundary';
+import { ScreenSkeletonLoader } from '../common/ScreenSkeletonLoader';
 import { HomeScreen, ProjectBundle } from '../HomeScreen';
-import { BasketScreen } from '../BasketScreen';
-import { FavoritesScreen } from '../FavoritesScreen';
-import { UserProfileScreen } from '../UserProfileScreen';
-import { ActivityDashboardScreen } from '../ActivityDashboardScreen';
-import { AuthScreen } from '../AuthScreen';
-import { ShopScreen } from '../ShopScreen';
-import { CategoryDetailScreen } from '../CategoryDetailScreen';
 import {
   ScreenType,
   CategoryId,
@@ -19,14 +13,29 @@ import {
 } from '../../types';
 import { ServiceItem, MATERIAL_ITEMS } from '../../data/materialsData';
 
+// Dynamic route prefetchers & lazy screen components
+const loadBasket = () => import('../BasketScreen').then((m) => ({ default: m.BasketScreen }));
+const loadFavorites = () => import('../FavoritesScreen').then((m) => ({ default: m.FavoritesScreen }));
+const loadShop = () => import('../ShopScreen').then((m) => ({ default: m.ShopScreen }));
+const loadProfile = () => import('../UserProfileScreen').then((m) => ({ default: m.UserProfileScreen }));
+const loadActivity = () => import('../ActivityDashboardScreen').then((m) => ({ default: m.ActivityDashboardScreen }));
+const loadAuth = () => import('../AuthScreen').then((m) => ({ default: m.AuthScreen }));
+
+const BasketScreen = React.lazy(loadBasket);
+const FavoritesScreen = React.lazy(loadFavorites);
+const ShopScreen = React.lazy(loadShop);
+const UserProfileScreen = React.lazy(loadProfile);
+const ActivityDashboardScreen = React.lazy(loadActivity);
+const AuthScreen = React.lazy(loadAuth);
+
 export const SCREEN_PRELOADERS = {
-  basket: () => Promise.resolve(),
-  favorites: () => Promise.resolve(),
-  shop: () => Promise.resolve(),
-  category: () => Promise.resolve(),
-  profile: () => Promise.resolve(),
-  activity: () => Promise.resolve(),
-  auth: () => Promise.resolve(),
+  basket: loadBasket,
+  favorites: loadFavorites,
+  shop: loadShop,
+  category: loadShop,
+  profile: loadProfile,
+  activity: loadActivity,
+  auth: loadAuth,
 };
 
 export interface ScreenRouterProps {
@@ -115,21 +124,23 @@ export const ScreenRouter: React.FC<ScreenRouterProps> = ({
   return (
     <ErrorBoundary>
       {(currentScreen === 'shop' || currentScreen === 'category') && (
-        <ShopScreen
-          selectedCategoryId={selectedCategoryId}
-          onSelectCategoryTab={onSelectCategory}
-          onSelectItem={onSelectItemModal}
-          favoriteIds={favoriteIds}
-          onToggleFavorite={onToggleFavorite}
-          searchQuery={searchQuery}
-          onSearchChange={onSearchChange}
-          viewMode={viewMode}
-          onViewModeChange={onViewModeChange}
-          onBack={() => onNavigateScreen('home')}
-          materials={materials}
-          categories={categories}
-          services={services}
-        />
+        <Suspense fallback={<ScreenSkeletonLoader type="catalog" />}>
+          <ShopScreen
+            selectedCategoryId={selectedCategoryId}
+            onSelectCategoryTab={onSelectCategory}
+            onSelectItem={onSelectItemModal}
+            favoriteIds={favoriteIds}
+            onToggleFavorite={onToggleFavorite}
+            searchQuery={searchQuery}
+            onSearchChange={onSearchChange}
+            viewMode={viewMode}
+            onViewModeChange={onViewModeChange}
+            onBack={() => onNavigateScreen('home')}
+            materials={materials}
+            categories={categories}
+            services={services}
+          />
+        </Suspense>
       )}
 
       {currentScreen === 'home' && (
@@ -157,132 +168,142 @@ export const ScreenRouter: React.FC<ScreenRouterProps> = ({
       )}
 
       {currentScreen === 'basket' && (
-        <BasketScreen
-          user={user}
-          cartItems={cartItems}
-          onUpdateQuantity={onUpdateCartQty}
-          onRemoveItem={onRemoveCartItem}
-          onClearCart={onClearCart}
-          onAddToCart={onAddToCartItem}
-          selectedLocation={selectedLocation}
-          onNavigateScreen={onNavigateScreen}
-          deliveries={deliveries}
-          onOrderCreated={onOrderCreated}
-          onViewInvoice={onViewInvoice}
-          onChangeAddressRedirect={() => {
-            setOpenProfileAddresses(true);
-            onNavigateScreen('profile');
-          }}
-          isLoggedIn={isLoggedIn}
-          onOpenLoginModal={onOpenAuthModal}
-        />
+        <Suspense fallback={<ScreenSkeletonLoader type="cart" />}>
+          <BasketScreen
+            user={user}
+            cartItems={cartItems}
+            onUpdateQuantity={onUpdateCartQty}
+            onRemoveItem={onRemoveCartItem}
+            onClearCart={onClearCart}
+            onAddToCart={onAddToCartItem}
+            selectedLocation={selectedLocation}
+            onNavigateScreen={onNavigateScreen}
+            deliveries={deliveries}
+            onOrderCreated={onOrderCreated}
+            onViewInvoice={onViewInvoice}
+            onChangeAddressRedirect={() => {
+              setOpenProfileAddresses(true);
+              onNavigateScreen('profile');
+            }}
+            isLoggedIn={isLoggedIn}
+            onOpenLoginModal={onOpenAuthModal}
+          />
+        </Suspense>
       )}
 
       {currentScreen === 'favorites' && (
-        <FavoritesScreen
-          items={materials}
-          onSelectItemModal={onSelectItemModal}
-          onNavigateHome={() => onNavigateScreen('home')}
-          onExploreCatalog={() => {
-            onSelectCategory('all');
-            onNavigateScreen('shop');
-          }}
-          favoriteIds={favoriteIds}
-          onToggleFavorite={onToggleFavorite}
-          isLoggedIn={isLoggedIn}
-          onOpenLoginModal={onOpenAuthModal}
-        />
+        <Suspense fallback={<ScreenSkeletonLoader type="catalog" />}>
+          <FavoritesScreen
+            items={materials}
+            onSelectItemModal={onSelectItemModal}
+            onNavigateHome={() => onNavigateScreen('home')}
+            onExploreCatalog={() => {
+              onSelectCategory('all');
+              onNavigateScreen('shop');
+            }}
+            favoriteIds={favoriteIds}
+            onToggleFavorite={onToggleFavorite}
+            isLoggedIn={isLoggedIn}
+            onOpenLoginModal={onOpenAuthModal}
+          />
+        </Suspense>
       )}
 
       {currentScreen === 'profile' && (
-        <UserProfileScreen
-          user={user}
-          onUpdateUser={onUpdateUser}
-          onNavigateScreen={(scr) => {
-            setOpenProfileAddresses(false);
-            onNavigateScreen(scr);
-          }}
-          isLoggedIn={isLoggedIn}
-          onLogout={onLogout}
-          savedLocations={savedLocations}
-          onAddLocation={onAddLocation}
-          onEditLocation={onEditLocation}
-          onDeleteLocation={onDeleteLocation}
-          onSelectLocation={onSelectLocation}
-          deliveries={deliveries}
-          onViewInvoice={onViewInvoice}
-          initialOpenAddressesModal={openProfileAddresses}
-          onOpenLoginModal={onOpenAuthModal}
-          favoriteCount={favoriteIds.length}
-          viewMode={viewMode}
-          onViewModeChange={onViewModeChange}
-          onExploreCatalog={() => {
-            onSelectCategory('all');
-            onNavigateScreen('shop');
-          }}
-          onReorderMaterial={(matName) => {
-            const matchedItem =
-              materials.find(
-                (m) =>
-                  m.name.toLowerCase().includes(matName.toLowerCase()) ||
-                  matName.toLowerCase().includes(m.name.toLowerCase())
-              ) ||
-              MATERIAL_ITEMS.find(
-                (m) =>
-                  m.name.toLowerCase().includes(matName.toLowerCase()) ||
-                  matName.toLowerCase().includes(m.name.toLowerCase())
-              );
-            if (matchedItem) {
-              onSelectItemModal(matchedItem);
-            } else {
+        <Suspense fallback={<ScreenSkeletonLoader type="profile" />}>
+          <UserProfileScreen
+            user={user}
+            onUpdateUser={onUpdateUser}
+            onNavigateScreen={(scr) => {
+              setOpenProfileAddresses(false);
+              onNavigateScreen(scr);
+            }}
+            isLoggedIn={isLoggedIn}
+            onLogout={onLogout}
+            savedLocations={savedLocations}
+            onAddLocation={onAddLocation}
+            onEditLocation={onEditLocation}
+            onDeleteLocation={onDeleteLocation}
+            onSelectLocation={onSelectLocation}
+            deliveries={deliveries}
+            onViewInvoice={onViewInvoice}
+            initialOpenAddressesModal={openProfileAddresses}
+            onOpenLoginModal={onOpenAuthModal}
+            favoriteCount={favoriteIds.length}
+            viewMode={viewMode}
+            onViewModeChange={onViewModeChange}
+            onExploreCatalog={() => {
               onSelectCategory('all');
               onNavigateScreen('shop');
-            }
-          }}
-        />
+            }}
+            onReorderMaterial={(matName) => {
+              const matchedItem =
+                materials.find(
+                  (m) =>
+                    m.name.toLowerCase().includes(matName.toLowerCase()) ||
+                    matName.toLowerCase().includes(m.name.toLowerCase())
+                ) ||
+                MATERIAL_ITEMS.find(
+                  (m) =>
+                    m.name.toLowerCase().includes(matName.toLowerCase()) ||
+                    matName.toLowerCase().includes(m.name.toLowerCase())
+                );
+              if (matchedItem) {
+                onSelectItemModal(matchedItem);
+              } else {
+                onSelectCategory('all');
+                onNavigateScreen('shop');
+              }
+            }}
+          />
+        </Suspense>
       )}
 
       {currentScreen === 'activity' && (
-        <ActivityDashboardScreen
-          deliveries={deliveries}
-          isLoggedIn={isLoggedIn}
-          onOpenLoginModal={onOpenAuthModal}
-          onBack={() => onNavigateScreen('profile')}
-          onExploreCatalog={() => {
-            onSelectCategory('all');
-            onNavigateScreen('shop');
-          }}
-          onViewInvoice={onViewInvoice}
-          onReorderMaterial={(matName) => {
-            const matchedItem =
-              materials.find(
-                (m) =>
-                  m.name.toLowerCase().includes(matName.toLowerCase()) ||
-                  matName.toLowerCase().includes(m.name.toLowerCase())
-              ) ||
-              MATERIAL_ITEMS.find(
-                (m) =>
-                  m.name.toLowerCase().includes(matName.toLowerCase()) ||
-                  matName.toLowerCase().includes(m.name.toLowerCase())
-              );
-            if (matchedItem) {
-              onSelectItemModal(matchedItem);
-            } else {
+        <Suspense fallback={<ScreenSkeletonLoader type="profile" />}>
+          <ActivityDashboardScreen
+            deliveries={deliveries}
+            isLoggedIn={isLoggedIn}
+            onOpenLoginModal={onOpenAuthModal}
+            onBack={() => onNavigateScreen('profile')}
+            onExploreCatalog={() => {
               onSelectCategory('all');
               onNavigateScreen('shop');
-            }
-          }}
-        />
+            }}
+            onViewInvoice={onViewInvoice}
+            onReorderMaterial={(matName) => {
+              const matchedItem =
+                materials.find(
+                  (m) =>
+                    m.name.toLowerCase().includes(matName.toLowerCase()) ||
+                    matName.toLowerCase().includes(m.name.toLowerCase())
+                ) ||
+                MATERIAL_ITEMS.find(
+                  (m) =>
+                    m.name.toLowerCase().includes(matName.toLowerCase()) ||
+                    matName.toLowerCase().includes(m.name.toLowerCase())
+                );
+              if (matchedItem) {
+                onSelectItemModal(matchedItem);
+              } else {
+                onSelectCategory('all');
+                onNavigateScreen('shop');
+              }
+            }}
+          />
+        </Suspense>
       )}
 
       {(currentScreen === 'auth_mobile' || currentScreen === 'auth_otp') && (
-        <AuthScreen
-          initialStep={currentScreen === 'auth_otp' ? 'otp' : 'mobile'}
-          onSuccessAuth={onAuthSuccess}
-          onBack={() => {
-            onNavigateScreen('home');
-          }}
-        />
+        <Suspense fallback={<ScreenSkeletonLoader type="profile" />}>
+          <AuthScreen
+            initialStep={currentScreen === 'auth_otp' ? 'otp' : 'mobile'}
+            onSuccessAuth={onAuthSuccess}
+            onBack={() => {
+              onNavigateScreen('home');
+            }}
+          />
+        </Suspense>
       )}
     </ErrorBoundary>
   );

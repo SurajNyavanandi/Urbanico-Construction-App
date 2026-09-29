@@ -95,7 +95,9 @@ import {
   detectCardBrand,
 } from '../utils/paymentMethodsHelper';
 import { SavedPaymentMethod } from '../types';
-import { PaymentSuccessModal } from './PaymentSuccessModal';
+const PaymentSuccessModal = React.lazy(() => import('./PaymentSuccessModal').then((m) => ({ default: m.PaymentSuccessModal })));
+const LiveDispatcherChatModal = React.lazy(() => import('./common/LiveDispatcherChatModal').then((m) => ({ default: m.LiveDispatcherChatModal })));
+const SupervisorHandoffModal = React.lazy(() => import('./common/SupervisorHandoffModal').then((m) => ({ default: m.SupervisorHandoffModal })));
 import { EmptyState } from './common/EmptyState';
 import { ShimmerImage } from './common/ShimmerImage';
 import { useToast } from '../context/ToastContext';
@@ -115,8 +117,6 @@ import {
 import { validateGSTIN, GstinValidationResult } from '../utils/gstinValidator';
 import { buildTaxInvoiceData, sendTaxInvoiceEmail } from '../utils/invoiceHelper';
 import { openProformaQuotationPrint } from '../utils/proformaQuotationHelper';
-import { LiveDispatcherChatModal } from './common/LiveDispatcherChatModal';
-import { SupervisorHandoffModal } from './common/SupervisorHandoffModal';
 import { useCart } from '../context/CartContext';
 
 export type PaymentMethodType = 'online' | 'pod' | 'upi_app' | 'upi_vpa' | 'card' | 'netbanking' | 'wallet' | 'emi';
@@ -2601,56 +2601,62 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
 
         {/* Payment Success Confirmation Receipt Screen */}
         {showSuccessModal && (
-          <PaymentSuccessModal
-            visible={showSuccessModal}
-            paymentResult={latestPaymentResult}
-            selectedLocation={selectedCheckoutAddress || activeLocation}
-            delivery={createdOrderRef.current || deliveries[0]}
-            user={user}
-            onClose={() => {
-              setShowSuccessModal(false);
-              setActiveTab('history');
-            }}
-            onTrackOrder={() => {
-              setShowSuccessModal(false);
-              setActiveTab('history');
-            }}
-            onContinueShopping={() => {
-              setShowSuccessModal(false);
-              onNavigateScreen('home');
-            }}
-            onViewInvoice={() => {
-              setShowSuccessModal(false);
-              setActiveTab('history');
-              const targetOrder = createdOrderRef.current || deliveries[0];
-              if (onViewInvoice && targetOrder) {
-                onViewInvoice(targetOrder);
-              }
-            }}
-          />
+          <React.Suspense fallback={null}>
+            <PaymentSuccessModal
+              visible={showSuccessModal}
+              paymentResult={latestPaymentResult}
+              selectedLocation={selectedCheckoutAddress || activeLocation}
+              delivery={createdOrderRef.current || deliveries[0]}
+              user={user}
+              onClose={() => {
+                setShowSuccessModal(false);
+                setActiveTab('history');
+              }}
+              onTrackOrder={() => {
+                setShowSuccessModal(false);
+                setActiveTab('history');
+              }}
+              onContinueShopping={() => {
+                setShowSuccessModal(false);
+                onNavigateScreen('home');
+              }}
+              onViewInvoice={() => {
+                setShowSuccessModal(false);
+                setActiveTab('history');
+                const targetOrder = createdOrderRef.current || deliveries[0];
+                if (onViewInvoice && targetOrder) {
+                  onViewInvoice(targetOrder);
+                }
+              }}
+            />
+          </React.Suspense>
         )}
 
         {/* Live Dispatcher Chat Modal */}
         {showDispatcherChat && (
-          <LiveDispatcherChatModal
-            visible={showDispatcherChat}
-            onClose={() => setShowDispatcherChat(false)}
-            orderNumber={activeEnRoute?.orderNumber}
-            driverName={activeEnRoute?.driverName}
-            driverPhone={activeEnRoute?.driverPhone}
-          />
+          <React.Suspense fallback={null}>
+            <LiveDispatcherChatModal
+              visible={showDispatcherChat}
+              onClose={() => setShowDispatcherChat(false)}
+              orderNumber={activeEnRoute?.orderNumber}
+              driverName={activeEnRoute?.driverName}
+              driverPhone={activeEnRoute?.driverPhone}
+            />
+          </React.Suspense>
         )}
 
         {/* Supervisor Handoff Modal */}
         {showSupervisorModal && (
-          <SupervisorHandoffModal
-            visible={showSupervisorModal}
-            onClose={() => setShowSupervisorModal(false)}
-            orderNumber={activeEnRoute?.orderNumber}
-            currentSupervisorName={activeSupervisor.name}
-            currentSupervisorPhone={activeSupervisor.phone}
-            onSaveSupervisor={(name, phone) => setActiveSupervisor({ name, phone })}
-          />
+          <React.Suspense fallback={null}>
+            <SupervisorHandoffModal
+              visible={showSupervisorModal}
+              onClose={() => setShowSupervisorModal(false)}
+              orderNumber={activeEnRoute?.orderNumber}
+              currentSupervisorName={activeSupervisor.name}
+              currentSupervisorPhone={activeSupervisor.phone}
+              onSaveSupervisor={(name, phone) => setActiveSupervisor({ name, phone })}
+            />
+          </React.Suspense>
         )}
 
         {/* Order Cancellation Guard Confirmation Modal */}

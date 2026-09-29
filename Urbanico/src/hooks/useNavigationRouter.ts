@@ -18,22 +18,27 @@ export function useNavigationRouter(screenPreloaders?: Record<string, () => Prom
   const [openProfileAddresses, setOpenProfileAddresses] = useState(false);
   const [pendingIntent, setPendingIntent] = useState<PendingIntent>(null);
 
-  // Eagerly prefetch secondary screens during idle time
+  // Defer secondary screen prefetching to generous browser idle time (after homepage is interactive)
   useEffect(() => {
     if (!screenPreloaders) return;
 
     const prefetchRoutes = () => {
-      Object.values(screenPreloaders).forEach((preload) => {
-        try {
-          preload();
-        } catch {}
-      });
+      // Only preload core shop/basket in idle, never block homepage
+      try {
+        if (screenPreloaders.shop) screenPreloaders.shop();
+        if (screenPreloaders.basket) screenPreloaders.basket();
+      } catch {}
     };
 
     if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-      (window as any).requestIdleCallback(prefetchRoutes, { timeout: 1000 });
+      const idleId = (window as any).requestIdleCallback(prefetchRoutes, { timeout: 4000 });
+      return () => {
+        if ('cancelIdleCallback' in window) {
+          (window as any).cancelIdleCallback(idleId);
+        }
+      };
     } else {
-      const timer = setTimeout(prefetchRoutes, 100);
+      const timer = setTimeout(prefetchRoutes, 3000);
       return () => clearTimeout(timer);
     }
   }, [screenPreloaders]);

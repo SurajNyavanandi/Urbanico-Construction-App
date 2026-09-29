@@ -19,4 +19,12 @@ router.put('/profile', authenticateToken, UserController.updateProfile);
 router.patch('/profile/:id', authenticateToken, UserController.updateProfile);
 router.put('/profile/:id', authenticateToken, UserController.updateProfile);
 
+// User Orders, Cart, & Delivery Sites DB Persistence
+router.get('/orders', authenticateToken, UserController.getUserOrders);
+router.get('/cart', authenticateToken, UserController.getUserCart);
+router.post('/cart', authenticateToken, UserController.updateUserCart);
+router.put('/cart', authenticateToken, UserController.updateUserCart);
+router.get('/addresses', authenticateToken, UserController.getUserAddresses);
+router.post('/addresses', authenticateToken, UserController.addAddress);
+
 export const userRouter = router;

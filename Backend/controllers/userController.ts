@@ -145,4 +145,72 @@ export class UserController {
       },
     });
   });
+
+  public static getUserOrders = asyncHandler(async (req: Request, res: Response) => {
+    const phone = (req.query.phone as string) || (req.params.phone as string) || (req as any).user?.phone;
+    const { OrderService } = await import('../services/orderService');
+    const orders = await OrderService.getAllOrders({
+      phone: phone ? String(phone).replace(/[^0-9]/g, '') : undefined,
+    });
+    return sendSuccess(res, { orders, count: orders.length });
+  });
+
+  public static getUserCart = asyncHandler(async (req: Request, res: Response) => {
+    const phone = (req.query.phone as string) || (req.params.phone as string) || (req as any).user?.phone;
+    if (!phone) {
+      return sendSuccess(res, { cart: [] });
+    }
+    const user: any = await UserService.getUserByPhone(phone);
+    return sendSuccess(res, { cart: user?.cart || [] });
+  });
+
+  public static updateUserCart = asyncHandler(async (req: Request, res: Response) => {
+    const phone = (req.query.phone as string) || (req.params.phone as string) || (req as any).user?.phone || req.body.phone;
+    const { cart } = req.body;
+    if (!phone) {
+      return sendError(res, 'User phone is required to persist cart', 400);
+    }
+    const updated = await UserService.updateUser(phone, { cart: Array.isArray(cart) ? cart : [] });
+    return sendSuccess(res, { cart: updated?.cart || cart || [] });
+  });
+
+  public static getUserAddresses = asyncHandler(async (req: Request, res: Response) => {
+    const phone = (req.query.phone as string) || (req.params.phone as string) || (req as any).user?.phone;
+    if (!phone) {
+      return sendSuccess(res, { deliverySites: [], savedLocations: [] });
+    }
+    const user: any = await UserService.getUserByPhone(phone);
+    return sendSuccess(res, {
+      deliverySites: user?.deliverySites || [],
+      savedLocations: user?.savedLocations || [],
+    });
+  });
+
+  public static addAddress = asyncHandler(async (req: Request, res: Response) => {
+    const phone = (req.query.phone as string) || (req.params.phone as string) || (req as any).user?.phone || req.body.phone;
+    const { siteName, address, pincode, supervisorName, supervisorPhone, isPrimary } = req.body;
+    if (!phone) {
+      return sendError(res, 'User phone is required', 400);
+    }
+    const user: any = (await UserService.getUserByPhone(phone)) || (await UserService.findOrCreateUser(phone));
+    const currentSites = user.deliverySites || [];
+    const newSite = {
+      siteName: siteName || 'Construction Site',
+      address: address || '',
+      pincode: pincode || '500049',
+      supervisorName: supervisorName || user.name || 'Supervisor',
+      supervisorPhone: supervisorPhone || phone,
+      isPrimary: isPrimary ?? currentSites.length === 0,
+    };
+    const updatedSites = [newSite, ...currentSites.filter((s: any) => s.address !== address)];
+    const savedLocs = Array.from(new Set([address, ...(user.savedLocations || [])].filter(Boolean)));
+    const updated = await UserService.updateUser(phone, {
+      deliverySites: updatedSites,
+      savedLocations: savedLocs,
+    });
+    return sendSuccess(res, {
+      deliverySites: updated?.deliverySites || updatedSites,
+      savedLocations: updated?.savedLocations || savedLocs,
+    });
+  });
 }

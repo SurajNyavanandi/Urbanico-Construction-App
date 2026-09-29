@@ -1,9 +1,23 @@
-import React from 'react';
-import { NikeAuthModal } from '../NikeAuthModal';
-import { ItemQuantityModal } from '../ItemQuantityModal';
-import { InvoiceModal } from '../InvoiceModal';
-import { LocationModal } from '../LocationModal';
+import React, { Suspense } from 'react';
 import { MaterialItem, UnitOption, ActivityDelivery, UserProfile } from '../../types';
+
+// Lazy-loaded modal sheets for zero bundle bloat on initial paint
+const loadNikeAuthModal = () => import('../NikeAuthModal').then((m) => ({ default: m.NikeAuthModal }));
+const loadItemQuantityModal = () => import('../ItemQuantityModal').then((m) => ({ default: m.ItemQuantityModal }));
+const loadInvoiceModal = () => import('../InvoiceModal').then((m) => ({ default: m.InvoiceModal }));
+const loadLocationModal = () => import('../LocationModal').then((m) => ({ default: m.LocationModal }));
+
+const NikeAuthModal = React.lazy(loadNikeAuthModal);
+const ItemQuantityModal = React.lazy(loadItemQuantityModal);
+const InvoiceModal = React.lazy(loadInvoiceModal);
+const LocationModal = React.lazy(loadLocationModal);
+
+export const MODAL_PRELOADERS = {
+  auth: loadNikeAuthModal,
+  itemQuantity: loadItemQuantityModal,
+  invoice: loadInvoiceModal,
+  location: loadLocationModal,
+};
 
 export interface AppModalsContainerProps {
   isAuthModalOpen: boolean;
@@ -59,43 +73,51 @@ export const AppModalsContainer: React.FC<AppModalsContainerProps> = ({
     <>
       {/* Nike Auth Modal (Login/Signup Bottom Sheet matching n1.jpeg, n2.jpeg) */}
       {isAuthModalOpen && (
-        <NikeAuthModal
-          isOpen={isAuthModalOpen}
-          onClose={onCloseAuthModal}
-          onSuccessAuth={onAuthSuccess}
-        />
+        <Suspense fallback={null}>
+          <NikeAuthModal
+            isOpen={isAuthModalOpen}
+            onClose={onCloseAuthModal}
+            onSuccessAuth={onAuthSuccess}
+          />
+        </Suspense>
       )}
 
       {/* Item Quantity Modal (Slide-up Bottom Sheet) */}
       {selectedItemForModal && (
-        <ItemQuantityModal
-          item={selectedItemForModal}
-          onClose={onCloseItemModal}
-          onAddToCart={onAddToCartFromModal}
-          onBuyNow={onBuyNowFromModal}
-          favoriteIds={favoriteIds}
-          onToggleFavorite={onToggleFavorite}
-        />
+        <Suspense fallback={null}>
+          <ItemQuantityModal
+            item={selectedItemForModal}
+            onClose={onCloseItemModal}
+            onAddToCart={onAddToCartFromModal}
+            onBuyNow={onBuyNowFromModal}
+            favoriteIds={favoriteIds}
+            onToggleFavorite={onToggleFavorite}
+          />
+        </Suspense>
       )}
 
       {/* Official GST Tax Invoice Modal */}
       {selectedInvoiceDelivery && (
-        <InvoiceModal
-          isOpen={!!selectedInvoiceDelivery}
-          onClose={onCloseInvoiceModal}
-          delivery={selectedInvoiceDelivery}
-          user={user}
-          isLoggedIn={isLoggedIn}
-          onOpenLoginModal={onOpenLoginModal}
-        />
+        <Suspense fallback={null}>
+          <InvoiceModal
+            isOpen={!!selectedInvoiceDelivery}
+            onClose={onCloseInvoiceModal}
+            delivery={selectedInvoiceDelivery}
+            user={user}
+            isLoggedIn={isLoggedIn}
+            onOpenLoginModal={onOpenLoginModal}
+          />
+        </Suspense>
       )}
 
       {/* Delivery Site Location Picker Sheet */}
       {isLocationModalOpen && (
-        <LocationModal
-          isOpen={isLocationModalOpen}
-          onClose={onCloseLocationModal}
-        />
+        <Suspense fallback={null}>
+          <LocationModal
+            isOpen={isLocationModalOpen}
+            onClose={onCloseLocationModal}
+          />
+        </Suspense>
       )}
     </>
   );

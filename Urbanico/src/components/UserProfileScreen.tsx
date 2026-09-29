@@ -65,8 +65,9 @@ import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
 import { useCart } from '../context/CartContext';
 import { ShimmerImage } from './common/ShimmerImage';
-import { SettingsModal } from './SettingsModal';
-import { OrdersActivityModal } from './OrdersActivityModal';
+const SettingsModal = React.lazy(() => import('./SettingsModal').then((m) => ({ default: m.SettingsModal })));
+const OrdersActivityModal = React.lazy(() => import('./OrdersActivityModal').then((m) => ({ default: m.OrdersActivityModal })));
+const UpiQrVerificationModal = React.lazy(() => import('./common/UpiQrVerificationModal').then((m) => ({ default: m.UpiQrVerificationModal })));
 import {
   getSavedPaymentMethods,
   addSavedPaymentMethod,
@@ -85,7 +86,6 @@ import {
   tokenizeCardAPI,
   verifyAndRefundPennyDropAPI,
 } from '../services/razorpayService';
-import { UpiQrVerificationModal } from './common/UpiQrVerificationModal';
 import {
   INDIAN_STATES,
   ADDRESS_TYPE_OPTIONS,
@@ -1136,35 +1136,43 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       {/* ======================================================== */}
       {/* POPUP MODAL 1: MY ORDERS & DISPATCHES                    */}
       {/* ======================================================== */}
-      <OrdersActivityModal
-        visible={isOrdersModalOpen}
-        onClose={() => setIsOrdersModalOpen(false)}
-        deliveries={deliveries}
-        isLoggedIn={isLoggedIn}
-        onOpenLoginModal={() => {
-          setIsOrdersModalOpen(false);
-          if (onOpenLoginModal) onOpenLoginModal();
-        }}
-        onExploreCatalog={() => {
-          setIsOrdersModalOpen(false);
-          if (onExploreCatalog) onExploreCatalog();
-        }}
-        onViewInvoice={(del) => {
-          setIsOrdersModalOpen(false);
-          if (onViewInvoice) onViewInvoice(del);
-        }}
-        onReorderMaterial={onReorderMaterial}
-      />
+      {isOrdersModalOpen && (
+        <React.Suspense fallback={null}>
+          <OrdersActivityModal
+            visible={isOrdersModalOpen}
+            onClose={() => setIsOrdersModalOpen(false)}
+            deliveries={deliveries}
+            isLoggedIn={isLoggedIn}
+            onOpenLoginModal={() => {
+              setIsOrdersModalOpen(false);
+              if (onOpenLoginModal) onOpenLoginModal();
+            }}
+            onExploreCatalog={() => {
+              setIsOrdersModalOpen(false);
+              if (onExploreCatalog) onExploreCatalog();
+            }}
+            onViewInvoice={(del) => {
+              setIsOrdersModalOpen(false);
+              if (onViewInvoice) onViewInvoice(del);
+            }}
+            onReorderMaterial={onReorderMaterial}
+          />
+        </React.Suspense>
+      )}
 
       {/* ======================================================== */}
       {/* POPUP MODAL 2: APP SETTINGS                              */}
       {/* ======================================================== */}
-      <SettingsModal
-        visible={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
-        viewMode={viewMode}
-        onViewModeChange={onViewModeChange}
-      />
+      {isSettingsModalOpen && (
+        <React.Suspense fallback={null}>
+          <SettingsModal
+            visible={isSettingsModalOpen}
+            onClose={() => setIsSettingsModalOpen(false)}
+            viewMode={viewMode}
+            onViewModeChange={onViewModeChange}
+          />
+        </React.Suspense>
+      )}
 
       {/* ======================================================== */}
       {/* POPUP MODAL 3: SAVED ADDRESSES                           */}
@@ -2234,15 +2242,19 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       {/* ₹1 UPI QR MICRO-DEBIT & REAL-TIME VERIFICATION MODAL     */}
       {/* Real-time 2-second heartbeat polling & instant auto-refund*/}
       {/* ======================================================== */}
-      <UpiQrVerificationModal
-        visible={isUpiQrModalOpen}
-        onClose={() => setIsUpiQrModalOpen(false)}
-        vpa={pendingVerifyVpa}
-        userName={user?.name}
-        userPhone={user?.phone}
-        userEmail={user?.email}
-        onSuccess={handleUpiQrSuccess}
-      />
+      {isUpiQrModalOpen && (
+        <React.Suspense fallback={null}>
+          <UpiQrVerificationModal
+            visible={isUpiQrModalOpen}
+            onClose={() => setIsUpiQrModalOpen(false)}
+            vpa={pendingVerifyVpa}
+            userName={user?.name}
+            userPhone={user?.phone}
+            userEmail={user?.email}
+            onSuccess={handleUpiQrSuccess}
+          />
+        </React.Suspense>
+      )}
 
       {/* ======================================================== */}
       {/* POPUP MODAL 5: REFER & EARN                              */}

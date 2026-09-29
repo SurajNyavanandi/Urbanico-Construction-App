@@ -28,7 +28,7 @@ import { ActivityDelivery } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { EmptyState } from './common/EmptyState';
 import { useToast } from '../context/ToastContext';
-import { SupervisorHandoffModal } from './common/SupervisorHandoffModal';
+const SupervisorHandoffModal = React.lazy(() => import('./common/SupervisorHandoffModal').then((m) => ({ default: m.SupervisorHandoffModal })));
 import { formatSiteAddress } from '../utils/addressHelper';
 
 interface ActivityDashboardScreenProps {
@@ -531,14 +531,18 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
       </ScrollView>
 
       {/* Supervisor Delegation Modal */}
-      <SupervisorHandoffModal
-        visible={showSupervisorModal}
-        onClose={() => setShowSupervisorModal(false)}
-        orderNumber={activeEnRoute?.orderNumber}
-        currentSupervisorName={supervisorData.name}
-        currentSupervisorPhone={supervisorData.phone}
-        onSaveSupervisor={(name, phone) => setSupervisorData({ name, phone })}
-      />
+      {showSupervisorModal && (
+        <React.Suspense fallback={null}>
+          <SupervisorHandoffModal
+            visible={showSupervisorModal}
+            onClose={() => setShowSupervisorModal(false)}
+            orderNumber={activeEnRoute?.orderNumber}
+            currentSupervisorName={supervisorData.name}
+            currentSupervisorPhone={supervisorData.phone}
+            onSaveSupervisor={(name, phone) => setSupervisorData({ name, phone })}
+          />
+        </React.Suspense>
+      )}
     </View>
   );
 };

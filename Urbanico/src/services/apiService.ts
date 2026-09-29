@@ -557,6 +557,69 @@ class ApiService {
     }
   }
 
+  // ==================== CART & BASKET PERSISTENCE ====================
+
+  public async getUserCart(phone?: string): Promise<any[]> {
+    try {
+      const cleanPhone = phone ? phone.replace(/[^0-9]/g, '') : '';
+      const qs = cleanPhone ? `?phone=${cleanPhone}` : '';
+      const res = await this.request<{ success: boolean; cart: any[] }>(`/api/user/cart${qs}`);
+      if (res && res.success && Array.isArray(res.cart)) {
+        return res.cart;
+      }
+    } catch {}
+    return [];
+  }
+
+  public async saveUserCart(cart: any[], phone?: string): Promise<boolean> {
+    try {
+      const cleanPhone = phone ? phone.replace(/[^0-9]/g, '') : '';
+      await this.request('/api/user/cart', {
+        method: 'POST',
+        body: JSON.stringify({ cart, phone: cleanPhone }),
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // ==================== ADDRESSES & SITES PERSISTENCE ====================
+
+  public async getUserAddresses(phone?: string): Promise<{ deliverySites: any[]; savedLocations: string[] }> {
+    try {
+      const cleanPhone = phone ? phone.replace(/[^0-9]/g, '') : '';
+      const qs = cleanPhone ? `?phone=${cleanPhone}` : '';
+      const res = await this.request<{ success: boolean; deliverySites: any[]; savedLocations: string[] }>(`/api/user/addresses${qs}`);
+      if (res && res.success) {
+        return {
+          deliverySites: res.deliverySites || [],
+          savedLocations: res.savedLocations || [],
+        };
+      }
+    } catch {}
+    return { deliverySites: [], savedLocations: [] };
+  }
+
+  public async addUserAddress(addressData: {
+    siteName: string;
+    address: string;
+    pincode: string;
+    supervisorName?: string;
+    supervisorPhone?: string;
+    phone?: string;
+  }): Promise<boolean> {
+    try {
+      await this.request('/api/user/addresses', {
+        method: 'POST',
+        body: JSON.stringify(addressData),
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   // ==================== SYSTEM HEALTH ====================
 
   public async getHealth(): Promise<{ status: string; database?: any }> {

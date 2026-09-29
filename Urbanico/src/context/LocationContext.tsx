@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { SAVED_LOCATIONS } from '../data/materialsData';
 import { safeStorage } from '../utils/safeStorage';
+import { apiService } from '../services/apiService';
 
 export interface LocationCoords {
   lat: number;
@@ -140,6 +141,30 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
       // ignore
     }
   };
+
+  // Fetch user addresses from database on mount / login
+  useEffect(() => {
+    try {
+      const authSaved = safeStorage.getItem('urbanico_auth_session');
+      const phone = authSaved ? JSON.parse(authSaved).phone : null;
+      const cleanPhone = phone ? phone.replace(/\D/g, '') : null;
+      if (cleanPhone) {
+        apiService.getUserAddresses(cleanPhone).then((res) => {
+          const dbLocs: string[] = [
+            ...(res.savedLocations || []),
+            ...(res.deliverySites || []).map((s: any) => s.address || s.siteName),
+          ].filter((l) => Boolean(l) && !isDummyAddress(l));
+
+          if (dbLocs.length > 0) {
+            setSavedLocations((prev) => {
+              const merged = Array.from(new Set([...prev, ...dbLocs]));
+              return merged;
+            });
+          }
+        }).catch(() => {});
+      }
+    } catch {}
+  }, []);
 
   // Persist changes with user partition and universal backup
   useEffect(() => {

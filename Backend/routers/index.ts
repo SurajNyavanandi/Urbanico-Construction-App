@@ -16,6 +16,7 @@ apiRouter.use('/orders', orderRouter);
 apiRouter.use('/materials', materialRouter);
 apiRouter.use('/services', serviceRouter);
 apiRouter.use('/users', userRouter);
+apiRouter.use('/user', userRouter);
 apiRouter.use('/deliveries', deliveryRouter);
 
 // Flat aliases for backwards compatibility with existing frontend calls

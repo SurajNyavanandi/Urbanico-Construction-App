@@ -3,6 +3,7 @@ import { CartItem, MaterialItem, UnitOption } from '../types';
 import { safeStorage } from '../utils/safeStorage';
 import { syncManager } from '../utils/syncManager';
 import { calculateCartTotals, CartTotals, isCartItemService } from '../utils/cartCalculations';
+import { apiService } from '../services/apiService';
 
 interface CartContextType {
   cartItems: CartItem[];
@@ -78,6 +79,22 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [couponDiscount, setCouponDiscount] = useState<number>(0);
 
+  // Sync cart from backend database on login/mount
+  useEffect(() => {
+    try {
+      const authSaved = safeStorage.getItem('urbanico_auth_session');
+      const phone = authSaved ? JSON.parse(authSaved).phone : null;
+      const cleanPhone = phone ? phone.replace(/[^0-9]/g, '') : null;
+      if (cleanPhone) {
+        apiService.getUserCart(cleanPhone).then((dbCart) => {
+          if (Array.isArray(dbCart) && dbCart.length > 0) {
+            setCartItems((prev) => (prev.length === 0 ? dbCart : prev));
+          }
+        }).catch(() => {});
+      }
+    } catch {}
+  }, []);
+
   // Debounced auto-save mechanism for cart state to minimize storage I/O during rapid quantity adjustments
   useEffect(() => {
     try {
@@ -86,6 +103,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const cleanPhone = phone ? phone.replace(/[^0-9]/g, '') : null;
       const key = cleanPhone ? `urbanico_cart_${cleanPhone}` : 'urbanico_cart_guest';
       safeStorage.setDebouncedItem(key, JSON.stringify(cartItems), 250);
+      if (cleanPhone) {
+        apiService.saveUserCart(cartItems, cleanPhone).catch(() => {});
+      }
     } catch {
       // ignore
     }
