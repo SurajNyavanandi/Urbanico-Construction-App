@@ -25,6 +25,24 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('[ErrorBoundary caught error]:', error, errorInfo);
+
+    // If dynamic chunk loading fails (e.g. following dev server restart or new build release),
+    // automatically reload once to fetch the latest assets cleanly.
+    const isChunkError =
+      error?.message?.includes('Failed to fetch dynamically imported module') ||
+      error?.message?.includes('dynamically imported module') ||
+      error?.message?.includes('Importing a module script failed');
+
+    if (isChunkError && typeof window !== 'undefined') {
+      try {
+        const lastReload = sessionStorage.getItem('urbanico_chunk_reload');
+        const now = Date.now();
+        if (!lastReload || now - Number(lastReload) > 10000) {
+          sessionStorage.setItem('urbanico_chunk_reload', String(now));
+          window.location.reload();
+        }
+      } catch {}
+    }
   }
 
   private handleReset = () => {

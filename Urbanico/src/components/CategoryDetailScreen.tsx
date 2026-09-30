@@ -34,6 +34,7 @@ import { soundService } from '../utils/soundHelper';
 import { useCartActions } from '../hooks/useCartActions';
 import { useDebounce } from '../hooks/useDebounce';
 import { usePaginatedList } from '../hooks/usePaginatedList';
+import { BottomListLoader } from './common/BottomListLoader';
 import {
   normalizeSearchQuery,
   searchAndRankMaterials,
@@ -305,41 +306,47 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
       )
     : [];
 
-  // Progressive chunking for heavy catalog rendering (Initial 10 items, +8 per chunk)
+  // Progressive chunking for seamless infinite scroll (Initial 36 items, +24 per chunk, 0ms instant batching)
   const {
     displayedItems: paginatedItems,
     hasMore: hasMoreItems,
     loadMore: loadMoreItems,
+    isLoadingMore: isLoadingMoreItems,
     renderedCount: renderedItemsCount,
     totalCount: totalItemsCount,
   } = usePaginatedList({
     items,
-    initialChunkSize: 10,
-    chunkSize: 8,
+    initialChunkSize: 36,
+    chunkSize: 24,
+    loadDelayMs: 0,
   });
 
   const {
     displayedItems: paginatedCategoryOther,
     hasMore: hasMoreCategoryOther,
     loadMore: loadMoreCategoryOther,
+    isLoadingMore: isLoadingMoreCategoryOther,
     renderedCount: renderedCategoryOtherCount,
     totalCount: totalCategoryOtherCount,
   } = usePaginatedList({
     items: categoryOtherItems,
-    initialChunkSize: 10,
-    chunkSize: 8,
+    initialChunkSize: 36,
+    chunkSize: 24,
+    loadDelayMs: 0,
   });
 
   const {
     displayedItems: paginatedRemainingItems,
     hasMore: hasMoreRemainingItems,
     loadMore: loadMoreRemainingItems,
+    isLoadingMore: isLoadingMoreRemainingItems,
     renderedCount: renderedRemainingCount,
     totalCount: totalRemainingCount,
   } = usePaginatedList({
     items: allTabRemainingItems,
-    initialChunkSize: 10,
-    chunkSize: 8,
+    initialChunkSize: 36,
+    chunkSize: 24,
+    loadDelayMs: 0,
   });
 
   // Get human friendly primary category label for section header
@@ -369,12 +376,31 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
     }
   };
 
+  // Early prefetch infinite scroll trigger: automatically appends next batch 700px before scroll bottom
+  const handleScroll = (event: any) => {
+    try {
+      const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+      const paddingToBottom = 700;
+      if (layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom) {
+        if (hasMoreItems && !isLoadingMoreItems) {
+          loadMoreItems();
+        } else if (hasMoreCategoryOther && !isLoadingMoreCategoryOther) {
+          loadMoreCategoryOther();
+        } else if (hasMoreRemainingItems && !isLoadingMoreRemainingItems) {
+          loadMoreRemainingItems();
+        }
+      }
+    } catch {}
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
       <ScrollView
         style={[styles.container, { backgroundColor: theme.background }]}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -720,17 +746,11 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                       ))}
                     </View>
                   )}
-                  {hasMoreItems && (
-                    <TouchableOpacity
-                      onPress={loadMoreItems}
-                      style={[styles.loadMoreChunkBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={[styles.loadMoreChunkText, { color: theme.textPrimary }]}>
-                        Show More Products ({totalItemsCount - renderedItemsCount} remaining)
-                      </Text>
-                    </TouchableOpacity>
-                  )}
+                  <BottomListLoader
+                    hasMore={hasMoreItems}
+                    isLoading={isLoadingMoreItems}
+                    onLoadMore={loadMoreItems}
+                  />
                 </>
               )}
             </View>
@@ -1232,17 +1252,11 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                       ))}
                     </View>
                   )}
-                  {hasMoreCategoryOther && (
-                    <TouchableOpacity
-                      onPress={loadMoreCategoryOther}
-                      style={[styles.loadMoreChunkBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={[styles.loadMoreChunkText, { color: theme.textPrimary }]}>
-                        Show More Products ({totalCategoryOtherCount - renderedCategoryOtherCount} remaining)
-                      </Text>
-                    </TouchableOpacity>
-                  )}
+                  <BottomListLoader
+                    hasMore={hasMoreCategoryOther}
+                    isLoading={isLoadingMoreCategoryOther}
+                    onLoadMore={loadMoreCategoryOther}
+                  />
                 </View>
               )}
             </View>
@@ -1319,17 +1333,11 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                   />
                 ))}
               </View>
-              {hasMoreItems && (
-                <TouchableOpacity
-                  onPress={loadMoreItems}
-                  style={[styles.loadMoreChunkBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.loadMoreChunkText, { color: theme.textPrimary }]}>
-                    Show More Products ({totalItemsCount - renderedItemsCount} remaining)
-                  </Text>
-                </TouchableOpacity>
-              )}
+              <BottomListLoader
+                hasMore={hasMoreItems}
+                isLoading={isLoadingMoreItems}
+                onLoadMore={loadMoreItems}
+              />
             </>
           ) : (
             /* 1-Column Single List View Layout */
@@ -1347,17 +1355,11 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                   />
                 ))}
               </View>
-              {hasMoreItems && (
-                <TouchableOpacity
-                  onPress={loadMoreItems}
-                  style={[styles.loadMoreChunkBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.loadMoreChunkText, { color: theme.textPrimary }]}>
-                    Show More Products ({totalItemsCount - renderedItemsCount} remaining)
-                  </Text>
-                </TouchableOpacity>
-              )}
+              <BottomListLoader
+                hasMore={hasMoreItems}
+                isLoading={isLoadingMoreItems}
+                onLoadMore={loadMoreItems}
+              />
             </>
           )}
 

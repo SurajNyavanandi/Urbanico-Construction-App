@@ -787,9 +787,33 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
       }
     }
 
-    const keyId = orderKeyId || getClientRazorpayKey() || 'rzp_live_Td4uFI2EVACmgS';
+    const keyId = orderKeyId || getClientRazorpayKey() || 'rzp_test_1DP5mmOlF5G5ag';
+    const isLive = keyId.startsWith('rzp_live_') || getClientKeyMode() === 'LIVE';
 
-    // 2. Check if running in React Native / Expo Mobile without DOM
+    // 2. Automatic Test Mode vs Live Key Handling:
+    // When test credentials (rzp_test_...) or sandbox keys are active,
+    // place order instantly without real charges to facilitate rapid end-to-end testing of Admin Dashboard & Tracking.
+    if (!isLive) {
+      console.log(`[Razorpay Checkout] Sandbox Test Mode detected (Key: ${keyId.slice(0, 8)}...). Placing order instantly without real charges.`);
+      const mockPaymentId = `pay_test_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+      const mockOrderId = orderId || `order_test_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+      const mockSignature = `sig_test_${Date.now().toString(36)}_${Math.random().toString(36).substring(2, 8)}`;
+
+      setTimeout(() => {
+        options.onSuccess({
+          razorpay_payment_id: mockPaymentId,
+          razorpay_order_id: mockOrderId,
+          razorpay_signature: mockSignature,
+          amount: options.amount,
+          method: 'Razorpay Test Sandbox',
+          status: 'success',
+          isLiveMode: false,
+        });
+      }, 350);
+      return;
+    }
+
+    // 3. Check if running in React Native / Expo Mobile without DOM
     const isWebWithDom = typeof window !== 'undefined' && typeof document !== 'undefined';
     if (!isWebWithDom) {
       console.log(`[Payment Native] Running in Expo / React Native mobile runtime...`);

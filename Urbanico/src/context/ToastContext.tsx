@@ -62,49 +62,44 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     ) => {
       const lower = (message || '').toLowerCase();
 
-      // Suppress noisy/unnecessary toasts (account status, login, logout, profile updates)
+      // Suppress all noisy, non-essential notifications (auth status, locations, addresses, profile, category clicks, coupons, invoices, quotations, sync warnings)
       if (
         lower.includes('logged in') ||
         lower.includes('logged out') ||
         lower.includes('log in') ||
         lower.includes('login') ||
         lower.includes('logout') ||
-        lower.includes('account verified') ||
-        lower.includes('welcome') ||
-        lower.includes('profile updated') ||
-        lower.includes('profile details')
+        lower.includes('otp') ||
+        lower.includes('verification') ||
+        lower.includes('account') ||
+        lower.includes('location') ||
+        lower.includes('address') ||
+        lower.includes('gst') ||
+        lower.includes('gstin') ||
+        lower.includes('profile') ||
+        lower.includes('auto-save') ||
+        lower.includes('sync') ||
+        lower.includes('coupon') ||
+        lower.includes('invoice') ||
+        lower.includes('quotation') ||
+        lower.includes('category') ||
+        lower.includes('welcome')
       ) {
         return;
       }
 
-      // Keep only cart additions/removals, favorites toasts, or critical alerts
-      const isCart =
-        lower.includes('cart') ||
-        lower.includes('basket') ||
-        lower.includes('requisition') ||
-        lower.includes('saved for later') ||
-        lower.includes('coupon') ||
-        lower.includes('order');
+      // 1. Essential Cart action toasts: Item added, removed, or moved to/from cart
+      const isCartAction =
+        (lower.includes('cart') || lower.includes('basket') || lower.includes('saved for later')) &&
+        (lower.includes('add') || lower.includes('remov') || lower.includes('back to cart') || lower.includes('moved') || lower.includes('saved'));
 
-      const isFavorite =
-        type === 'favorite' ||
-        lower.includes('favorite') ||
-        lower.includes('favourite');
+      // 2. Essential Favorite action toasts: Item added or removed from favorites
+      const isFavoriteAction =
+        (type === 'favorite' || lower.includes('favorite') || lower.includes('favourite')) &&
+        (lower.includes('saved') || lower.includes('add') || lower.includes('remov'));
 
-      const isCriticalNotice =
-        type === 'error' ||
-        lower.includes('failed') ||
-        lower.includes('invalid') ||
-        lower.includes('declined');
-
-      const isPayment =
-        lower.includes('upi') ||
-        lower.includes('card') ||
-        lower.includes('payment') ||
-        lower.includes('tokenized');
-
-      // Drop any toast that is not Cart, Favorites, Payment, or critical notice
-      if (!isCart && !isFavorite && !isPayment && !isCriticalNotice) {
+      // Retain ONLY essential user-action toasts
+      if (!isCartAction && !isFavoriteAction) {
         return;
       }
 

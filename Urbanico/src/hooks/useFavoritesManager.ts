@@ -42,9 +42,10 @@ export function useFavoritesManager({
   // Sync favorites with storage whenever changed
   useEffect(() => {
     try {
+      const cleanPhone = userPhone ? userPhone.replace(/\D/g, '') : null;
       const key =
-        isLoggedIn && userPhone
-          ? `urbanico_favorite_ids_${userPhone}`
+        isLoggedIn && cleanPhone
+          ? `urbanico_favorite_ids_${cleanPhone}`
           : 'urbanico_favorite_ids_guest';
       safeStorage.setItem(key, JSON.stringify(favoriteIds));
     } catch {
@@ -54,11 +55,6 @@ export function useFavoritesManager({
 
   const toggleFavorite = useCallback(
     (itemId: string) => {
-      if (!isLoggedIn) {
-        onRequireAuth?.(itemId);
-        showToast('Please log in to save items to your favorites', 'info');
-        return;
-      }
       const isFavNow = !favoriteIds.includes(itemId);
       setFavoriteIds((prev) =>
         prev.includes(itemId) ? prev.filter((id) => id !== itemId) : [...prev, itemId]
@@ -66,24 +62,43 @@ export function useFavoritesManager({
       const item = materials.find((m) => m.id === itemId) || MATERIAL_ITEMS.find((m) => m.id === itemId);
       const itemName = item ? item.name : 'Item';
       showToast(
-        isFavNow ? `Saved ${itemName} to Favorites` : `Removed ${itemName} from Favorites`,
+        isFavNow ? `Saved "${itemName}" to Favourites` : `Removed "${itemName}" from Favourites`,
         'info'
       );
     },
-    [favoriteIds, isLoggedIn, materials, onRequireAuth, showToast]
+    [favoriteIds, materials, showToast]
   );
 
   const mergeFavoritesOnLogin = useCallback((phone: string) => {
     try {
-      const userSavedFavsRaw = safeStorage.getItem(`urbanico_favorite_ids_${phone}`);
+      const cleanPhone = (phone || '').replace(/\D/g, '');
+      if (!cleanPhone) return;
+
+      const userKey = `urbanico_favorite_ids_${cleanPhone}`;
+      const guestKey = 'urbanico_favorite_ids_guest';
+
+      const userSavedFavsRaw = safeStorage.getItem(userKey);
       let userSavedFavs: string[] = [];
       if (userSavedFavsRaw) {
-        const parsed = JSON.parse(userSavedFavsRaw);
-        if (Array.isArray(parsed)) userSavedFavs = parsed;
+        try {
+          const parsed = JSON.parse(userSavedFavsRaw);
+          if (Array.isArray(parsed)) userSavedFavs = parsed;
+        } catch {}
       }
+
+      const guestFavsRaw = safeStorage.getItem(guestKey);
+      let guestFavs: string[] = [];
+      if (guestFavsRaw) {
+        try {
+          const parsed = JSON.parse(guestFavsRaw);
+          if (Array.isArray(parsed)) guestFavs = parsed;
+        } catch {}
+      }
+
       setFavoriteIds((prev) => {
-        const merged = Array.from(new Set([...userSavedFavs, ...prev]));
-        safeStorage.setItem(`urbanico_favorite_ids_${phone}`, JSON.stringify(merged));
+        const merged = Array.from(new Set([...userSavedFavs, ...prev, ...guestFavs]));
+        safeStorage.setItem(userKey, JSON.stringify(merged));
+        safeStorage.removeItem(guestKey);
         return merged;
       });
     } catch {

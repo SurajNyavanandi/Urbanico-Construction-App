@@ -91,7 +91,7 @@ export function useUrbanicoApp() {
     },
   });
 
-  // 7. Favorites Management
+  // 7. Favorites Management (Guest persistence + auto-merge on login)
   const {
     favoriteIds,
     toggleFavorite,
@@ -101,10 +101,6 @@ export function useUrbanicoApp() {
     isLoggedIn,
     userPhone: user.phone,
     materials,
-    onRequireAuth: (itemId) => {
-      setPendingIntent({ type: 'favorite', itemId });
-      setIsAuthModalOpen(true);
-    },
   });
 
   // 8. Search Management

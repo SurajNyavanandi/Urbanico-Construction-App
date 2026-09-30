@@ -49,13 +49,23 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     try {
       const authSaved = safeStorage.getItem('urbanico_auth_session');
-      const phone = authSaved ? JSON.parse(authSaved).phone : null;
-      const cleanPhone = phone ? phone.replace(/[^0-9]/g, '') : null;
+      const authParsed = authSaved ? JSON.parse(authSaved) : null;
+      const isAuth = authParsed?.isLoggedIn;
+      const phone = authParsed?.phone;
+      const cleanPhone = isAuth && phone ? phone.replace(/[^0-9]/g, '') : null;
       const key = cleanPhone ? `urbanico_cart_${cleanPhone}` : 'urbanico_cart_guest';
       const saved = safeStorage.getItem(key);
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) return parsed;
+      }
+      // Check legacy backup for guest users
+      if (!cleanPhone) {
+        const legacy = safeStorage.getItem('urbanico_cart');
+        if (legacy) {
+          const parsed = JSON.parse(legacy);
+          if (Array.isArray(parsed)) return parsed;
+        }
       }
     } catch {
       // ignore
@@ -95,13 +105,22 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch {}
   }, []);
 
-  // Non-blocking debounced auto-save mechanism for cart state to eliminate UI thread serialization lag
+  // Robust auto-save mechanism for cart state with both immediate synchronous write and non-blocking background queue
   useEffect(() => {
     try {
       const authSaved = safeStorage.getItem('urbanico_auth_session');
-      const phone = authSaved ? JSON.parse(authSaved).phone : null;
-      const cleanPhone = phone ? phone.replace(/[^0-9]/g, '') : null;
+      const authParsed = authSaved ? JSON.parse(authSaved) : null;
+      const isAuth = authParsed?.isLoggedIn;
+      const phone = authParsed?.phone;
+      const cleanPhone = isAuth && phone ? phone.replace(/[^0-9]/g, '') : null;
       const key = cleanPhone ? `urbanico_cart_${cleanPhone}` : 'urbanico_cart_guest';
+
+      // Always write to synchronous local storage so browser refresh never loses guest cart
+      try {
+        safeStorage.setItem(key, JSON.stringify(cartItems));
+      } catch {}
+
+      // Also queue for debounced async writes and server synchronization
       safeStorage.setAsyncObject(key, cartItems, 200);
       if (cleanPhone) {
         apiService.saveUserCart(cartItems, cleanPhone).catch(() => {});
@@ -114,8 +133,10 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // Flush immediately on unmount
       try {
         const authSaved = safeStorage.getItem('urbanico_auth_session');
-        const phone = authSaved ? JSON.parse(authSaved).phone : null;
-        const cleanPhone = phone ? phone.replace(/[^0-9]/g, '') : null;
+        const authParsed = authSaved ? JSON.parse(authSaved) : null;
+        const isAuth = authParsed?.isLoggedIn;
+        const phone = authParsed?.phone;
+        const cleanPhone = isAuth && phone ? phone.replace(/[^0-9]/g, '') : null;
         const key = cleanPhone ? `urbanico_cart_${cleanPhone}` : 'urbanico_cart_guest';
         safeStorage.flushDebounced(key);
       } catch {}
@@ -357,6 +378,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Persist immediately to user partition
         safeStorage.setItem(userKey, JSON.stringify(merged));
         safeStorage.removeItem(guestKey);
+        apiService.saveUserCart(merged, cleanPhone).catch(() => {});
 
         return merged;
       });

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { OrderService } from '../services/orderService';
 import { asyncHandler, sendSuccess, sendError } from '../utils/apiResponse';
+import { sendInvoiceMail, InvoiceItem } from '../lib/mailer';
 
 export class OrderController {
   public static createOrder = asyncHandler(async (req: Request, res: Response) => {
@@ -46,14 +47,52 @@ export class OrderController {
   });
 
   public static emailInvoice = asyncHandler(async (req: Request, res: Response) => {
-    const { orderNumber, invoiceNumber, recipientEmail, recipientName, recipientBusinessName, recipientGstin, totalAmount } = req.body;
+    const { orderNumber, invoiceNumber, recipientEmail, recipientName, recipientBusinessName, recipientGstin, totalAmount, items: reqItems } = req.body;
     if (!recipientEmail) {
       return sendError(res, 'Recipient email is required', 400);
     }
 
-    console.log(`[Invoice Dispatch] Sending Tax Invoice #${invoiceNumber || orderNumber} to ${recipientEmail} for ${recipientBusinessName || recipientName || 'Client'}`);
+    const activeInvoiceNo = invoiceNumber || orderNumber || `INV-${Date.now().toString().slice(-6)}`;
+    const customerDisplayName = recipientBusinessName || recipientName || 'Valued Client';
+    console.log(`[Invoice Dispatch] Sending Tax Invoice #${activeInvoiceNo} to ${recipientEmail} for ${customerDisplayName}`);
+
+    let invoiceItems: InvoiceItem[] = Array.isArray(reqItems) ? reqItems : [];
+    let calculatedAmount = Number(totalAmount || 0);
+
+    // If items not directly supplied, attempt to enrich from order record
+    if (orderNumber && invoiceItems.length === 0) {
+      try {
+        const order = await OrderService.getOrderById(String(orderNumber));
+        if (order) {
+          calculatedAmount = calculatedAmount || Number(order.totalAmount || 0);
+          if (Array.isArray(order.items)) {
+            invoiceItems = order.items.map((i: any) => ({
+              name: i.title || i.name || 'Catalog Item',
+              quantity: Number(i.quantity || 1),
+              unitPrice: Number(i.price || (i.total ? i.total / (i.quantity || 1) : 0)),
+              total: Number(i.total || ((i.price || 0) * (i.quantity || 1))),
+              unit: i.unit || 'unit',
+            }));
+          }
+        }
+      } catch (err) {
+        console.warn('[Invoice Dispatch] Could not fetch order items for invoice enrichment:', err);
+      }
+    }
 
     const trackingId = `TRK-INV-${Date.now().toString().slice(-6)}`;
+
+    // Dispatch via reusable mailer library (SMTP or clean dev preview)
+    const mailResult = await sendInvoiceMail({
+      to: recipientEmail,
+      customerName: customerDisplayName,
+      invoiceNumber: activeInvoiceNo,
+      amount: calculatedAmount,
+      customerGstin: recipientGstin,
+      companyName: 'Urbanico Direct Materials & Services',
+      items: invoiceItems,
+      paymentStatus: 'PAID',
+    });
 
     return sendSuccess(
       res,
@@ -61,11 +100,16 @@ export class OrderController {
         trackingId,
         dispatchedAt: new Date().toISOString(),
         orderNumber,
-        invoiceNumber,
+        invoiceNumber: activeInvoiceNo,
         recipientEmail,
         recipientBusinessName,
         recipientGstin,
-        totalAmount,
+        totalAmount: calculatedAmount,
+        mailDelivery: {
+          success: mailResult.success,
+          mode: mailResult.mode,
+          messageId: mailResult.messageId,
+        },
       },
       `Tax Invoice successfully generated and emailed to ${recipientEmail}`
     );

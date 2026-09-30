@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -86,6 +86,8 @@ import {
   openRazorpayOneTapPayment,
   fetchCustomerTokensAPI,
   tokenizeCardAPI,
+  getClientKeyMode,
+  getClientRazorpayKey,
 } from '../services/razorpayService';
 import {
   getSavedPaymentMethods,
@@ -95,9 +97,9 @@ import {
   detectCardBrand,
 } from '../utils/paymentMethodsHelper';
 import { SavedPaymentMethod } from '../types';
-const PaymentSuccessModal = React.lazy(() => import('./PaymentSuccessModal').then((m) => ({ default: m.PaymentSuccessModal })));
-const LiveDispatcherChatModal = React.lazy(() => import('./common/LiveDispatcherChatModal').then((m) => ({ default: m.LiveDispatcherChatModal })));
-const SupervisorHandoffModal = React.lazy(() => import('./common/SupervisorHandoffModal').then((m) => ({ default: m.SupervisorHandoffModal })));
+import { PaymentSuccessModal } from './PaymentSuccessModal';
+import { LiveDispatcherChatModal } from './common/LiveDispatcherChatModal';
+import { SupervisorHandoffModal } from './common/SupervisorHandoffModal';
 import { EmptyState } from './common/EmptyState';
 import { ShimmerImage } from './common/ShimmerImage';
 import { useToast } from '../context/ToastContext';
@@ -207,6 +209,23 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const createdOrderRef = React.useRef<ActivityDelivery | null>(null);
   const scrollViewRef = React.useRef<any>(null);
+
+  // Check if user is authenticated with a valid mobile number (Flipkart/Amazon guest-to-auth flow)
+  const isUserLoggedInWithMobile = useMemo(() => {
+    if (!isLoggedIn) return false;
+    const phone = (user?.phone || '').replace(/\D/g, '');
+    if (phone.length >= 10) return true;
+    try {
+      const auth = safeStorage.getItem('urbanico_auth_session');
+      if (auth) {
+        const parsed = JSON.parse(auth);
+        if (parsed.isLoggedIn && parsed.phone && parsed.phone.replace(/\D/g, '').length >= 10) {
+          return true;
+        }
+      }
+    } catch {}
+    return false;
+  }, [isLoggedIn, user?.phone]);
 
   // Checkout Delivery Address Selection Modal (Flipkart / Amazon Style)
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
@@ -1461,10 +1480,9 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     if (!rawDigits && activeSupervisor.phone) {
       rawDigits = activeSupervisor.phone.replace(/\D/g, '');
     }
-    // Edge case check: If user is not logged in and hasn't provided a valid delivery mobile number, prompt 1-tap OTP verification
-    if (!isLoggedIn && (!rawDigits || rawDigits.length < 10)) {
+    // If user is not logged in with a verified mobile number, prompt seamless login without toast error
+    if (!isUserLoggedInWithMobile) {
       if (onOpenLoginModal) {
-        showToast('Please enter your mobile number to receive site delivery OTP and live tracking', 'info');
         onOpenLoginModal();
         return;
       }
@@ -1490,6 +1508,11 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     setIsPlacingOrder(true);
     setPaymentFailure(null);
     setPaymentError(null);
+
+    const isLive = getClientKeyMode() === 'LIVE' || getClientRazorpayKey().startsWith('rzp_live_');
+    if (!isLive) {
+      showToast('Sandbox Test Mode: Order placed instantly for testing', 'success');
+    }
 
     try {
       await openRazorpayStandardCheckout({
@@ -2315,12 +2338,18 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                   </View>
                 )}
 
-                {/* Primary Pay Button - Directly Launches Razorpay in 1 Step */}
+                {/* Unified Cart / Checkout Action Button: "Login to Place Order" if guest, "Pay ₹..." once logged in */}
                 {cartItems.length > 0 && (
                   <View style={{ marginTop: 14 }}>
                     <TouchableOpacity
                       onPress={() => {
                         soundService.playTap();
+                        if (!isUserLoggedInWithMobile) {
+                          if (onOpenLoginModal) {
+                            onOpenLoginModal();
+                          }
+                          return;
+                        }
                         handleStartCheckout();
                       }}
                       disabled={isPlacingOrder}
@@ -2343,8 +2372,18 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                           <ActivityIndicator size="small" color={theme.buttonText || '#18181B'} />
                           <Text style={[styles.nikeCheckoutPillText, { fontSize: 15, fontWeight: '600', color: theme.buttonText || '#18181B' }]}>
-                            Opening Razorpay Checkout...
+                            {getClientKeyMode() === 'LIVE' || getClientRazorpayKey().startsWith('rzp_live_')
+                              ? 'Opening Razorpay Gateway...'
+                              : 'Placing Test Order...'}
                           </Text>
+                        </View>
+                      ) : !isUserLoggedInWithMobile ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                          <Lock size={15} color={theme.buttonText || '#18181B'} />
+                          <Text style={[styles.nikeCheckoutPillText, { fontSize: 15.5, fontWeight: '700', letterSpacing: 0.2, textAlign: 'center', color: theme.buttonText || '#18181B' }]}>
+                            Login to Place Order
+                          </Text>
+                          <ArrowRight size={17} color={theme.buttonText || '#18181B'} strokeWidth={2.4} />
                         </View>
                       ) : (
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
@@ -2356,6 +2395,16 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                         </View>
                       )}
                     </TouchableOpacity>
+
+                    {/* Subtle Sandbox Test Mode Notice */}
+                    {isUserLoggedInWithMobile && !(getClientKeyMode() === 'LIVE' || getClientRazorpayKey().startsWith('rzp_live_')) && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 10 }}>
+                        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981' }} />
+                        <Text style={{ fontSize: 12, color: theme.textSecondary, fontWeight: '500' }}>
+                          Sandbox Test Mode • Instant order placement without real charges
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 )}
 

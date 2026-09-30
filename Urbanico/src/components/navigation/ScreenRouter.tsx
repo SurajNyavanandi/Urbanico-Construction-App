@@ -13,48 +13,50 @@ import {
 } from '../../types';
 import { ServiceItem, MATERIAL_ITEMS } from '../../data/materialsData';
 
-// Dynamic route loaders for screen-level code splitting
-const loadHome = () => import('../HomeScreen').then((m) => ({ default: m.HomeScreen }));
-const loadBasket = () => import('../BasketScreen').then((m) => ({ default: m.BasketScreen }));
-const loadFavorites = () => import('../FavoritesScreen').then((m) => ({ default: m.FavoritesScreen }));
-const loadShop = () => import('../ShopScreen').then((m) => ({ default: m.ShopScreen }));
-const loadMaterialsCatalog = () => import('../MaterialsCatalogScreen').then((m) => ({ default: m.MaterialsCatalogScreen }));
-const loadServicesCatalog = () => import('../ServicesCatalogScreen').then((m) => ({ default: m.ServicesCatalogScreen }));
-const loadTradeServicesDetail = () => import('../TradeServicesDetailScreen').then((m) => ({ default: m.TradeServicesDetailScreen }));
-const loadProfile = () => import('../UserProfileScreen').then((m) => ({ default: m.UserProfileScreen }));
-const loadActivity = () => import('../ActivityDashboardScreen').then((m) => ({ default: m.ActivityDashboardScreen }));
-const loadLiveTracking = () => import('../LiveTrackingScreen').then((m) => ({ default: m.LiveTrackingScreen }));
-const loadInvoice = () => import('../InvoiceScreen').then((m) => ({ default: m.InvoiceScreen }));
-const loadAuth = () => import('../AuthScreen').then((m) => ({ default: m.AuthScreen }));
+// Direct route component imports for zero-delay instant switching and 100% reliability
+import { HomeScreen } from '../HomeScreen';
+import { BasketScreen } from '../BasketScreen';
+import { FavoritesScreen } from '../FavoritesScreen';
+import { ShopScreen } from '../ShopScreen';
+import { MaterialsCatalogScreen } from '../MaterialsCatalogScreen';
+import { ServicesCatalogScreen } from '../ServicesCatalogScreen';
+import { TradeServicesDetailScreen } from '../TradeServicesDetailScreen';
+import { UserProfileScreen } from '../UserProfileScreen';
+import { ActivityDashboardScreen } from '../ActivityDashboardScreen';
+import { LiveTrackingScreen } from '../LiveTrackingScreen';
+import { InvoiceScreen } from '../InvoiceScreen';
+import { AuthScreen } from '../AuthScreen';
 
-// Lazy route components
-export const HomeScreen = React.lazy(loadHome);
-export const BasketScreen = React.lazy(loadBasket);
-export const FavoritesScreen = React.lazy(loadFavorites);
-export const ShopScreen = React.lazy(loadShop);
-export const MaterialsCatalogScreen = React.lazy(loadMaterialsCatalog);
-export const ServicesCatalogScreen = React.lazy(loadServicesCatalog);
-export const TradeServicesDetailScreen = React.lazy(loadTradeServicesDetail);
-export const UserProfileScreen = React.lazy(loadProfile);
-export const ActivityDashboardScreen = React.lazy(loadActivity);
-export const LiveTrackingScreen = React.lazy(loadLiveTracking);
-export const InvoiceScreen = React.lazy(loadInvoice);
-export const AuthScreen = React.lazy(loadAuth);
+// Export route components
+export {
+  HomeScreen,
+  BasketScreen,
+  FavoritesScreen,
+  ShopScreen,
+  MaterialsCatalogScreen,
+  ServicesCatalogScreen,
+  TradeServicesDetailScreen,
+  UserProfileScreen,
+  ActivityDashboardScreen,
+  LiveTrackingScreen,
+  InvoiceScreen,
+  AuthScreen,
+};
 
 export const SCREEN_PRELOADERS = {
-  home: loadHome,
-  basket: loadBasket,
-  favorites: loadFavorites,
-  shop: loadShop,
-  category: loadShop,
-  materialsCatalog: loadMaterialsCatalog,
-  servicesCatalog: loadServicesCatalog,
-  tradeServices: loadTradeServicesDetail,
-  profile: loadProfile,
-  activity: loadActivity,
-  tracking: loadLiveTracking,
-  invoice: loadInvoice,
-  auth: loadAuth,
+  home: () => Promise.resolve({ default: HomeScreen }),
+  basket: () => Promise.resolve({ default: BasketScreen }),
+  favorites: () => Promise.resolve({ default: FavoritesScreen }),
+  shop: () => Promise.resolve({ default: ShopScreen }),
+  category: () => Promise.resolve({ default: ShopScreen }),
+  materialsCatalog: () => Promise.resolve({ default: MaterialsCatalogScreen }),
+  servicesCatalog: () => Promise.resolve({ default: ServicesCatalogScreen }),
+  tradeServices: () => Promise.resolve({ default: TradeServicesDetailScreen }),
+  profile: () => Promise.resolve({ default: UserProfileScreen }),
+  activity: () => Promise.resolve({ default: ActivityDashboardScreen }),
+  tracking: () => Promise.resolve({ default: LiveTrackingScreen }),
+  invoice: () => Promise.resolve({ default: InvoiceScreen }),
+  auth: () => Promise.resolve({ default: AuthScreen }),
 };
 
 export interface ScreenRouterProps {

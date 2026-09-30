@@ -29,7 +29,7 @@ import { useTheme } from '../context/ThemeContext';
 import { EmptyState } from './common/EmptyState';
 import { TrackingSkeleton } from './common/skeletons';
 import { useToast } from '../context/ToastContext';
-const SupervisorHandoffModal = React.lazy(() => import('./common/SupervisorHandoffModal').then((m) => ({ default: m.SupervisorHandoffModal })));
+import { SupervisorHandoffModal } from './common/SupervisorHandoffModal';
 import { formatSiteAddress } from '../utils/addressHelper';
 
 interface ActivityDashboardScreenProps {

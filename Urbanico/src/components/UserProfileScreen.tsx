@@ -61,8 +61,8 @@ import { useCart } from '../context/CartContext';
 import { ShimmerImage } from './common/ShimmerImage';
 import { useAsyncModal } from '../hooks/useAsyncModal';
 import { MODAL_PRELOADERS } from './modals/AppModalsContainer';
-const SettingsModal = React.lazy(() => import('./SettingsModal').then((m) => ({ default: m.SettingsModal })));
-const OrdersActivityModal = React.lazy(() => import('./OrdersActivityModal').then((m) => ({ default: m.OrdersActivityModal })));
+import { SettingsModal } from './SettingsModal';
+import { OrdersActivityModal } from './OrdersActivityModal';
 import {
   INDIAN_STATES,
   ADDRESS_TYPE_OPTIONS,

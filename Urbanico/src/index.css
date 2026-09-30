@@ -248,6 +248,80 @@
   animation: numberSlideUp 0.18s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* ========================================================================= */
+/* ⚡ NEVER-FREEZE 60FPS GPU COMPOSITOR ANIMATIONS                            */
+/* ========================================================================= */
+
+@keyframes urbanico-never-freeze-spin {
+  0% {
+    transform: rotate(0deg) translateZ(0);
+  }
+  100% {
+    transform: rotate(360deg) translateZ(0);
+  }
+}
+
+@keyframes urbanico-breathing-pulse {
+  0%, 100% {
+    transform: scale(1) translateZ(0);
+    opacity: 0.95;
+  }
+  50% {
+    transform: scale(1.08) translateZ(0);
+    opacity: 1;
+  }
+}
+
+@keyframes urbanico-progress-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes urbanico-text-fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.urbanico-gpu-spinner {
+  animation: urbanico-never-freeze-spin 0.85s linear infinite !important;
+  will-change: transform;
+  transform: translateZ(0);
+  transform-origin: center center;
+}
+
+.urbanico-emblem-pulse {
+  animation: urbanico-breathing-pulse 1.8s ease-in-out infinite !important;
+  will-change: transform, opacity;
+  transform: translateZ(0);
+  transform-origin: center center;
+}
+
+.urbanico-shimmer-bar {
+  background: linear-gradient(
+    90deg,
+    rgba(252, 176, 38, 0.18) 0%,
+    rgba(252, 176, 38, 0.85) 50%,
+    rgba(252, 176, 38, 0.18) 100%
+  );
+  background-size: 200% 100%;
+  animation: urbanico-progress-shimmer 1.4s ease-in-out infinite !important;
+  will-change: background-position;
+}
+
+.urbanico-text-step {
+  animation: urbanico-text-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 .animate-fly-cart {
   animation: flyToCartBadge 0.3s ease-out;
 }

@@ -57,22 +57,29 @@ export interface UsePaginatedListResult<T> {
 /**
  * usePaginatedList
  * High-performance progressive chunking hook for heavy product & trade service catalogs.
- * Renders an initial lightweight chunk (8–12 items) for instant First Contentful Paint (FCP),
- * and incrementally expands the rendered slice as the user scrolls or requests more.
+ * Renders an initial high-density chunk (36 items) for instant First Contentful Paint (FCP)
+ * without waiting, and appends 24 items synchronously with zero delay.
+ * If total items are under 50, renders all items directly without pagination splits.
  */
 export function usePaginatedList<T>({
   items,
-  initialChunkSize = 10,
-  chunkSize = 8,
+  initialChunkSize = 36,
+  chunkSize = 24,
   loadDelayMs = 0,
 }: UsePaginatedListOptions<T>): UsePaginatedListResult<T> {
-  const [renderedLimit, setRenderedLimit] = useState<number>(initialChunkSize);
+  const totalCount = items.length;
+  // If catalog is compact (<= 50 items), render all items directly without chunking
+  const isCompactList = totalCount <= 50;
+
+  const [renderedLimit, setRenderedLimit] = useState<number>(() =>
+    isCompactList ? totalCount : initialChunkSize
+  );
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const loadingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Reset limit to initial chunk size whenever source items change (e.g. category switch or search query)
+  // Reset limit whenever source items change (e.g. category switch or search query)
   useEffect(() => {
-    setRenderedLimit(initialChunkSize);
+    setRenderedLimit(items.length <= 50 ? items.length : initialChunkSize);
     setIsLoadingMore(false);
     if (loadingTimerRef.current) {
       clearTimeout(loadingTimerRef.current);
@@ -89,8 +96,7 @@ export function usePaginatedList<T>({
     };
   }, []);
 
-  const totalCount = items.length;
-  const hasMore = renderedLimit < totalCount;
+  const hasMore = !isCompactList && renderedLimit < totalCount;
 
   const loadMore = useCallback(() => {
     if (!hasMore || isLoadingMore) return;
@@ -102,18 +108,20 @@ export function usePaginatedList<T>({
         setIsLoadingMore(false);
       }, loadDelayMs);
     } else {
+      // Instant synchronous chunk expansion in next animation frame
       setRenderedLimit((prev) => Math.min(prev + chunkSize, totalCount));
     }
   }, [hasMore, isLoadingMore, loadDelayMs, chunkSize, totalCount]);
 
   const reset = useCallback(() => {
-    setRenderedLimit(initialChunkSize);
+    setRenderedLimit(items.length <= 50 ? items.length : initialChunkSize);
     setIsLoadingMore(false);
-  }, [initialChunkSize]);
+  }, [items.length, initialChunkSize]);
 
   const displayedItems = useMemo(() => {
+    if (isCompactList) return items;
     return items.slice(0, renderedLimit);
-  }, [items, renderedLimit]);
+  }, [items, renderedLimit, isCompactList]);
 
   const renderedCount = displayedItems.length;
   const progressPercentage = totalCount > 0 ? Math.round((renderedCount / totalCount) * 100) : 100;

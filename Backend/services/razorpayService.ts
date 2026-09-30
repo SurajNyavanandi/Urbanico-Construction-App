@@ -5,57 +5,31 @@
 
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
+import { razorpayClient, detectKeyMode, verifyRazorpaySignature } from '../lib/razorpay';
 
 export class RazorpayBackendService {
   public static getKeyId(): string {
-    const rawKey = process.env.RAZORPAY_KEY_ID || process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || '';
-    const cleanKey = rawKey.trim().replace(/^["']|["']$/g, '').replace(/[\r\n\t]/g, '');
-    return cleanKey || 'rzp_test_1DP5mmOlF5G5ag';
+    return razorpayClient.getKeyId();
   }
 
   public static getKeySecret(): string {
-    const rawSecret = process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_SECRET || '';
-    return rawSecret.trim().replace(/^["']|["']$/g, '').replace(/[\r\n\t]/g, '');
+    return razorpayClient.getKeySecret();
   }
 
   public static getKeyMode(): 'LIVE' | 'TEST' | 'UNCONFIGURED' {
-    const key = this.getKeyId();
-    if (!key) return 'UNCONFIGURED';
-    if (key.startsWith('rzp_live_')) return 'LIVE';
-    if (key.startsWith('rzp_test_')) return 'TEST';
-    return 'TEST';
+    return razorpayClient.getKeyMode();
   }
 
   public static isConfigured(): boolean {
-    const key_id = this.getKeyId();
-    const key_secret = this.getKeySecret();
-    return Boolean(
-      key_id &&
-      key_secret &&
-      (key_id.startsWith('rzp_live_') || key_id.startsWith('rzp_test_')) &&
-      key_id.length >= 14 &&
-      key_secret.length >= 8
-    );
+    return razorpayClient.isConfigured();
   }
 
   public static getMaskedKey(): string {
-    const key = this.getKeyId();
-    if (!key) return 'NOT_SET';
-    if (key.length <= 10) return key;
-    return `${key.slice(0, 8)}...${key.slice(-4)}`;
+    return razorpayClient.getMaskedKey();
   }
 
   public static getClient(): Razorpay {
-    const key_id = this.getKeyId();
-    const key_secret = this.getKeySecret();
-    const mode = this.getKeyMode();
-
-    console.log(`[Razorpay Backend] Client Init (${mode}) - Key: ${this.getMaskedKey()} | Secret Present: ${Boolean(key_secret)}`);
-
-    return new Razorpay({
-      key_id: key_id || 'unconfigured_key',
-      key_secret: key_secret || 'unconfigured_secret',
-    });
+    return razorpayClient.getRawClient();
   }
 
   public static async createOrder(options: {
@@ -214,68 +188,11 @@ export class RazorpayBackendService {
     razorpay_payment_id: string;
     razorpay_signature: string;
   }): { isValid: boolean; expectedSignature: string; mode: string; reason?: string } {
-    const keySecret = this.getKeySecret();
-    const mode = this.getKeyMode();
-
-    console.log(`[Razorpay Backend] verifySignature request:`, {
-      payment_id: params.razorpay_payment_id,
+    return razorpayClient.verifySignature({
       order_id: params.razorpay_order_id,
-      signature_provided: params.razorpay_signature ? `${params.razorpay_signature.slice(0, 10)}...` : 'NONE',
-      mode,
-    });
-
-    if (!keySecret || keySecret === 'unconfigured_secret') {
-      console.warn(`[Razorpay Backend] Key secret not configured. Accepting verification in fallback mode.`);
-      return {
-        isValid: true,
-        expectedSignature: params.razorpay_signature,
-        mode: 'SIMULATED_ACCEPT',
-        reason: 'Key secret not configured on backend',
-      };
-    }
-
-    if (!params.razorpay_order_id) {
-      const isValid = Boolean(params.razorpay_payment_id && (params.razorpay_payment_id.startsWith('pay_') || params.razorpay_payment_id.length > 5));
-      console.log(`[Razorpay Backend] Direct payment ID verification: valid=${isValid}`);
-      return {
-        isValid,
-        expectedSignature: 'direct_payment',
-        mode: `${mode}_DIRECT`,
-      };
-    }
-
-    const payload = `${params.razorpay_order_id}|${params.razorpay_payment_id}`;
-    const expectedSignature = crypto
-      .createHmac('sha256', keySecret)
-      .update(payload)
-      .digest('hex');
-
-    const isSimulatedOrFallback =
-      params.razorpay_signature.startsWith('sig_test_') ||
-      params.razorpay_signature.startsWith('sig_live_') ||
-      params.razorpay_signature.startsWith('sig_site_') ||
-      params.razorpay_signature === 'bypass_test' ||
-      params.razorpay_signature === 'direct_verified' ||
-      params.razorpay_order_id.includes('simulated') ||
-      params.razorpay_order_id.includes('fallback') ||
-      params.razorpay_order_id.startsWith('SITE_') ||
-      params.razorpay_order_id.startsWith('ORD_');
-
-    const isExactMatch = expectedSignature === params.razorpay_signature;
-    const isValid = isExactMatch || isSimulatedOrFallback;
-
-    console.log(`[Razorpay Backend] Signature comparison:`, {
-      isExactMatch,
-      isSimulatedOrFallback,
-      finalValid: isValid,
-      mode,
-    });
-
-    return {
-      isValid,
-      expectedSignature,
-      mode,
-    };
+      payment_id: params.razorpay_payment_id,
+      signature: params.razorpay_signature,
+    }) as any;
   }
 
   public static async createPaymentLink(options: {
@@ -288,28 +205,7 @@ export class RazorpayBackendService {
     userPhone?: string;
     notes?: Record<string, string>;
   }) {
-    const razorpay = this.getClient();
-    const rawDigits = (options.userPhone || '').replace(/[^0-9]/g, '');
-    const cleanPhone = rawDigits.length >= 10 ? `+91${rawDigits.slice(-10)}` : '+919848012345';
-    const plink = await razorpay.paymentLink.create({
-      amount: Math.round(options.amountInPaise),
-      currency: (options.currency || 'INR').toUpperCase(),
-      accept_partial: false,
-      description: options.description || `Urbanico Direct Materials & Services`,
-      customer: {
-        name: options.userName || 'Urbanico Customer',
-        email: options.userEmail || 'customer@urbanico.in',
-        contact: cleanPhone,
-      },
-      notify: { sms: false, email: false },
-      reminder_enable: false,
-      notes: {
-        order_id: options.order_id || '',
-        platform: 'urbanico_mobile',
-        ...(options.notes || {}),
-      },
-    });
-    return plink;
+    return razorpayClient.createPaymentLink(options);
   }
 
   // ============================================================================
@@ -514,69 +410,7 @@ export class RazorpayBackendService {
     status: 'processed' | 'pending';
     message: string;
   }> {
-    const amountInPaise = options.amountInPaise || 100;
-    const isConfigured = this.isConfigured();
-
-    console.log(`[Razorpay Backend] Initiating instant ₹${(amountInPaise / 100).toFixed(2)} refund for payment: ${options.paymentId}`);
-
-    // Check if paymentId looks like an authentic upstream Razorpay payment ID (e.g. pay_Q2gH7Yj8K1mN4P)
-    // Non-upstream IDs (such as pay_test_..., pay_utr_..., pay_sim_..., pay_ord_..., or timestamp IDs)
-    // must bypass live gateway API to prevent 404 errors.
-    const isAuthenticLivePaymentId =
-      Boolean(options.paymentId) &&
-      options.paymentId.startsWith('pay_') &&
-      !options.paymentId.includes('test') &&
-      !options.paymentId.includes('sim') &&
-      !options.paymentId.includes('utr') &&
-      !options.paymentId.includes('fallback') &&
-      !options.paymentId.includes('ord') &&
-      !options.paymentId.includes('wh') &&
-      options.paymentId.length >= 17 &&
-      options.paymentId.length <= 22 &&
-      /^[a-zA-Z0-9]+$/.test(options.paymentId.slice(4));
-
-    if (isConfigured && isAuthenticLivePaymentId) {
-      try {
-        const razorpay = this.getClient();
-        const refund = await (razorpay.payments as any).refund(options.paymentId, {
-          amount: amountInPaise,
-          speed: 'optimum',
-          notes: {
-            reason: 'Micro-auth Penny Drop Verification Refund',
-            app: 'Urbanico Direct',
-            ...(options.notes || {}),
-          },
-        });
-
-        console.log(`[Razorpay Backend] Real gateway refund succeeded:`, refund.id);
-        return {
-          success: true,
-          refundId: refund.id,
-          paymentId: options.paymentId,
-          amount: amountInPaise,
-          status: 'processed',
-          message: '₹1 refund processed instantly to source account',
-        };
-      } catch (err: any) {
-        const is404 = err?.statusCode === 404 || err?.error?.code === 'BAD_REQUEST_ERROR' || (typeof err === 'object' && err?.statusCode === 404);
-        if (is404) {
-          console.log(`[Razorpay Backend] Payment ${options.paymentId} was not found on active gateway (404); fulfilling instant verification auto-refund.`);
-        } else {
-          console.warn(`[Razorpay Backend] Remote gateway refund notice:`, err?.error?.description || err?.message || err);
-        }
-      }
-    }
-
-    // In-memory / Test / Fallback refund confirmation
-    const simulatedRefundId = `rfnd_${Date.now()}_${Math.random().toString(36).slice(-4)}`;
-    return {
-      success: true,
-      refundId: simulatedRefundId,
-      paymentId: options.paymentId,
-      amount: amountInPaise,
-      status: 'processed',
-      message: '₹1 micro-authorization auto-refund initiated successfully',
-    };
+    return razorpayClient.processRefund(options);
   }
 
   // ============================================================================

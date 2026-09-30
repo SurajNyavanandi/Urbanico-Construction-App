@@ -17,29 +17,6 @@ import { AppModalsContainer } from './components/modals/AppModalsContainer';
 import { ScreenSuspense } from './components/common/ScreenSuspense';
 import { UrbanicoLoadingSpinner } from './components/common/UrbanicoLoadingSpinner';
 
-// Secondary Screen Dynamic Code-Splitting (React.lazy imports)
-export const MaterialsCatalogScreen = React.lazy(() =>
-  import('./components/MaterialsCatalogScreen').then((m) => ({ default: m.MaterialsCatalogScreen }))
-);
-export const ServicesCatalogScreen = React.lazy(() =>
-  import('./components/ServicesCatalogScreen').then((m) => ({ default: m.ServicesCatalogScreen }))
-);
-export const TradeServicesDetailScreen = React.lazy(() =>
-  import('./components/TradeServicesDetailScreen').then((m) => ({ default: m.TradeServicesDetailScreen }))
-);
-export const BasketScreen = React.lazy(() =>
-  import('./components/BasketScreen').then((m) => ({ default: m.BasketScreen }))
-);
-export const LiveTrackingScreen = React.lazy(() =>
-  import('./components/LiveTrackingScreen').then((m) => ({ default: m.LiveTrackingScreen }))
-);
-export const InvoiceScreen = React.lazy(() =>
-  import('./components/InvoiceScreen').then((m) => ({ default: m.InvoiceScreen }))
-);
-export const UserProfileScreen = React.lazy(() =>
-  import('./components/UserProfileScreen').then((m) => ({ default: m.UserProfileScreen }))
-);
-
 // Master App Hook
 import { useUrbanicoApp } from './hooks/useUrbanicoApp';
 
@@ -57,8 +34,13 @@ function MainAppContent() {
         <ExpoStatusBar style={app.theme.statusBarStyle} />
         <UrbanicoLoadingSpinner
           size="fullscreen"
-          message="Urbanico Construction Hub"
-          subMessage="Loading verified wholesale materials & rates..."
+          message="Loading Urbanico..."
+          dynamicSteps={[
+            'Fetching verified wholesale construction rates...',
+            'Checking real-time stock at nearest regional hub...',
+            'Verifying BIS & IS-456 standard certifications...',
+            'Preparing best direct-from-mill pricing...',
+          ]}
         />
       </SafeAreaView>
     );
