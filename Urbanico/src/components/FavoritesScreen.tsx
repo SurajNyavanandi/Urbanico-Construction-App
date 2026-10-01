@@ -39,7 +39,7 @@ export const FavoritesScreen: React.FC<FavoritesScreenProps> = ({
   favoriteIds = [],
   onToggleFavorite,
   onAddAllToCart,
-  isLoggedIn = true,
+  isLoggedIn = false,
   onOpenLoginModal,
 }) => {
   const { theme } = useTheme();

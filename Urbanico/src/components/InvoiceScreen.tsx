@@ -16,7 +16,7 @@ export const InvoiceScreen: React.FC<InvoiceScreenProps> = ({
   user,
   isOpen = true,
   onClose,
-  isLoggedIn = true,
+  isLoggedIn = false,
   onOpenLoginModal,
 }) => {
   return (

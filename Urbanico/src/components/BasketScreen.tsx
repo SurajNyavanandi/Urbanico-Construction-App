@@ -620,7 +620,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                 </Text>
                 <Text style={[styles.contactDot, { color: theme.textMuted }]}>•</Text>
                 <Text style={[styles.contactPhone, { color: theme.textSecondary }]}>
-                  +91 {user?.phone?.replace(/\D/g, '') || '98480 12345'}
+                  {user?.phone ? `+91 ${user.phone.replace(/\D/g, '')}` : 'Sign in to add contact'}
                 </Text>
               </View>
             </View>
@@ -796,7 +796,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                         setNewAddrPhone(t.replace(/\D/g, '').slice(0, 10));
                         setAddrFormError(null);
                       }}
-                      placeholder="98480 12345"
+                      placeholder="Enter 10-digit mobile"
                       placeholderTextColor={theme.textMuted}
                       keyboardType="phone-pad"
                       maxLength={10}

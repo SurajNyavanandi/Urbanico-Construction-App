@@ -146,7 +146,7 @@ export const DeliveryAddressFormModal: React.FC<DeliveryAddressFormModalProps> =
                 <TextInput
                   value={formData.mobile}
                   onChangeText={(t) => updateField('mobile', t.replace(/\D/g, '').slice(0, 10))}
-                  placeholder="98480 12345"
+                  placeholder="Enter 10-digit mobile"
                   placeholderTextColor={theme.textMuted}
                   keyboardType="phone-pad"
                   maxLength={10}

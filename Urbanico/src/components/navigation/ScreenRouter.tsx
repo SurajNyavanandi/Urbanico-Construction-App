@@ -26,6 +26,7 @@ import { ActivityDashboardScreen } from '../ActivityDashboardScreen';
 import { LiveTrackingScreen } from '../LiveTrackingScreen';
 import { InvoiceScreen } from '../InvoiceScreen';
 import { AuthScreen } from '../AuthScreen';
+import { OrderHistory } from '../OrderHistory';
 
 // Export route components
 export {
@@ -41,6 +42,7 @@ export {
   LiveTrackingScreen,
   InvoiceScreen,
   AuthScreen,
+  OrderHistory,
 };
 
 export const SCREEN_PRELOADERS = {
@@ -54,6 +56,8 @@ export const SCREEN_PRELOADERS = {
   tradeServices: () => Promise.resolve({ default: TradeServicesDetailScreen }),
   profile: () => Promise.resolve({ default: UserProfileScreen }),
   activity: () => Promise.resolve({ default: ActivityDashboardScreen }),
+  orders: () => Promise.resolve({ default: OrderHistory }),
+  order_history: () => Promise.resolve({ default: OrderHistory }),
   tracking: () => Promise.resolve({ default: LiveTrackingScreen }),
   invoice: () => Promise.resolve({ default: InvoiceScreen }),
   auth: () => Promise.resolve({ default: AuthScreen }),
@@ -294,6 +298,44 @@ export const ScreenRouter: React.FC<ScreenRouterProps> = ({
               onNavigateScreen('shop');
             }}
             onViewInvoice={onViewInvoice}
+            onReorderMaterial={(matName) => {
+              const matchedItem =
+                materials.find(
+                  (m) =>
+                    m.name.toLowerCase().includes(matName.toLowerCase()) ||
+                    matName.toLowerCase().includes(m.name.toLowerCase())
+                ) ||
+                MATERIAL_ITEMS.find(
+                  (m) =>
+                    m.name.toLowerCase().includes(matName.toLowerCase()) ||
+                    matName.toLowerCase().includes(m.name.toLowerCase())
+                );
+              if (matchedItem) {
+                onSelectItemModal(matchedItem);
+              } else {
+                onSelectCategory('all');
+                onNavigateScreen('shop');
+              }
+            }}
+          />
+        </ScreenSuspense>
+      )}
+
+      {(currentScreen === 'orders' || currentScreen === 'order_history') && (
+        <ScreenSuspense type="tracking">
+          <OrderHistory
+            user={user}
+            isLoggedIn={isLoggedIn}
+            onBack={() => onNavigateScreen('profile')}
+            onExploreCatalog={() => {
+              onSelectCategory('all');
+              onNavigateScreen('shop');
+            }}
+            onViewInvoice={onViewInvoice}
+            onTrackOrder={(del) => {
+              onNavigateScreen('activity');
+            }}
+            onOpenLoginModal={onOpenAuthModal}
             onReorderMaterial={(matName) => {
               const matchedItem =
                 materials.find(

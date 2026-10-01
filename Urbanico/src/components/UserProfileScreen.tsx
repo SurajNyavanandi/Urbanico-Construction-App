@@ -63,6 +63,7 @@ import { useAsyncModal } from '../hooks/useAsyncModal';
 import { MODAL_PRELOADERS } from './modals/AppModalsContainer';
 import { SettingsModal } from './SettingsModal';
 import { OrdersActivityModal } from './OrdersActivityModal';
+import { OrderHistoryModal } from './OrderHistoryModal';
 import {
   INDIAN_STATES,
   ADDRESS_TYPE_OPTIONS,
@@ -2031,6 +2032,30 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           </View>
         </View>
       </Modal>
+
+      {/* ======================================================== */}
+      {/* POPUP MODAL: PAST MATERIAL ORDER HISTORY                 */}
+      {/* ======================================================== */}
+      <OrderHistoryModal
+        visible={isOrdersModalOpen}
+        onClose={() => setIsOrdersModalOpen(false)}
+        user={user}
+        isLoggedIn={isLoggedIn}
+        onViewInvoice={onViewInvoice}
+        onTrackOrder={(del) => {
+          setIsOrdersModalOpen(false);
+          onNavigateScreen('activity');
+        }}
+        onExploreCatalog={() => {
+          setIsOrdersModalOpen(false);
+          if (onExploreCatalog) onExploreCatalog();
+        }}
+        onOpenLoginModal={() => {
+          setIsOrdersModalOpen(false);
+          if (onOpenLoginModal) onOpenLoginModal();
+        }}
+        onReorderMaterial={onReorderMaterial}
+      />
     </ScrollView>
   );
 };

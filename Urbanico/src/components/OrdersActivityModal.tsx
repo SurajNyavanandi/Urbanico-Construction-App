@@ -81,7 +81,7 @@ export const OrdersActivityModal: React.FC<OrdersActivityModalProps> = ({
   onExploreCatalog,
   onViewInvoice,
   onReorderMaterial,
-  isLoggedIn = true,
+  isLoggedIn = false,
   onOpenLoginModal,
 }) => {
   const { theme, typography } = useTheme();

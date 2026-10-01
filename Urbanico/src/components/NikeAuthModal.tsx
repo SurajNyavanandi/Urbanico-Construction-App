@@ -68,8 +68,9 @@ export const NikeAuthModal: React.FC<NikeAuthModalProps> = ({
     if (isOpen) {
       setStep(initialStep);
       setErrorMessage(null);
-      if (!phoneNumber) {
-        setPhoneNumber(DEFAULT_DEV_MOBILE);
+      if (initialStep === 'mobile') {
+        setPhoneNumber('');
+        setOtpDigits(['', '', '', '', '', '']);
       }
     }
   }, [isOpen, initialStep]);
@@ -108,11 +109,9 @@ export const NikeAuthModal: React.FC<NikeAuthModalProps> = ({
       setStep('otp');
       timerTargetRef.current = Date.now() + 30000;
       setTimer(30);
-      // Fixed verification OTP: 261125
-      const demoOtpArr = DEFAULT_DEV_OTP.split('');
-      setOtpDigits(demoOtpArr);
+      setOtpDigits(['', '', '', '', '', '']);
       setTimeout(() => {
-        inputRefs[5]?.current?.focus();
+        inputRefs[0]?.current?.focus();
       }, 250);
     }
   };
@@ -320,7 +319,7 @@ export const NikeAuthModal: React.FC<NikeAuthModalProps> = ({
                         setPhoneNumber(text);
                         setErrorMessage(null);
                       }}
-                      placeholder="96666 35009"
+                      placeholder="Enter 10-digit mobile number"
                       placeholderTextColor="#AEAEB2"
                       keyboardType="phone-pad"
                       maxLength={10}
@@ -415,7 +414,7 @@ export const NikeAuthModal: React.FC<NikeAuthModalProps> = ({
 
                 <Text style={[styles.otpHeadingTitle, { color: theme.textPrimary }]}>Enter Verification Code</Text>
                 <Text style={styles.otpSubHeading}>
-                  Sent to <Text style={{ fontWeight: '700', color: theme.textPrimary }}>+91 {phoneNumber || DEFAULT_DEV_MOBILE}</Text>
+                  Sent to <Text style={{ fontWeight: '700', color: theme.textPrimary }}>+91 {phoneNumber || 'Your Mobile Number'}</Text>
                 </Text>
 
                 {/* Quick OTP Helper Pill */}
@@ -426,11 +425,12 @@ export const NikeAuthModal: React.FC<NikeAuthModalProps> = ({
                     const demoOtpArr = DEFAULT_DEV_OTP.split('');
                     setOtpDigits(demoOtpArr);
                     setErrorMessage(null);
+                    verifyOtpCode(DEFAULT_DEV_OTP);
                   }}
                 >
                   <Sparkles size={13} color="#059669" />
                   <Text style={styles.otpHelperPillText}>
-                    Verification Code: <Text style={{ fontWeight: '800' }}>261125</Text> (Tap to Auto-fill)
+                    Universal Login OTP: <Text style={{ fontWeight: '800' }}>261125</Text> (Tap to Auto-fill)
                   </Text>
                 </TouchableOpacity>
 

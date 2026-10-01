@@ -14,6 +14,8 @@ import { UpiQrVerificationModal } from '../common/UpiQrVerificationModal';
 import { LiveDispatcherChatModal } from '../common/LiveDispatcherChatModal';
 import { SupervisorHandoffModal } from '../common/SupervisorHandoffModal';
 import { DeliveryAddressFormModal } from '../common/DeliveryAddressFormModal';
+import { OrderHistoryModal } from '../OrderHistoryModal';
+import { OrderHistory } from '../OrderHistory';
 
 export {
   NikeAuthModal,
@@ -28,6 +30,8 @@ export {
   LiveDispatcherChatModal,
   SupervisorHandoffModal,
   DeliveryAddressFormModal,
+  OrderHistoryModal,
+  OrderHistory,
 };
 
 export const MODAL_PRELOADERS = {
@@ -35,7 +39,8 @@ export const MODAL_PRELOADERS = {
   itemQuantity: () => Promise.resolve({ default: ItemQuantityModal }),
   invoice: () => Promise.resolve({ default: InvoiceModal }),
   location: () => Promise.resolve({ default: LocationModal }),
-  orders: () => Promise.resolve({ default: OrdersActivityModal }),
+  orders: () => Promise.resolve({ default: OrderHistoryModal }),
+  orderHistory: () => Promise.resolve({ default: OrderHistoryModal }),
   settings: () => Promise.resolve({ default: SettingsModal }),
   paymentSuccess: () => Promise.resolve({ default: PaymentSuccessModal }),
   razorpay: () => Promise.resolve({ default: RazorpayModal }),

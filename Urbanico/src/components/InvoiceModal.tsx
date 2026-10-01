@@ -56,7 +56,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   onClose,
   delivery,
   user,
-  isLoggedIn = true,
+  isLoggedIn = false,
   onOpenLoginModal,
 }) => {
   const { theme, typography } = useTheme();

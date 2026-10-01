@@ -23,7 +23,8 @@ export function useAuthSession(options?: {
       if (saved) {
         const parsed = JSON.parse(saved);
         const phone = parsed.phone || '';
-        if (phone) {
+        // Only load profile if user is explicitly authenticated
+        if (parsed.isLoggedIn && phone) {
           const savedProfile = safeStorage.getItem(`urbanico_user_profile_${phone}`);
           if (savedProfile) {
             return {

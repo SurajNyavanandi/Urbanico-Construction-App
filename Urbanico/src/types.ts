@@ -6,6 +6,8 @@ export type ScreenType =
   | 'favorites'
   | 'profile'
   | 'activity'
+  | 'orders'
+  | 'order_history'
   | 'auth_mobile'
   | 'auth_otp';
 

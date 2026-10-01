@@ -79,7 +79,7 @@ export const ActivityDashboardScreen: React.FC<ActivityDashboardScreenProps> = (
   onExploreCatalog,
   onViewInvoice,
   onReorderMaterial,
-  isLoggedIn = true,
+  isLoggedIn = false,
   onOpenLoginModal,
 }) => {
   const { theme, typography } = useTheme();

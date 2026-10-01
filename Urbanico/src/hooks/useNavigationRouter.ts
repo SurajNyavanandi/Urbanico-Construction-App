@@ -64,6 +64,7 @@ export function useNavigationRouter(screenPreloaders?: Record<string, () => Prom
         screenPreloaders.category?.();
       }
       if (scr === 'profile' && screenPreloaders.profile) screenPreloaders.profile();
+      if ((scr === 'activity' || scr === 'orders' || scr === 'order_history') && screenPreloaders.orders) screenPreloaders.orders();
       if (scr === 'activity' && screenPreloaders.activity) screenPreloaders.activity();
     },
     [screenPreloaders]
@@ -101,6 +102,7 @@ export function useNavigationRouter(screenPreloaders?: Record<string, () => Prom
     if (currentScreen === 'favorites') return 'Favourites';
     if (currentScreen === 'profile') return 'Profile';
     if (currentScreen === 'activity') return 'Activity Dashboard';
+    if (currentScreen === 'orders' || currentScreen === 'order_history') return 'Order History';
     if (currentScreen === 'auth_mobile' || currentScreen === 'auth_otp')
       return 'Account Verification';
     return 'Home';

@@ -10,10 +10,11 @@ export class OrderController {
   });
 
   public static getOrders = asyncHandler(async (req: Request, res: Response) => {
-    const { status, search } = req.query;
+    const { status, search, phone } = req.query;
     const orders = await OrderService.getAllOrders({
       status: status as string,
       search: search as string,
+      phone: phone as string,
     });
     return sendSuccess(res, { orders, count: orders.length });
   });

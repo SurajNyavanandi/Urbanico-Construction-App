@@ -82,9 +82,9 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     setIsSending(false);
     setStep('otp');
     setTimer(30);
-    setOtpDigits(DEFAULT_DEV_OTP.split(''));
+    setOtpDigits(['', '', '', '', '', '']);
     setTimeout(() => {
-      inputRefs[5]?.current?.focus();
+      inputRefs[0]?.current?.focus();
     }, 250);
   };
 
@@ -250,7 +250,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                     setPhoneNumber(text);
                     setErrorMessage(null);
                   }}
-                  placeholder="96666 35009"
+                  placeholder="Enter 10-digit mobile number"
                   placeholderTextColor={theme.textMuted}
                   keyboardType="phone-pad"
                   maxLength={10}
@@ -318,7 +318,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           <View style={styles.mainCardCenter}>
             <Text style={[styles.otpHeadingTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>Enter OTP</Text>
             <Text style={[styles.otpSubHeading, { color: theme.textSecondary, fontFamily: typography.fontFamily }]}>
-              Sent to +91 {phoneNumber || DEFAULT_DEV_MOBILE}
+              Sent to +91 {phoneNumber || 'Your Mobile Number'}
             </Text>
 
             <View style={styles.otpDevBadge}>
