@@ -62,7 +62,6 @@ import { ShimmerImage } from './common/ShimmerImage';
 import { useAsyncModal } from '../hooks/useAsyncModal';
 import { MODAL_PRELOADERS } from './modals/AppModalsContainer';
 import { SettingsModal } from './SettingsModal';
-import { OrdersActivityModal } from './OrdersActivityModal';
 import { OrderHistoryModal } from './OrderHistoryModal';
 import {
   INDIAN_STATES,
@@ -861,33 +860,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             <Text style={[styles.mainAuthBtnText, { color: theme.buttonText || '#FFFFFF' }]}>Log In or Sign Up</Text>
           </TouchableOpacity>
         </View>
-      )}
-
-      {/* ======================================================== */}
-      {/* POPUP MODAL 1: MY ORDERS & DISPATCHES                    */}
-      {/* ======================================================== */}
-      {isOrdersModalOpen && (
-        <React.Suspense fallback={null}>
-          <OrdersActivityModal
-            visible={isOrdersModalOpen}
-            onClose={() => setIsOrdersModalOpen(false)}
-            deliveries={deliveries}
-            isLoggedIn={isLoggedIn}
-            onOpenLoginModal={() => {
-              setIsOrdersModalOpen(false);
-              if (onOpenLoginModal) onOpenLoginModal();
-            }}
-            onExploreCatalog={() => {
-              setIsOrdersModalOpen(false);
-              if (onExploreCatalog) onExploreCatalog();
-            }}
-            onViewInvoice={(del) => {
-              setIsOrdersModalOpen(false);
-              if (onViewInvoice) onViewInvoice(del);
-            }}
-            onReorderMaterial={onReorderMaterial}
-          />
-        </React.Suspense>
       )}
 
       {/* ======================================================== */}
@@ -2041,6 +2013,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         onClose={() => setIsOrdersModalOpen(false)}
         user={user}
         isLoggedIn={isLoggedIn}
+        deliveries={deliveries}
         onViewInvoice={onViewInvoice}
         onTrackOrder={(del) => {
           setIsOrdersModalOpen(false);

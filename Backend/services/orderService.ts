@@ -1,5 +1,7 @@
 import { Order, IOrder } from '../models/Order';
 import { Delivery, IDelivery } from '../models/Delivery';
+import { DeliveryService } from './deliveryService';
+import { generateRandomOtp } from '../utils/otpHelper';
 import mongoose from 'mongoose';
 
 // In-memory store for instant zero-latency realtime operations & offline/local fallback
@@ -28,6 +30,7 @@ const inMemoryOrders: any[] = [
         unitPrice: 385,
         totalPrice: 19250,
         gstAmount: 0.18,
+        image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614395/cement2_s1pf60.jpg',
       },
       {
         name: 'Tata Tiscon Fe550D TMT Steel Rebars (12mm)',
@@ -37,6 +40,7 @@ const inMemoryOrders: any[] = [
         unitPrice: 68,
         totalPrice: 34000,
         gstAmount: 0.18,
+        image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614394/ironbars2_t1ktel.jpg',
       },
     ],
     subtotal: 53250,
@@ -51,7 +55,7 @@ const inMemoryOrders: any[] = [
     vehicleNumber: 'TS 09 UB 5120',
     driverName: 'Ramesh Kumar (Fleet Dispatch)',
     driverPhone: '+91 98490 55120',
-    deliveryOtp: '261125',
+    deliveryOtp: '749182',
     createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
     updatedAt: new Date(),
   },
@@ -78,6 +82,7 @@ const inMemoryOrders: any[] = [
         unitPrice: 8500,
         totalPrice: 25500,
         gstAmount: 0.05,
+        image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614393/sand2_wj9sly.jpg',
       },
       {
         name: 'Kiln Fired High-Strength Red Clay Bricks',
@@ -87,6 +92,7 @@ const inMemoryOrders: any[] = [
         unitPrice: 9.5,
         totalPrice: 23750,
         gstAmount: 0.12,
+        image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614403/brick2_gjzbjh.jpg',
       },
     ],
     subtotal: 49250,
@@ -101,7 +107,7 @@ const inMemoryOrders: any[] = [
     vehicleNumber: 'TS 08 UB 3891',
     driverName: 'Suresh Varma',
     driverPhone: '+91 97001 88391',
-    deliveryOtp: '261125',
+    deliveryOtp: '392815',
     createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000), // 2 days ago
     updatedAt: new Date(Date.now() - 40 * 60 * 60 * 1000),
   },
@@ -126,6 +132,7 @@ const inMemoryOrders: any[] = [
         unitPrice: 395,
         totalPrice: 11850,
         gstAmount: 0.18,
+        image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614395/cement2_s1pf60.jpg',
       },
       {
         name: '20mm Blue Metal Granite Stone Aggregates',
@@ -135,6 +142,7 @@ const inMemoryOrders: any[] = [
         unitPrice: 6200,
         totalPrice: 12400,
         gstAmount: 0.05,
+        image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614394/stones2_i0cjzq.jpg',
       },
     ],
     subtotal: 24250,
@@ -149,7 +157,7 @@ const inMemoryOrders: any[] = [
     vehicleNumber: 'TS 09 UB 7104',
     driverName: 'Mallesh Yadav',
     driverPhone: '+91 94401 22910',
-    deliveryOtp: '261125',
+    deliveryOtp: '841029',
     createdAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000), // 6 days ago
     updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
   },
@@ -187,7 +195,7 @@ export class OrderService {
       orderStatus: orderData.orderStatus || 'confirmed',
       paymentStatus: orderData.paymentStatus || 'paid',
       eWayBillNo: orderData.eWayBillNo || `EWB-TS-2026-${Math.floor(10000000 + Math.random() * 90000000)}`,
-      deliveryOtp: '261125',
+      deliveryOtp: orderData.deliveryOtp && orderData.deliveryOtp !== '123456' ? orderData.deliveryOtp : generateRandomOtp(),
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -215,7 +223,7 @@ export class OrderService {
 
     // Auto-create initial dispatch delivery tracking record
     try {
-      const otpCode = '261125';
+      const otpCode = savedOrder.deliveryOtp || generateRandomOtp();
       const isServiceOrder = savedOrder.items?.every(
         (i: any) =>
           (i.category || '').toLowerCase().includes('service') ||
@@ -278,10 +286,7 @@ export class OrderService {
         updatedAt: new Date(),
       };
 
-      if (mongoose.connection.readyState === 1) {
-        const delivery = new Delivery(deliveryPayload);
-        await delivery.save();
-      }
+      await DeliveryService.registerDelivery(deliveryPayload);
     } catch (deliveryErr) {
       console.warn('Could not auto-create delivery doc:', deliveryErr);
     }
@@ -289,15 +294,20 @@ export class OrderService {
     return savedOrder;
   }
 
-  public static async getAllOrders(query: { status?: string; search?: string; phone?: string } = {}) {
+  public static async getAllOrders(query: { status?: string; search?: string; phone?: string; email?: string } = {}) {
+    const cleanPhoneDigits = query.phone ? query.phone.replace(/\D/g, '').slice(-10) : '';
+    const cleanEmail = query.email ? query.email.trim().toLowerCase() : '';
+
     try {
       if (mongoose.connection.readyState === 1) {
         const filter: Record<string, any> = {};
         if (query.status && query.status !== 'all') {
           filter.orderStatus = query.status;
         }
-        if (query.phone) {
-          filter.customerPhone = query.phone;
+        if (cleanPhoneDigits) {
+          filter.customerPhone = { $regex: cleanPhoneDigits };
+        } else if (cleanEmail) {
+          filter.customerEmail = { $regex: cleanEmail, $options: 'i' };
         }
         if (query.search) {
           filter.$or = [
@@ -307,18 +317,22 @@ export class OrderService {
           ];
         }
         const dbOrders = await Order.find(filter).sort({ createdAt: -1 }).exec();
-        if (dbOrders && dbOrders.length > 0) {
-          return dbOrders;
-        }
+        return dbOrders;
       }
     } catch (err) {
-      console.warn('Error reading from MongoDB, returning in-memory orders:', err);
+      console.warn('Error reading from MongoDB, returning in-memory orders fallback:', err);
     }
 
     // Filter in-memory orders
     return inMemoryOrders.filter((o) => {
       if (query.status && query.status !== 'all' && o.orderStatus !== query.status) return false;
-      if (query.phone && o.customerPhone && !o.customerPhone.includes(query.phone)) return false;
+      if (cleanPhoneDigits) {
+        const oDigits = (o.customerPhone || '').replace(/\D/g, '');
+        if (!oDigits.includes(cleanPhoneDigits)) return false;
+      } else if (cleanEmail) {
+        const oEmail = (o.customerEmail || '').trim().toLowerCase();
+        if (oEmail !== cleanEmail) return false;
+      }
       if (query.search) {
         const s = query.search.toLowerCase();
         const matchNum = o.orderNumber?.toLowerCase().includes(s);
@@ -361,11 +375,20 @@ export class OrderService {
   ) {
     try {
       if (mongoose.connection.readyState === 1) {
-        const dbOrder = await Order.findByIdAndUpdate(
-          id,
-          { $set: { orderStatus: status, ...extraFields, updatedAt: new Date() } },
-          { new: true }
-        ).exec();
+        let dbOrder = null;
+        if (mongoose.Types.ObjectId.isValid(id)) {
+          dbOrder = await Order.findByIdAndUpdate(
+            id,
+            { $set: { orderStatus: status, ...extraFields, updatedAt: new Date() } },
+            { new: true }
+          ).exec();
+        } else {
+          dbOrder = await Order.findOneAndUpdate(
+            { orderNumber: id },
+            { $set: { orderStatus: status, ...extraFields, updatedAt: new Date() } },
+            { new: true }
+          ).exec();
+        }
         if (dbOrder) return dbOrder;
       }
     } catch (err) {
@@ -434,6 +457,58 @@ export class OrderService {
     }
     inMemoryOrders.length = 0;
     return { success: true, message: 'All orders wiped completely' };
+  }
+
+  /**
+   * Synchronize all orders to MongoDB Atlas collection
+   */
+  public static async syncToAtlas() {
+    if (mongoose.connection.readyState !== 1 || inMemoryOrders.length === 0) return;
+    try {
+      console.log(`[Order] Syncing ${inMemoryOrders.length} orders to MongoDB Atlas...`);
+      for (const ord of inMemoryOrders) {
+        if (!ord.orderNumber) continue;
+        await Order.findOneAndUpdate(
+          { orderNumber: ord.orderNumber },
+          {
+            $setOnInsert: {
+              orderNumber: ord.orderNumber,
+              customerName: ord.customerName || 'Valued Customer',
+              customerPhone: ord.customerPhone || '9848012345',
+              customerEmail: ord.customerEmail || '',
+              gstin: ord.gstin || '',
+              siteAddress: ord.siteAddress || {
+                siteName: 'Construction Site',
+                street: 'Site Address',
+                city: 'Hyderabad',
+                state: 'Telangana',
+                pincode: '500032',
+              },
+              items: ord.items || [],
+              subtotal: ord.subtotal || 0,
+              taxAmount: ord.taxAmount || 0,
+              deliveryCharges: ord.deliveryCharges || 0,
+              unloadingCharges: ord.unloadingCharges || 0,
+              totalAmount: ord.totalAmount || 0,
+              paymentStatus: ord.paymentStatus || 'paid',
+              paymentMethod: ord.paymentMethod || 'UPI',
+              orderStatus: ord.orderStatus || 'confirmed',
+              eWayBillNo: ord.eWayBillNo,
+              vehicleNumber: ord.vehicleNumber,
+              driverName: ord.driverName,
+              driverPhone: ord.driverPhone,
+              deliveryOtp: ord.deliveryOtp || generateRandomOtp(),
+              createdAt: ord.createdAt || new Date(),
+              updatedAt: ord.updatedAt || new Date(),
+            },
+          },
+          { upsert: true, new: true }
+        );
+      }
+      console.log('[Order] 🟢 All orders synced to MongoDB Atlas successfully.');
+    } catch (err: any) {
+      console.warn('[Order] Error syncing orders to Atlas:', err?.message || err);
+    }
   }
 }
 

@@ -3,6 +3,7 @@ import { ActivityDelivery, UserProfile } from '../types';
 import { safeStorage } from '../utils/safeStorage';
 import { formatSiteAddress } from '../utils/addressHelper';
 import { apiService } from '../services/apiService';
+import { resolveMaterialImage } from '../utils/materialImageResolver';
 
 export interface UseOrderManagerOptions {
   user: UserProfile;
@@ -86,10 +87,24 @@ export function useOrderManager({
                     day: 'numeric',
                   }),
                   totalAmount: bo.totalAmount || 0,
-                  deliveryOtp: bo.deliveryOtp || '261125',
+                  deliveryOtp: bo.deliveryOtp || bo.otp || Math.floor(100000 + Math.random() * 900000).toString(),
                   ewayBillNumber:
                     bo.eWayBillNo ||
                     `EWB-TS-2026-${Math.floor(10000000 + Math.random() * 90000000)}`,
+                  cartItemsSnapshot: (bo.items || []).map((it: any, iIdx: number) => ({
+                    id: `ci-${bo.orderNumber}-${iIdx}`,
+                    itemId: it.materialId || `mat-${iIdx}`,
+                    itemName: it.name || 'Construction Material',
+                    categoryName: it.category || 'Materials',
+                    selectedOptionLabel: `${it.quantity || 1} ${it.unit || 'unit'}`,
+                    unitPrice: Number(it.unitPrice || 0),
+                    quantity: Number(it.quantity || 1),
+                    image: resolveMaterialImage({
+                      name: it.name,
+                      category: it.category,
+                      image: it.image,
+                    }),
+                  })),
                 }));
 
                 const existingNums = new Set(prev.map((d) => d.orderNumber));
@@ -206,7 +221,7 @@ export function useOrderManager({
           siteAddress: formatSiteAddress(selectedLocation || 'Site Destination'),
           timestamp: 'Just now',
           totalAmount: parsedAmount,
-          deliveryOtp: '261125',
+          deliveryOtp: Math.floor(100000 + Math.random() * 900000).toString(),
           ewayBillNumber: `EWB-TS-2026-${Math.floor(10000000 + Math.random() * 90000000)}`,
           customerName: user?.name || 'Urbanico Customer',
           customerPhone: user?.phone || '9848012345',

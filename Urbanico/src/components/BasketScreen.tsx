@@ -10,6 +10,7 @@ import {
   Pressable,
   TextInput,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import {
   ShoppingCart,
@@ -79,6 +80,7 @@ import { INITIAL_DELIVERIES } from '../data/materialsData';
 import { useTheme } from '../context/ThemeContext';
 import { useLocation } from '../context/LocationContext';
 import { lookupCityStateFromPincode, formatSiteAddress } from '../utils/addressHelper';
+import { resolveMaterialImage } from '../utils/materialImageResolver';
 import { validateName, validatePhone } from '../utils/sanitizationHelper';
 import { RazorpayPaymentResult } from './common/RazorpayModal';
 import {
@@ -1714,7 +1716,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       siteSupervisorPhone: activeSupervisor.phone,
       timestamp: `Today, ${formattedTime}`,
       totalAmount: grandTotal,
-      deliveryOtp: '261125',
+      deliveryOtp: Math.floor(100000 + Math.random() * 900000).toString(),
       ewayBillNumber: `EWB-TS-2026-${Math.floor(10000000 + Math.random() * 90000000)}`,
       unloadingCharges: optInLaborAssistance ? unloadingLaborFee : 0,
       laborAssistanceOpted: optInLaborAssistance,
@@ -1780,6 +1782,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
         unitPrice: item.unitPrice,
         totalPrice: item.unitPrice * item.quantity,
         gstAmount: isCartItemService(item) ? 0 : Math.round(item.unitPrice * item.quantity * 0.18),
+        image: item.image,
       })),
       subtotal,
       taxAmount: gstTax,
@@ -1798,6 +1801,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       vehicleNumber: finalVehicleNum,
       driverName: finalDriverName,
       driverPhone: assignedDriverPhone,
+      deliveryOtp: newOrder.deliveryOtp,
     }).catch((err) => {
       console.warn('Backend order recording notice:', err);
     });
@@ -2500,6 +2504,24 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                 {activeEnRoute && (
                   <View style={[styles.trackingCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
                     <View style={[styles.trackingCardHeader, { borderBottomColor: theme.borderLight }]}>
+                      <Image
+                        source={{
+                          uri: resolveMaterialImage({
+                            name: activeEnRoute.materialName,
+                            image: activeEnRoute.cartItemsSnapshot?.[0]?.image,
+                          }),
+                        }}
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 8,
+                          marginRight: 10,
+                          backgroundColor: theme.surfaceSecondary,
+                          borderWidth: 1,
+                          borderColor: theme.border,
+                        }}
+                        resizeMode="cover"
+                      />
                       <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                           <Text style={[styles.trackingOrderNumber, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]} numberOfLines={1}>
@@ -2539,7 +2561,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                         <View>
                           <Text style={{ fontSize: 10, fontWeight: '600', color: theme.textSecondary }}>Gate Verification OTP</Text>
                           <Text style={{ fontSize: 16, fontWeight: '900', letterSpacing: 2, color: theme.textPrimary }}>
-                            {activeEnRoute.deliveryOtp || '8842'}
+                            {activeEnRoute.deliveryOtp || '749182'}
                           </Text>
                         </View>
                         <TouchableOpacity

@@ -5,6 +5,7 @@ import { materialRouter } from './materialRouter';
 import { serviceRouter } from './serviceRouter';
 import { userRouter } from './userRouter';
 import { deliveryRouter } from './deliveryRouter';
+import { adminRouter } from './adminRouter';
 import { PaymentController } from '../controllers/paymentController';
 import { getDBStatus } from '../config/db';
 
@@ -18,6 +19,7 @@ apiRouter.use('/services', serviceRouter);
 apiRouter.use('/users', userRouter);
 apiRouter.use('/user', userRouter);
 apiRouter.use('/deliveries', deliveryRouter);
+apiRouter.use('/admin', adminRouter);
 
 // Administrative Purge & Clean Slate API
 apiRouter.post('/purge-all-data', async (req, res) => {

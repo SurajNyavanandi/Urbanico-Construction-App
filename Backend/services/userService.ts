@@ -109,6 +109,35 @@ export class UserService {
     return null;
   }
 
+  public static async getAllUsers(filter: Record<string, any> = {}) {
+    try {
+      if (mongoose.connection.readyState === 1) {
+        return await User.find(filter).sort({ createdAt: -1 }).exec();
+      }
+    } catch (err) {
+      console.warn('[User] DB getAllUsers error:', err);
+    }
+    return inMemoryUsers;
+  }
+
+  public static async deleteUser(id: string) {
+    try {
+      if (mongoose.connection.readyState === 1) {
+        if (mongoose.Types.ObjectId.isValid(id)) {
+          return await User.findByIdAndDelete(id).exec();
+        }
+        return await User.findOneAndDelete({ phone: id }).exec();
+      }
+    } catch (err) {
+      console.warn('[User] DB deleteUser error:', err);
+    }
+    const idx = inMemoryUsers.findIndex((u) => u._id === id || u.phone === id);
+    if (idx !== -1) {
+      return inMemoryUsers.splice(idx, 1)[0];
+    }
+    return null;
+  }
+
   public static async purgeAllUsers() {
     try {
       if (mongoose.connection.readyState === 1) {
@@ -119,6 +148,44 @@ export class UserService {
     }
     inMemoryUsers.length = 0;
     return { success: true, message: 'All user data wiped completely' };
+  }
+
+  /**
+   * Synchronize all in-memory users directly into MongoDB Atlas collections
+   */
+  public static async syncToAtlas() {
+    if (mongoose.connection.readyState !== 1 || inMemoryUsers.length === 0) return;
+    try {
+      console.log(`[User] Syncing ${inMemoryUsers.length} user records to MongoDB Atlas...`);
+      for (const u of inMemoryUsers) {
+        const cleanPhone = (u.phone || '').replace(/[^\d+]/g, '');
+        if (!cleanPhone) continue;
+        await User.findOneAndUpdate(
+          { phone: cleanPhone },
+          {
+            $set: {
+              name: u.name,
+              email: u.email,
+              role: u.role,
+              companyName: u.companyName,
+              gstin: u.gstin,
+              avatarUrl: u.avatarUrl,
+              profilePicture: u.profilePicture,
+              billingAddress: u.billingAddress,
+              deliverySites: u.deliverySites,
+              savedLocations: u.savedLocations,
+              cart: u.cart,
+              creditLimit: u.creditLimit,
+              availableCredit: u.availableCredit,
+            },
+          },
+          { upsert: true, new: true }
+        );
+      }
+      console.log('[User] 🟢 All users synced to MongoDB Atlas successfully.');
+    } catch (err: any) {
+      console.warn('[User] Error during Atlas user sync:', err?.message || err);
+    }
   }
 }
 

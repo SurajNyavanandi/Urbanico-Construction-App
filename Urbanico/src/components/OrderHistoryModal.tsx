@@ -16,6 +16,8 @@ export const OrderHistoryModal: React.FC<OrderHistoryModalProps> = ({
 }) => {
   const { theme } = useTheme();
 
+  if (!visible) return null;
+
   return (
     <Modal
       visible={visible}

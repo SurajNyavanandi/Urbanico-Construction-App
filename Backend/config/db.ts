@@ -11,15 +11,42 @@ if (dns && typeof dns.setServers === 'function') {
 }
 
 let isConnected = false;
+let retryInterval: NodeJS.Timeout | null = null;
 
 // CRITICAL: fail fast, don't hang if MongoDB Atlas is offline or credentials unconfigured
 mongoose.set('bufferCommands', false);
+
+async function onConnectionSuccess(conn: typeof mongoose) {
+  isConnected = true;
+  console.log(`[DB] 🟢 MongoDB Atlas CONNECTED: ${conn.connection.name} (${conn.connection.host})`);
+
+  if (retryInterval) {
+    clearInterval(retryInterval);
+    retryInterval = null;
+  }
+
+  try {
+    const { DatabaseSeeder } = await import('../services/databaseSeeder');
+    await DatabaseSeeder.seedAll();
+  } catch (err: any) {
+    console.warn('[DB] Seeder execution notice:', err?.message || err);
+  }
+
+  try {
+    const { UserService } = await import('../services/userService');
+    const { OrderService } = await import('../services/orderService');
+    await UserService.syncToAtlas();
+    await OrderService.syncToAtlas();
+  } catch (syncErr: any) {
+    console.warn('[DB] Post-connect sync notice:', syncErr?.message || syncErr);
+  }
+}
 
 export async function connectDB(): Promise<typeof mongoose | null> {
   const uri = process.env.MONGODB_URI;
 
   if (!uri) {
-    console.log('[DB] Running with in-memory store');
+    console.warn('[DB] MONGODB_URI is not defined. Please set it in your environment or .env file.');
     return null;
   }
 
@@ -34,29 +61,60 @@ export async function connectDB(): Promise<typeof mongoose | null> {
       autoIndex: true,
     });
 
-    isConnected = true;
-    console.log(`[DB] Connected: ${conn.connection.name}`);
+    await onConnectionSuccess(conn);
 
     mongoose.connection.on('error', (err) => {
-      console.error('[DB] Error:', err?.message || err);
+      console.error('[DB] Connection Error:', err?.message || err);
     });
 
     mongoose.connection.on('disconnected', () => {
-      console.warn('[DB] Disconnected');
+      console.warn('[DB] ⚠️ MongoDB Atlas disconnected. Initiating background reconnect...');
       isConnected = false;
+      scheduleReconnect();
     });
 
     mongoose.connection.on('reconnected', () => {
-      console.log('[DB] Reconnected');
+      console.log('[DB] 🟢 MongoDB Atlas reconnected');
       isConnected = true;
     });
 
     return conn;
   } catch (error: any) {
-    console.warn('[DB] In-memory store active');
-    // Do not crash the entire server; allow graceful API response & retries
+    const errMsg = error?.message || String(error);
+    if (errMsg.includes('IP') || errMsg.includes('whitelist') || errMsg.includes('SSL') || errMsg.includes('alert')) {
+      console.warn('[DB] ⚠️ MongoDB Atlas IP access check needed. If connection is blocked, ensure "0.0.0.0/0" (Allow Access from Anywhere) is added to Network Access in your MongoDB Atlas dashboard.');
+    } else {
+      console.warn(`[DB] Connection attempt deferred: ${errMsg}`);
+    }
+    scheduleReconnect();
     return null;
   }
+}
+
+function scheduleReconnect() {
+  if (retryInterval) return;
+  const uri = process.env.MONGODB_URI;
+  if (!uri) return;
+
+  retryInterval = setInterval(async () => {
+    if (mongoose.connection.readyState === 1) {
+      if (retryInterval) {
+        clearInterval(retryInterval);
+        retryInterval = null;
+      }
+      return;
+    }
+    try {
+      const conn = await mongoose.connect(uri, {
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 45000,
+        autoIndex: true,
+      });
+      await onConnectionSuccess(conn);
+    } catch {
+      // Retrying silently until Network Access / Atlas is open
+    }
+  }, 10000);
 }
 
 export function getDBStatus() {

@@ -22,7 +22,7 @@ import { apiService } from '../services/apiService';
 import { useTheme } from '../context/ThemeContext';
 
 const DEFAULT_DEV_MOBILE = '';
-const DEFAULT_DEV_OTP = '261125';
+const DEFAULT_DEV_OTP = '123456';
 const CLOUDINARY_PROFILE_PIC =
   'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg';
 
@@ -282,7 +282,7 @@ export const NikeAuthModal: React.FC<NikeAuthModalProps> = ({
                         <Text style={styles.verifiedPillText}>AUTHENTICATED ACCESS</Text>
                       </View>
                       <View style={styles.otpHintPill}>
-                        <Text style={styles.otpHintPillText}>OTP: 261125</Text>
+                        <Text style={styles.otpHintPillText}>OTP: 123456</Text>
                       </View>
                     </View>
                     <Text style={styles.contractorTitle}>Urbanico Contractor & Site Access</Text>
@@ -430,7 +430,7 @@ export const NikeAuthModal: React.FC<NikeAuthModalProps> = ({
                 >
                   <Sparkles size={13} color="#059669" />
                   <Text style={styles.otpHelperPillText}>
-                    Universal Login OTP: <Text style={{ fontWeight: '800' }}>261125</Text> (Tap to Auto-fill)
+                    Universal Login OTP: <Text style={{ fontWeight: '800' }}>123456</Text> (Tap to Auto-fill)
                   </Text>
                 </TouchableOpacity>
 

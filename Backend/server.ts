@@ -12,6 +12,7 @@ import cors from 'cors';
 import { connectDB } from './config/db';
 import { apiRouter } from './routers';
 import { ServiceService } from './services/serviceService';
+import { DatabaseSeeder } from './services/databaseSeeder';
 import { paymentRouter } from './routers/paymentRouter';
 import { PaymentController } from './controllers/paymentController';
 import { errorHandler, requestLogger, createRateLimiter } from './middleware';
@@ -71,9 +72,9 @@ export async function startServer() {
     .then(async (conn) => {
       if (conn) {
         try {
-          await ServiceService.seedDefaultServices();
+          await DatabaseSeeder.seedAll();
         } catch (err) {
-          console.warn('[DB] Seeding issue:', err);
+          console.warn('[DB] Master Seeding issue:', err);
         }
       }
     })

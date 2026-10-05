@@ -12,10 +12,10 @@ export class UserController {
     if (!phone) {
       return sendError(res, 'Mobile number is required to send OTP', 400);
     }
-    // As per requirement: for any mobile number, OTP is strictly 261125 until third-party SMS gateway is integrated
+    // Universal development & test OTP is standardized to 123456
     return sendSuccess(res, {
       message: 'OTP sent successfully to registered mobile number',
-      otp: '261125',
+      otp: '123456',
       phone,
     });
   });
@@ -28,9 +28,10 @@ export class UserController {
     if (!otp) {
       return sendError(res, 'Verification OTP is required', 400);
     }
-    // OTP MUST be 261125
-    if (String(otp).trim() !== '261125') {
-      return sendError(res, 'Invalid OTP code. Please enter 261125.', 401);
+    const cleanOtp = String(otp).trim();
+    // Standard test OTP is 123456 (also support legacy 261125 for seamless backward compatibility)
+    if (cleanOtp !== '123456' && cleanOtp !== '261125') {
+      return sendError(res, 'Invalid OTP code. Please enter 123456.', 401);
     }
 
     const user: any = await UserService.findOrCreateUser(phone, {

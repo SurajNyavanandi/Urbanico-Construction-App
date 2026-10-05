@@ -4,7 +4,7 @@ export interface IUser extends Document {
   name: string;
   phone: string;
   email?: string;
-  role: 'contractor' | 'engineer' | 'supervisor' | 'client' | 'admin';
+  role: 'contractor' | 'engineer' | 'supervisor' | 'client' | 'admin' | 'user';
   gstin?: string;
   companyName?: string;
   avatarUrl?: string;
@@ -49,7 +49,7 @@ const UserSchema = new Schema<IUser>(
     email: { type: String, trim: true, lowercase: true },
     role: {
       type: String,
-      enum: ['contractor', 'engineer', 'supervisor', 'client', 'admin'],
+      enum: ['contractor', 'engineer', 'supervisor', 'client', 'admin', 'user'],
       default: 'contractor',
     },
     gstin: { type: String, trim: true, uppercase: true },

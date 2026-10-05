@@ -78,34 +78,117 @@ export class DeliveryService {
     return null;
   }
 
-  public static async verifyDeliveryOtp(orderNumber: string, otp: string) {
+  public static async registerDelivery(deliveryPayload: any) {
+    let saved: any = null;
     try {
       if (mongoose.connection.readyState === 1) {
-        const delivery = await Delivery.findOne({ orderNumber }).exec();
-        if (delivery) {
-          if (otp !== '261125' && delivery.otp !== otp) {
-            return { success: false, message: 'Invalid OTP code. Please enter 261125.' };
-          }
-          delivery.isOtpVerified = true;
-          delivery.status = 'delivered';
-          await delivery.save();
-          return { success: true, message: 'Delivery verified successfully and marked as delivered', delivery };
+        const delivery = new Delivery(deliveryPayload);
+        saved = await delivery.save();
+      }
+    } catch (err) {
+      console.warn('[DeliveryService] Could not save delivery to MongoDB:', err);
+    }
+
+    const memoryItem = saved ? (saved.toObject ? saved.toObject() : saved) : { _id: `del_${Date.now()}`, ...deliveryPayload };
+    inMemoryDeliveries.unshift(memoryItem);
+    return memoryItem;
+  }
+
+  public static async syncDeliveryDispatch(orderNumber: string, updateData: Partial<IDelivery> | any) {
+    try {
+      if (mongoose.connection.readyState === 1) {
+        await Delivery.findOneAndUpdate(
+          { orderNumber },
+          { $set: { ...updateData, updatedAt: new Date() } },
+          { new: true, upsert: false }
+        ).exec();
+      }
+    } catch (err) {
+      console.warn('[DeliveryService] Error syncing delivery dispatch:', err);
+    }
+
+    const idx = inMemoryDeliveries.findIndex((d) => d.orderNumber === orderNumber);
+    if (idx !== -1) {
+      inMemoryDeliveries[idx] = {
+        ...inMemoryDeliveries[idx],
+        ...updateData,
+        updatedAt: new Date(),
+      };
+    }
+  }
+
+  public static async verifyDeliveryOtp(orderNumber: string, otp: string) {
+    const cleanOtp = String(otp || '').trim();
+    const isDevOtp = cleanOtp === '123456';
+
+    let deliveryRecord: any = null;
+    let orderRecord: any = null;
+
+    try {
+      if (mongoose.connection.readyState === 1) {
+        deliveryRecord = await Delivery.findOne({ orderNumber }).exec();
+        const OrderModel = mongoose.models.Order;
+        if (OrderModel) {
+          orderRecord = await OrderModel.findOne({ orderNumber }).exec();
         }
       }
     } catch (err) {
       // fallback
     }
 
-    const delivery = inMemoryDeliveries.find((d) => d.orderNumber === orderNumber);
-    if (!delivery) {
-      return { success: false, message: 'Delivery record not found' };
+    if (!deliveryRecord) {
+      deliveryRecord = inMemoryDeliveries.find((d) => d.orderNumber === orderNumber);
     }
-    if (otp !== '261125' && delivery.otp !== otp) {
-      return { success: false, message: 'Invalid OTP code. Please enter 261125.' };
+
+    const validOtps = [
+      deliveryRecord?.otp,
+      orderRecord?.deliveryOtp,
+    ].filter(Boolean);
+
+    const isMatch = isDevOtp || validOtps.includes(cleanOtp);
+
+    if (!isMatch) {
+      return {
+        success: false,
+        message: 'Invalid OTP code. Please enter the valid OTP provided on your order screen, or dev OTP 123456.',
+      };
     }
-    delivery.isOtpVerified = true;
-    delivery.status = 'delivered';
-    return { success: true, message: 'Delivery verified successfully and marked as delivered', delivery };
+
+    if (deliveryRecord) {
+      deliveryRecord.isOtpVerified = true;
+      deliveryRecord.status = 'delivered';
+      if (mongoose.connection.readyState === 1 && typeof deliveryRecord.save === 'function') {
+        await deliveryRecord.save();
+      }
+    }
+
+    const memIdx = inMemoryDeliveries.findIndex((d) => d.orderNumber === orderNumber);
+    if (memIdx !== -1) {
+      inMemoryDeliveries[memIdx].isOtpVerified = true;
+      inMemoryDeliveries[memIdx].status = 'delivered';
+    }
+
+    try {
+      if (mongoose.connection.readyState === 1) {
+        const OrderModel = mongoose.models.Order;
+        if (OrderModel) {
+          await OrderModel.findOneAndUpdate(
+            { orderNumber },
+            { $set: { orderStatus: 'delivered', deliveryDate: new Date(), updatedAt: new Date() } }
+          ).exec();
+        }
+      }
+      const { OrderService } = await import('./orderService');
+      await OrderService.updateOrderStatus(orderNumber, 'delivered', {
+        deliveryDate: new Date(),
+      });
+    } catch (err) {}
+
+    return {
+      success: true,
+      message: 'Delivery verified successfully and marked as delivered',
+      delivery: deliveryRecord,
+    };
   }
 
   public static async purgeAllDeliveries() {

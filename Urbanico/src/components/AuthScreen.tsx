@@ -18,7 +18,7 @@ import { apiService } from '../services/apiService';
 import { useTheme, useTypography } from '../theme';
 
 const DEFAULT_DEV_MOBILE = '';
-const DEFAULT_DEV_OTP = '261125';
+const DEFAULT_DEV_OTP = '123456';
 
 interface AuthScreenProps {
   initialStep?: 'mobile' | 'otp';

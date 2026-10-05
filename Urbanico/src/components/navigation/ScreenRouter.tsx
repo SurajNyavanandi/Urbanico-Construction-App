@@ -286,45 +286,12 @@ export const ScreenRouter: React.FC<ScreenRouterProps> = ({
         </ScreenSuspense>
       )}
 
-      {currentScreen === 'activity' && (
-        <ScreenSuspense type="tracking">
-          <ActivityDashboardScreen
-            deliveries={deliveries}
-            isLoggedIn={isLoggedIn}
-            onOpenLoginModal={onOpenAuthModal}
-            onBack={() => onNavigateScreen('profile')}
-            onExploreCatalog={() => {
-              onSelectCategory('all');
-              onNavigateScreen('shop');
-            }}
-            onViewInvoice={onViewInvoice}
-            onReorderMaterial={(matName) => {
-              const matchedItem =
-                materials.find(
-                  (m) =>
-                    m.name.toLowerCase().includes(matName.toLowerCase()) ||
-                    matName.toLowerCase().includes(m.name.toLowerCase())
-                ) ||
-                MATERIAL_ITEMS.find(
-                  (m) =>
-                    m.name.toLowerCase().includes(matName.toLowerCase()) ||
-                    matName.toLowerCase().includes(m.name.toLowerCase())
-                );
-              if (matchedItem) {
-                onSelectItemModal(matchedItem);
-              } else {
-                onSelectCategory('all');
-                onNavigateScreen('shop');
-              }
-            }}
-          />
-        </ScreenSuspense>
-      )}
-
-      {(currentScreen === 'orders' || currentScreen === 'order_history') && (
+      {(currentScreen === 'activity' || currentScreen === 'orders' || currentScreen === 'order_history') && (
         <ScreenSuspense type="tracking">
           <OrderHistory
             user={user}
+            deliveries={deliveries}
+            initialFilter={currentScreen === 'activity' ? 'active' : 'all'}
             isLoggedIn={isLoggedIn}
             onBack={() => onNavigateScreen('profile')}
             onExploreCatalog={() => {
@@ -332,9 +299,6 @@ export const ScreenRouter: React.FC<ScreenRouterProps> = ({
               onNavigateScreen('shop');
             }}
             onViewInvoice={onViewInvoice}
-            onTrackOrder={(del) => {
-              onNavigateScreen('activity');
-            }}
             onOpenLoginModal={onOpenAuthModal}
             onReorderMaterial={(matName) => {
               const matchedItem =

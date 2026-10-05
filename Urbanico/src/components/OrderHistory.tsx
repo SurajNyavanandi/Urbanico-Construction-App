@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,8 +8,10 @@ import {
   TextInput,
   RefreshControl,
   ActivityIndicator,
-  Platform,
   Modal,
+  Linking,
+  Platform,
+  Image,
 } from 'react-native';
 import {
   Package,
@@ -21,21 +23,22 @@ import {
   FileText,
   RotateCcw,
   Search,
-  Filter,
   Copy,
   Check,
   ChevronDown,
   ChevronUp,
   ArrowLeft,
-  Share2,
   ShieldCheck,
   Send,
-  Building2,
   CreditCard,
   Layers,
   ArrowRight,
-  Sparkles,
   Phone,
+  X,
+  Navigation,
+  KeyRound,
+  Building2,
+  Calendar,
 } from 'lucide-react-native';
 import { ActivityDelivery, CartItem, UserProfile } from '../types';
 import { useTheme } from '../context/ThemeContext';
@@ -44,11 +47,17 @@ import { useCart } from '../context/CartContext';
 import { apiService } from '../services/apiService';
 import { formatSiteAddress } from '../utils/addressHelper';
 import { safeStorage } from '../utils/safeStorage';
+import { resolveMaterialImage } from '../utils/materialImageResolver';
 import { formatINR, useClipboard } from '../hooks';
+
+export type OrderStatusFilter = 'all' | 'active' | 'delivered' | 'cancelled';
+export type OrderSortOption = 'newest' | 'oldest' | 'highest_amount';
 
 export interface OrderHistoryProps {
   user?: UserProfile;
   isLoggedIn?: boolean;
+  deliveries?: ActivityDelivery[];
+  initialFilter?: OrderStatusFilter;
   onBack?: () => void;
   onExploreCatalog?: () => void;
   onViewInvoice?: (delivery: ActivityDelivery) => void;
@@ -57,12 +66,40 @@ export interface OrderHistoryProps {
   onReorderMaterial?: (materialName: string) => void;
 }
 
-export type OrderStatusFilter = 'all' | 'active' | 'delivered' | 'cancelled';
-export type OrderSortOption = 'newest' | 'oldest' | 'highest_amount';
+const ORDER_LIFECYCLE_STAGES = [
+  {
+    id: 'confirmed',
+    stepNumber: 1,
+    title: 'Order Confirmed',
+    description: 'Payment authorized & order booked in central inventory',
+  },
+  {
+    id: 'yard_processing',
+    stepNumber: 2,
+    title: 'Yard Material Batching',
+    description: 'Materials inspected, batch sealed & prepared for transit',
+  },
+  {
+    id: 'in_transit',
+    stepNumber: 3,
+    title: 'Out for Site Delivery',
+    description: 'Consignment en route to your construction site (Live GPS)',
+  },
+  {
+    id: 'site_handover',
+    stepNumber: 4,
+    title: 'Site Delivery & Unloading',
+    description: 'Gate OTP verification, material handover & e-invoice sign-off',
+  },
+];
+
+const EMPTY_DELIVERIES: ActivityDelivery[] = [];
 
 export const OrderHistory: React.FC<OrderHistoryProps> = ({
   user,
   isLoggedIn = false,
+  deliveries = EMPTY_DELIVERIES,
+  initialFilter = 'all',
   onBack,
   onExploreCatalog,
   onViewInvoice,
@@ -70,80 +107,39 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
   onOpenLoginModal,
   onReorderMaterial,
 }) => {
-  const { theme } = useTheme();
+  const { theme, themeMode } = useTheme();
+  const isDark = themeMode === 'dark';
   const { showToast } = useToast();
   const { addBundleToCart } = useCart();
   const { copy } = useClipboard();
+
+  const propDeliveriesRef = useRef(deliveries);
+  propDeliveriesRef.current = deliveries;
+
+  const userPhone = user?.phone ? user.phone.replace(/[^0-9]/g, '') : '';
+  const userName = user?.name || '';
 
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<OrderStatusFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<OrderStatusFilter>(initialFilter);
   const [sortBy, setSortBy] = useState<OrderSortOption>('newest');
   const [expandedOrderIds, setExpandedOrderIds] = useState<Record<string, boolean>>({});
   const [copiedOrderId, setCopiedOrderId] = useState<string | null>(null);
-  const [emailingOrderId, setEmailingOrderId] = useState<string | null>(null);
+  const [copiedOtpId, setCopiedOtpId] = useState<string | null>(null);
+
+  // Live Dispatch Tracking In-Place Modal
+  const [activeTrackingDelivery, setActiveTrackingDelivery] = useState<ActivityDelivery | null>(null);
 
   // Email invoice modal state
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [targetOrderForEmail, setTargetOrderForEmail] = useState<any | null>(null);
   const [customEmail, setCustomEmail] = useState(user?.email || '');
+  const [isEmailing, setIsEmailing] = useState(false);
 
-  // Fetch orders from backend and local cache
-  const loadOrders = useCallback(async (isRefresh = false) => {
-    if (isRefresh) {
-      setIsRefreshing(true);
-    } else {
-      setIsLoading(true);
-    }
-
-    try {
-      const userPhone = user?.phone ? user.phone.replace(/[^0-9]/g, '') : undefined;
-      const fetchedOrders = await apiService.getOrders({ phone: userPhone });
-
-      if (Array.isArray(fetchedOrders) && fetchedOrders.length > 0) {
-        setOrders(fetchedOrders);
-      } else {
-        // Fallback to local storage if API is offline
-        const localRaw = safeStorage.getItem('urbanico_orders');
-        if (localRaw) {
-          const parsed = JSON.parse(localRaw);
-          setOrders(Array.isArray(parsed) ? parsed : []);
-        } else {
-          setOrders([]);
-        }
-      }
-    } catch (err) {
-      console.warn('[OrderHistory] Error fetching past orders:', err);
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, [user?.phone]);
-
-  useEffect(() => {
-    loadOrders();
-  }, [loadOrders, isLoggedIn]);
-
-  const toggleExpandOrder = (orderId: string) => {
-    setExpandedOrderIds((prev) => ({
-      ...prev,
-      [orderId]: !prev[orderId],
-    }));
-  };
-
-  const handleCopyOrderNumber = (orderNumber: string) => {
-    copy(orderNumber);
-    setCopiedOrderId(orderNumber);
-    showToast(`Order #${orderNumber} copied to clipboard!`, 'success');
-    setTimeout(() => {
-      setCopiedOrderId(null);
-    }, 2000);
-  };
-
-  // Convert raw backend order to ActivityDelivery for standard Invoice and Tracking screens
-  const mapOrderToActivityDelivery = (order: any): ActivityDelivery => {
+  // Convert raw backend order to ActivityDelivery format
+  const mapOrderToActivityDelivery = useCallback((order: any): ActivityDelivery => {
     const rawItems = order.items || [];
     const itemNames = rawItems.map((i: any) => i.name || i.title).filter(Boolean);
     const primaryName = itemNames.length > 0 ? itemNames.join(', ') : 'Direct Yard Construction Supplies';
@@ -164,7 +160,11 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
       selectedOptionLabel: `${i.quantity || 1} ${i.unit || 'unit'}`,
       unitPrice: Number(i.unitPrice || (i.totalPrice ? i.totalPrice / (i.quantity || 1) : 0)),
       quantity: Number(i.quantity || 1),
-      image: i.image || 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614395/cement2_s1pf60.jpg',
+      image: resolveMaterialImage({
+        name: i.name || i.title,
+        category: i.category,
+        image: i.image,
+      }),
     }));
 
     return {
@@ -189,7 +189,7 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
         year: 'numeric',
       }),
       totalAmount: Number(order.totalAmount || 0),
-      deliveryOtp: order.deliveryOtp || '261125',
+      deliveryOtp: order.deliveryOtp || '749182',
       ewayBillNumber: order.eWayBillNo || `EWB-TS-2026-${Math.floor(10000000 + Math.random() * 90000000)}`,
       cartItemsSnapshot: cartSnapshot,
       unloadingCharges: order.unloadingCharges || 800,
@@ -199,6 +199,101 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
       customerPhone: order.customerPhone || user?.phone,
       customerEmail: order.customerEmail || user?.email,
     };
+  }, [user]);
+
+  // Fetch orders from backend and fallback cache
+  const loadOrders = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setIsRefreshing(true);
+    } else {
+      setIsLoading(true);
+    }
+
+    try {
+      const fetchedOrders = await apiService.getOrders(userPhone ? { phone: userPhone } : {});
+
+      if (Array.isArray(fetchedOrders) && fetchedOrders.length > 0) {
+        setOrders(fetchedOrders);
+      } else {
+        // Fallback to local storage if API is offline
+        const localRaw = safeStorage.getItem('urbanico_orders');
+        if (localRaw) {
+          const parsed = JSON.parse(localRaw);
+          setOrders(Array.isArray(parsed) ? parsed : []);
+        } else if (propDeliveriesRef.current && propDeliveriesRef.current.length > 0) {
+          // Convert prop deliveries to order format
+          const converted = propDeliveriesRef.current.map((d) => ({
+            _id: d.id,
+            orderNumber: d.orderNumber,
+            customerName: d.siteSupervisorName || userName || 'Valued Client',
+            customerPhone: d.siteSupervisorPhone || userPhone,
+            orderStatus: d.status === 'Delivered' ? 'delivered' : d.status === 'Cancelled' ? 'cancelled' : 'in_transit',
+            totalAmount: d.totalAmount,
+            deliveryOtp: d.deliveryOtp || '749182',
+            vehicleNumber: d.vehicleNumber,
+            driverName: d.driverName,
+            driverPhone: d.driverPhone,
+            eWayBillNo: d.ewayBillNumber,
+            siteAddress: d.siteAddress,
+            createdAt: new Date().toISOString(),
+            items: (d.cartItemsSnapshot || []).map((ci) => ({
+              name: ci.itemName,
+              category: ci.categoryName,
+              quantity: ci.quantity,
+              unit: ci.selectedOptionLabel,
+              unitPrice: ci.unitPrice,
+              totalPrice: ci.unitPrice * ci.quantity,
+            })),
+          }));
+          setOrders(converted);
+        } else {
+          setOrders([]);
+        }
+      }
+    } catch (err) {
+      console.warn('[OrderHistory] Error fetching past orders:', err);
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [userPhone, userName]);
+
+  useEffect(() => {
+    loadOrders();
+  }, [userPhone, isLoggedIn, loadOrders]);
+
+  const toggleExpandOrder = (orderId: string) => {
+    setExpandedOrderIds((prev) => ({
+      ...prev,
+      [orderId]: !prev[orderId],
+    }));
+  };
+
+  const handleCopy = (text: string, type: 'order' | 'otp') => {
+    copy(text);
+    if (type === 'order') {
+      setCopiedOrderId(text);
+      showToast(`Order #${text} copied to clipboard!`, 'success');
+      setTimeout(() => setCopiedOrderId(null), 2000);
+    } else {
+      setCopiedOtpId(text);
+      showToast(`Gate Handover OTP ${text} copied!`, 'success');
+      setTimeout(() => setCopiedOtpId(null), 2000);
+    }
+  };
+
+  const handleCall = (phoneNumber?: string) => {
+    const clean = (phoneNumber || '+919848012345').replace(/\D/g, '');
+    const url = `tel:${clean}`;
+    Linking.canOpenURL(url).then((supported) => {
+      if (supported) {
+        Linking.openURL(url);
+      } else {
+        showToast(`Dispatch Contact: ${phoneNumber || '+91 98480 12345'}`, 'info');
+      }
+    }).catch(() => {
+      showToast(`Dispatch Contact: ${phoneNumber || '+91 98480 12345'}`, 'info');
+    });
   };
 
   // Re-add all items in order to cart
@@ -220,11 +315,15 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
       optionLabel: `${item.quantity || 1} ${item.unit || 'unit'}`,
       unitPrice: Number(item.unitPrice || 100),
       quantity: Number(item.quantity || 1),
-      image: item.image || 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786614395/cement2_s1pf60.jpg',
+      image: resolveMaterialImage({
+        name: item.name || item.title,
+        category: item.category,
+        image: item.image,
+      }),
     }));
 
     addBundleToCart(bundlePayload);
-    showToast(`Added ${bundlePayload.length} item${bundlePayload.length > 1 ? 's' : ''} from #${order.orderNumber} to cart!`, 'success');
+    showToast(`Added ${bundlePayload.length} item${bundlePayload.length > 1 ? 's' : ''} to cart!`, 'success');
   };
 
   // Handle Send Email Invoice
@@ -236,11 +335,10 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
       return;
     }
 
-    setEmailingOrderId(targetOrderForEmail.orderNumber);
+    setIsEmailing(true);
     setShowEmailModal(false);
 
     try {
-      const delivery = mapOrderToActivityDelivery(targetOrderForEmail);
       const res = await apiService.emailTaxInvoice({
         orderNumber: targetOrderForEmail.orderNumber,
         invoiceNumber: `INV-${targetOrderForEmail.orderNumber}`,
@@ -259,14 +357,14 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
       });
 
       if (res && res.success) {
-        showToast(`Tax Invoice sent successfully to ${recipient}!`, 'success');
+        showToast(`Tax Invoice sent to ${recipient}!`, 'success');
       } else {
         showToast(`Tax Invoice dispatched to ${recipient}`, 'info');
       }
     } catch {
-      showToast(`Tax Invoice emailed to ${recipient}`, 'info');
+      showToast(`Tax Invoice dispatched to ${recipient}`, 'info');
     } finally {
-      setEmailingOrderId(null);
+      setIsEmailing(false);
     }
   };
 
@@ -347,61 +445,55 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
         day: '2-digit',
         month: 'short',
         year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
       });
     } catch {
       return String(dateStr);
     }
   };
 
-  // Status indicator styling
+  const isOrderActive = (statusRaw?: string) => {
+    const st = (statusRaw || 'confirmed').toLowerCase();
+    return st === 'confirmed' || st === 'processing' || st === 'dispatched' || st === 'in_transit' || st === 'en_route';
+  };
+
+  // Status indicator styling with high-contrast, clean status pills
   const getStatusConfig = (statusRaw?: string) => {
     const st = (statusRaw || 'confirmed').toLowerCase();
     if (st === 'delivered') {
       return {
         label: 'Delivered',
-        dotColor: '#16A34A',
-        textColor: '#15803D',
-        bgColor: '#DCFCE7',
+        dotColor: '#10B981',
+        textColor: isDark ? '#34D399' : '#059669',
+        bgColor: isDark ? 'rgba(16, 185, 129, 0.15)' : '#ECFDF5',
       };
     }
     if (st === 'in_transit' || st === 'en_route' || st === 'dispatched') {
       return {
-        label: 'In Transit · Live GPS',
-        dotColor: '#2563EB',
-        textColor: '#1D4ED8',
-        bgColor: '#DBEAFE',
-      };
-    }
-    if (st === 'processing' || st === 'confirmed') {
-      return {
-        label: 'Processing & Batching',
-        dotColor: '#D97706',
-        textColor: '#B45309',
-        bgColor: '#FEF3C7',
+        label: 'In Transit',
+        dotColor: '#F59E0B',
+        textColor: isDark ? '#FBBF24' : '#D97706',
+        bgColor: isDark ? 'rgba(245, 158, 11, 0.15)' : '#FFFBEB',
       };
     }
     if (st === 'cancelled') {
       return {
         label: 'Cancelled',
-        dotColor: '#DC2626',
-        textColor: '#B91C1C',
-        bgColor: '#FEE2E2',
+        dotColor: '#EF4444',
+        textColor: isDark ? '#F87171' : '#DC2626',
+        bgColor: isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2',
       };
     }
     return {
-      label: 'Order Confirmed',
-      dotColor: '#4F46E5',
-      textColor: '#4338CA',
-      bgColor: '#EEF2FF',
+      label: st === 'processing' ? 'Processing' : 'Placed',
+      dotColor: isDark ? '#9CA3AF' : '#71717A',
+      textColor: isDark ? '#D4D4D8' : '#52525B',
+      bgColor: isDark ? 'rgba(113, 113, 122, 0.15)' : '#F4F4F5',
     };
   };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
-      {/* 1. Header Bar */}
+      {/* 1. Mobile-First Header Bar */}
       <View style={[styles.headerBar, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
         <View style={styles.headerLeft}>
           {onBack && (
@@ -411,13 +503,15 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
               accessibilityRole="button"
               accessibilityLabel="Back"
             >
-              <ArrowLeft size={20} color={theme.textPrimary} />
+              <ArrowLeft size={19} color={theme.textPrimary} />
             </TouchableOpacity>
           )}
           <View>
-            <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>Order History</Text>
+            <Text style={[styles.headerTitle, { color: theme.textPrimary }]}>
+              Orders & Dispatches
+            </Text>
             <Text style={[styles.headerSubtitle, { color: theme.textSecondary }]}>
-              Past construction materials & wholesale orders
+              Live consignment tracking & past procurement
             </Text>
           </View>
         </View>
@@ -432,7 +526,7 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
           {isRefreshing ? (
             <ActivityIndicator size="small" color={theme.primary} />
           ) : (
-            <RotateCcw size={18} color={theme.textPrimary} />
+            <RotateCcw size={17} color={theme.textPrimary} />
           )}
         </TouchableOpacity>
       </View>
@@ -440,6 +534,7 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
       <ScrollView
         style={styles.scrollArea}
         contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -454,14 +549,14 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
           <View style={[styles.guestBanner, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <View style={styles.guestBannerHeader}>
               <View style={[styles.guestIconCircle, { backgroundColor: theme.surfaceSecondary }]}>
-                <ShieldCheck size={22} color={theme.primary} />
+                <ShieldCheck size={20} color={theme.primary} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.guestBannerTitle, { color: theme.textPrimary }]}>
-                  Access Full Order History
+                  View All Site Orders & Tracking
                 </Text>
                 <Text style={[styles.guestBannerDesc, { color: theme.textSecondary }]}>
-                  Sign in with your registered mobile number to view all historical construction consignments, E-Way bills, and live GPS dispatch status.
+                  Sign in with your mobile number to view past orders, track live GPS truck dispatches, and download GST tax invoices.
                 </Text>
               </View>
             </View>
@@ -472,42 +567,79 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
                 activeOpacity={0.85}
               >
                 <Text style={[styles.guestLoginButtonText, { color: theme.buttonText || '#FFFFFF' }]}>
-                  Log In to View Orders
+                  Log In with Mobile Number
                 </Text>
-                <ArrowRight size={16} color={theme.buttonText || '#FFFFFF'} />
+                <ArrowRight size={15} color={theme.buttonText || '#FFFFFF'} />
               </TouchableOpacity>
             )}
           </View>
         )}
 
-        {/* 3. Metrics Overview Card */}
-        <View style={[styles.metricsContainer, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-          <View style={styles.metricItem}>
-            <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Total Orders</Text>
-            <Text style={[styles.metricValue, { color: theme.textPrimary }]}>{metrics.total}</Text>
-          </View>
-          <View style={[styles.metricSeparator, { backgroundColor: theme.border }]} />
-          <View style={styles.metricItem}>
-            <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>In-Transit</Text>
-            <Text style={[styles.metricValue, { color: '#2563EB' }]}>{metrics.active}</Text>
-          </View>
-          <View style={[styles.metricSeparator, { backgroundColor: theme.border }]} />
-          <View style={styles.metricItem}>
-            <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Delivered</Text>
-            <Text style={[styles.metricValue, { color: '#16A34A' }]}>{metrics.delivered}</Text>
-          </View>
-          <View style={[styles.metricSeparator, { backgroundColor: theme.border }]} />
-          <View style={styles.metricItem}>
-            <Text style={[styles.metricLabel, { color: theme.textSecondary }]}>Total Volume</Text>
-            <Text style={[styles.metricValue, { color: theme.textPrimary }]}>
-              {formatINR(metrics.totalSpent)}
+        {/* 3. Mobile Segmented Filter Tabs (Clean Segmented Control) */}
+        <View style={[styles.segmentedFilterContainer, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+          <TouchableOpacity
+            onPress={() => setStatusFilter('all')}
+            style={[
+              styles.segmentedTab,
+              statusFilter === 'all' && [styles.segmentedTabActive, { backgroundColor: theme.surface }],
+            ]}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.segmentedTabText,
+                { color: statusFilter === 'all' ? theme.textPrimary : theme.textSecondary },
+                statusFilter === 'all' && { fontWeight: '700' },
+              ]}
+            >
+              All ({orders.length})
             </Text>
-          </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setStatusFilter('active')}
+            style={[
+              styles.segmentedTab,
+              statusFilter === 'active' && [styles.segmentedTabActive, { backgroundColor: theme.surface }],
+            ]}
+            activeOpacity={0.8}
+          >
+            <View style={styles.tabBadgeRow}>
+              {metrics.active > 0 && <View style={styles.pulsingDot} />}
+              <Text
+                style={[
+                  styles.segmentedTabText,
+                  { color: statusFilter === 'active' ? theme.textPrimary : theme.textSecondary },
+                  statusFilter === 'active' && { fontWeight: '700' },
+                ]}
+              >
+                Active & En Route ({metrics.active})
+              </Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={() => setStatusFilter('delivered')}
+            style={[
+              styles.segmentedTab,
+              statusFilter === 'delivered' && [styles.segmentedTabActive, { backgroundColor: theme.surface }],
+            ]}
+            activeOpacity={0.8}
+          >
+            <Text
+              style={[
+                styles.segmentedTabText,
+                { color: statusFilter === 'delivered' ? theme.textPrimary : theme.textSecondary },
+                statusFilter === 'delivered' && { fontWeight: '700' },
+              ]}
+            >
+              Delivered ({metrics.delivered})
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        {/* 4. Search and Filters Toolbar */}
+        {/* 4. Search Bar & Metric Strip */}
         <View style={styles.toolbarContainer}>
-          {/* Search Input */}
           <View style={[styles.searchInputWrapper, { backgroundColor: theme.surface, borderColor: theme.border }]}>
             <Search size={18} color={theme.textMuted} />
             <TextInput
@@ -524,107 +656,6 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
               </TouchableOpacity>
             )}
           </View>
-
-          {/* Status Segmented Filter Buttons */}
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterTabsRow}>
-            <TouchableOpacity
-              onPress={() => setStatusFilter('all')}
-              style={[
-                styles.filterTabButton,
-                statusFilter === 'all'
-                  ? [styles.filterTabActive, { backgroundColor: theme.textPrimary }]
-                  : [styles.filterTabInactive, { backgroundColor: theme.surface, borderColor: theme.border }],
-              ]}
-            >
-              <Text
-                style={[
-                  styles.filterTabText,
-                  { color: statusFilter === 'all' ? theme.background : theme.textSecondary },
-                ]}
-              >
-                All Orders ({orders.length})
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setStatusFilter('active')}
-              style={[
-                styles.filterTabButton,
-                statusFilter === 'active'
-                  ? [styles.filterTabActive, { backgroundColor: '#2563EB' }]
-                  : [styles.filterTabInactive, { backgroundColor: theme.surface, borderColor: theme.border }],
-              ]}
-            >
-              <Text
-                style={[
-                  styles.filterTabText,
-                  { color: statusFilter === 'active' ? '#FFFFFF' : theme.textSecondary },
-                ]}
-              >
-                Active / En Route ({metrics.active})
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setStatusFilter('delivered')}
-              style={[
-                styles.filterTabButton,
-                statusFilter === 'delivered'
-                  ? [styles.filterTabActive, { backgroundColor: '#16A34A' }]
-                  : [styles.filterTabInactive, { backgroundColor: theme.surface, borderColor: theme.border }],
-              ]}
-            >
-              <Text
-                style={[
-                  styles.filterTabText,
-                  { color: statusFilter === 'delivered' ? '#FFFFFF' : theme.textSecondary },
-                ]}
-              >
-                Delivered ({metrics.delivered})
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setStatusFilter('cancelled')}
-              style={[
-                styles.filterTabButton,
-                statusFilter === 'cancelled'
-                  ? [styles.filterTabActive, { backgroundColor: '#DC2626' }]
-                  : [styles.filterTabInactive, { backgroundColor: theme.surface, borderColor: theme.border }],
-              ]}
-            >
-              <Text
-                style={[
-                  styles.filterTabText,
-                  { color: statusFilter === 'cancelled' ? '#FFFFFF' : theme.textSecondary },
-                ]}
-              >
-                Cancelled
-              </Text>
-            </TouchableOpacity>
-          </ScrollView>
-
-          {/* Sort Selector Bar */}
-          <View style={styles.sortRow}>
-            <Text style={[styles.resultsCountText, { color: theme.textSecondary }]}>
-              Showing {filteredOrders.length} {filteredOrders.length === 1 ? 'order' : 'orders'}
-            </Text>
-            <View style={styles.sortActions}>
-              <TouchableOpacity
-                onPress={() => setSortBy(sortBy === 'newest' ? 'oldest' : sortBy === 'oldest' ? 'highest_amount' : 'newest')}
-                style={[styles.sortButton, { backgroundColor: theme.surface, borderColor: theme.border }]}
-              >
-                <Text style={[styles.sortButtonText, { color: theme.textPrimary }]}>
-                  Sort:{' '}
-                  {sortBy === 'newest'
-                    ? 'Newest First'
-                    : sortBy === 'oldest'
-                    ? 'Oldest First'
-                    : 'Highest Amount'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
         </View>
 
         {/* 5. Loading State */}
@@ -632,7 +663,7 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={theme.primary} />
             <Text style={[styles.loadingText, { color: theme.textSecondary }]}>
-              Fetching construction material order history...
+              Loading order consignments...
             </Text>
           </View>
         )}
@@ -643,11 +674,13 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
             <View style={[styles.emptyIconCircle, { backgroundColor: theme.surfaceSecondary }]}>
               <Package size={36} color={theme.textMuted} />
             </View>
-            <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>No Past Orders Found</Text>
+            <Text style={[styles.emptyTitle, { color: theme.textPrimary }]}>No Orders Found</Text>
             <Text style={[styles.emptyDesc, { color: theme.textSecondary }]}>
               {searchQuery
-                ? `No orders matching "${searchQuery}". Try adjusting your search keyword or filters.`
-                : 'You have not placed any construction material orders yet. Explore our wholesale catalog to begin.'}
+                ? `No orders matching "${searchQuery}". Try a different keyword.`
+                : statusFilter === 'active'
+                ? 'No active shipments en route currently.'
+                : 'No construction material orders placed yet.'}
             </Text>
             {onExploreCatalog && (
               <TouchableOpacity
@@ -656,260 +689,252 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
                 activeOpacity={0.85}
               >
                 <Text style={[styles.emptyActionText, { color: theme.buttonText || '#FFFFFF' }]}>
-                  Explore Wholesale Catalog
+                  Browse Wholesale Catalog
                 </Text>
               </TouchableOpacity>
             )}
           </View>
         )}
 
-        {/* 7. Orders Cards List */}
+        {/* 7. Unified Order Cards */}
         {!isLoading &&
           filteredOrders.map((order) => {
             const isExpanded = !!expandedOrderIds[order.orderNumber];
             const statusCfg = getStatusConfig(order.orderStatus);
             const items = order.items || [];
-            const isEmailing = emailingOrderId === order.orderNumber;
+            const active = isOrderActive(order.orderStatus);
             const deliveryObj = mapOrderToActivityDelivery(order);
+
+            const primaryItem = items[0] || {};
+            const otherItemCount = Math.max(0, items.length - 1);
+            const primaryMaterialName = primaryItem.name || primaryItem.title || 'Direct Yard Supplies';
+            const displayName = otherItemCount > 0 
+              ? `${primaryMaterialName} + ${otherItemCount} more`
+              : primaryMaterialName;
+            const primaryImage = resolveMaterialImage({
+              name: primaryMaterialName,
+              category: primaryItem.category,
+              image: primaryItem.image,
+            });
+            const totalQuantity = items.reduce((sum: number, it: any) => sum + (Number(it.quantity) || 1), 0);
+            const quantityLabel = primaryItem.unit 
+              ? `${primaryItem.quantity || 1} ${primaryItem.unit}${otherItemCount > 0 ? ` · ${totalQuantity} items` : ''}`
+              : `${totalQuantity} ${totalQuantity === 1 ? 'item' : 'items'}`;
 
             return (
               <View
                 key={order._id || order.orderNumber}
-                style={[styles.orderCard, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                style={[
+                  styles.orderCard,
+                  { 
+                    backgroundColor: theme.surface, 
+                    borderColor: active ? (isDark ? '#1E3A8A' : '#BFDBFE') : theme.border 
+                  },
+                ]}
               >
-                {/* Order Top Meta Header */}
+                {/* 1. Header: Order ID with 1-tap copy · Date + Status Pill */}
                 <View style={styles.cardHeader}>
-                  <View style={styles.orderIdentityCol}>
-                    <View style={styles.orderNumberRow}>
-                      <Text style={[styles.orderNumberText, { color: theme.textPrimary }]}>
+                  <View style={styles.headerMetaRow}>
+                    <TouchableOpacity
+                      onPress={() => handleCopy(order.orderNumber, 'order')}
+                      style={styles.orderIdBtn}
+                      activeOpacity={0.7}
+                      accessibilityLabel={`Copy Order #${order.orderNumber}`}
+                    >
+                      <Text style={[styles.orderIdText, { color: theme.textPrimary }]}>
                         #{order.orderNumber}
                       </Text>
-                      <TouchableOpacity
-                        onPress={() => handleCopyOrderNumber(order.orderNumber)}
-                        style={styles.copyIconBtn}
-                        accessibilityRole="button"
-                        accessibilityLabel="Copy Order Number"
-                      >
-                        {copiedOrderId === order.orderNumber ? (
-                          <Check size={14} color="#16A34A" />
-                        ) : (
-                          <Copy size={14} color={theme.textMuted} />
-                        )}
-                      </TouchableOpacity>
-                    </View>
+                      {copiedOrderId === order.orderNumber ? (
+                        <Check size={12} color="#16A34A" />
+                      ) : (
+                        <Copy size={12} color={theme.textMuted} />
+                      )}
+                    </TouchableOpacity>
+                    <Text style={[styles.metaDot, { color: theme.textMuted }]}>·</Text>
                     <Text style={[styles.orderDateText, { color: theme.textSecondary }]}>
-                      Placed: {formatOrderDate(order.createdAt)}
+                      {formatOrderDate(order.createdAt)}
                     </Text>
                   </View>
 
-                  {/* Clean Status Indicator */}
-                  <View style={[styles.statusTag, { backgroundColor: statusCfg.bgColor }]}>
+                  <View style={[styles.statusPill, { backgroundColor: statusCfg.bgColor }]}>
                     <View style={[styles.statusDot, { backgroundColor: statusCfg.dotColor }]} />
-                    <Text style={[styles.statusTagText, { color: statusCfg.textColor }]}>
+                    <Text style={[styles.statusPillText, { color: statusCfg.textColor }]}>
                       {statusCfg.label}
                     </Text>
                   </View>
                 </View>
 
-                {/* Items Summary Strip */}
-                <View style={[styles.itemsSummaryBox, { backgroundColor: theme.surfaceSecondary }]}>
-                  <View style={styles.itemsSummaryHeader}>
-                    <View style={styles.itemsCountRow}>
-                      <Layers size={16} color={theme.textPrimary} />
-                      <Text style={[styles.itemsCountTitle, { color: theme.textPrimary }]}>
-                        Purchased Construction Materials ({items.length} {items.length === 1 ? 'line item' : 'line items'})
-                      </Text>
+                {/* 2. Core Summary: Compact Thumbnail + Material Name & Qty + Total Amount */}
+                <View style={styles.coreSummaryRow}>
+                  <View style={[styles.thumbnailBox, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                    <Image
+                      source={{ uri: primaryImage }}
+                      style={styles.thumbnailImg}
+                      resizeMode="cover"
+                    />
+                  </View>
+                  <View style={styles.coreTextCol}>
+                    <Text style={[styles.primaryMaterialName, { color: theme.textPrimary }]} numberOfLines={1}>
+                      {displayName}
+                    </Text>
+                    <Text style={[styles.secondaryMetaText, { color: theme.textSecondary }]} numberOfLines={1}>
+                      {quantityLabel} · {typeof order.siteAddress === 'string' ? order.siteAddress.split(',')[0] : (order.siteAddress?.street || order.siteAddress?.siteName || 'Site Hyderabad')}
+                    </Text>
+                  </View>
+                  <View style={styles.priceCol}>
+                    <Text style={[styles.totalAmountText, { color: theme.textPrimary }]}>
+                      {formatINR(order.totalAmount || 0)}
+                    </Text>
+                    <Text style={[styles.paymentMethodText, { color: theme.textMuted }]}>
+                      {order.paymentMethod || 'Paid'}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* 3. Live Dispatch Details (Only for Active / En-Route Orders) */}
+                {active && (
+                  <View style={[styles.activeDispatchStrip, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                    <View style={styles.dispatchMetaCol}>
+                      <View style={styles.dispatchVehicleRow}>
+                        <Truck size={14} color="#2563EB" />
+                        <Text style={[styles.dispatchVehicleText, { color: theme.textPrimary }]}>
+                          {order.vehicleNumber || 'TS 09 UB 5120'}
+                        </Text>
+                        <Text style={[styles.metaDot, { color: theme.textMuted }]}>·</Text>
+                        <Text style={[styles.dispatchDriverText, { color: theme.textSecondary }]} numberOfLines={1}>
+                          {order.driverName || 'Fleet Driver'}
+                        </Text>
+                      </View>
                     </View>
+
+                    {/* Quick Gate Handover OTP Badge */}
                     <TouchableOpacity
-                      onPress={() => toggleExpandOrder(order.orderNumber)}
-                      style={styles.toggleExpandBtn}
+                      onPress={() => handleCopy(order.deliveryOtp || '749182', 'otp')}
+                      style={[styles.gateOtpBadge, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                      activeOpacity={0.7}
+                      accessibilityLabel="Copy Gate Handover OTP"
                     >
-                      <Text style={[styles.toggleExpandText, { color: theme.primary }]}>
-                        {isExpanded ? 'Hide Details' : 'View Items'}
+                      <KeyRound size={12} color="#2563EB" />
+                      <Text style={[styles.gateOtpText, { color: theme.textPrimary }]}>
+                        OTP: <Text style={{ fontWeight: '800' }}>{order.deliveryOtp || '749182'}</Text>
                       </Text>
-                      {isExpanded ? (
-                        <ChevronUp size={16} color={theme.primary} />
+                      {copiedOtpId === (order.deliveryOtp || '749182') ? (
+                        <Check size={11} color="#16A34A" />
                       ) : (
-                        <ChevronDown size={16} color={theme.primary} />
+                        <Copy size={11} color={theme.textMuted} />
                       )}
                     </TouchableOpacity>
                   </View>
+                )}
 
-                  {/* Compact items preview if collapsed */}
-                  {!isExpanded && (
-                    <Text style={[styles.compactItemsPreview, { color: theme.textSecondary }]} numberOfLines={2}>
-                      {items.map((i: any) => `${i.quantity || 1}x ${i.name || i.title} (${i.unit || 'unit'})`).join(' · ')}
-                    </Text>
-                  )}
-
-                  {/* Full itemized list if expanded */}
-                  {isExpanded && (
-                    <View style={styles.expandedItemsList}>
-                      {items.map((item: any, idx: number) => {
-                        const itemTotal = item.totalPrice || (Number(item.unitPrice || 0) * Number(item.quantity || 1));
-                        return (
-                          <View
-                            key={idx}
-                            style={[
-                              styles.itemRow,
-                              idx < items.length - 1 && [styles.itemRowBorder, { borderBottomColor: theme.border }],
-                            ]}
-                          >
-                            <View style={styles.itemInfoCol}>
-                              <Text style={[styles.itemName, { color: theme.textPrimary }]}>
-                                {item.name || item.title || 'Construction Supply Item'}
-                              </Text>
-                              <Text style={[styles.itemSubMeta, { color: theme.textSecondary }]}>
-                                Category: {item.category || 'Materials'} · Qty: {item.quantity || 1} {item.unit || 'units'}
-                              </Text>
-                            </View>
-                            <View style={styles.itemPriceCol}>
-                              <Text style={[styles.itemUnitPrice, { color: theme.textSecondary }]}>
-                                {formatINR(item.unitPrice || 0)} / {item.unit || 'unit'}
-                              </Text>
-                              <Text style={[styles.itemTotalPrice, { color: theme.textPrimary }]}>
-                                {formatINR(itemTotal)}
-                              </Text>
-                            </View>
-                          </View>
-                        );
-                      })}
-                    </View>
-                  )}
-                </View>
-
-                {/* Delivery Site & Transport Details */}
-                <View style={styles.logisticsSection}>
-                  <View style={styles.logisticsRow}>
-                    <MapPin size={16} color={theme.textSecondary} style={{ marginTop: 2 }} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.logisticsLabel, { color: theme.textSecondary }]}>
-                        Delivery Site Destination
-                      </Text>
-                      <Text style={[styles.logisticsValue, { color: theme.textPrimary }]}>
-                        {typeof order.siteAddress === 'string'
-                          ? order.siteAddress
-                          : order.siteAddress?.street || order.siteAddress?.siteName || 'Construction Site, Hyderabad'}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Dispatch Fleet & E-Way Bill */}
-                  <View style={styles.fleetRow}>
-                    <View style={styles.fleetCol}>
-                      <Text style={[styles.fleetLabel, { color: theme.textSecondary }]}>E-Way Bill No.</Text>
-                      <Text style={[styles.fleetValue, { color: theme.textPrimary }]}>
-                        {order.eWayBillNo || `EWB-TS-2026-${order.orderNumber.replace(/\D/g, '').slice(-8)}`}
-                      </Text>
-                    </View>
-
-                    <View style={styles.fleetCol}>
-                      <Text style={[styles.fleetLabel, { color: theme.textSecondary }]}>Fleet Vehicle</Text>
-                      <Text style={[styles.fleetValue, { color: theme.textPrimary }]}>
-                        {order.vehicleNumber || 'TS 09 UB 5120'}
-                      </Text>
-                    </View>
-
-                    <View style={styles.fleetCol}>
-                      <Text style={[styles.fleetLabel, { color: theme.textSecondary }]}>Gate Handover OTP</Text>
-                      <Text style={[styles.otpValueText, { color: theme.primary }]}>
-                        {order.deliveryOtp || '261125'}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Financial Summary Strip */}
-                <View style={[styles.financialStrip, { borderTopColor: theme.border }]}>
-                  <View style={styles.financialBreakdownRow}>
-                    <Text style={[styles.financialItemLabel, { color: theme.textSecondary }]}>
-                      Subtotal: {formatINR(order.subtotal || order.totalAmount * 0.82)}
-                    </Text>
-                    <Text style={[styles.financialItemLabel, { color: theme.textSecondary }]}>
-                      GST Tax: {formatINR(order.taxAmount || order.totalAmount * 0.18)}
-                    </Text>
-                    <Text style={[styles.financialItemLabel, { color: theme.textSecondary }]}>
-                      Freight: {order.deliveryCharges === 0 ? 'FREE' : formatINR(order.deliveryCharges || 0)}
-                    </Text>
-                  </View>
-
-                  <View style={styles.totalRow}>
-                    <View>
-                      <Text style={[styles.totalCaption, { color: theme.textSecondary }]}>
-                        Total Amount Paid
-                      </Text>
-                      <Text style={[styles.totalAmountValue, { color: theme.textPrimary }]}>
-                        {formatINR(order.totalAmount || 0)}
-                      </Text>
-                    </View>
-
-                    <View style={styles.paymentMethodBadge}>
-                      <CreditCard size={14} color="#15803D" />
-                      <Text style={styles.paymentMethodText}>
-                        {order.paymentMethod || 'Paid (Online)'}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Action Buttons Toolbar */}
-                <View style={[styles.actionButtonsRow, { borderTopColor: theme.border }]}>
-                  {/* 1. View Tax Invoice */}
-                  {onViewInvoice && (
+                {/* 4. Completed Past Orders: Clean Expandable Summary */}
+                {!active && items.length > 0 && (
+                  <View style={styles.expandableSection}>
                     <TouchableOpacity
-                      onPress={() => onViewInvoice(deliveryObj)}
-                      style={[styles.actionBtn, styles.actionBtnSecondary, { borderColor: theme.border, backgroundColor: theme.surface }]}
-                      activeOpacity={0.75}
+                      onPress={() => toggleExpandOrder(order.orderNumber)}
+                      style={styles.expandToggleRow}
+                      activeOpacity={0.7}
                     >
-                      <FileText size={16} color={theme.textPrimary} />
-                      <Text style={[styles.actionBtnTextSecondary, { color: theme.textPrimary }]}>
-                        GST Invoice
+                      <Text style={[styles.expandToggleText, { color: theme.textSecondary }]}>
+                        {isExpanded ? 'Hide items breakdown' : `View items breakdown (${items.length})`}
                       </Text>
+                      {isExpanded ? (
+                        <ChevronUp size={13} color={theme.textSecondary} />
+                      ) : (
+                        <ChevronDown size={13} color={theme.textSecondary} />
+                      )}
                     </TouchableOpacity>
+
+                    {isExpanded && (
+                      <View style={[styles.itemizedBox, { borderTopColor: theme.border }]}>
+                        {items.map((item: any, idx: number) => {
+                          const itemTotal = item.totalPrice || (Number(item.unitPrice || 0) * Number(item.quantity || 1));
+                          const itemImg = resolveMaterialImage({
+                            name: item.name || item.title,
+                            category: item.category,
+                            image: item.image,
+                          });
+                          return (
+                            <View key={idx} style={[styles.itemizedRow, { alignItems: 'center' }]}>
+                              <Image
+                                source={{ uri: itemImg }}
+                                style={{ width: 34, height: 34, borderRadius: 6, marginRight: 10, backgroundColor: theme.surfaceSecondary }}
+                                resizeMode="cover"
+                              />
+                              <View style={{ flex: 1 }}>
+                                <Text style={[styles.itemizedName, { color: theme.textPrimary }]} numberOfLines={1}>
+                                  {item.name || item.title || 'Construction Material'}
+                                </Text>
+                                <Text style={[styles.itemizedQty, { color: theme.textSecondary }]}>
+                                  {item.quantity || 1} {item.unit || 'unit'} · {formatINR(itemTotal)}
+                                </Text>
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                {/* 5. Minimal Action Buttons (>= 44px Touch Targets) */}
+                <View style={[styles.cardActionsRow, { borderTopColor: theme.border }]}>
+                  {active ? (
+                    <>
+                      <TouchableOpacity
+                        onPress={() => setActiveTrackingDelivery(deliveryObj)}
+                        style={[styles.primaryActionBtn, { backgroundColor: '#2563EB' }]}
+                        activeOpacity={0.85}
+                      >
+                        <Navigation size={15} color="#FFFFFF" />
+                        <Text style={styles.primaryActionText}>Live Track</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        onPress={() => handleCall(order.driverPhone)}
+                        style={[styles.secondaryActionBtn, { borderColor: theme.border, backgroundColor: theme.surface }]}
+                        activeOpacity={0.8}
+                      >
+                        <Phone size={15} color={theme.textPrimary} />
+                        <Text style={[styles.secondaryActionText, { color: theme.textPrimary }]}>Call Driver</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <>
+                      <TouchableOpacity
+                        onPress={() => handleReorderAllItems(order)}
+                        style={[styles.primaryActionBtn, { backgroundColor: theme.buttonBg || theme.primary }]}
+                        activeOpacity={0.85}
+                      >
+                        <RotateCcw size={15} color={theme.buttonText || '#FFFFFF'} />
+                        <Text style={[styles.primaryActionText, { color: theme.buttonText || '#FFFFFF' }]}>Reorder</Text>
+                      </TouchableOpacity>
+
+                      {onViewInvoice && (
+                        <TouchableOpacity
+                          onPress={() => onViewInvoice(deliveryObj)}
+                          style={[styles.secondaryActionBtn, { borderColor: theme.border, backgroundColor: theme.surface }]}
+                          activeOpacity={0.8}
+                        >
+                          <FileText size={15} color={theme.textPrimary} />
+                          <Text style={[styles.secondaryActionText, { color: theme.textPrimary }]}>Invoice</Text>
+                        </TouchableOpacity>
+                      )}
+                    </>
                   )}
 
-                  {/* 2. Track Consignment */}
-                  {onTrackOrder && (
-                    <TouchableOpacity
-                      onPress={() => onTrackOrder(deliveryObj)}
-                      style={[styles.actionBtn, styles.actionBtnSecondary, { borderColor: theme.border, backgroundColor: theme.surface }]}
-                      activeOpacity={0.75}
-                    >
-                      <Truck size={16} color="#2563EB" />
-                      <Text style={[styles.actionBtnTextSecondary, { color: '#2563EB' }]}>
-                        Track Truck
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-
-                  {/* 3. Reorder Materials */}
-                  <TouchableOpacity
-                    onPress={() => handleReorderAllItems(order)}
-                    style={[styles.actionBtn, styles.actionBtnPrimary, { backgroundColor: theme.buttonBg || theme.primary }]}
-                    activeOpacity={0.85}
-                  >
-                    <RotateCcw size={16} color={theme.buttonText || '#FFFFFF'} />
-                    <Text style={[styles.actionBtnTextPrimary, { color: theme.buttonText || '#FFFFFF' }]}>
-                      Reorder
-                    </Text>
-                  </TouchableOpacity>
-
-                  {/* 4. Quick Email Invoice Dialog Trigger */}
+                  {/* Send Email Icon Button */}
                   <TouchableOpacity
                     onPress={() => {
                       setTargetOrderForEmail(order);
                       setCustomEmail(order.customerEmail || user?.email || '');
                       setShowEmailModal(true);
                     }}
-                    style={[styles.iconActionBtn, { borderColor: theme.border, backgroundColor: theme.surface }]}
-                    accessibilityRole="button"
+                    style={[styles.iconButtonSmall, { borderColor: theme.border, backgroundColor: theme.surface }]}
+                    activeOpacity={0.8}
                     accessibilityLabel="Email Invoice"
                   >
-                    {isEmailing ? (
-                      <ActivityIndicator size="small" color={theme.primary} />
-                    ) : (
-                      <Send size={16} color={theme.textPrimary} />
-                    )}
+                    <Send size={15} color={theme.textSecondary} />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -917,7 +942,222 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
           })}
       </ScrollView>
 
-      {/* 8. Send Email Invoice Modal */}
+      {/* 8. Integrated Live GPS Tracking Drawer / Modal */}
+      <Modal
+        visible={!!activeTrackingDelivery}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setActiveTrackingDelivery(null)}
+      >
+        <View style={[styles.trackingModalContainer, { backgroundColor: theme.background }]}>
+          {/* Modal Header */}
+          <View style={[styles.trackingModalHeader, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
+            <View>
+              <Text style={[styles.trackingModalTitle, { color: theme.textPrimary }]}>
+                Live Consignment Tracking
+              </Text>
+              <Text style={[styles.trackingModalSubtitle, { color: theme.textSecondary }]}>
+                Order #{activeTrackingDelivery?.orderNumber}
+              </Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => setActiveTrackingDelivery(null)}
+              style={[styles.closeModalBtn, { backgroundColor: theme.surfaceSecondary }]}
+              accessibilityLabel="Close"
+            >
+              <X size={18} color={theme.textPrimary} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.trackingModalBody} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+            {/* Gate OTP Verification Banner */}
+            <View style={styles.trackingOtpBanner}>
+              <View style={styles.trackingOtpLeft}>
+                <KeyRound size={20} color="#1E40AF" />
+                <View>
+                  <Text style={styles.trackingOtpTitle}>Gate Handover Code</Text>
+                  <Text style={styles.trackingOtpDesc}>Share with driver to permit unloading</Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => handleCopy(activeTrackingDelivery?.deliveryOtp || '749182', 'otp')}
+                style={styles.trackingOtpCopyBtn}
+              >
+                <Text style={styles.trackingOtpCode}>{activeTrackingDelivery?.deliveryOtp || '749182'}</Text>
+                <Copy size={14} color="#1E40AF" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Vehicle & Driver Card */}
+            <View style={[styles.trackingInfoCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <View style={styles.trackingInfoRow}>
+                <Truck size={20} color={theme.primary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.trackingInfoTitle, { color: theme.textPrimary }]}>
+                    {activeTrackingDelivery?.vehicleNumber || 'TS 09 UB 5120'}
+                  </Text>
+                  <Text style={[styles.trackingInfoSub, { color: theme.textSecondary }]}>
+                    {activeTrackingDelivery?.vehicleType || 'Commercial Heavy Fleet'} · Driver: {activeTrackingDelivery?.driverName || 'Assigned Partner'}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => handleCall(activeTrackingDelivery?.driverPhone)}
+                  style={styles.trackingCallActionBtn}
+                >
+                  <Phone size={15} color="#FFFFFF" />
+                  <Text style={styles.trackingCallActionText}>Call</Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={[styles.cardDivider, { backgroundColor: theme.border }]} />
+
+              <View style={styles.trackingDestinationRow}>
+                <MapPin size={16} color="#DC2626" />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.trackingDestLabel, { color: theme.textSecondary }]}>Destination Site</Text>
+                  <Text style={[styles.trackingDestValue, { color: theme.textPrimary }]}>
+                    {activeTrackingDelivery?.siteAddress}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* 4-Stage Delivery Progress Timeline */}
+            <View style={[styles.timelineCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <Text style={[styles.timelineCardTitle, { color: theme.textPrimary }]}>
+                Dispatch Milestones
+              </Text>
+
+              {ORDER_LIFECYCLE_STAGES.map((stage, idx) => {
+                const isCompleted = idx < 2;
+                const isActiveStage = idx === 2; // In Transit
+                return (
+                  <View key={stage.id} style={styles.timelineStepRow}>
+                    <View style={styles.timelineLeftCol}>
+                      <View
+                        style={[
+                          styles.timelineStepIndicator,
+                          isCompleted
+                            ? styles.timelineStepCompleted
+                            : isActiveStage
+                            ? styles.timelineStepActive
+                            : styles.timelineStepPending,
+                        ]}
+                      >
+                        {isCompleted ? (
+                          <Check size={12} color="#FFFFFF" strokeWidth={3} />
+                        ) : (
+                          <Text
+                            style={[
+                              styles.timelineStepNum,
+                              { color: isActiveStage ? '#FFFFFF' : theme.textMuted },
+                            ]}
+                          >
+                            {stage.stepNumber}
+                          </Text>
+                        )}
+                      </View>
+                      {idx < ORDER_LIFECYCLE_STAGES.length - 1 && (
+                        <View
+                          style={[
+                            styles.timelineConnector,
+                            { backgroundColor: isCompleted ? '#16A34A' : theme.border },
+                          ]}
+                        />
+                      )}
+                    </View>
+
+                    <View style={styles.timelineRightCol}>
+                      <Text
+                        style={[
+                          styles.timelineStageTitle,
+                          { color: isActiveStage ? '#2563EB' : theme.textPrimary },
+                          isActiveStage && { fontWeight: '800' },
+                        ]}
+                      >
+                        {stage.title}
+                      </Text>
+                      <Text style={[styles.timelineStageDesc, { color: theme.textSecondary }]}>
+                        {stage.description}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+
+            {/* Consignment Line Items Card with Real Product Images */}
+            {activeTrackingDelivery?.cartItemsSnapshot && activeTrackingDelivery.cartItemsSnapshot.length > 0 && (
+              <View style={[styles.timelineCard, { backgroundColor: theme.surface, borderColor: theme.border, padding: 14, marginBottom: 14 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <Text style={[styles.timelineCardTitle, { color: theme.textPrimary }]}>
+                    Consignment Manifest
+                  </Text>
+                  <Text style={{ fontSize: 12, fontWeight: '700', color: theme.textSecondary }}>
+                    {activeTrackingDelivery.cartItemsSnapshot.length} Line {activeTrackingDelivery.cartItemsSnapshot.length === 1 ? 'Item' : 'Items'}
+                  </Text>
+                </View>
+                {activeTrackingDelivery.cartItemsSnapshot.map((cItem, cIdx) => {
+                  const resolvedImg = resolveMaterialImage({
+                    name: cItem.itemName,
+                    category: cItem.categoryName,
+                    image: cItem.image,
+                  });
+                  return (
+                    <View
+                      key={cIdx}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        paddingVertical: 9,
+                        borderTopWidth: cIdx > 0 ? StyleSheet.hairlineWidth : 0,
+                        borderTopColor: theme.border,
+                      }}
+                    >
+                      <Image
+                        source={{ uri: resolvedImg }}
+                        style={{
+                          width: 44,
+                          height: 44,
+                          borderRadius: 8,
+                          marginRight: 12,
+                          backgroundColor: theme.surfaceSecondary,
+                          borderWidth: 1,
+                          borderColor: theme.border,
+                        }}
+                        resizeMode="cover"
+                      />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary }} numberOfLines={1}>
+                          {cItem.itemName}
+                        </Text>
+                        <Text style={{ fontSize: 11, color: theme.textSecondary, marginTop: 2 }}>
+                          {cItem.selectedOptionLabel || `${cItem.quantity} Units`} · {formatINR(cItem.unitPrice * cItem.quantity)}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* E-Way Bill Verification Card */}
+            <View style={[styles.ewayBillCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <View style={styles.ewayHeaderRow}>
+                <Building2 size={16} color={theme.textSecondary} />
+                <Text style={[styles.ewayLabel, { color: theme.textSecondary }]}>
+                  GST E-Way Bill Number:
+                </Text>
+              </View>
+              <Text style={[styles.ewayValue, { color: theme.textPrimary }]}>
+                {activeTrackingDelivery?.ewayBillNumber}
+              </Text>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* 9. Send Email Invoice Modal */}
       <Modal
         visible={showEmailModal}
         transparent
@@ -964,11 +1204,18 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
               <TouchableOpacity
                 onPress={handleTriggerEmailInvoice}
                 style={[styles.modalSendBtn, { backgroundColor: theme.buttonBg || theme.primary }]}
+                disabled={isEmailing}
               >
-                <Send size={16} color={theme.buttonText || '#FFFFFF'} />
-                <Text style={[styles.modalSendText, { color: theme.buttonText || '#FFFFFF' }]}>
-                  Send Invoice PDF
-                </Text>
+                {isEmailing ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Send size={16} color={theme.buttonText || '#FFFFFF'} />
+                    <Text style={[styles.modalSendText, { color: theme.buttonText || '#FFFFFF' }]}>
+                      Send Invoice
+                    </Text>
+                  </>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -988,7 +1235,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingVertical: 12,
     borderBottomWidth: 1,
   },
   headerLeft: {
@@ -998,14 +1245,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
@@ -1014,9 +1261,9 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   refreshIconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1024,14 +1271,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
-    paddingBottom: 40,
+    padding: 14,
+    paddingBottom: 48,
   },
   guestBanner: {
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   guestBannerHeader: {
     flexDirection: 'row',
@@ -1039,9 +1286,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   guestIconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1050,7 +1297,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   guestBannerDesc: {
-    fontSize: 13,
+    fontSize: 12.5,
     lineHeight: 18,
     marginTop: 2,
   },
@@ -1059,106 +1306,73 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    paddingVertical: 12,
-    borderRadius: 8,
+    minHeight: 44,
+    paddingVertical: 10,
+    borderRadius: 10,
   },
   guestLoginButtonText: {
     fontSize: 14,
     fontWeight: '700',
   },
-  metricsContainer: {
+  segmentedFilterContainer: {
+    flexDirection: 'row',
+    padding: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 12,
+    gap: 3,
+  },
+  segmentedTab: {
+    flex: 1,
+    minHeight: 38,
+    borderRadius: 7,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+  },
+  segmentedTabActive: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  segmentedTabText: {
+    fontSize: 12,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  tabBadgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 16,
+    gap: 5,
   },
-  metricItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  metricLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-    marginBottom: 2,
-  },
-  metricValue: {
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  metricSeparator: {
-    width: 1,
-    height: 28,
+  pulsingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#60A5FA',
   },
   toolbarContainer: {
-    marginBottom: 16,
-    gap: 10,
+    marginBottom: 14,
   },
   searchInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    minHeight: 44,
+    borderRadius: 10,
     borderWidth: 1,
     gap: 8,
   },
   searchInput: {
     flex: 1,
     fontSize: 13,
-    padding: 0,
+    paddingVertical: 6,
     outlineWidth: 0,
   } as any,
   clearSearchText: {
     fontSize: 12,
-    fontWeight: '600',
-  },
-  filterTabsRow: {
-    flexDirection: 'row',
-    marginBottom: 4,
-  },
-  filterTabButton: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 8,
-    marginRight: 8,
-  },
-  filterTabActive: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  filterTabInactive: {
-    borderWidth: 1,
-  },
-  filterTabText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  sortRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 4,
-  },
-  resultsCountText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  sortActions: {
-    flexDirection: 'row',
-  },
-  sortButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  sortButtonText: {
-    fontSize: 11,
     fontWeight: '600',
   },
   loadingContainer: {
@@ -1175,78 +1389,84 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 32,
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     marginVertical: 20,
   },
   emptyIconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   emptyTitle: {
     fontSize: 16,
     fontWeight: '800',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   emptyDesc: {
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,
-    marginBottom: 18,
-    maxWidth: 320,
+    marginBottom: 16,
+    maxWidth: 300,
   },
   emptyActionButton: {
     paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
+    minHeight: 44,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   emptyActionText: {
     fontSize: 13,
     fontWeight: '700',
   },
   orderCard: {
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    marginBottom: 16,
+    marginBottom: 12,
     overflow: 'hidden',
   },
   cardHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 14,
-    paddingBottom: 10,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
-  orderIdentityCol: {
-    flex: 1,
-  },
-  orderNumberRow: {
+  headerMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flexShrink: 1,
   },
-  orderNumberText: {
-    fontSize: 15,
-    fontWeight: '800',
+  orderIdBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  orderIdText: {
+    fontSize: 13.5,
+    fontWeight: '700',
     letterSpacing: -0.2,
   },
-  copyIconBtn: {
-    padding: 3,
+  metaDot: {
+    fontSize: 13,
   },
   orderDateText: {
     fontSize: 12,
-    marginTop: 2,
+    fontWeight: '500',
   },
-  statusTag: {
+  statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
     borderRadius: 6,
   },
   statusDot: {
@@ -1254,203 +1474,380 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 3,
   },
-  statusTagText: {
+  statusPillText: {
     fontSize: 11,
     fontWeight: '700',
   },
-  itemsSummaryBox: {
-    marginHorizontal: 14,
-    marginBottom: 12,
-    padding: 10,
+  coreSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    gap: 12,
+  },
+  thumbnailBox: {
+    width: 46,
+    height: 46,
     borderRadius: 8,
+    borderWidth: 1,
+    overflow: 'hidden',
+    flexShrink: 0,
   },
-  itemsSummaryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  thumbnailImg: {
+    width: '100%',
+    height: '100%',
   },
-  itemsCountRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  itemsCountTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  toggleExpandBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  coreTextCol: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
     gap: 2,
   },
-  toggleExpandText: {
-    fontSize: 11,
-    fontWeight: '700',
+  primaryMaterialName: {
+    fontSize: 13.5,
+    fontWeight: '600',
   },
-  compactItemsPreview: {
-    fontSize: 12,
-    marginTop: 4,
-    lineHeight: 16,
+  secondaryMetaText: {
+    fontSize: 11.5,
   },
-  expandedItemsList: {
-    marginTop: 8,
+  priceCol: {
+    alignItems: 'flex-end',
+    flexShrink: 0,
+    gap: 1,
   },
-  itemRow: {
+  totalAmountText: {
+    fontSize: 14.5,
+    fontWeight: '800',
+  },
+  paymentMethodText: {
+    fontSize: 10.5,
+    fontWeight: '500',
+  },
+  activeDispatchStrip: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    marginHorizontal: 14,
+    marginTop: 4,
+    marginBottom: 8,
+    paddingHorizontal: 10,
     paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 8,
   },
-  itemRowBorder: {
-    borderBottomWidth: 1,
-  },
-  itemInfoCol: {
+  dispatchMetaCol: {
     flex: 1,
-    paddingRight: 8,
+    minWidth: 0,
   },
-  itemName: {
+  dispatchVehicleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    flexWrap: 'nowrap',
+  },
+  dispatchVehicleText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  dispatchDriverText: {
+    fontSize: 11.5,
+    flexShrink: 1,
+  },
+  gateOtpBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    flexShrink: 0,
+  },
+  gateOtpText: {
+    fontSize: 11.5,
+    letterSpacing: 0.5,
+  },
+  expandableSection: {
+    paddingHorizontal: 14,
+    paddingBottom: 6,
+  },
+  expandToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  expandToggleText: {
+    fontSize: 11.5,
+    fontWeight: '500',
+  },
+  itemizedBox: {
+    borderTopWidth: 1,
+    paddingTop: 6,
+    gap: 4,
+  },
+  itemizedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+    gap: 8,
+  },
+  itemizedName: {
+    fontSize: 12,
+    flex: 1,
+  },
+  itemizedQty: {
+    fontSize: 11.5,
+    flexShrink: 0,
+  },
+  cardActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+  },
+  primaryActionBtn: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+  },
+  primaryActionText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  secondaryActionBtn: {
+    flex: 1,
+    minHeight: 44,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+  },
+  secondaryActionText: {
     fontSize: 13,
     fontWeight: '600',
   },
-  itemSubMeta: {
-    fontSize: 11,
+  iconButtonSmall: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  trackingModalContainer: {
+    flex: 1,
+  },
+  trackingModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+  },
+  trackingModalTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  trackingModalSubtitle: {
+    fontSize: 12,
     marginTop: 1,
   },
-  itemPriceCol: {
-    alignItems: 'flex-end',
+  closeModalBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  itemUnitPrice: {
-    fontSize: 11,
+  trackingModalBody: {
+    flex: 1,
   },
-  itemTotalPrice: {
+  trackingOtpBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#DBEAFE',
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 14,
+  },
+  trackingOtpLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  trackingOtpTitle: {
     fontSize: 13,
     fontWeight: '700',
+    color: '#1E40AF',
   },
-  logisticsSection: {
-    paddingHorizontal: 14,
-    marginBottom: 12,
+  trackingOtpDesc: {
+    fontSize: 11,
+    color: '#3B82F6',
+    marginTop: 1,
+  },
+  trackingOtpCopyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  trackingOtpCode: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#1E40AF',
+    letterSpacing: 1.5,
+  },
+  trackingInfoCard: {
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 14,
     gap: 10,
   },
-  logisticsRow: {
+  trackingInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  trackingInfoTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  trackingInfoSub: {
+    fontSize: 12,
+    marginTop: 1,
+  },
+  trackingCallActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#16A34A',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  trackingCallActionText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  cardDivider: {
+    height: 1,
+    width: '100%',
+  },
+  trackingDestinationRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
   },
-  logisticsLabel: {
+  trackingDestLabel: {
     fontSize: 11,
     fontWeight: '500',
   },
-  logisticsValue: {
+  trackingDestValue: {
     fontSize: 13,
     fontWeight: '600',
     marginTop: 1,
   },
-  fleetRow: {
+  timelineCard: {
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 14,
+  },
+  timelineCardTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    marginBottom: 14,
+  },
+  timelineStepRow: {
     flexDirection: 'row',
+    minHeight: 56,
+  },
+  timelineLeftCol: {
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 4,
+    width: 28,
   },
-  fleetCol: {
-    flex: 1,
+  timelineStepIndicator: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
   },
-  fleetLabel: {
+  timelineStepCompleted: {
+    backgroundColor: '#16A34A',
+  },
+  timelineStepActive: {
+    backgroundColor: '#2563EB',
+  },
+  timelineStepPending: {
+    backgroundColor: '#E4E4E7',
+  },
+  timelineStepNum: {
     fontSize: 10,
-    fontWeight: '500',
-    textTransform: 'uppercase',
-  },
-  fleetValue: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 1,
-  },
-  otpValueText: {
-    fontSize: 13,
-    fontWeight: '800',
-    letterSpacing: 1,
-    marginTop: 1,
-  },
-  financialStrip: {
-    borderTopWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 6,
-  },
-  financialBreakdownRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  financialItemLabel: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  totalRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 2,
-  },
-  totalCaption: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  totalAmountValue: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  paymentMethodBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  paymentMethodText: {
-    fontSize: 11,
     fontWeight: '700',
-    color: '#15803D',
   },
-  actionButtonsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 12,
-    borderTopWidth: 1,
-  },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+  timelineConnector: {
+    width: 2,
     flex: 1,
+    marginVertical: 2,
   },
-  actionBtnSecondary: {
+  timelineRightCol: {
+    flex: 1,
+    paddingLeft: 10,
+    paddingBottom: 14,
+  },
+  timelineStageTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  timelineStageDesc: {
+    fontSize: 11.5,
+    marginTop: 2,
+    lineHeight: 16,
+  },
+  ewayBillCard: {
+    padding: 12,
+    borderRadius: 10,
     borderWidth: 1,
+    gap: 4,
   },
-  actionBtnPrimary: {
-    // Primary styling
-  },
-  actionBtnTextSecondary: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  actionBtnTextPrimary: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  iconActionBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    borderWidth: 1,
+  ewayHeaderRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: 6,
+  },
+  ewayLabel: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  ewayValue: {
+    fontSize: 13,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   modalOverlay: {
     flex: 1,
@@ -1461,16 +1858,16 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     width: '100%',
-    maxWidth: 420,
+    maxWidth: 400,
     borderRadius: 14,
     borderWidth: 1,
-    padding: 20,
+    padding: 18,
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   modalIconCircle: {
     width: 38,
@@ -1480,7 +1877,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   modalTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
   },
   modalSubtitle: {
@@ -1488,7 +1885,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   modalInputLabel: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '600',
     marginBottom: 6,
   },
@@ -1496,9 +1893,9 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    minHeight: 44,
     fontSize: 13,
-    marginBottom: 18,
+    marginBottom: 16,
     outlineWidth: 0,
   } as any,
   modalActions: {
@@ -1508,7 +1905,7 @@ const styles = StyleSheet.create({
   },
   modalCancelBtn: {
     flex: 1,
-    paddingVertical: 10,
+    minHeight: 44,
     borderRadius: 8,
     borderWidth: 1,
     alignItems: 'center',
@@ -1524,7 +1921,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 10,
+    minHeight: 44,
     borderRadius: 8,
   },
   modalSendText: {

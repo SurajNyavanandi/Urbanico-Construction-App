@@ -9,6 +9,7 @@ export interface IOrderItem {
   unitPrice: number;
   totalPrice: number;
   gstAmount: number;
+  image?: string;
 }
 
 export interface IOrder extends Document {
@@ -17,6 +18,7 @@ export interface IOrder extends Document {
   customerName: string;
   customerPhone: string;
   customerEmail?: string;
+  businessName?: string;
   gstin?: string;
   siteAddress: {
     siteName: string;
@@ -66,6 +68,7 @@ const OrderItemSchema = new Schema<IOrderItem>(
     unitPrice: { type: Number, required: true },
     totalPrice: { type: Number, required: true },
     gstAmount: { type: Number, default: 0 },
+    image: { type: String },
   },
   { _id: false }
 );
@@ -83,6 +86,7 @@ const OrderSchema = new Schema<IOrder>(
     customerName: { type: String, required: true, trim: true },
     customerPhone: { type: String, required: true, trim: true },
     customerEmail: { type: String, trim: true },
+    businessName: { type: String, trim: true },
     gstin: { type: String, trim: true },
     siteAddress: {
       siteName: { type: String, default: 'Primary Construction Site' },

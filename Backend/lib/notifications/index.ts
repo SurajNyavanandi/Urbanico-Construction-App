@@ -261,7 +261,7 @@ export class NotificationManager {
    * Template 3: Gate Handover OTP Alert
    */
   public async sendGateOtpAlert(params: NotificationTemplateParams) {
-    const otp = params.otpCode || '261125';
+    const otp = params.otpCode || Math.floor(100000 + Math.random() * 900000).toString();
     return this.sendNotification({
       recipientId: params.recipientId || params.recipientPhone,
       recipientPhone: params.recipientPhone,

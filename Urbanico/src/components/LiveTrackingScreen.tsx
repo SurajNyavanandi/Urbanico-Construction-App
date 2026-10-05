@@ -1,9 +1,9 @@
 import React from 'react';
-import { ActivityDashboardScreen } from './ActivityDashboardScreen';
+import { OrderHistory } from './OrderHistory';
 import { ActivityDelivery } from '../types';
 
 export interface LiveTrackingScreenProps {
-  deliveries: ActivityDelivery[];
+  deliveries?: ActivityDelivery[];
   onBack: () => void;
   onExploreCatalog?: () => void;
   onViewInvoice?: (delivery: ActivityDelivery) => void;
@@ -13,22 +13,23 @@ export interface LiveTrackingScreenProps {
 }
 
 export const LiveTrackingScreen: React.FC<LiveTrackingScreenProps> = ({
-  deliveries,
+  deliveries = [],
   onBack,
   onExploreCatalog,
   onViewInvoice,
   onReorderMaterial,
-  isLoggedIn,
+  isLoggedIn = false,
   onOpenLoginModal,
 }) => {
   return (
-    <ActivityDashboardScreen
+    <OrderHistory
       deliveries={deliveries}
+      initialFilter="active"
+      isLoggedIn={isLoggedIn}
       onBack={onBack}
       onExploreCatalog={onExploreCatalog}
       onViewInvoice={onViewInvoice}
       onReorderMaterial={onReorderMaterial}
-      isLoggedIn={isLoggedIn}
       onOpenLoginModal={onOpenLoginModal}
     />
   );

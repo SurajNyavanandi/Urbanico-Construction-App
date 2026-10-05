@@ -19,7 +19,7 @@ export function usePhoneAuth(options?: UsePhoneAuthOptions) {
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [isLoading, setIsLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  const [generatedTestOtp, setGeneratedTestOtp] = useState('261125');
+  const [generatedTestOtp, setGeneratedTestOtp] = useState('123456');
 
   // Countdown timer effect
   useEffect(() => {
@@ -34,7 +34,7 @@ export function usePhoneAuth(options?: UsePhoneAuthOptions) {
 
   const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
   const isPhoneValid = cleanPhone.length === 10 && /^[6-9]/.test(cleanPhone);
-  const isOtpValid = otp.length === 6 || otp === '261125';
+  const isOtpValid = otp.length === 6;
 
   const handlePhoneChange = useCallback((text: string) => {
     const cleaned = text.replace(/[^0-9]/g, '').slice(0, 10);
@@ -56,7 +56,7 @@ export function usePhoneAuth(options?: UsePhoneAuthOptions) {
     soundService.playTap();
 
     try {
-      const testCode = '261125';
+      const testCode = '123456';
       setGeneratedTestOtp(testCode);
 
       // Simulate network request
@@ -64,7 +64,7 @@ export function usePhoneAuth(options?: UsePhoneAuthOptions) {
 
       setStep('otp');
       setCountdown(options?.initialCountdown || 30);
-      showToast(`OTP sent to +91 ${cleanPhone} (Verification OTP: 261125)`, 'success');
+      showToast(`OTP sent to +91 ${cleanPhone} (Verification OTP: 123456)`, 'success');
       return true;
     } catch {
       showToast('Failed to send OTP. Please try again.', 'error');
@@ -86,15 +86,16 @@ export function usePhoneAuth(options?: UsePhoneAuthOptions) {
     try {
       await new Promise((resolve) => setTimeout(resolve, 300));
 
-      // Strictly accept 261125
-      if (otp.trim() === '261125') {
+      const cleanEnteredOtp = otp.trim();
+      // Standard OTP is 123456 (also support legacy 261125)
+      if (cleanEnteredOtp === '123456' || cleanEnteredOtp === '261125') {
         soundService.playTap();
         if (options?.onSuccess) {
           options.onSuccess(cleanPhone);
         }
         return true;
       } else {
-        showToast('Invalid OTP entered. Please enter 261125.', 'error');
+        showToast('Invalid OTP entered. Please enter 123456.', 'error');
         return false;
       }
     } catch {
