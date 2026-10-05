@@ -309,7 +309,8 @@ export function useUrbanicoApp() {
     logout();
     resetOrders();
     resetFavorites();
-  }, [logout, resetOrders, resetFavorites]);
+    resetCartOnLogout();
+  }, [logout, resetOrders, resetFavorites, resetCartOnLogout]);
 
   const handleSelectLocationAndSyncUser = useCallback(
     (loc: string) => {

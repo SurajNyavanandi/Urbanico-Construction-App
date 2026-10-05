@@ -335,9 +335,6 @@ class ApiService {
         const updated = [order, ...list.filter((o) => o.orderNumber !== order.orderNumber)];
         safeStorage.setItem(userKey, JSON.stringify(updated));
       }
-      const generalRaw = safeStorage.getItem('urbanico_orders');
-      const generalList: any[] = generalRaw ? JSON.parse(generalRaw) : [];
-      safeStorage.setItem('urbanico_orders', JSON.stringify([order, ...generalList.filter((o) => o.orderNumber !== order.orderNumber)]));
     } catch {}
   }
 
@@ -348,17 +345,14 @@ class ApiService {
         const userKey = `urbanico_user_orders_${cleanPhone}`;
         const raw = safeStorage.getItem(userKey);
         if (raw) {
-          return JSON.parse(raw);
-        }
-        const generalRaw = safeStorage.getItem('urbanico_orders');
-        if (generalRaw) {
-          const list: any[] = JSON.parse(generalRaw);
-          return list.filter((o) => (o.customerPhone || '').replace(/[^0-9]/g, '').includes(cleanPhone));
+          const parsed = JSON.parse(raw);
+          return Array.isArray(parsed)
+            ? parsed.filter((o: any) => (o.customerPhone || '').replace(/[^0-9]/g, '').includes(cleanPhone))
+            : [];
         }
         return [];
       }
-      const raw = safeStorage.getItem('urbanico_orders');
-      return raw ? JSON.parse(raw) : [];
+      return [];
     } catch {
       return [];
     }

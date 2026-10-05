@@ -209,56 +209,83 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
       setIsLoading(true);
     }
 
+    const cleanPhone = (userPhone || '').replace(/\D/g, '').slice(-10);
+
     try {
-      const fetchedOrders = await apiService.getOrders(userPhone ? { phone: userPhone } : {});
+      const fetchedOrders = await apiService.getOrders(cleanPhone ? { phone: cleanPhone } : (user?.email ? { email: user.email } : {}));
 
       if (Array.isArray(fetchedOrders) && fetchedOrders.length > 0) {
         setOrders(fetchedOrders);
       } else {
-        // Fallback to local storage if API is offline
-        const localRaw = safeStorage.getItem('urbanico_orders');
-        if (localRaw) {
-          const parsed = JSON.parse(localRaw);
-          setOrders(Array.isArray(parsed) ? parsed : []);
-        } else if (propDeliveriesRef.current && propDeliveriesRef.current.length > 0) {
-          // Convert prop deliveries to order format
-          const converted = propDeliveriesRef.current.map((d) => ({
-            _id: d.id,
-            orderNumber: d.orderNumber,
-            customerName: d.siteSupervisorName || userName || 'Valued Client',
-            customerPhone: d.siteSupervisorPhone || userPhone,
-            orderStatus: d.status === 'Delivered' ? 'delivered' : d.status === 'Cancelled' ? 'cancelled' : 'in_transit',
-            totalAmount: d.totalAmount,
-            deliveryOtp: d.deliveryOtp || '749182',
-            vehicleNumber: d.vehicleNumber,
-            driverName: d.driverName,
-            driverPhone: d.driverPhone,
-            eWayBillNo: d.ewayBillNumber,
-            siteAddress: d.siteAddress,
-            createdAt: new Date().toISOString(),
-            items: (d.cartItemsSnapshot || []).map((ci) => ({
-              name: ci.itemName,
-              category: ci.categoryName,
-              quantity: ci.quantity,
-              unit: ci.selectedOptionLabel,
-              unitPrice: ci.unitPrice,
-              totalPrice: ci.unitPrice * ci.quantity,
-            })),
-          }));
-          setOrders(converted);
-        } else {
-          setOrders([]);
+        // Fallback to phone-scoped local storage ONLY if matching cleanPhone
+        if (cleanPhone) {
+          const userOrdersRaw = safeStorage.getItem(`urbanico_user_orders_${cleanPhone}`);
+          if (userOrdersRaw) {
+            try {
+              const parsed = JSON.parse(userOrdersRaw);
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                const filtered = parsed.filter((o: any) => {
+                  const oPhone = (o.customerPhone || '').replace(/\D/g, '');
+                  return !oPhone || oPhone.includes(cleanPhone);
+                });
+                setOrders(filtered);
+                return;
+              }
+            } catch {}
+          }
         }
+
+        // Check propDeliveriesRef strictly matching cleanPhone
+        if (cleanPhone && propDeliveriesRef.current && propDeliveriesRef.current.length > 0) {
+          const matchingDeliveries = propDeliveriesRef.current.filter((d) => {
+            const dPhone = (d.siteSupervisorPhone || (d as any).customerPhone || '').replace(/\D/g, '');
+            return dPhone && dPhone.includes(cleanPhone);
+          });
+
+          if (matchingDeliveries.length > 0) {
+            const converted = matchingDeliveries.map((d) => ({
+              _id: d.id,
+              orderNumber: d.orderNumber,
+              customerName: d.siteSupervisorName || userName || 'Valued Client',
+              customerPhone: d.siteSupervisorPhone || userPhone,
+              orderStatus: d.status === 'Delivered' ? 'delivered' : d.status === 'Cancelled' ? 'cancelled' : 'in_transit',
+              totalAmount: d.totalAmount,
+              deliveryOtp: d.deliveryOtp || '749182',
+              vehicleNumber: d.vehicleNumber,
+              driverName: d.driverName,
+              driverPhone: d.driverPhone,
+              eWayBillNo: d.ewayBillNumber,
+              siteAddress: d.siteAddress,
+              createdAt: new Date().toISOString(),
+              items: (d.cartItemsSnapshot || []).map((ci) => ({
+                name: ci.itemName,
+                category: ci.categoryName,
+                quantity: ci.quantity,
+                unit: ci.selectedOptionLabel,
+                unitPrice: ci.unitPrice,
+                totalPrice: ci.unitPrice * ci.quantity,
+              })),
+            }));
+            setOrders(converted);
+            return;
+          }
+        }
+
+        // Clean empty state (zero leakage of prior user's orders)
+        setOrders([]);
       }
     } catch (err) {
       console.warn('[OrderHistory] Error fetching past orders:', err);
+      setOrders([]);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [userPhone, userName]);
+  }, [userPhone, userName, user?.email]);
 
   useEffect(() => {
+    // Clear orders immediately when phone changes
+    setOrders([]);
     loadOrders();
   }, [userPhone, isLoggedIn, loadOrders]);
 

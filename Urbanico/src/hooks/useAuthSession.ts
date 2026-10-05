@@ -179,6 +179,8 @@ export function useAuthSession(options?: {
       apiService.clearAuthSession();
       safeStorage.removeItem('urbanico_auth_session');
       safeStorage.removeItem('urbanico_orders');
+      safeStorage.removeItem('urbanico_active_deliveries');
+      safeStorage.removeItem('urbanico_deliveries_cache');
       safeStorage.removeItem('urbanico_cart_guest');
       safeStorage.removeItem('urbanico_favorite_ids_guest');
     } catch {
