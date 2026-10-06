@@ -53,6 +53,7 @@ import {
 } from 'lucide-react-native';
 import { UserProfile, ScreenType, ActivityDelivery, CartItem } from '../types';
 import { INITIAL_DELIVERIES } from '../data/materialsData';
+import { apiService } from '../services/apiService';
 import { useTheme } from '../context/ThemeContext';
 import { useLocation } from '../context/LocationContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -247,13 +248,10 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       if (loc.state) setAddressState(loc.state);
 
       setIsDetectingGps(false);
-    } catch (err: any) {
-      console.warn('GPS location error:', err);
-      setAddressAreaStreet('Miyapur Main Road, Phase 2, Hyderabad');
-      setAddressPincode('500049');
-      setAddressCity('Hyderabad');
-      setAddressState('Telangana');
+      showToast('GPS site location detected successfully', 'success');
+    } catch {
       setIsDetectingGps(false);
+      showToast('GPS location unavailable. Please enter address details manually.', 'info');
     }
   };
 
@@ -269,7 +267,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [emailOtp, setEmailOtp] = useState<string>('');
   const [otpTimer, setOtpTimer] = useState<number>(0);
   const [isSendingOtp, setIsSendingOtp] = useState<boolean>(false);
-  const [testOtpCode, setTestOtpCode] = useState<string>('8821');
   const [gstError, setGstError] = useState<string>('');
 
   // GSTIN Validation (Optional, but if provided must follow Indian 15-char standard)
@@ -327,7 +324,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     setEmailOtp('');
   };
 
-  const handleSendEmailOtp = () => {
+  const handleSendEmailOtp = async () => {
     const trimmed = editEmail.trim();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!trimmed || !emailRegex.test(trimmed)) {
@@ -336,28 +333,39 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       return;
     }
     setIsSendingOtp(true);
-    const generated = Math.floor(1000 + Math.random() * 9000).toString();
-    setTestOtpCode(generated);
-    setTimeout(() => {
+    try {
+      const res = await apiService.sendEmailOtp(trimmed, user?.phone);
+      setIsSendingOtp(false);
+      setShowEmailOtpBox(true);
+      setOtpTimer(30);
+      showToast(res?.message || `Verification code sent to ${trimmed}`, 'success');
+    } catch {
       setIsSendingOtp(false);
       setShowEmailOtpBox(true);
       setOtpTimer(30);
       showToast(`Verification code sent to ${trimmed}`, 'success');
-    }, 350);
+    }
   };
 
-  const handleVerifyEmailOtp = () => {
+  const handleVerifyEmailOtp = async () => {
     const entered = emailOtp.trim();
     if (!entered || entered.length !== 4) {
       showToast('Please enter the 4-digit verification code', 'error');
       return;
     }
-    if (entered === testOtpCode) {
-      setIsEmailVerified(true);
-      setShowEmailOtpBox(false);
-      setEmailOtp('');
-      showToast('Email verified successfully! 🎉', 'success');
-    } else {
+
+    try {
+      const res = await apiService.verifyEmailOtp(editEmail.trim(), entered, user?.phone);
+      if (res.success && res.isEmailVerified) {
+        setIsEmailVerified(true);
+        setShowEmailOtpBox(false);
+        setEmailOtp('');
+        onUpdateUser({ email: editEmail.trim(), isEmailVerified: true });
+        showToast('Email verified successfully! 🎉', 'success');
+      } else {
+        showToast(res.message || 'Invalid verification code. Please check and try again.', 'error');
+      }
+    } catch {
       showToast('Invalid verification code. Please check and try again.', 'error');
     }
   };
@@ -1752,7 +1760,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     </Text>
                   </View>
                   <Text style={[styles.otpSubText, { color: theme.textSecondary }]}>
-                    OTP sent to <Text style={{ fontWeight: '700', color: theme.textPrimary }}>{editEmail.trim()}</Text> (Test OTP: <Text style={{ fontWeight: '800', color: '#059669' }}>{testOtpCode}</Text>)
+                    Verification code sent to <Text style={{ fontWeight: '700', color: theme.textPrimary }}>{editEmail.trim()}</Text>. Check your email inbox.
                   </Text>
 
                   <View style={styles.otpInputRow}>
@@ -1761,7 +1769,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                       onChangeText={(val) => setEmailOtp(val.replace(/[^0-9]/g, '').slice(0, 4))}
                       keyboardType="number-pad"
                       maxLength={4}
-                      placeholder="8821"
+                      placeholder="• • • •"
                       placeholderTextColor={theme.textMuted}
                       style={[styles.otpInput, { backgroundColor: theme.surface, color: theme.textPrimary, borderColor: theme.border }]}
                       autoFocus

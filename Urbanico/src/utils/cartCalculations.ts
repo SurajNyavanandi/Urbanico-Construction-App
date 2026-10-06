@@ -70,23 +70,27 @@ export function calculateCartTotals(
   const hasServices = serviceItems.length > 0;
   const hasMaterials = materialItems.length > 0;
 
-  const totalQuantity = cartItems.reduce((acc, item) => acc + (item.quantity || 1), 0);
+  const totalQuantity = cartItems.reduce((acc, item) => acc + (Number(item.quantity) || 1), 0);
 
   // Each service item computes: unitPrice * quantity (default unitPrice is 99 per demo/session)
-  const servicesSubtotal = serviceItems.reduce(
-    (acc, item) => acc + (item.unitPrice || 99) * (item.quantity || 1),
-    0
-  );
+  const servicesSubtotal = Math.round(
+    serviceItems.reduce(
+      (acc, item) => acc + (Number(item.unitPrice) || 99) * (Number(item.quantity) || 1),
+      0
+    ) * 100
+  ) / 100;
 
   // Physical materials compute: unitPrice * quantity
-  const materialsSubtotal = materialItems.reduce(
-    (acc, item) => acc + (item.unitPrice || 0) * (item.quantity || 1),
-    0
-  );
+  const materialsSubtotal = Math.round(
+    materialItems.reduce(
+      (acc, item) => acc + (Number(item.unitPrice) || 0) * (Number(item.quantity) || 1),
+      0
+    ) * 100
+  ) / 100;
 
-  const subtotal = servicesSubtotal + materialsSubtotal;
+  const subtotal = Math.round((servicesSubtotal + materialsSubtotal) * 100) / 100;
 
-  // GST calculation removed - no 18% tax added to physical materials or services
+  // GST calculation
   const gstTax = 0;
 
   // Delivery charge applies only if there are physical materials to transport; services carry 0 delivery charge
@@ -94,12 +98,13 @@ export function calculateCartTotals(
     isServicesOnly || materialItems.length === 0
       ? 0
       : customDeliveryCharge !== undefined
-      ? customDeliveryCharge
+      ? Math.round(customDeliveryCharge)
       : Math.max(50, Math.round(deliveryDistanceKm * 5));
 
-  const effectiveUnloading = isServicesOnly || materialItems.length === 0 ? 0 : (unloadingCharge || 0);
-  const taxableTotal = subtotal + gstTax + deliveryCharge + effectiveUnloading - (couponDiscount || 0);
-  const grandTotal = Math.max(0, taxableTotal);
+  const effectiveUnloading = isServicesOnly || materialItems.length === 0 ? 0 : Math.round(unloadingCharge || 0);
+  const effectiveCoupon = Math.round((couponDiscount || 0) * 100) / 100;
+  const taxableTotal = Math.round((subtotal + gstTax + deliveryCharge + effectiveUnloading - effectiveCoupon) * 100) / 100;
+  const grandTotal = Math.max(0, Math.round(taxableTotal));
 
   return {
     serviceItems,

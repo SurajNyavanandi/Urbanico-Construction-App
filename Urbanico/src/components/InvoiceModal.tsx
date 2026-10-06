@@ -693,15 +693,48 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
       </html>
     `;
 
-    if (typeof window !== 'undefined' && window.open) {
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(printContent);
-        printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => {
-          printWindow.print();
-        }, 300);
+    if (typeof window !== 'undefined') {
+      try {
+        const printWindow = window.open ? window.open('', '_blank') : null;
+        if (printWindow) {
+          printWindow.document.write(printContent);
+          printWindow.document.close();
+          printWindow.focus();
+          setTimeout(() => {
+            try {
+              printWindow.print();
+            } catch {}
+          }, 350);
+        } else if (typeof document !== 'undefined') {
+          // Hidden iframe fallback when popups are blocked by sandbox / mobile browser
+          const hiddenIframe = document.createElement('iframe');
+          hiddenIframe.style.position = 'fixed';
+          hiddenIframe.style.right = '0';
+          hiddenIframe.style.bottom = '0';
+          hiddenIframe.style.width = '0';
+          hiddenIframe.style.height = '0';
+          hiddenIframe.style.border = '0';
+          document.body.appendChild(hiddenIframe);
+          const doc = hiddenIframe.contentWindow?.document || hiddenIframe.contentDocument;
+          if (doc) {
+            doc.open();
+            doc.write(printContent);
+            doc.close();
+            setTimeout(() => {
+              try {
+                hiddenIframe.contentWindow?.focus();
+                hiddenIframe.contentWindow?.print();
+              } catch {}
+              setTimeout(() => {
+                if (hiddenIframe.parentNode) {
+                  document.body.removeChild(hiddenIframe);
+                }
+              }, 60000);
+            }, 350);
+          }
+        }
+      } catch {
+        showToast('Printing initialized. You can also view the full invoice on screen.', 'info');
       }
     }
   };

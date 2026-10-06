@@ -94,8 +94,8 @@ export interface RazorpayCheckoutOptions {
   onDismiss?: () => void;
 }
 
-// 1. Ensure Razorpay Script is injected into window
-export function loadRazorpayScript(): Promise<boolean> {
+// 1. Ensure Razorpay Script is injected into window with timeout safeguard
+export function loadRazorpayScript(timeoutMs = 1500): Promise<boolean> {
   return new Promise((resolve) => {
     if (typeof window === 'undefined' || typeof document === 'undefined') {
       return resolve(false);
@@ -103,18 +103,52 @@ export function loadRazorpayScript(): Promise<boolean> {
     if ((window as any).Razorpay) {
       return resolve(true);
     }
+
+    // Fast check for restricted sandboxed iframe where external script injection is disallowed
+    try {
+      if (window.self !== window.top && document.location.protocol === 'about:') {
+        return resolve(false);
+      }
+    } catch {
+      // Cross-origin iframe restriction detected
+    }
+
+    let isSettled = false;
+    let timer: any = null;
+
+    const finalize = (result: boolean) => {
+      if (isSettled) return;
+      isSettled = true;
+      if (timer) clearTimeout(timer);
+      resolve(result);
+    };
+
+    // If script loading takes longer than timeoutMs (e.g. iframe CSP or blocked external domain), fail fast
+    timer = setTimeout(() => {
+      console.warn('[Razorpay] SDK script load timed out. Tripping graceful fallback.');
+      finalize(false);
+    }, timeoutMs);
+
     const existingScript = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
     if (existingScript) {
-      existingScript.addEventListener('load', () => resolve(true));
-      existingScript.addEventListener('error', () => resolve(false));
+      if ((window as any).Razorpay) {
+        return finalize(true);
+      }
+      existingScript.addEventListener('load', () => finalize(true), { once: true });
+      existingScript.addEventListener('error', () => finalize(false), { once: true });
       return;
     }
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.async = true;
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
+
+    try {
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      script.onload = () => finalize(true);
+      script.onerror = () => finalize(false);
+      document.body.appendChild(script);
+    } catch {
+      finalize(false);
+    }
   });
 }
 

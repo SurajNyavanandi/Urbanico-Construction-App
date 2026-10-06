@@ -66,6 +66,35 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   const [notifications, setNotifications] = useState<SiteNotification[]>(INITIAL_NOTIFICATIONS);
 
   const unreadCount = notifications.filter((n) => n.isUnread).length;
+  const [pushStatus, setPushStatus] = useState<'default' | 'granted' | 'denied' | 'unsupported'>('default');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setPushStatus(Notification.permission as any);
+    } else {
+      setPushStatus('unsupported');
+    }
+  }, [visible]);
+
+  const handleRequestPushPermission = async () => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      return;
+    }
+    try {
+      if (Notification.permission === 'granted') {
+        setPushStatus('granted');
+        return;
+      }
+      if (Notification.permission === 'denied') {
+        setPushStatus('denied');
+        return;
+      }
+      const result = await Notification.requestPermission();
+      setPushStatus((result || 'denied') as any);
+    } catch {
+      setPushStatus('denied');
+    }
+  };
 
   useEffect(() => {
     if (visible && unreadCount > 0) {
@@ -161,6 +190,31 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* Push Permission Status Banner */}
+          {pushStatus === 'default' && (
+            <View style={{ backgroundColor: '#EFF6FF', borderBottomWidth: 1, borderBottomColor: '#DBEAFE', paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flex: 1, marginRight: 10 }}>
+                <Text style={{ fontSize: 12, fontWeight: '700', color: '#1E40AF' }}>Enable Live Dispatch Alerts</Text>
+                <Text style={{ fontSize: 11, color: '#3B82F6', marginTop: 1 }}>Get instant notifications when tippers dispatch</Text>
+              </View>
+              <TouchableOpacity
+                onPress={handleRequestPushPermission}
+                style={{ backgroundColor: '#2563EB', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}
+                activeOpacity={0.8}
+              >
+                <Text style={{ fontSize: 11, fontWeight: '700', color: '#FFFFFF' }}>Enable</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {pushStatus === 'denied' && (
+            <View style={{ backgroundColor: '#FEF2F2', borderBottomWidth: 1, borderBottomColor: '#FEE2E2', paddingHorizontal: 16, paddingVertical: 8 }}>
+              <Text style={{ fontSize: 11, color: '#991B1B', fontWeight: '500' }}>
+                ⚠️ Notifications are blocked in your browser. Enable them in site settings to receive instant delivery updates.
+              </Text>
+            </View>
+          )}
 
           {/* Body */}
           <ScrollView

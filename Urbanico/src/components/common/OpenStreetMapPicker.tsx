@@ -155,19 +155,35 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
     <body>
       <div id="map"></div>
       <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        function initLeafletMap() {
+          var container = document.getElementById('map');
+          if (!container) return;
+
+          // Prevent "Map container is already initialized" crash on rapid modal toggling
+          if (container._leaflet_id) {
+            container._leaflet_id = null;
+          }
+          if (window._leaflet_map) {
+            try {
+              window._leaflet_map.remove();
+            } catch (e) {}
+            window._leaflet_map = null;
+          }
+
           var centerLat = ${selectedPos.lat};
           var centerLng = ${selectedPos.lng};
           var isInteractive = ${interactive};
           var title = "${markerTitle.replace(/"/g, '\\"')}";
 
-          var map = L.map('map', {
+          var map = L.map(container, {
             zoomControl: isInteractive,
             dragging: isInteractive,
             touchZoom: isInteractive,
             scrollWheelZoom: isInteractive,
             doubleClickZoom: isInteractive
           }).setView([centerLat, centerLng], ${zoom});
+
+          window._leaflet_map = map;
 
           L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
@@ -245,6 +261,20 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
                   }
                 });
             });
+          }
+        }
+
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+          initLeafletMap();
+        } else {
+          document.addEventListener('DOMContentLoaded', initLeafletMap);
+        }
+
+        window.addEventListener('unload', function() {
+          if (window._leaflet_map) {
+            try {
+              window._leaflet_map.remove();
+            } catch (e) {}
           }
         });
       </script>

@@ -89,7 +89,29 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [couponDiscount, setCouponDiscount] = useState<number>(0);
 
-  // Sync cart from backend database on login/mount
+  // Helper to merge two carts without dropping quantities or items
+  const mergeCartItems = (existingItems: CartItem[], incomingItems: CartItem[]): CartItem[] => {
+    if (!existingItems || existingItems.length === 0) return incomingItems || [];
+    if (!incomingItems || incomingItems.length === 0) return existingItems || [];
+
+    const merged = [...existingItems];
+    for (const item of incomingItems) {
+      const idx = merged.findIndex(
+        (m) => (m.itemId === item.itemId || m.id === item.id) && m.selectedOptionLabel === item.selectedOptionLabel
+      );
+      if (idx >= 0) {
+        merged[idx] = {
+          ...merged[idx],
+          quantity: Math.max(1, (merged[idx].quantity || 1) + (item.quantity || 1)),
+        };
+      } else {
+        merged.push(item);
+      }
+    }
+    return merged;
+  };
+
+  // Sync cart from backend database on login/mount with smart merge
   useEffect(() => {
     try {
       const authSaved = safeStorage.getItem('urbanico_auth_session');
@@ -98,7 +120,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (cleanPhone) {
         apiService.getUserCart(cleanPhone).then((dbCart) => {
           if (Array.isArray(dbCart) && dbCart.length > 0) {
-            setCartItems((prev) => (prev.length === 0 ? dbCart : prev));
+            setCartItems((prev) => mergeCartItems(prev, dbCart));
           }
         }).catch(() => {});
       }
@@ -122,25 +144,23 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       // Also queue for debounced async writes and server synchronization
       safeStorage.setAsyncObject(key, cartItems, 200);
+      let debounceServerTimer: any = null;
       if (cleanPhone) {
-        apiService.saveUserCart(cartItems, cleanPhone).catch(() => {});
+        debounceServerTimer = setTimeout(() => {
+          apiService.saveUserCart(cartItems, cleanPhone).catch(() => {});
+        }, 400);
       }
+
+      return () => {
+        if (debounceServerTimer) clearTimeout(debounceServerTimer);
+        // Flush immediately on unmount
+        try {
+          safeStorage.flushDebounced(key);
+        } catch {}
+      };
     } catch {
       // ignore
     }
-
-    return () => {
-      // Flush immediately on unmount
-      try {
-        const authSaved = safeStorage.getItem('urbanico_auth_session');
-        const authParsed = authSaved ? JSON.parse(authSaved) : null;
-        const isAuth = authParsed?.isLoggedIn;
-        const phone = authParsed?.phone;
-        const cleanPhone = isAuth && phone ? phone.replace(/[^0-9]/g, '') : null;
-        const key = cleanPhone ? `urbanico_cart_${cleanPhone}` : 'urbanico_cart_guest';
-        safeStorage.flushDebounced(key);
-      } catch {}
-    };
   }, [cartItems]);
 
   // Non-blocking auto-save for saved-for-later items
@@ -156,6 +176,44 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const totals = useMemo(() => {
     return calculateCartTotals(cartItems, couponDiscount);
   }, [cartItems, couponDiscount]);
+
+  // Automatically re-validate and adjust coupons when cart contents change to prevent double-dipping or sub-zero totals
+  useEffect(() => {
+    if (!appliedCoupon) return;
+    const currentSubtotal = cartItems.reduce(
+      (acc, item) => acc + (Number(item.unitPrice) || 0) * (Number(item.quantity) || 1),
+      0
+    );
+
+    if (cartItems.length === 0 || currentSubtotal <= 0) {
+      setAppliedCoupon(null);
+      setCouponDiscount(0);
+      return;
+    }
+
+    const clean = appliedCoupon.toUpperCase().trim();
+    if (clean === 'FIRST500' || clean === 'URBAN500' || clean === 'SUPER500' || clean === 'SITE500') {
+      // Minimum cart value of ₹2,000 required for ₹500 discount
+      if (currentSubtotal < 2000) {
+        setAppliedCoupon(null);
+        setCouponDiscount(0);
+      } else {
+        setCouponDiscount(500);
+      }
+    } else if (clean === 'URBAN10' || clean === 'SAVE10' || clean === 'DISCOUNT10') {
+      const rawDisc = Math.round(currentSubtotal * 0.1);
+      const disc = Math.min(2500, Math.min(Math.max(1, currentSubtotal - 1), Math.max(50, rawDisc)));
+      setCouponDiscount(disc);
+    } else if (clean === 'URBAN50' || clean === 'SAVE50') {
+      if (currentSubtotal < 1000) {
+        setAppliedCoupon(null);
+        setCouponDiscount(0);
+      } else {
+        const disc = Math.min(250, currentSubtotal);
+        setCouponDiscount(disc);
+      }
+    }
+  }, [cartItems, appliedCoupon]);
 
   const addToCart = useCallback(
     (
@@ -232,31 +290,52 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const applyCoupon = useCallback((code: string) => {
+    if (cartItems.length === 0) {
+      return { success: false, message: 'Your cart is empty. Add materials before applying a promo code.' };
+    }
+
     const isServicesOnlyCart = cartItems.length > 0 && cartItems.every(isCartItemService);
     if (isServicesOnlyCart) {
       return { success: false, message: 'Coupons are not applicable on trade service visits' };
     }
 
+    const currentSubtotal = cartItems.reduce(
+      (acc, item) => acc + (Number(item.unitPrice) || 0) * (Number(item.quantity) || 1),
+      0
+    );
+
     const clean = code.trim().toUpperCase();
     if (!clean) return { success: false, message: 'Enter a valid coupon code' };
 
     if (clean === 'URBAN10' || clean === 'SAVE10' || clean === 'DISCOUNT10') {
+      if (currentSubtotal < 500) {
+        return { success: false, message: 'Minimum order value of ₹500 required for 10% discount' };
+      }
+      const rawDisc = Math.round(currentSubtotal * 0.1);
+      const disc = Math.min(2500, Math.min(Math.max(1, currentSubtotal - 1), Math.max(50, rawDisc)));
       setAppliedCoupon(clean);
-      setCouponDiscount(100);
-      return { success: true, message: 'Coupon applied: 10% discount' };
+      setCouponDiscount(disc);
+      return { success: true, message: `Coupon applied: 10% discount (₹${disc} off)` };
     }
     if (clean === 'URBAN50' || clean === 'SAVE50') {
+      if (currentSubtotal < 1000) {
+        return { success: false, message: 'Minimum order value of ₹1,000 required for ₹250 discount' };
+      }
+      const disc = Math.min(250, currentSubtotal);
       setAppliedCoupon(clean);
-      setCouponDiscount(250);
-      return { success: true, message: 'Coupon applied: ₹250 discount' };
+      setCouponDiscount(disc);
+      return { success: true, message: `Coupon applied: ₹${disc} discount` };
     }
-    if (clean === 'SUPER500' || clean === 'URBAN500' || clean === 'SITE500') {
+    if (clean === 'SUPER500' || clean === 'URBAN500' || clean === 'SITE500' || clean === 'FIRST500') {
+      if (currentSubtotal < 2000) {
+        return { success: false, message: 'Minimum order value of ₹2,000 required for ₹500 discount' };
+      }
       setAppliedCoupon(clean);
       setCouponDiscount(500);
       return { success: true, message: 'Coupon applied: ₹500 discount' };
     }
 
-    return { success: false, message: 'Invalid coupon code' };
+    return { success: false, message: 'Invalid coupon code. Try URBAN10, SAVE50, or SITE500' };
   }, [cartItems]);
 
   const removeCoupon = useCallback(() => {

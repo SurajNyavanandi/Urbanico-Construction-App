@@ -73,9 +73,17 @@ export async function connectDB(): Promise<typeof mongoose | null> {
       scheduleReconnect();
     });
 
-    mongoose.connection.on('reconnected', () => {
-      console.log('[DB] 🟢 MongoDB Atlas reconnected');
+    mongoose.connection.on('reconnected', async () => {
+      console.log('[DB] 🟢 MongoDB Atlas reconnected. Initiating automatic data reconciliation...');
       isConnected = true;
+      try {
+        const { UserService } = await import('../services/userService');
+        const { OrderService } = await import('../services/orderService');
+        await UserService.syncToAtlas();
+        await OrderService.syncToAtlas();
+      } catch (syncErr: any) {
+        console.warn('[DB] Reconnection sync notice:', syncErr?.message || syncErr);
+      }
     });
 
     return conn;

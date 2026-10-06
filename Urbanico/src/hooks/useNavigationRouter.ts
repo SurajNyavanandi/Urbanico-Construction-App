@@ -12,11 +12,65 @@ export interface PreloadableLazyModule {
 }
 
 export function useNavigationRouter(screenPreloaders?: Record<string, () => Promise<any>>) {
-  const [currentScreen, setCurrentScreen] = useState<ScreenType>('home');
-  const [selectedCategoryId, setSelectedCategoryId] = useState<CategoryId | 'all'>('all');
+  const [currentScreen, setCurrentScreen] = useState<ScreenType>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const urlScreen = params.get('screen') as ScreenType;
+        if (urlScreen) return urlScreen;
+      } catch {}
+    }
+    return 'home';
+  });
+
+  const [selectedCategoryId, setSelectedCategoryId] = useState<CategoryId | 'all'>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const urlCat = params.get('category') as CategoryId;
+        if (urlCat) return urlCat;
+      } catch {}
+    }
+    return 'all';
+  });
+
   const [globalViewMode, setGlobalViewMode] = useState<'list' | 'grid'>('grid');
   const [openProfileAddresses, setOpenProfileAddresses] = useState(false);
   const [pendingIntent, setPendingIntent] = useState<PendingIntent>(null);
+
+  // Synchronize URL parameters on browser navigation / popstate
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handlePopState = () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const urlScreen = (params.get('screen') as ScreenType) || 'home';
+        const urlCat = (params.get('category') as CategoryId) || 'all';
+        setCurrentScreen(urlScreen);
+        setSelectedCategoryId(urlCat);
+      } catch {}
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const updateUrlState = (scr: ScreenType, cat?: CategoryId | 'all') => {
+    if (typeof window === 'undefined' || !window.history?.replaceState) return;
+    try {
+      const url = new URL(window.location.href);
+      if (scr === 'home') {
+        url.searchParams.delete('screen');
+      } else {
+        url.searchParams.set('screen', scr);
+      }
+      if (cat && cat !== 'all') {
+        url.searchParams.set('category', cat);
+      } else {
+        url.searchParams.delete('category');
+      }
+      window.history.replaceState(null, '', url.toString());
+    } catch {}
+  };
 
   // Scroll position cache across tabs to preserve scroll offset when switching back and forth
   const scrollPositionsRef = useRef<Record<string, number>>({});
@@ -78,6 +132,9 @@ export function useNavigationRouter(screenPreloaders?: Record<string, () => Prom
     startTransition(() => {
       if (scr === 'shop' || scr === 'category') {
         setSelectedCategoryId('all');
+        updateUrlState(scr, 'all');
+      } else {
+        updateUrlState(scr);
       }
       setCurrentScreen(scr);
     });
@@ -91,6 +148,7 @@ export function useNavigationRouter(screenPreloaders?: Record<string, () => Prom
       startTransition(() => {
         setSelectedCategoryId(catId as any);
         setCurrentScreen('shop');
+        updateUrlState('shop', catId as any);
       });
     },
     []

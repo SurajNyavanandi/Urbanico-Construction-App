@@ -124,6 +124,23 @@ export function useAuthSession(options?: {
 
     const cleanPhone = validPhone.replace(/[^0-9]/g, '');
     if (cleanPhone) {
+      // Merge any guest locations entered prior to login
+      try {
+        const guestLocsRaw = safeStorage.getItem('urbanico_saved_locations_guest');
+        if (guestLocsRaw) {
+          const guestLocs = JSON.parse(guestLocsRaw);
+          if (Array.isArray(guestLocs) && guestLocs.length > 0) {
+            const userKey = `urbanico_saved_locations_${cleanPhone}`;
+            const existingUserLocsRaw = safeStorage.getItem(userKey);
+            const existingUserLocs = existingUserLocsRaw ? JSON.parse(existingUserLocsRaw) : [];
+            const mergedLocs = Array.from(new Set([...existingUserLocs, ...guestLocs]));
+            safeStorage.setItem(userKey, JSON.stringify(mergedLocs));
+            safeStorage.removeItem('urbanico_saved_locations_guest');
+            apiService.updateUserProfile(cleanPhone, { savedLocations: mergedLocs }).catch(() => {});
+          }
+        }
+      } catch {}
+
       apiService
         .getUserProfile(cleanPhone)
         .then((serverUser) => {

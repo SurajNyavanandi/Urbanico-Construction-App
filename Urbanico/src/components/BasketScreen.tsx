@@ -1164,9 +1164,18 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                 ⚠️ {gstinError}
               </Text>
             ) : gstinValidation?.isValid ? (
-              <Text style={{ fontSize: 11, color: '#059669', marginTop: 4, fontWeight: '600' }}>
-                ✓ Valid GSTIN ({gstinValidation.stateName}) • 18% Input Tax Credit
-              </Text>
+              <View style={{ marginTop: 4 }}>
+                <Text style={{ fontSize: 11, color: '#059669', fontWeight: '600' }}>
+                  ✓ Valid GSTIN ({gstinValidation.stateName}) • 18% Input Tax Credit
+                </Text>
+                {gstinValidation.stateCode !== '36' && (
+                  <View style={{ marginTop: 6, padding: 8, backgroundColor: theme.mode === 'dark' ? '#1E293B' : '#EFF6FF', borderRadius: 8, borderWidth: 1, borderColor: theme.mode === 'dark' ? '#334155' : '#BFDBFE' }}>
+                    <Text style={{ fontSize: 11, color: theme.mode === 'dark' ? '#93C5FD' : '#1E40AF', lineHeight: 15 }}>
+                      ℹ️ <Text style={{ fontWeight: '700' }}>Inter-State Supply Notice:</Text> Registered GSTIN is in {gstinValidation.stateName} (State {gstinValidation.stateCode}). An Integrated GST (IGST 18%) commercial tax invoice will be issued for full Input Tax Credit eligibility.
+                    </Text>
+                  </View>
+                )}
+              </View>
             ) : checkoutGstin.length > 0 ? (
               <Text style={{ fontSize: 11, color: theme.textMuted, marginTop: 4 }}>
                 {15 - checkoutGstin.length} characters remaining
@@ -1429,12 +1438,47 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     showToast('New delivery address added and selected!', 'success');
   };
 
-  const handleConfirmCancelOrder = () => {
+  const handleConfirmCancelOrder = async () => {
     if (!orderToCancel) return;
-    setCancelledOrderIds((prev) => [...prev, orderToCancel.id]);
-    showToast(`Order #${orderToCancel.orderNumber} cancelled. Refund of ₹${orderToCancel.totalAmount.toLocaleString('en-IN')} initiated to your source account.`, 'info');
+    const targetOrder = orderToCancel;
+    const cancelledId = targetOrder.id;
+    const orderNum = targetOrder.orderNumber;
+    const refundAmount = targetOrder.totalAmount || 0;
+
+    // Instant UI feedback
+    setCancelledOrderIds((prev) => [...prev, cancelledId]);
+    showToast(`Order #${orderNum} cancelled. Refund of ₹${refundAmount.toLocaleString('en-IN')} initiated to your source account.`, 'info');
     setShowCancelConfirmModal(false);
     setOrderToCancel(null);
+
+    // Persist status change to MongoDB Atlas and backend order state
+    try {
+      if (orderNum) {
+        await apiService.updateOrderStatus(orderNum, 'cancelled', {
+          cancelledAt: new Date().toISOString(),
+          cancellationReason: 'Cancelled by customer from dispatch tracker',
+        });
+      }
+
+      // Update user-scoped cache immediately
+      if (user?.phone) {
+        const cleanPhone = user.phone.replace(/[^0-9]/g, '').slice(-10);
+        const userOrdersRaw = safeStorage.getItem(`urbanico_user_orders_${cleanPhone}`);
+        if (userOrdersRaw) {
+          const list = JSON.parse(userOrdersRaw);
+          if (Array.isArray(list)) {
+            const updatedList = list.map((o: any) =>
+              o.orderNumber === orderNum || o.id === cancelledId || o._id === cancelledId
+                ? { ...o, orderStatus: 'cancelled', status: 'Cancelled' }
+                : o
+            );
+            safeStorage.setItem(`urbanico_user_orders_${cleanPhone}`, JSON.stringify(updatedList));
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[BasketScreen] Error updating cancellation in backend:', err);
+    }
   };
 
   const handleStartCheckout = async () => {

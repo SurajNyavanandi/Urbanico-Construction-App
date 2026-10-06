@@ -7,6 +7,8 @@ const router = Router();
 // Dynamic Authentication routes with fixed dev OTP 261125
 router.post('/auth/send-otp', UserController.sendOtp);
 router.post('/auth/verify-otp', UserController.verifyOtp);
+router.post('/email/send-otp', UserController.sendEmailOtp);
+router.post('/email/verify-otp', UserController.verifyEmailOtp);
 
 // Authenticated current session user route
 router.get('/me', requireAuth, UserController.getCurrentUser);

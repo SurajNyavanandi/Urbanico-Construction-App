@@ -5,15 +5,22 @@ const inMemoryUsers: any[] = [];
 
 export class UserService {
   public static async findOrCreateUser(phone: string, userData: Partial<IUser> = {}) {
-    const cleanPhone = phone ? phone.replace(/[^\d+]/g, '') : '+919876543210';
+    const cleanPhone = phone ? phone.replace(/[^\d+]/g, '') : '';
+    const cleanDigits = phone ? phone.replace(/\D/g, '').slice(-10) : '';
 
     try {
       if (mongoose.connection.readyState === 1) {
-        let user = await User.findOne({ phone: cleanPhone }).exec();
+        let user = null;
+        if (cleanPhone) {
+          user = await User.findOne({ phone: cleanPhone }).exec();
+          if (!user && cleanDigits) {
+            user = await User.findOne({ phone: { $regex: cleanDigits } }).exec();
+          }
+        }
         if (!user) {
           user = new User({
-            phone: cleanPhone,
-            name: userData.name || 'Site Incharge',
+            phone: cleanPhone || '+919876543210',
+            name: userData.name || '',
             email: userData.email || '',
             role: userData.role || 'contractor',
             companyName: userData.companyName || '',
@@ -33,12 +40,15 @@ export class UserService {
       console.warn('[User] Note: In-memory fallback used');
     }
 
-    let memoryUser = inMemoryUsers.find((u) => u.phone === cleanPhone);
+    let memoryUser = inMemoryUsers.find((u) => {
+      const uDigits = (u.phone || '').replace(/\D/g, '');
+      return u.phone === cleanPhone || (cleanDigits && uDigits.includes(cleanDigits));
+    });
     if (!memoryUser) {
       memoryUser = {
         _id: `usr_${Date.now()}`,
-        phone: cleanPhone,
-        name: userData.name || 'Site Incharge',
+        phone: cleanPhone || '+919876543210',
+        name: userData.name || '',
         email: userData.email || '',
         role: userData.role || 'contractor',
         companyName: userData.companyName || '',
@@ -71,15 +81,22 @@ export class UserService {
 
   public static async getUserByPhone(phone: string) {
     const clean = phone.replace(/[^\d+]/g, '');
+    const cleanDigits = phone.replace(/\D/g, '').slice(-10);
     try {
       if (mongoose.connection.readyState === 1) {
-        const user = await User.findOne({ phone: clean }).exec();
+        let user = await User.findOne({ phone: clean }).exec();
+        if (!user && cleanDigits) {
+          user = await User.findOne({ phone: { $regex: cleanDigits } }).exec();
+        }
         if (user) return user;
       }
     } catch (err) {
       // fallback
     }
-    return inMemoryUsers.find((u) => u.phone === clean || u.phone.includes(clean)) || null;
+    return inMemoryUsers.find((u) => {
+      const uDigits = (u.phone || '').replace(/\D/g, '');
+      return u.phone === clean || (cleanDigits && uDigits.includes(cleanDigits));
+    }) || null;
   }
 
   public static async updateUser(idOrPhone: string, updateData: Partial<IUser>) {

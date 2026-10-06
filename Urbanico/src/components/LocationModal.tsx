@@ -157,6 +157,11 @@ export const LocationModal: React.FC<LocationModalProps> = ({
       const lookup = lookupCityStateFromPincode(clean);
       if (lookup.city) setCity(lookup.city);
       if (lookup.state) setState(lookup.state);
+      try {
+        if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+      } catch {}
     }
   };
 

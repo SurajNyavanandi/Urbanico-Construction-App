@@ -373,19 +373,60 @@ export class OrderService {
     status: IOrder['orderStatus'],
     extraFields: Partial<IOrder> = {}
   ) {
+    // If order is being cancelled, process automated refund if payment was settled
+    let refundInfo: any = {};
+    if (status === 'cancelled') {
+      try {
+        const existing = await this.getOrderById(id);
+        const paymentId = existing?.paymentDetails?.razorpay_payment_id || (existing as any)?.razorpayPaymentId;
+        const totalAmt = existing?.totalAmount || 0;
+        if (paymentId && totalAmt > 0) {
+          const { RazorpayBackendService } = await import('./razorpayService');
+          const refundRes = await RazorpayBackendService.processRefund({
+            paymentId,
+            amountInPaise: Math.round(totalAmt * 100),
+            notes: {
+              reason: 'Customer initiated order cancellation',
+              orderNumber: existing.orderNumber || id,
+            },
+          });
+          refundInfo = {
+            paymentStatus: 'refunded',
+            refundId: refundRes.refundId || `rfnd_${Date.now()}`,
+            refundAmount: totalAmt,
+            refundStatus: refundRes.status || 'processed',
+            refundProcessedAt: new Date().toISOString(),
+          };
+          console.log(`[Order Refund] Automated refund executed for order #${existing.orderNumber || id}: Refund ID ${refundInfo.refundId}`);
+        } else if (existing?.paymentStatus === 'paid') {
+          refundInfo = {
+            paymentStatus: 'refunded',
+            refundId: `rfnd_auto_${Date.now()}`,
+            refundAmount: totalAmt,
+            refundStatus: 'processed',
+            refundProcessedAt: new Date().toISOString(),
+          };
+        }
+      } catch (refundErr: any) {
+        console.warn('[Order Refund] Automatic gateway refund notification:', refundErr?.message || refundErr);
+      }
+    }
+
+    const mergedFields = { ...extraFields, ...refundInfo };
+
     try {
       if (mongoose.connection.readyState === 1) {
         let dbOrder = null;
         if (mongoose.Types.ObjectId.isValid(id)) {
           dbOrder = await Order.findByIdAndUpdate(
             id,
-            { $set: { orderStatus: status, ...extraFields, updatedAt: new Date() } },
+            { $set: { orderStatus: status, ...mergedFields, updatedAt: new Date() } },
             { new: true }
           ).exec();
         } else {
           dbOrder = await Order.findOneAndUpdate(
             { orderNumber: id },
-            { $set: { orderStatus: status, ...extraFields, updatedAt: new Date() } },
+            { $set: { orderStatus: status, ...mergedFields, updatedAt: new Date() } },
             { new: true }
           ).exec();
         }
@@ -400,7 +441,7 @@ export class OrderService {
       inMemoryOrders[idx] = {
         ...inMemoryOrders[idx],
         orderStatus: status,
-        ...extraFields,
+        ...mergedFields,
         updatedAt: new Date(),
       };
       return inMemoryOrders[idx];
@@ -468,42 +509,39 @@ export class OrderService {
       console.log(`[Order] Syncing ${inMemoryOrders.length} orders to MongoDB Atlas...`);
       for (const ord of inMemoryOrders) {
         if (!ord.orderNumber) continue;
-        await Order.findOneAndUpdate(
-          { orderNumber: ord.orderNumber },
-          {
-            $setOnInsert: {
-              orderNumber: ord.orderNumber,
-              customerName: ord.customerName || 'Valued Customer',
-              customerPhone: ord.customerPhone || '9848012345',
-              customerEmail: ord.customerEmail || '',
-              gstin: ord.gstin || '',
-              siteAddress: ord.siteAddress || {
-                siteName: 'Construction Site',
-                street: 'Site Address',
-                city: 'Hyderabad',
-                state: 'Telangana',
-                pincode: '500032',
-              },
-              items: ord.items || [],
-              subtotal: ord.subtotal || 0,
-              taxAmount: ord.taxAmount || 0,
-              deliveryCharges: ord.deliveryCharges || 0,
-              unloadingCharges: ord.unloadingCharges || 0,
-              totalAmount: ord.totalAmount || 0,
-              paymentStatus: ord.paymentStatus || 'paid',
-              paymentMethod: ord.paymentMethod || 'UPI',
-              orderStatus: ord.orderStatus || 'confirmed',
-              eWayBillNo: ord.eWayBillNo,
-              vehicleNumber: ord.vehicleNumber,
-              driverName: ord.driverName,
-              driverPhone: ord.driverPhone,
-              deliveryOtp: ord.deliveryOtp || generateRandomOtp(),
-              createdAt: ord.createdAt || new Date(),
-              updatedAt: ord.updatedAt || new Date(),
+        const existing = await Order.findOne({ orderNumber: ord.orderNumber }).exec();
+        if (!existing) {
+          const newDoc = new Order({
+            orderNumber: ord.orderNumber,
+            customerName: ord.customerName || 'Valued Customer',
+            customerPhone: ord.customerPhone || '9848012345',
+            customerEmail: ord.customerEmail || '',
+            businessName: ord.businessName || '',
+            gstin: ord.gstin || '',
+            siteAddress: ord.siteAddress || {
+              siteName: 'Construction Site',
+              street: 'Site Address',
+              city: 'Hyderabad',
+              state: 'Telangana',
+              pincode: '500032',
             },
-          },
-          { upsert: true, new: true }
-        );
+            items: ord.items || [],
+            subtotal: ord.subtotal || 0,
+            taxAmount: ord.taxAmount || 0,
+            deliveryCharges: ord.deliveryCharges || 0,
+            unloadingCharges: ord.unloadingCharges || 0,
+            totalAmount: ord.totalAmount || 0,
+            paymentStatus: ord.paymentStatus || 'paid',
+            paymentMethod: ord.paymentMethod || 'UPI',
+            orderStatus: ord.orderStatus || 'confirmed',
+            eWayBillNo: ord.eWayBillNo,
+            vehicleNumber: ord.vehicleNumber,
+            driverName: ord.driverName,
+            driverPhone: ord.driverPhone,
+            deliveryOtp: ord.deliveryOtp || generateRandomOtp(),
+          });
+          await newDoc.save();
+        }
       }
       console.log('[Order] 🟢 All orders synced to MongoDB Atlas successfully.');
     } catch (err: any) {

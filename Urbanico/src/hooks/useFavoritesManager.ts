@@ -24,9 +24,10 @@ export function useFavoritesManager({
       const authSaved = safeStorage.getItem('urbanico_auth_session');
       const isAuth = authSaved ? JSON.parse(authSaved).isLoggedIn : false;
       const phone = authSaved ? JSON.parse(authSaved).phone : null;
+      const cleanPhone = phone ? phone.replace(/\D/g, '').slice(-10) : null;
       const key =
-        isAuth && phone
-          ? `urbanico_favorite_ids_${phone}`
+        isAuth && cleanPhone
+          ? `urbanico_favorite_ids_${cleanPhone}`
           : 'urbanico_favorite_ids_guest';
       const favSaved = safeStorage.getItem(key) || safeStorage.getItem('urbanico_favorite_ids');
       if (favSaved) {

@@ -248,6 +248,19 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
         const nextLoc = filtered.length > 0 ? filtered[0] : DEFAULT_FALLBACK_LOCATION;
         setSelectedLocationState(nextLoc);
       }
+
+      // Synchronize deletion with MongoDB Atlas when authenticated
+      try {
+        const authSaved = safeStorage.getItem('urbanico_auth_session');
+        const phone = authSaved ? JSON.parse(authSaved).phone : null;
+        if (phone) {
+          const cleanPhone = phone.replace(/\D/g, '');
+          apiService.updateUserProfile(cleanPhone, {
+            savedLocations: filtered,
+          }).catch(() => {});
+        }
+      } catch {}
+
       return filtered;
     });
   };
