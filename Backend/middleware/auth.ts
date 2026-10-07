@@ -1,7 +1,23 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'urbanico_jwt_auth_secret_production_2026_key';
+const DEFAULT_INSECURE_SECRET = 'urbanico_jwt_auth_secret_production_2026_key';
+
+function resolveJwtSecret(): string {
+  const envSecret = process.env.JWT_SECRET;
+  if (process.env.NODE_ENV === 'production') {
+    if (!envSecret || envSecret === DEFAULT_INSECURE_SECRET) {
+      console.warn(
+        '[SECURITY WARNING] process.env.JWT_SECRET is unset or using default static key in production. Generating an ephemeral cryptographic secret for this runtime process.'
+      );
+      return crypto.randomBytes(48).toString('hex');
+    }
+    return envSecret;
+  }
+  return envSecret || DEFAULT_INSECURE_SECRET;
+}
+
+const JWT_SECRET = resolveJwtSecret();
 
 export interface AuthUserPayload {
   id: string;
@@ -205,7 +221,7 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
   if (!authHeader) {
     return res.status(401).json({
       success: false,
-      error: 'Authentication token required. Please sign in with OTP 261125.',
+      error: 'Authentication token required. Please sign in to continue.',
     });
   }
 
@@ -244,4 +260,35 @@ export function requireRole(allowedRoles: string[]) {
 
     return next();
   };
+}
+
+/**
+ * Express Middleware: Require Admin Secret (for sensitive operations like purge)
+ */
+export function requireAdminSecret(req: Request, res: Response, next: NextFunction) {
+  const secretHeader = (req.headers['x-admin-secret'] as string) || (req.query.admin_secret as string) || (req.body?.adminSecret as string);
+  const configuredSecret = process.env.ADMIN_API_SECRET;
+
+  if (process.env.NODE_ENV === 'production' && !configuredSecret) {
+    return res.status(403).json({
+      success: false,
+      error: 'Administrative purge operations are disabled in production mode.',
+    });
+  }
+
+  if (configuredSecret) {
+    if (secretHeader !== configuredSecret) {
+      return res.status(403).json({
+        success: false,
+        error: 'Unauthorized: Invalid admin authorization secret.',
+      });
+    }
+  } else if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({
+      success: false,
+      error: 'Unauthorized.',
+    });
+  }
+
+  return next();
 }

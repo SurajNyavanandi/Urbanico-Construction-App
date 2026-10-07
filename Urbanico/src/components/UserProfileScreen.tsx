@@ -435,10 +435,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   };
 
   const handleAddNewAddress = () => {
+    const cleanMobile = addressMobile.replace(/\D/g, '').slice(-10);
+    const cleanAltPhone = addressAltPhone ? addressAltPhone.replace(/\D/g, '').slice(-10) : '';
+
     const validation = validateAndSanitizeAddressForm({
       fullName: addressFullName,
-      mobileNumber: addressMobile,
-      alternatePhone: addressAltPhone,
+      mobileNumber: cleanMobile,
+      alternatePhone: cleanAltPhone,
       pincode: addressPincode,
       flatBuilding: addressFlatBuilding,
       areaStreet: addressAreaStreet,

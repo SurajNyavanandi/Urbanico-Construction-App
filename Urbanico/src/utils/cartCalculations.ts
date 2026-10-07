@@ -70,28 +70,36 @@ export function calculateCartTotals(
   const hasServices = serviceItems.length > 0;
   const hasMaterials = materialItems.length > 0;
 
+  const roundMoney = (val: number): number => Math.round((val + Number.EPSILON) * 100) / 100;
+
   const totalQuantity = cartItems.reduce((acc, item) => acc + (Number(item.quantity) || 1), 0);
 
-  // Each service item computes: unitPrice * quantity (default unitPrice is 99 per demo/session)
-  const servicesSubtotal = Math.round(
+  // Each service item computes: roundMoney(unitPrice * quantity)
+  const servicesSubtotal = roundMoney(
     serviceItems.reduce(
-      (acc, item) => acc + (Number(item.unitPrice) || 99) * (Number(item.quantity) || 1),
+      (acc, item) => {
+        const itemLineTotal = roundMoney((Number(item.unitPrice) || 99) * (Number(item.quantity) || 1));
+        return acc + itemLineTotal;
+      },
       0
-    ) * 100
-  ) / 100;
+    )
+  );
 
-  // Physical materials compute: unitPrice * quantity
-  const materialsSubtotal = Math.round(
+  // Physical materials compute: roundMoney(unitPrice * quantity) for fractional units and metric tons
+  const materialsSubtotal = roundMoney(
     materialItems.reduce(
-      (acc, item) => acc + (Number(item.unitPrice) || 0) * (Number(item.quantity) || 1),
+      (acc, item) => {
+        const itemLineTotal = roundMoney((Number(item.unitPrice) || 0) * (Number(item.quantity) || 1));
+        return acc + itemLineTotal;
+      },
       0
-    ) * 100
-  ) / 100;
+    )
+  );
 
-  const subtotal = Math.round((servicesSubtotal + materialsSubtotal) * 100) / 100;
+  const subtotal = roundMoney(servicesSubtotal + materialsSubtotal);
 
-  // GST calculation
-  const gstTax = 0;
+  // Statutory Indian GST (18% applied to commercial physical construction materials, trade services exempt)
+  const gstTax = isServicesOnly || materialItems.length === 0 ? 0 : roundMoney(materialsSubtotal * 0.18);
 
   // Delivery charge applies only if there are physical materials to transport; services carry 0 delivery charge
   const deliveryCharge =
@@ -101,9 +109,9 @@ export function calculateCartTotals(
       ? Math.round(customDeliveryCharge)
       : Math.max(50, Math.round(deliveryDistanceKm * 5));
 
-  const effectiveUnloading = isServicesOnly || materialItems.length === 0 ? 0 : Math.round(unloadingCharge || 0);
-  const effectiveCoupon = Math.round((couponDiscount || 0) * 100) / 100;
-  const taxableTotal = Math.round((subtotal + gstTax + deliveryCharge + effectiveUnloading - effectiveCoupon) * 100) / 100;
+  const effectiveUnloading = isServicesOnly || materialItems.length === 0 ? 0 : roundMoney(unloadingCharge || 0);
+  const effectiveCoupon = roundMoney(couponDiscount || 0);
+  const taxableTotal = roundMoney(subtotal + gstTax + deliveryCharge + effectiveUnloading - effectiveCoupon);
   const grandTotal = Math.max(0, Math.round(taxableTotal));
 
   return {

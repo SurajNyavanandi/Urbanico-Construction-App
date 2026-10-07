@@ -25,71 +25,83 @@ export class DatabaseSeeder {
       console.log('[DB-Seeder] Verifying MongoDB Atlas collections...');
 
       // 1. Categories
-      const categoryCount = await Category.countDocuments();
-      if (categoryCount === 0) {
-        console.log('[DB-Seeder] Seeding 8 Master Categories to MongoDB Atlas...');
-        await Category.insertMany(
-          MASTER_CATEGORIES.map((c) => ({
-            id: c.id,
-            name: c.name,
-            image: c.image,
-            count: c.count,
-            priceLabel: c.priceLabel,
-            subcategoriesText: c.subcategoriesText,
-            tag: c.tag,
-            highlighted: c.highlighted || false,
-          }))
-        );
-        console.log('[DB-Seeder] Categories seeded successfully.');
+      try {
+        const categoryCount = await Category.countDocuments();
+        if (categoryCount === 0) {
+          console.log('[DB-Seeder] Seeding 8 Master Categories to MongoDB Atlas...');
+          await Category.insertMany(
+            MASTER_CATEGORIES.map((c) => ({
+              id: c.id,
+              name: c.name,
+              image: c.image,
+              count: c.count,
+              priceLabel: c.priceLabel,
+              subcategoriesText: c.subcategoriesText,
+              tag: c.tag,
+              highlighted: c.highlighted || false,
+            }))
+          );
+          console.log('[DB-Seeder] Categories seeded successfully.');
+        }
+      } catch (catErr: any) {
+        console.warn('[DB-Seeder] Category seeding notice:', catErr?.message || catErr);
       }
 
       // 2. Materials
-      const materialCount = await Material.countDocuments();
-      if (materialCount === 0) {
-        console.log('[DB-Seeder] Seeding 34 Master Materials to MongoDB Atlas...');
-        await Material.insertMany(
-          MASTER_MATERIALS.map((m) => ({
-            id: m.id,
-            categoryId: m.categoryId,
-            category: m.category,
-            name: m.name,
-            subtitle: m.subtitle,
-            description: m.description || '',
-            image: m.image,
-            imageUrl: m.image,
-            actionType: m.actionType || 'add_to_cart',
-            defaultPrice: m.defaultPrice,
-            basePrice: m.defaultPrice,
-            unit: m.unit,
-            inStock: m.inStock !== false,
-            stockQuantity: m.stockQuantity || 1000,
-            hsnCode: m.hsnCode || '6810',
-            gstRate: m.gstRate || 18,
-            fastDispatch: m.fastDispatch !== false,
-            tag: m.tag || '',
-            options: m.options || [],
-            specifications: m.specifications || {},
-          }))
-        );
-        console.log('[DB-Seeder] Materials seeded successfully.');
+      try {
+        const materialCount = await Material.countDocuments();
+        if (materialCount === 0) {
+          console.log('[DB-Seeder] Seeding 34 Master Materials to MongoDB Atlas...');
+          await Material.insertMany(
+            MASTER_MATERIALS.map((m) => ({
+              id: m.id,
+              categoryId: m.categoryId,
+              category: m.category,
+              name: m.name,
+              subtitle: m.subtitle,
+              description: m.description || '',
+              image: m.image,
+              imageUrl: m.image,
+              actionType: m.actionType || 'add_to_cart',
+              defaultPrice: m.defaultPrice,
+              basePrice: m.defaultPrice,
+              unit: m.unit,
+              inStock: m.inStock !== false,
+              stockQuantity: m.stockQuantity || 1000,
+              hsnCode: m.hsnCode || '6810',
+              gstRate: m.gstRate || 18,
+              fastDispatch: m.fastDispatch !== false,
+              tag: m.tag || '',
+              options: m.options || [],
+              specifications: m.specifications || {},
+            }))
+          );
+          console.log('[DB-Seeder] Materials seeded successfully.');
+        }
+      } catch (matErr: any) {
+        console.warn('[DB-Seeder] Material seeding notice:', matErr?.message || matErr);
       }
 
       // 3. Services / Trades
-      const serviceCount = await Service.countDocuments();
-      if (serviceCount === 0) {
-        console.log('[DB-Seeder] Seeding Master Services to MongoDB Atlas...');
-        await Service.insertMany(
-          MASTER_SERVICES.map((s) => ({
-            id: s.id,
-            name: s.name,
-            subtitle: s.subtitle,
-            image: s.image,
-            rate: s.rate,
-            description: s.description,
-            tag: s.tag || '',
-          }))
-        );
-        console.log('[DB-Seeder] Services seeded successfully.');
+      try {
+        const serviceCount = await Service.countDocuments();
+        if (serviceCount === 0) {
+          console.log('[DB-Seeder] Seeding Master Services to MongoDB Atlas...');
+          await Service.insertMany(
+            MASTER_SERVICES.map((s) => ({
+              id: s.id,
+              name: s.name,
+              subtitle: s.subtitle,
+              image: s.image,
+              rate: s.rate,
+              description: s.description,
+              tag: s.tag || '',
+            }))
+          );
+          console.log('[DB-Seeder] Services seeded successfully.');
+        }
+      } catch (srvErr: any) {
+        console.warn('[DB-Seeder] Service seeding notice:', srvErr?.message || srvErr);
       }
 
       // 4. Default Demonstration Users (Contractor + Admin)

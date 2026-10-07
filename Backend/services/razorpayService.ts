@@ -612,7 +612,7 @@ export class RazorpayBackendService {
     };
   }
 
-  public static handleWebhook(payload: any, signature?: string): {
+  public static handleWebhook(payload: any, signature?: string, rawBody?: Buffer | string): {
     received: boolean;
     event?: string;
     orderId?: string;
@@ -620,6 +620,41 @@ export class RazorpayBackendService {
   } {
     const event = payload?.event;
     console.log(`[Razorpay Webhook] Received webhook event: ${event}`);
+
+    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || process.env.RAZORPAY_KEY_SECRET;
+
+    // Enforce HMAC signature check
+    if (!signature) {
+      throw new Error('Missing X-Razorpay-Signature header on webhook request');
+    }
+
+    if (!webhookSecret) {
+      if (process.env.NODE_ENV === 'production') {
+        throw new Error('RAZORPAY_WEBHOOK_SECRET is not configured on the production server');
+      }
+      console.warn('[Razorpay Webhook] Notice: RAZORPAY_WEBHOOK_SECRET not configured in local development.');
+    } else {
+      const bodyPayload = rawBody
+        ? (Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(rawBody))
+        : Buffer.from(JSON.stringify(payload));
+
+      const expectedSignature = crypto
+        .createHmac('sha256', webhookSecret)
+        .update(bodyPayload)
+        .digest('hex');
+
+      const sigBuffer = Buffer.from(signature);
+      const expectedBuffer = Buffer.from(expectedSignature);
+
+      if (
+        sigBuffer.length !== expectedBuffer.length ||
+        !crypto.timingSafeEqual(sigBuffer, expectedBuffer)
+      ) {
+        console.warn(`[Razorpay Webhook] Cryptographic signature mismatch! Expected: ${expectedSignature}, Received: ${signature}`);
+        throw new Error('Invalid Razorpay webhook signature');
+      }
+      console.log('[Razorpay Webhook] Webhook HMAC signature verified successfully with constant-time equality.');
+    }
 
     const paymentEntity = payload?.payload?.payment?.entity;
     const orderEntity = payload?.payload?.order?.entity;

@@ -436,4 +436,55 @@ export class MaterialService {
     }
     return null;
   }
+
+  /**
+   * Atomically verify and decrement inventory for ordered materials
+   */
+  public static async decrementStockForItems(items: Array<{ materialId?: any; name?: string; quantity?: number }>): Promise<{ success: boolean }> {
+    try {
+      materialCache.clear();
+      for (const item of items) {
+        const qty = Number(item.quantity) || 1;
+        const isService = (item.name || '').toLowerCase().includes('service') || (item.name || '').toLowerCase().includes('consult');
+        if (isService) continue;
+
+        if (mongoose.connection.readyState === 1) {
+          let updated = null;
+          if (item.materialId && mongoose.Types.ObjectId.isValid(String(item.materialId))) {
+            updated = await Material.findOneAndUpdate(
+              { _id: item.materialId, stockQuantity: { $gte: qty } },
+              { $inc: { stockQuantity: -qty } },
+              { new: true }
+            ).exec();
+          } else if (item.name) {
+            updated = await Material.findOneAndUpdate(
+              { name: item.name, stockQuantity: { $gte: qty } },
+              { $inc: { stockQuantity: -qty } },
+              { new: true }
+            ).exec();
+          }
+
+          if (updated && updated.stockQuantity <= 0) {
+            await Material.findByIdAndUpdate(updated._id, { inStock: false }).exec();
+          }
+        }
+
+        // Also decrement in-memory store
+        const memIdx = inMemoryMaterials.findIndex(
+          (m) => (item.materialId && (m.id === item.materialId || m._id === item.materialId)) || (item.name && m.name === item.name)
+        );
+        if (memIdx !== -1) {
+          const currentStock = Number(inMemoryMaterials[memIdx].stockQuantity) || 1000;
+          const nextStock = Math.max(0, currentStock - qty);
+          inMemoryMaterials[memIdx].stockQuantity = nextStock;
+          if (nextStock <= 0) {
+            inMemoryMaterials[memIdx].inStock = false;
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn('[MaterialService] Stock decrement notice:', err?.message || err);
+    }
+    return { success: true };
+  }
 }

@@ -4,16 +4,38 @@ import { asyncHandler, sendSuccess, sendError } from '../utils/apiResponse';
 
 export class DeliveryController {
   public static getDeliveries = asyncHandler(async (req: Request, res: Response) => {
+    const authUser = (req as any).user;
     const deliveries = await DeliveryService.getAllDeliveries();
+
+    // Standard users only see deliveries corresponding to their registered phone number
+    if (authUser && authUser.role !== 'admin' && authUser.role !== 'supervisor' && authUser.role !== 'driver') {
+      const userPhoneDigits = (authUser.phone || '').replace(/\D/g, '').slice(-10);
+      const filtered = deliveries.filter((d: any) => {
+        const custDigits = (d.customerPhone || d.siteSupervisorPhone || '').replace(/\D/g, '').slice(-10);
+        return custDigits && custDigits === userPhoneDigits;
+      });
+      return sendSuccess(res, { deliveries: filtered, count: filtered.length });
+    }
+
     return sendSuccess(res, { deliveries, count: deliveries.length });
   });
 
   public static getDeliveryByOrder = asyncHandler(async (req: Request, res: Response) => {
     const { orderNumber } = req.params;
+    const authUser = (req as any).user;
     const delivery = await DeliveryService.getDeliveryByOrderNumber(String(orderNumber));
     if (!delivery) {
       return sendError(res, 'Delivery tracking record not found', 404);
     }
+
+    if (authUser && authUser.role !== 'admin' && authUser.role !== 'supervisor' && authUser.role !== 'driver') {
+      const userPhoneDigits = (authUser.phone || '').replace(/\D/g, '').slice(-10);
+      const custDigits = ((delivery as any).customerPhone || (delivery as any).siteSupervisorPhone || '').replace(/\D/g, '').slice(-10);
+      if (userPhoneDigits && custDigits && userPhoneDigits !== custDigits) {
+        return sendError(res, 'Access denied: You are not authorized to track this consignment.', 403);
+      }
+    }
+
     return sendSuccess(res, { delivery });
   });
 

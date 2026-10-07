@@ -36,15 +36,21 @@ export interface IOrder extends Document {
   taxAmount: number;
   deliveryCharges: number;
   unloadingCharges: number;
+  couponDiscount?: number;
   totalAmount: number;
   paymentStatus: 'pending' | 'authorized' | 'paid' | 'failed' | 'refunded' | 'credit';
   paymentMethod: string;
   paymentDetails?: {
     razorpay_order_id?: string;
     razorpay_payment_id?: string;
+    razorpayOrderId?: string;
+    razorpayPaymentId?: string;
     razorpay_signature?: string;
     paidAt?: Date;
     receiptNumber?: string;
+    amount?: number;
+    paymentMethod?: string;
+    timestamp?: string;
   };
   orderStatus: 'received' | 'confirmed' | 'processing' | 'dispatched' | 'in_transit' | 'delivered' | 'cancelled';
   eWayBillNo?: string;
@@ -104,6 +110,7 @@ const OrderSchema = new Schema<IOrder>(
     taxAmount: { type: Number, default: 0, min: 0 },
     deliveryCharges: { type: Number, default: 0 },
     unloadingCharges: { type: Number, default: 0 },
+    couponDiscount: { type: Number, default: 0 },
     totalAmount: { type: Number, required: true, min: 0 },
     paymentStatus: {
       type: String,
@@ -118,9 +125,14 @@ const OrderSchema = new Schema<IOrder>(
     paymentDetails: {
       razorpay_order_id: { type: String },
       razorpay_payment_id: { type: String },
+      razorpayOrderId: { type: String },
+      razorpayPaymentId: { type: String },
       razorpay_signature: { type: String },
       paidAt: { type: Date },
       receiptNumber: { type: String },
+      amount: { type: Number },
+      paymentMethod: { type: String },
+      timestamp: { type: String },
     },
     orderStatus: {
       type: String,

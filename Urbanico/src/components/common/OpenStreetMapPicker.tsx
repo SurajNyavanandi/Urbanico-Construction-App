@@ -230,6 +230,7 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
               : ''
           }
 
+          var geocodeTimer = null;
           if (isInteractive) {
             map.on('click', function(e) {
               var lat = e.latlng.lat;
@@ -238,28 +239,33 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
 
               marker.bindPopup('<div class="popup-title">' + title + '</div><div class="popup-sub">Locating address...</div>').openPopup();
 
-              fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng)
-                .then(function(res) { return res.json(); })
-                .then(function(data) {
-                  var address = data.display_name || (lat.toFixed(4) + ', ' + lng.toFixed(4));
-                  marker.bindPopup('<div class="popup-title">' + title + '</div><div class="popup-sub">' + address + '</div>').openPopup();
-                  var payload = { type: 'LOCATION_SELECTED', lat: lat, lng: lng, address: address };
-                  if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
-                    window.ReactNativeWebView.postMessage(JSON.stringify(payload));
-                  }
-                  if (window.parent && window.parent.postMessage) {
-                    window.parent.postMessage(payload, '*');
-                  }
-                })
-                .catch(function() {
-                  var payload = { type: 'LOCATION_SELECTED', lat: lat, lng: lng };
-                  if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
-                    window.ReactNativeWebView.postMessage(JSON.stringify(payload));
-                  }
-                  if (window.parent && window.parent.postMessage) {
-                    window.parent.postMessage(payload, '*');
-                  }
-                });
+              if (geocodeTimer) {
+                clearTimeout(geocodeTimer);
+              }
+              geocodeTimer = setTimeout(function() {
+                fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng)
+                  .then(function(res) { return res.json(); })
+                  .then(function(data) {
+                    var address = data.display_name || (lat.toFixed(4) + ', ' + lng.toFixed(4));
+                    marker.bindPopup('<div class="popup-title">' + title + '</div><div class="popup-sub">' + address + '</div>').openPopup();
+                    var payload = { type: 'LOCATION_SELECTED', lat: lat, lng: lng, address: address };
+                    if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+                      window.ReactNativeWebView.postMessage(JSON.stringify(payload));
+                    }
+                    if (window.parent && window.parent.postMessage) {
+                      window.parent.postMessage(payload, '*');
+                    }
+                  })
+                  .catch(function() {
+                    var payload = { type: 'LOCATION_SELECTED', lat: lat, lng: lng };
+                    if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+                      window.ReactNativeWebView.postMessage(JSON.stringify(payload));
+                    }
+                    if (window.parent && window.parent.postMessage) {
+                      window.parent.postMessage(payload, '*');
+                    }
+                  });
+              }, 400);
             });
           }
         }

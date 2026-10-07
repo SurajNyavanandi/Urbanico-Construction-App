@@ -90,7 +90,7 @@ export const NikeAuthModal: React.FC<NikeAuthModalProps> = ({
   }, [isOpen, step, timer]);
 
   const cleanPhone = phoneNumber.replace(/\D/g, '');
-  const isPhoneValid = cleanPhone.length === 10;
+  const isPhoneValid = cleanPhone.length === 10 && /^[6-9]\d{9}$/.test(cleanPhone) && !/^(\d)\1{9}$/.test(cleanPhone);
 
   const handleSendOtp = async () => {
     if (!isPhoneValid) {

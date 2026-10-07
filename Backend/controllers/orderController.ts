@@ -10,41 +10,93 @@ export class OrderController {
   });
 
   public static getOrders = asyncHandler(async (req: Request, res: Response) => {
+    const authUser = (req as any).user;
     const { status, search, phone, email } = req.query;
+
+    const filterPhone = authUser && authUser.role === 'admin'
+      ? (phone as string)
+      : authUser?.phone || (phone as string);
+
     const orders = await OrderService.getAllOrders({
       status: status as string,
       search: search as string,
-      phone: phone as string,
-      email: email as string,
+      phone: filterPhone,
+      email: authUser && authUser.role === 'admin' ? (email as string) : authUser?.email,
     });
     return sendSuccess(res, { orders, count: orders.length });
   });
 
   public static getOrderById = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
+    const authUser = (req as any).user;
     const order = await OrderService.getOrderById(String(id));
     if (!order) {
       return sendError(res, 'Order not found', 404);
     }
+
+    if (authUser && authUser.role !== 'admin' && authUser.role !== 'supervisor') {
+      const userPhoneDigits = (authUser.phone || '').replace(/\D/g, '').slice(-10);
+      const orderPhoneDigits = (order.customerPhone || '').replace(/\D/g, '').slice(-10);
+      if (userPhoneDigits && orderPhoneDigits && userPhoneDigits !== orderPhoneDigits) {
+        return sendError(res, 'Access denied: You do not own this order record.', 403);
+      }
+    }
+
     return sendSuccess(res, { order });
   });
 
   public static getOrderByOrderNumber = asyncHandler(async (req: Request, res: Response) => {
     const { orderNumber } = req.params;
+    const authUser = (req as any).user;
     const order = await OrderService.getOrderByOrderNumber(String(orderNumber));
     if (!order) {
       return sendError(res, 'Order not found', 404);
     }
+
+    if (authUser && authUser.role !== 'admin' && authUser.role !== 'supervisor') {
+      const userPhoneDigits = (authUser.phone || '').replace(/\D/g, '').slice(-10);
+      const orderPhoneDigits = (order.customerPhone || '').replace(/\D/g, '').slice(-10);
+      if (userPhoneDigits && orderPhoneDigits && userPhoneDigits !== orderPhoneDigits) {
+        return sendError(res, 'Access denied: You do not own this order record.', 403);
+      }
+    }
+
     return sendSuccess(res, { order });
   });
 
   public static updateStatus = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     const { status, extraFields } = req.body;
-    const updatedOrder = await OrderService.updateOrderStatus(String(id), status, extraFields);
-    if (!updatedOrder) {
+    const authUser = (req as any).user;
+
+    const existingOrder = await OrderService.getOrderById(String(id));
+    if (!existingOrder) {
       return sendError(res, 'Order not found', 404);
     }
+
+    const isAdminOrStaff = authUser && (authUser.role === 'admin' || authUser.role === 'supervisor' || authUser.role === 'driver');
+    const userPhoneDigits = (authUser?.phone || '').replace(/\D/g, '').slice(-10);
+    const orderPhoneDigits = (existingOrder.customerPhone || '').replace(/\D/g, '').slice(-10);
+    const isOwner = Boolean(userPhoneDigits && orderPhoneDigits && userPhoneDigits === orderPhoneDigits);
+
+    if (status === 'cancelled') {
+      if (!isOwner && !isAdminOrStaff) {
+        return sendError(res, 'Access denied: You can only cancel your own orders.', 403);
+      }
+    } else {
+      // Dispatched, en_route, delivered, confirmed transitions require operational staff
+      if (!isAdminOrStaff) {
+        return sendError(res, `Forbidden: Status '${status}' can only be transitioned by logistics operations.`, 403);
+      }
+    }
+
+    // Whitelist extraFields to prevent malicious overwrites of financial/item amounts
+    const sanitizedExtraFields: any = {};
+    if (extraFields?.cancellationReason) sanitizedExtraFields.cancellationReason = String(extraFields.cancellationReason).slice(0, 200);
+    if (extraFields?.notes) sanitizedExtraFields.notes = String(extraFields.notes).slice(0, 500);
+    if (extraFields?.cancelledAt) sanitizedExtraFields.cancelledAt = extraFields.cancelledAt;
+
+    const updatedOrder = await OrderService.updateOrderStatus(String(id), status, sanitizedExtraFields);
     return sendSuccess(res, { order: updatedOrder });
   });
 
@@ -117,7 +169,13 @@ export class OrderController {
     );
   });
 
-  public static deleteAllOrders = asyncHandler(async (_req: Request, res: Response) => {
+  public static deleteAllOrders = asyncHandler(async (req: Request, res: Response) => {
+    const secretHeader = (req.headers['x-admin-secret'] as string) || (req.query.admin_secret as string);
+    const configuredSecret = process.env.ADMIN_API_SECRET;
+    if (process.env.NODE_ENV === 'production' && (!configuredSecret || secretHeader !== configuredSecret)) {
+      return sendError(res, 'Purge operation forbidden in production mode.', 403);
+    }
+
     await OrderService.purgeAllOrders();
     const { DeliveryService } = await import('../services/deliveryService');
     await DeliveryService.purgeAllDeliveries();

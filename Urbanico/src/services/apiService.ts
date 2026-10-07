@@ -55,13 +55,9 @@ export function getBaseApiUrls(): string[] {
       window.location.port === '19006' ||
       window.location.port === '8082');
 
-  // Primary API endpoint in web runtime
+  // Primary API endpoint in web runtime: relative /api is always preferred on any web host
   if (isWeb && !isMetroDev) {
-    if (window.location.hostname.includes('vercel.app') || window.location.hostname.includes('virattom.com')) {
-      urls.push('https://urbanico.onrender.com/api');
-    } else {
-      urls.push('/api');
-    }
+    urls.push('/api');
   }
 
   // Local development fallback
@@ -389,6 +385,7 @@ class ApiService {
     taxAmount?: number;
     deliveryCharges?: number;
     unloadingCharges?: number;
+    couponDiscount?: number;
     totalAmount: number;
     paymentMethod?: string;
     paymentStatus?: string;

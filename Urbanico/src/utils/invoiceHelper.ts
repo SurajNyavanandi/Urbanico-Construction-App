@@ -7,8 +7,8 @@ import { CartItem, ActivityDelivery, UserProfile } from '../types';
 import { INDIAN_GST_STATES } from './gstinValidator';
 import { formatSiteAddress } from './addressHelper';
 
-export function getHSNCodeForMaterial(materialName: string): { code: string; desc: string; gstRate: number } {
-  const lower = (materialName || '').toLowerCase();
+export function getHSNCodeForMaterial(materialName: string, categoryName?: string): { code: string; desc: string; gstRate: number } {
+  const lower = `${materialName || ''} ${categoryName || ''}`.toLowerCase();
 
   if (lower.includes('sand') || lower.includes('m-sand') || lower.includes('p-sand')) {
     return { code: '2505', desc: 'Natural Sand & Crushed Stone Sand', gstRate: 18 };
@@ -28,10 +28,61 @@ export function getHSNCodeForMaterial(materialName: string): { code: string; des
   if (lower.includes('concrete') || lower.includes('rmc') || lower.includes('mortar')) {
     return { code: '3824', desc: 'Ready-mix Concrete (RMC) & Specialized Mortars', gstRate: 18 };
   }
-  if (lower.includes('service') || lower.includes('visit') || lower.includes('consult') || lower.includes('technician')) {
+  if (lower.includes('electric') || lower.includes('cable') || lower.includes('wire') || lower.includes('switch') || lower.includes('led')) {
+    return { code: '8544', desc: 'Insulated Wires, Cables & Electrical Conduits', gstRate: 18 };
+  }
+  if (lower.includes('plumb') || lower.includes('pipe') || lower.includes('valve') || lower.includes('pvc') || lower.includes('cpvc') || lower.includes('fitting')) {
+    return { code: '3917', desc: 'Tubes, Pipes, Hoses & Plumbing Fixtures', gstRate: 18 };
+  }
+  if (lower.includes('paint') || lower.includes('primer') || lower.includes('emulsion') || lower.includes('enamel') || lower.includes('distemper')) {
+    return { code: '3209', desc: 'Paints, Enamels, Primers & Surface Coatings', gstRate: 18 };
+  }
+  if (lower.includes('tile') || lower.includes('ceramic') || lower.includes('vitrified') || lower.includes('granite') || lower.includes('marble')) {
+    return { code: '6907', desc: 'Ceramic & Vitrified Floor Tiles, Natural Flagstones', gstRate: 18 };
+  }
+  if (lower.includes('wood') || lower.includes('plywood') || lower.includes('timber') || lower.includes('board') || lower.includes('mdf')) {
+    return { code: '4412', desc: 'Plywood, Veneered Panels & Structural Timber', gstRate: 18 };
+  }
+  if (lower.includes('waterproof') || lower.includes('chemical') || lower.includes('sealant') || lower.includes('adhesive')) {
+    return { code: '3214', desc: 'Waterproofing Compounds, Mastics & Sealants', gstRate: 18 };
+  }
+  if (lower.includes('hardware') || lower.includes('fastener') || lower.includes('bolt') || lower.includes('screw') || lower.includes('nail')) {
+    return { code: '7318', desc: 'Screws, Bolts, Nuts & Construction Fasteners', gstRate: 18 };
+  }
+  if (lower.includes('service') || lower.includes('visit') || lower.includes('consult') || lower.includes('technician') || lower.includes('labor')) {
     return { code: '9987', desc: 'Maintenance, Repair & Site Engineering Services', gstRate: 18 };
   }
   return { code: '2517', desc: 'Construction Materials & Mining Aggregates', gstRate: 18 };
+}
+
+/**
+ * Checks whether an order constitutes inter-state supply based on recipient GSTIN state vs delivery origin state (Telangana - 36)
+ */
+export function checkInterStateSupply(gstin?: string, deliveryStateCode: string = '36'): {
+  isInterState: boolean;
+  gstinStateCode: string;
+  gstinStateName: string;
+  warningMessage?: string;
+} {
+  const clean = (gstin || '').trim().toUpperCase();
+  if (clean.length < 2) {
+    return {
+      isInterState: false,
+      gstinStateCode: deliveryStateCode,
+      gstinStateName: INDIAN_GST_STATES[deliveryStateCode] || 'Telangana',
+    };
+  }
+  const gstinStateCode = clean.substring(0, 2);
+  const gstinStateName = INDIAN_GST_STATES[gstinStateCode] || 'Other State';
+  const isInterState = gstinStateCode !== deliveryStateCode;
+  return {
+    isInterState,
+    gstinStateCode,
+    gstinStateName,
+    warningMessage: isInterState
+      ? `Inter-state supply detected: Registered GSTIN is in ${gstinStateName} (State ${gstinStateCode}). IGST @ 18% will be applied to this invoice.`
+      : undefined,
+  };
 }
 
 const ONES = [
@@ -87,6 +138,37 @@ function convertLessThanThousand(n: number): string {
 }
 
 /**
+ * Recursively formats Indian numbers of any scale (Thousands, Lakhs, Crores, Hundreds of Crores)
+ */
+function formatIndianWholeNumber(n: number): string {
+  if (n <= 0) return '';
+  if (n < 1000) return convertLessThanThousand(n);
+
+  if (n >= 10000000) {
+    const crore = Math.floor(n / 10000000);
+    const rem = n % 10000000;
+    const croreWords = formatIndianWholeNumber(crore);
+    const remWords = formatIndianWholeNumber(rem);
+    return (croreWords + ' Crore ' + remWords).trim();
+  }
+  if (n >= 100000) {
+    const lakh = Math.floor(n / 100000);
+    const rem = n % 100000;
+    const lakhWords = convertLessThanThousand(lakh);
+    const remWords = formatIndianWholeNumber(rem);
+    return (lakhWords + ' Lakh ' + remWords).trim();
+  }
+  if (n >= 1000) {
+    const thousand = Math.floor(n / 1000);
+    const rem = n % 1000;
+    const thousandWords = convertLessThanThousand(thousand);
+    const remWords = formatIndianWholeNumber(rem);
+    return (thousandWords + ' Thousand ' + remWords).trim();
+  }
+  return convertLessThanThousand(n);
+}
+
+/**
  * Converts any number to Indian Currency Words (Lakhs, Crores, Thousands, Rupees, Paise)
  */
 export function numberToWordsIndian(num: number): string {
@@ -95,31 +177,8 @@ export function numberToWordsIndian(num: number): string {
   const intPart = Math.floor(Math.abs(num));
   const decPart = Math.round((Math.abs(num) - intPart) * 100);
 
-  let result = '';
-
-  const crore = Math.floor(intPart / 10000000);
-  let remainder = intPart % 10000000;
-
-  const lakh = Math.floor(remainder / 100000);
-  remainder = remainder % 100000;
-
-  const thousand = Math.floor(remainder / 1000);
-  const hundredAndBelow = remainder % 1000;
-
-  if (crore > 0) {
-    result += convertLessThanThousand(crore) + ' Crore ';
-  }
-  if (lakh > 0) {
-    result += convertLessThanThousand(lakh) + ' Lakh ';
-  }
-  if (thousand > 0) {
-    result += convertLessThanThousand(thousand) + ' Thousand ';
-  }
-  if (hundredAndBelow > 0) {
-    result += convertLessThanThousand(hundredAndBelow) + ' ';
-  }
-
-  result = 'INR ' + result.trim() + ' Only';
+  let result = formatIndianWholeNumber(intPart);
+  result = 'INR ' + (result || 'Zero') + ' Only';
 
   if (decPart > 0) {
     result = result.replace(' Only', ` and ${convertLessThanThousand(decPart)} Paise Only`);
@@ -229,6 +288,13 @@ export function buildTaxInvoiceData(
       const hsn = getHSNCodeForMaterial(cartItem.itemName);
       const taxable = lineTotal;
 
+      const isServiceItem = cartItem.itemName?.toLowerCase().includes('service') || cartItem.itemName?.toLowerCase().includes('visit');
+      const rate = isServiceItem ? 0 : 0.18;
+      const totalItemTax = Math.round(taxable * rate);
+      const cgst = isInterState ? 0 : Math.round(totalItemTax / 2);
+      const sgst = isInterState ? 0 : Math.round(totalItemTax / 2);
+      const igst = isInterState ? totalItemTax : 0;
+
       return {
         name: cartItem.itemName,
         description: `${hsn.desc} • Direct Quarry Dispatch`,
@@ -238,9 +304,9 @@ export function buildTaxInvoiceData(
         unitPrice: cartItem.unitPrice,
         totalAmount: lineTotal,
         taxableAmount: taxable,
-        cgstAmount: 0,
-        sgstAmount: 0,
-        igstAmount: 0,
+        cgstAmount: cgst,
+        sgstAmount: sgst,
+        igstAmount: igst,
       };
     });
   } else {
@@ -248,6 +314,10 @@ export function buildTaxInvoiceData(
     const hsn = getHSNCodeForMaterial(delivery.materialName);
     const materialAmount = Math.max(0, totalAmount - laborFee);
     const taxable = materialAmount;
+    const totalItemTax = Math.round(taxable * 0.18);
+    const cgst = isInterState ? 0 : Math.round(totalItemTax / 2);
+    const sgst = isInterState ? 0 : Math.round(totalItemTax / 2);
+    const igst = isInterState ? totalItemTax : 0;
 
     items.push({
       name: delivery.materialName,
@@ -258,15 +328,20 @@ export function buildTaxInvoiceData(
       unitPrice: materialAmount,
       totalAmount: materialAmount,
       taxableAmount: taxable,
-      cgstAmount: 0,
-      sgstAmount: 0,
-      igstAmount: 0,
+      cgstAmount: cgst,
+      sgstAmount: sgst,
+      igstAmount: igst,
     });
   }
 
   // Add Labor Assistance if opted
   if (laborFee > 0) {
     const laborTaxable = laborFee;
+    const laborTotalTax = Math.round(laborTaxable * 0.18);
+    const laborCgst = isInterState ? 0 : Math.round(laborTotalTax / 2);
+    const laborSgst = isInterState ? 0 : Math.round(laborTotalTax / 2);
+    const laborIgst = isInterState ? laborTotalTax : 0;
+
     items.push({
       name: 'Site Labor Assistance & Offloading Service',
       description: 'SAC 998540 • Professional Material Offloading Support at Project Site',
@@ -276,9 +351,9 @@ export function buildTaxInvoiceData(
       unitPrice: laborFee,
       totalAmount: laborFee,
       taxableAmount: laborTaxable,
-      cgstAmount: 0,
-      sgstAmount: 0,
-      igstAmount: 0,
+      cgstAmount: laborCgst,
+      sgstAmount: laborSgst,
+      igstAmount: laborIgst,
     });
   }
 

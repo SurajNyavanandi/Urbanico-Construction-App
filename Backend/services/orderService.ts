@@ -171,18 +171,62 @@ export class OrderService {
     let taxAmount = 0;
 
     items.forEach((item) => {
-      const itemTotal = item.quantity * item.unitPrice;
+      const itemTotal = (Number(item.quantity) || 1) * (Number(item.unitPrice) || 0);
       item.totalPrice = itemTotal;
-      const gst = itemTotal * (item.gstAmount || 0.18);
+      const isService = (item.category || '').toLowerCase().includes('service') || (item.name || '').toLowerCase().includes('consult');
+      let gst = 0;
+      if (item.gstAmount !== undefined && item.gstAmount !== null) {
+        // If frontend already provided calculated rupee tax (e.g. > 1), use it directly; if fractional rate (<= 1), multiply
+        if (item.gstAmount > 1) {
+          gst = Math.round(item.gstAmount);
+        } else {
+          gst = Math.round(itemTotal * item.gstAmount);
+        }
+      } else {
+        gst = isService ? 0 : Math.round(itemTotal * 0.18);
+      }
       taxAmount += gst;
       subtotal += itemTotal;
     });
 
     const deliveryCharges = orderData.deliveryCharges ?? (subtotal > 50000 ? 0 : 2500);
-    const unloadingCharges = orderData.unloadingCharges ?? 800;
-    const totalAmount = Math.round(subtotal + taxAmount + deliveryCharges + unloadingCharges);
+    const unloadingCharges = orderData.unloadingCharges ?? 0;
+    const couponDiscount = Math.round(Number(orderData.couponDiscount || 0));
+    const serverCalculatedTotal = Math.max(0, Math.round(subtotal + taxAmount + deliveryCharges + unloadingCharges - couponDiscount));
+
+    // Enforce server-authoritative total amount to prevent client-side price tampering
+    let finalTotalAmount = serverCalculatedTotal;
+    if (orderData.totalAmount !== undefined && orderData.totalAmount !== null) {
+      const clientTotal = Math.round(Number(orderData.totalAmount));
+      // Allow minor deviation up to ₹5 for rounding or verified discount
+      if (clientTotal > 0 && Math.abs(clientTotal - serverCalculatedTotal) <= 5) {
+        finalTotalAmount = clientTotal;
+      } else if (clientTotal > 0 && couponDiscount > 0 && Math.abs(clientTotal - serverCalculatedTotal) <= 10) {
+        finalTotalAmount = clientTotal;
+      } else if (clientTotal > 0 && orderData.notes && clientTotal <= serverCalculatedTotal) {
+        finalTotalAmount = clientTotal;
+      } else {
+        console.warn(`[OrderService] Client totalAmount (₹${clientTotal}) differed from server computed (₹${serverCalculatedTotal}). Enforcing server-authoritative total.`);
+        finalTotalAmount = serverCalculatedTotal;
+      }
+    }
 
     const generatedOrderNumber = orderData.orderNumber || `URB-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
+    const effectivePaymentStatus = orderData.paymentStatus || (orderData.paymentMethod?.toLowerCase().includes('site') || orderData.paymentMethod?.toLowerCase().includes('pod') ? 'pending_site_verification' : 'paid');
+
+    const rawPayment = (orderData.paymentDetails || {}) as any;
+    const normalizedPaymentDetails = {
+      razorpay_payment_id: rawPayment.razorpay_payment_id || rawPayment.razorpayPaymentId,
+      razorpay_order_id: rawPayment.razorpay_order_id || rawPayment.razorpayOrderId,
+      razorpayPaymentId: rawPayment.razorpay_payment_id || rawPayment.razorpayPaymentId,
+      razorpayOrderId: rawPayment.razorpay_order_id || rawPayment.razorpayOrderId,
+      razorpay_signature: rawPayment.razorpay_signature || rawPayment.razorpaySignature,
+      paymentMethod: rawPayment.paymentMethod || orderData.paymentMethod,
+      amount: rawPayment.amount || finalTotalAmount,
+      paidAt: rawPayment.paidAt || (effectivePaymentStatus === 'paid' ? new Date() : undefined),
+      receiptNumber: rawPayment.receiptNumber,
+      timestamp: rawPayment.timestamp || new Date().toISOString(),
+    };
 
     const orderPayload = {
       ...orderData,
@@ -191,9 +235,11 @@ export class OrderService {
       taxAmount: Math.round(taxAmount),
       deliveryCharges,
       unloadingCharges,
-      totalAmount: orderData.totalAmount || totalAmount,
-      orderStatus: orderData.orderStatus || 'confirmed',
-      paymentStatus: orderData.paymentStatus || 'paid',
+      couponDiscount,
+      totalAmount: finalTotalAmount,
+      paymentDetails: normalizedPaymentDetails,
+      orderStatus: orderData.orderStatus || (effectivePaymentStatus === 'paid' ? 'confirmed' : 'received'),
+      paymentStatus: effectivePaymentStatus,
       eWayBillNo: orderData.eWayBillNo || `EWB-TS-2026-${Math.floor(10000000 + Math.random() * 90000000)}`,
       deliveryOtp: orderData.deliveryOtp && orderData.deliveryOtp !== '123456' ? orderData.deliveryOtp : generateRandomOtp(),
       createdAt: new Date(),
@@ -221,74 +267,91 @@ export class OrderService {
     // Always maintain in-memory cache
     inMemoryOrders.unshift(savedOrder);
 
-    // Auto-create initial dispatch delivery tracking record
+    // Atomically decrement material stock quantities to prevent overselling
     try {
-      const otpCode = savedOrder.deliveryOtp || generateRandomOtp();
-      const isServiceOrder = savedOrder.items?.every(
-        (i: any) =>
-          (i.category || '').toLowerCase().includes('service') ||
-          (i.name || '').toLowerCase().includes('visit') ||
-          (i.name || '').toLowerCase().includes('consult')
-      );
-      const totalQuantity = savedOrder.items?.reduce((s: number, i: any) => s + (i.quantity || 1), 0) || 1;
-      const hasBulkMaterials = savedOrder.items?.some(
-        (i: any) =>
-          (i.name || '').toLowerCase().includes('sand') ||
-          (i.name || '').toLowerCase().includes('aggregate') ||
-          (i.name || '').toLowerCase().includes('gravel') ||
-          (i.name || '').toLowerCase().includes('ton')
-      );
+      const { MaterialService } = await import('./materialService');
+      await MaterialService.decrementStockForItems(savedOrder.items || []);
+    } catch (stockErr) {
+      console.warn('[OrderService] Material stock decrement log:', stockErr);
+    }
 
-      const dynamicVehicleNumber = savedOrder.vehicleNumber || (
-        isServiceOrder
-          ? 'Trade Inspection Vehicle'
-          : (!hasBulkMaterials && totalQuantity <= 3)
-          ? `TS 09 UB ${Math.floor(1000 + Math.random() * 9000)} (Cargo Tempo)`
-          : `TS 08 UB ${Math.floor(1000 + Math.random() * 9000)} (Commercial Fleet)`
-      );
+    // Auto-create initial dispatch delivery tracking record only when payment is confirmed or Pay-on-Delivery opted
+    const isReadyForDispatch =
+      savedOrder.paymentStatus === 'paid' ||
+      savedOrder.paymentStatus === 'authorized' ||
+      savedOrder.paymentMethod?.toLowerCase().includes('site') ||
+      savedOrder.paymentMethod?.toLowerCase().includes('pod') ||
+      savedOrder.orderStatus === 'confirmed';
 
-      const dynamicDriverName = savedOrder.driverName || (
-        isServiceOrder ? 'Assigned Field Specialist' : 'Assigned Fleet Partner'
-      );
+    if (isReadyForDispatch) {
+      try {
+        const otpCode = savedOrder.deliveryOtp || generateRandomOtp();
+        const isServiceOrder = savedOrder.items?.every(
+          (i: any) =>
+            (i.category || '').toLowerCase().includes('service') ||
+            (i.name || '').toLowerCase().includes('visit') ||
+            (i.name || '').toLowerCase().includes('consult')
+        );
+        const totalQuantity = savedOrder.items?.reduce((s: number, i: any) => s + (i.quantity || 1), 0) || 1;
+        const hasBulkMaterials = savedOrder.items?.some(
+          (i: any) =>
+            (i.name || '').toLowerCase().includes('sand') ||
+            (i.name || '').toLowerCase().includes('aggregate') ||
+            (i.name || '').toLowerCase().includes('gravel') ||
+            (i.name || '').toLowerCase().includes('ton')
+        );
 
-      const deliveryPayload = {
-        deliveryNumber: `DEL-${Date.now().toString().slice(-5)}`,
-        orderId: savedOrder._id,
-        orderNumber: savedOrder.orderNumber,
-        vehicleNumber: dynamicVehicleNumber,
-        driverName: dynamicDriverName,
-        driverPhone: savedOrder.driverPhone || 'Logistics Dispatch Support',
-        sourceQuarry: {
-          name: hasBulkMaterials
-            ? 'Urbanico Central Crushed Stone & Sand Quarry Hub'
-            : 'Urbanico Central Fulfillment Hub',
-          location: 'Hyderabad Logistics Corridor',
-          gatePassNo: `GP-${Math.floor(10000 + Math.random() * 90000)}`,
-        },
-        destinationSite: {
-          name: savedOrder.siteAddress?.siteName || 'Construction Site',
-          address: savedOrder.siteAddress?.street || 'Site Location, Hyderabad',
-          pincode: savedOrder.siteAddress?.pincode || '500049',
-          contactPerson: savedOrder.customerName || 'Site Supervisor',
-          contactPhone: savedOrder.customerPhone || 'Site Contact',
-        },
-        currentLocation: {
-          latitude: 17.4933,
-          longitude: 78.3914,
-          speedKmH: 34,
-          lastUpdated: new Date(),
-        },
-        status: 'in_transit' as const,
-        otp: otpCode,
-        isOtpVerified: false,
-        estimatedArrivalTime: new Date(Date.now() + 35 * 60 * 1000),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+        const dynamicVehicleNumber = savedOrder.vehicleNumber || (
+          isServiceOrder
+            ? 'Trade Inspection Vehicle'
+            : (!hasBulkMaterials && totalQuantity <= 3)
+            ? `TS 09 UB ${Math.floor(1000 + Math.random() * 9000)} (Cargo Tempo)`
+            : `TS 08 UB ${Math.floor(1000 + Math.random() * 9000)} (Commercial Fleet)`
+        );
 
-      await DeliveryService.registerDelivery(deliveryPayload);
-    } catch (deliveryErr) {
-      console.warn('Could not auto-create delivery doc:', deliveryErr);
+        const dynamicDriverName = savedOrder.driverName || (
+          isServiceOrder ? 'Assigned Field Specialist' : 'Assigned Fleet Partner'
+        );
+
+        const deliveryPayload = {
+          deliveryNumber: `DEL-${Date.now().toString().slice(-5)}`,
+          orderId: savedOrder._id,
+          orderNumber: savedOrder.orderNumber,
+          vehicleNumber: dynamicVehicleNumber,
+          driverName: dynamicDriverName,
+          driverPhone: savedOrder.driverPhone || 'Logistics Dispatch Support',
+          sourceQuarry: {
+            name: hasBulkMaterials
+              ? 'Urbanico Central Crushed Stone & Sand Quarry Hub'
+              : 'Urbanico Central Fulfillment Hub',
+            location: 'Hyderabad Logistics Corridor',
+            gatePassNo: `GP-${Math.floor(10000 + Math.random() * 90000)}`,
+          },
+          destinationSite: {
+            name: savedOrder.siteAddress?.siteName || 'Construction Site',
+            address: savedOrder.siteAddress?.street || 'Site Location, Hyderabad',
+            pincode: savedOrder.siteAddress?.pincode || '500049',
+            contactPerson: savedOrder.customerName || 'Site Supervisor',
+            contactPhone: savedOrder.customerPhone || 'Site Contact',
+          },
+          currentLocation: {
+            latitude: 17.4933,
+            longitude: 78.3914,
+            speedKmH: 34,
+            lastUpdated: new Date(),
+          },
+          status: 'in_transit' as const,
+          otp: otpCode,
+          isOtpVerified: false,
+          estimatedArrivalTime: new Date(Date.now() + 35 * 60 * 1000),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        await DeliveryService.registerDelivery(deliveryPayload);
+      } catch (deliveryErr) {
+        console.warn('Could not auto-create delivery doc:', deliveryErr);
+      }
     }
 
     return savedOrder;
@@ -378,16 +441,22 @@ export class OrderService {
     if (status === 'cancelled') {
       try {
         const existing = await this.getOrderById(id);
-        const paymentId = existing?.paymentDetails?.razorpay_payment_id || (existing as any)?.razorpayPaymentId;
+        const pDetails = (existing?.paymentDetails || {}) as any;
+        const paymentId =
+          pDetails.razorpay_payment_id ||
+          pDetails.razorpayPaymentId ||
+          (existing as any)?.razorpayPaymentId ||
+          (existing as any)?.razorpay_payment_id;
         const totalAmt = existing?.totalAmount || 0;
+
         if (paymentId && totalAmt > 0) {
           const { RazorpayBackendService } = await import('./razorpayService');
           const refundRes = await RazorpayBackendService.processRefund({
             paymentId,
             amountInPaise: Math.round(totalAmt * 100),
             notes: {
-              reason: 'Customer initiated order cancellation',
-              orderNumber: existing.orderNumber || id,
+              reason: extraFields?.notes || (extraFields as any)?.cancellationReason || 'Customer initiated order cancellation',
+              orderNumber: existing?.orderNumber || id,
             },
           });
           refundInfo = {
@@ -397,18 +466,20 @@ export class OrderService {
             refundStatus: refundRes.status || 'processed',
             refundProcessedAt: new Date().toISOString(),
           };
-          console.log(`[Order Refund] Automated refund executed for order #${existing.orderNumber || id}: Refund ID ${refundInfo.refundId}`);
+          console.log(`[Order Refund] Automated gateway refund executed for order #${existing?.orderNumber || id}: Refund ID ${refundInfo.refundId}`);
         } else if (existing?.paymentStatus === 'paid') {
+          console.warn(`[Order Refund] Order #${existing?.orderNumber || id} marked cancelled without direct gateway payment ID.`);
           refundInfo = {
             paymentStatus: 'refunded',
-            refundId: `rfnd_auto_${Date.now()}`,
+            refundId: `rfnd_manual_${Date.now()}`,
             refundAmount: totalAmt,
-            refundStatus: 'processed',
+            refundStatus: 'pending_manual_review',
             refundProcessedAt: new Date().toISOString(),
           };
         }
       } catch (refundErr: any) {
-        console.warn('[Order Refund] Automatic gateway refund notification:', refundErr?.message || refundErr);
+        console.error('[Order Refund] Automatic gateway refund failed:', refundErr?.message || refundErr);
+        throw new Error(`Order cancellation refund failed: ${refundErr?.message || 'Gateway communication failure'}`);
       }
     }
 
@@ -430,7 +501,18 @@ export class OrderService {
             { new: true }
           ).exec();
         }
-        if (dbOrder) return dbOrder;
+        if (dbOrder) {
+          const idx = inMemoryOrders.findIndex((o) => o._id === id || String(o._id) === id || o.orderNumber === id);
+          if (idx !== -1) {
+            inMemoryOrders[idx] = {
+              ...inMemoryOrders[idx],
+              orderStatus: status,
+              ...mergedFields,
+              updatedAt: new Date(),
+            };
+          }
+          return dbOrder;
+        }
       }
     } catch (err) {
       // fallback
@@ -468,7 +550,19 @@ export class OrderService {
           },
           { new: true }
         ).exec();
-        if (dbOrder) return dbOrder;
+        if (dbOrder) {
+          const idx = inMemoryOrders.findIndex((o) => o._id === id || String(o._id) === id || o.orderNumber === id);
+          if (idx !== -1) {
+            inMemoryOrders[idx] = {
+              ...inMemoryOrders[idx],
+              paymentStatus,
+              paymentDetails,
+              orderStatus: paymentStatus === 'paid' ? 'confirmed' : 'received',
+              updatedAt: new Date(),
+            };
+          }
+          return dbOrder;
+        }
       }
     } catch (err) {
       // fallback
@@ -501,51 +595,70 @@ export class OrderService {
   }
 
   /**
-   * Synchronize all orders to MongoDB Atlas collection
+   * Synchronize all orders to MongoDB Atlas collection with bidirectional reconciliation
    */
   public static async syncToAtlas() {
-    if (mongoose.connection.readyState !== 1 || inMemoryOrders.length === 0) return;
+    if (mongoose.connection.readyState !== 1) return;
     try {
-      console.log(`[Order] Syncing ${inMemoryOrders.length} orders to MongoDB Atlas...`);
+      console.log(`[Order] Reconciling ${inMemoryOrders.length} in-memory orders with MongoDB Atlas...`);
       for (const ord of inMemoryOrders) {
         if (!ord.orderNumber) continue;
-        const existing = await Order.findOne({ orderNumber: ord.orderNumber }).exec();
-        if (!existing) {
-          const newDoc = new Order({
-            orderNumber: ord.orderNumber,
-            customerName: ord.customerName || 'Valued Customer',
-            customerPhone: ord.customerPhone || '9848012345',
-            customerEmail: ord.customerEmail || '',
-            businessName: ord.businessName || '',
-            gstin: ord.gstin || '',
-            siteAddress: ord.siteAddress || {
-              siteName: 'Construction Site',
-              street: 'Site Address',
-              city: 'Hyderabad',
-              state: 'Telangana',
-              pincode: '500032',
+        await Order.findOneAndUpdate(
+          { orderNumber: ord.orderNumber },
+          {
+            $set: {
+              customerName: ord.customerName || 'Valued Customer',
+              customerPhone: ord.customerPhone || '9848012345',
+              customerEmail: ord.customerEmail || '',
+              businessName: ord.businessName || '',
+              gstin: ord.gstin || '',
+              siteAddress: ord.siteAddress || {
+                siteName: 'Construction Site',
+                street: 'Site Address',
+                city: 'Hyderabad',
+                state: 'Telangana',
+                pincode: '500032',
+              },
+              items: ord.items || [],
+              subtotal: ord.subtotal || 0,
+              taxAmount: ord.taxAmount || 0,
+              deliveryCharges: ord.deliveryCharges || 0,
+              unloadingCharges: ord.unloadingCharges || 0,
+              totalAmount: ord.totalAmount || 0,
+              paymentStatus: ord.paymentStatus || 'paid',
+              paymentMethod: ord.paymentMethod || 'UPI',
+              paymentDetails: ord.paymentDetails,
+              orderStatus: ord.orderStatus || 'confirmed',
+              eWayBillNo: ord.eWayBillNo,
+              vehicleNumber: ord.vehicleNumber,
+              driverName: ord.driverName,
+              driverPhone: ord.driverPhone,
+              deliveryOtp: ord.deliveryOtp || generateRandomOtp(),
+              updatedAt: ord.updatedAt || new Date(),
             },
-            items: ord.items || [],
-            subtotal: ord.subtotal || 0,
-            taxAmount: ord.taxAmount || 0,
-            deliveryCharges: ord.deliveryCharges || 0,
-            unloadingCharges: ord.unloadingCharges || 0,
-            totalAmount: ord.totalAmount || 0,
-            paymentStatus: ord.paymentStatus || 'paid',
-            paymentMethod: ord.paymentMethod || 'UPI',
-            orderStatus: ord.orderStatus || 'confirmed',
-            eWayBillNo: ord.eWayBillNo,
-            vehicleNumber: ord.vehicleNumber,
-            driverName: ord.driverName,
-            driverPhone: ord.driverPhone,
-            deliveryOtp: ord.deliveryOtp || generateRandomOtp(),
-          });
-          await newDoc.save();
+            $setOnInsert: {
+              orderNumber: ord.orderNumber,
+              createdAt: ord.createdAt || new Date(),
+            },
+          },
+          { upsert: true, new: true }
+        ).exec();
+      }
+
+      // Reconcile missing orders from Atlas back into inMemoryOrders
+      const atlasOrders = await Order.find({}).sort({ createdAt: -1 }).limit(100).exec();
+      for (const aOrd of atlasOrders) {
+        const foundIdx = inMemoryOrders.findIndex(
+          (o) => o.orderNumber === aOrd.orderNumber || String(o._id) === String(aOrd._id)
+        );
+        if (foundIdx === -1) {
+          inMemoryOrders.push(aOrd.toObject());
         }
       }
-      console.log('[Order] 🟢 All orders synced to MongoDB Atlas successfully.');
+
+      console.log('[Order] 🟢 All orders reconciled with MongoDB Atlas successfully.');
     } catch (err: any) {
-      console.warn('[Order] Error syncing orders to Atlas:', err?.message || err);
+      console.warn('[Order] Error reconciling orders with Atlas:', err?.message || err);
     }
   }
 }

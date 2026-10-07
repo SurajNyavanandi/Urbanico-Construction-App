@@ -8,6 +8,7 @@ import { deliveryRouter } from './deliveryRouter';
 import { adminRouter } from './adminRouter';
 import { PaymentController } from '../controllers/paymentController';
 import { getDBStatus } from '../config/db';
+import { requireAdminSecret } from '../middleware/auth';
 
 const apiRouter = Router();
 
@@ -21,8 +22,8 @@ apiRouter.use('/user', userRouter);
 apiRouter.use('/deliveries', deliveryRouter);
 apiRouter.use('/admin', adminRouter);
 
-// Administrative Purge & Clean Slate API
-apiRouter.post('/purge-all-data', async (req, res) => {
+// Administrative Purge & Clean Slate API (Protected by requireAdminSecret)
+apiRouter.post('/purge-all-data', requireAdminSecret, async (req, res) => {
   try {
     const { UserService } = await import('../services/userService');
     const { OrderService } = await import('../services/orderService');
@@ -44,7 +45,7 @@ apiRouter.post('/purge-all-data', async (req, res) => {
     });
   }
 });
-apiRouter.post('/admin/purge', async (req, res) => {
+apiRouter.post('/admin/purge', requireAdminSecret, async (req, res) => {
   const { UserService } = await import('../services/userService');
   const { OrderService } = await import('../services/orderService');
   const { DeliveryService } = await import('../services/deliveryService');

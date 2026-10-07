@@ -1832,12 +1832,16 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       taxAmount: gstTax,
       deliveryCharges: deliveryCharge,
       unloadingCharges: optInLaborAssistance ? unloadingLaborFee : 0,
+      couponDiscount: couponDiscount || 0,
       totalAmount: grandTotal,
       paymentMethod: result.method || (selectedPaymentMethod === 'pod' ? 'Pay on Site (Cash / RTGS)' : 'Razorpay Gateway'),
       paymentStatus: selectedPaymentMethod === 'pod' ? 'pending_site_verification' : 'paid',
       paymentDetails: {
+        razorpay_payment_id: result.razorpay_payment_id,
+        razorpay_order_id: result.razorpay_order_id,
         razorpayPaymentId: result.razorpay_payment_id,
         razorpayOrderId: result.razorpay_order_id,
+        razorpay_signature: result.razorpay_signature,
         paymentMethod: result.method,
         amount: payableAmount,
         timestamp: new Date().toISOString(),
@@ -2371,6 +2375,15 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                         <Text style={[styles.summaryLabel, { color: '#16A34A' }]}>Contractor Discount ({appliedCoupon})</Text>
                         <Text style={[styles.summaryValue, { color: '#16A34A', fontWeight: '700' }]}>
                           -₹{couponDiscount.toLocaleString('en-IN')}
+                        </Text>
+                      </View>
+                    )}
+
+                    {/* Inter-State Tax Supply Warning if GSTIN is outside Telangana */}
+                    {Boolean(gstinValidation?.isValid && gstinValidation.stateCode !== '36') && (
+                      <View style={{ marginVertical: 8, padding: 8, backgroundColor: theme.mode === 'dark' ? '#1E293B' : '#FEF3C7', borderRadius: 8, borderWidth: 1, borderColor: theme.mode === 'dark' ? '#334155' : '#FDE68A' }}>
+                        <Text style={{ fontSize: 11, color: theme.mode === 'dark' ? '#FDE047' : '#92400E', lineHeight: 15, fontWeight: '500' }}>
+                          ⚠️ <Text style={{ fontWeight: '700' }}>Inter-State Supply Notice:</Text> Registered GSTIN is in {gstinValidation?.stateName} (State {gstinValidation?.stateCode}). IGST @ 18% will be applied to this invoice instead of CGST+SGST.
                         </Text>
                       </View>
                     )}

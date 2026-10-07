@@ -108,7 +108,17 @@ export class UserService {
         } else {
           user = await User.findOneAndUpdate({ phone: idOrPhone }, { $set: updateData }, { new: true }).exec();
         }
-        if (user) return user;
+        if (user) {
+          const idx = inMemoryUsers.findIndex((u) => u._id === idOrPhone || u.phone === idOrPhone);
+          if (idx !== -1) {
+            inMemoryUsers[idx] = {
+              ...inMemoryUsers[idx],
+              ...updateData,
+              updatedAt: new Date(),
+            };
+          }
+          return user;
+        }
       }
     } catch (err) {
       // fallback
@@ -171,9 +181,9 @@ export class UserService {
    * Synchronize all in-memory users directly into MongoDB Atlas collections
    */
   public static async syncToAtlas() {
-    if (mongoose.connection.readyState !== 1 || inMemoryUsers.length === 0) return;
+    if (mongoose.connection.readyState !== 1) return;
     try {
-      console.log(`[User] Syncing ${inMemoryUsers.length} user records to MongoDB Atlas...`);
+      console.log(`[User] Reconciling ${inMemoryUsers.length} user records with MongoDB Atlas...`);
       for (const u of inMemoryUsers) {
         const cleanPhone = (u.phone || '').replace(/[^\d+]/g, '');
         if (!cleanPhone) continue;
@@ -194,12 +204,30 @@ export class UserService {
               cart: u.cart,
               creditLimit: u.creditLimit,
               availableCredit: u.availableCredit,
+              updatedAt: u.updatedAt || new Date(),
+            },
+            $setOnInsert: {
+              phone: cleanPhone,
+              createdAt: u.createdAt || new Date(),
             },
           },
           { upsert: true, new: true }
         );
       }
-      console.log('[User] 🟢 All users synced to MongoDB Atlas successfully.');
+
+      // Reconcile users from Atlas back into inMemoryUsers
+      const atlasUsers = await User.find({}).limit(100).exec();
+      for (const aUser of atlasUsers) {
+        const cleanPhone = (aUser.phone || '').replace(/[^\d+]/g, '');
+        const foundIdx = inMemoryUsers.findIndex(
+          (u) => (u.phone || '').replace(/[^\d+]/g, '') === cleanPhone
+        );
+        if (foundIdx === -1) {
+          inMemoryUsers.push(aUser.toObject());
+        }
+      }
+
+      console.log('[User] 🟢 All users reconciled with MongoDB Atlas successfully.');
     } catch (err: any) {
       console.warn('[User] Error during Atlas user sync:', err?.message || err);
     }

@@ -119,7 +119,8 @@ export class DeliveryService {
 
   public static async verifyDeliveryOtp(orderNumber: string, otp: string) {
     const cleanOtp = String(otp || '').trim();
-    const isDevOtp = cleanOtp === '123456';
+    const isProduction = process.env.NODE_ENV === 'production';
+    const isDevOtp = !isProduction && cleanOtp === '123456';
 
     let deliveryRecord: any = null;
     let orderRecord: any = null;
@@ -150,7 +151,7 @@ export class DeliveryService {
     if (!isMatch) {
       return {
         success: false,
-        message: 'Invalid OTP code. Please enter the valid OTP provided on your order screen, or dev OTP 123456.',
+        message: 'Invalid delivery verification OTP. Please enter the valid OTP shown on your order screen.',
       };
     }
 

@@ -22,7 +22,11 @@ const PORT = Number(process.env.PORT) || 3000;
 
 app.use(requestLogger);
 app.use(createRateLimiter({ windowMs: 60 * 1000, maxRequests: 120 }));
-app.use(express.json());
+app.use(express.json({
+  verify: (req: any, _res, buf) => {
+    req.rawBody = buf;
+  },
+}));
 app.use(express.urlencoded({ extended: true }));
 
 // CORS middleware allowing https://urbanico.vercel.app and development origins

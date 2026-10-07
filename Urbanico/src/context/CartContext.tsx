@@ -127,6 +127,32 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     } catch {}
   }, []);
 
+  // Multi-tab synchronization: Listen to browser storage events across concurrent windows/tabs
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleStorageEvent = (e: StorageEvent) => {
+      try {
+        const authSaved = safeStorage.getItem('urbanico_auth_session');
+        const authParsed = authSaved ? JSON.parse(authSaved) : null;
+        const cleanPhone = authParsed?.isLoggedIn && authParsed?.phone ? authParsed.phone.replace(/[^0-9]/g, '') : null;
+        const targetKey = cleanPhone ? `urbanico_cart_${cleanPhone}` : 'urbanico_cart_guest';
+
+        if (e.key === targetKey && e.newValue) {
+          const updatedCart = JSON.parse(e.newValue);
+          if (Array.isArray(updatedCart)) {
+            setCartItems(updatedCart);
+          }
+        }
+      } catch {}
+    };
+
+    window.addEventListener('storage', handleStorageEvent);
+    return () => {
+      window.removeEventListener('storage', handleStorageEvent);
+    };
+  }, []);
+
   // Robust auto-save mechanism for cart state with both immediate synchronous write and non-blocking background queue
   useEffect(() => {
     try {

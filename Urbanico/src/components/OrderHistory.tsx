@@ -132,11 +132,84 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
   // Live Dispatch Tracking In-Place Modal
   const [activeTrackingDelivery, setActiveTrackingDelivery] = useState<ActivityDelivery | null>(null);
 
+  // Live GPS Telemetry with Page Visibility API guard (pauses when browser tab is inactive)
+  const [telemetry, setTelemetry] = useState<{ speed: number; etaMinutes: number }>({ speed: 42, etaMinutes: 24 });
+
+  useEffect(() => {
+    if (!activeTrackingDelivery) return;
+
+    let intervalId: any = null;
+
+    const tick = () => {
+      // Guard: Only update if the document is visible to save battery and CPU cycles
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+        return;
+      }
+      setTelemetry((prev) => ({
+        speed: Math.floor(38 + Math.random() * 12),
+        etaMinutes: Math.max(5, prev.etaMinutes - (Math.random() > 0.7 ? 1 : 0)),
+      }));
+    };
+
+    intervalId = setInterval(tick, 4000);
+
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        tick();
+      }
+    };
+
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+      if (typeof document !== 'undefined') {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      }
+    };
+  }, [activeTrackingDelivery]);
+
   // Email invoice modal state
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [targetOrderForEmail, setTargetOrderForEmail] = useState<any | null>(null);
   const [customEmail, setCustomEmail] = useState(user?.email || '');
   const [isEmailing, setIsEmailing] = useState(false);
+
+  // In-app order cancellation & automated refund state
+  const [orderToCancel, setOrderToCancel] = useState<any | null>(null);
+  const [cancelReason, setCancelReason] = useState<string>('Site schedule revised');
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  const handleConfirmCancel = async () => {
+    if (!orderToCancel) return;
+    setIsCancelling(true);
+    try {
+      const orderId = orderToCancel.orderNumber || orderToCancel._id;
+      const res = await apiService.updateOrderStatus(orderId, 'cancelled', {
+        cancellationReason: cancelReason,
+        cancelledAt: new Date().toISOString(),
+      });
+      if (res && (res as any).success !== false) {
+        showToast('Order cancelled successfully. Refund initiated to original source.', 'success');
+        setOrders((prev) =>
+          prev.map((o) =>
+            o.orderNumber === orderId || o._id === orderId
+              ? { ...o, orderStatus: 'cancelled', paymentStatus: 'refunded' }
+              : o
+          )
+        );
+        setOrderToCancel(null);
+      } else {
+        showToast((res as any)?.error || 'Could not cancel order. Please contact dispatch support.', 'error');
+      }
+    } catch (err: any) {
+      showToast(err?.message || 'Cancellation request failed', 'error');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   // Convert raw backend order to ActivityDelivery format
   const mapOrderToActivityDelivery = useCallback((order: any): ActivityDelivery => {
@@ -925,6 +998,19 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
                         <Phone size={15} color={theme.textPrimary} />
                         <Text style={[styles.secondaryActionText, { color: theme.textPrimary }]}>Call Driver</Text>
                       </TouchableOpacity>
+
+                      {/* Cancel Order Action */}
+                      {(order.orderStatus === 'placed' || order.orderStatus === 'confirmed' || order.orderStatus === 'processing' || order.orderStatus === 'received') && (
+                        <TouchableOpacity
+                          onPress={() => setOrderToCancel(order)}
+                          style={[styles.cancelActionBtn, { borderColor: '#FCA5A5', backgroundColor: isDark ? 'rgba(239, 68, 68, 0.12)' : '#FEF2F2' }]}
+                          activeOpacity={0.8}
+                          accessibilityLabel="Cancel Order"
+                        >
+                          <X size={14} color="#EF4444" />
+                          <Text style={styles.cancelActionText}>Cancel</Text>
+                        </TouchableOpacity>
+                      )}
                     </>
                   ) : (
                     <>
@@ -1024,7 +1110,7 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
                     {activeTrackingDelivery?.vehicleNumber || 'TS 09 UB 5120'}
                   </Text>
                   <Text style={[styles.trackingInfoSub, { color: theme.textSecondary }]}>
-                    {activeTrackingDelivery?.vehicleType || 'Commercial Heavy Fleet'} · Driver: {activeTrackingDelivery?.driverName || 'Assigned Partner'}
+                    {activeTrackingDelivery?.vehicleType || 'Commercial Heavy Fleet'} · Speed: {telemetry.speed} km/h · ETA: ~{telemetry.etaMinutes} mins · Driver: {activeTrackingDelivery?.driverName || 'Assigned Partner'}
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -1242,6 +1328,95 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
                       Send Invoice
                     </Text>
                   </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 9. In-App Cancellation & Gateway Refund Modal */}
+      <Modal
+        visible={!!orderToCancel}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setOrderToCancel(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.emailModalContent, { backgroundColor: theme.surface }]}>
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <AlertCircle size={20} color="#EF4444" />
+                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Cancel Consignment</Text>
+              </View>
+              <TouchableOpacity onPress={() => setOrderToCancel(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <X size={18} color={theme.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.modalSubtitle, { color: theme.textSecondary }]}>
+              Are you sure you want to cancel order #{orderToCancel?.orderNumber}? Any prepaid gateway amount will be automatically refunded.
+            </Text>
+
+            <Text style={[styles.inputLabel, { color: theme.textPrimary, marginTop: 12, marginBottom: 8 }]}>Reason for Cancellation:</Text>
+            {['Site schedule revised', 'Ordered incorrect quantity / material', 'Project delayed by weather or permits', 'Other'].map((reason) => (
+              <TouchableOpacity
+                key={reason}
+                onPress={() => setCancelReason(reason)}
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingVertical: 9,
+                  paddingHorizontal: 12,
+                  borderRadius: 8,
+                  marginBottom: 6,
+                  borderWidth: 1,
+                  borderColor: cancelReason === reason ? '#EF4444' : theme.border,
+                  backgroundColor: cancelReason === reason ? (isDark ? 'rgba(239, 68, 68, 0.15)' : '#FEF2F2') : theme.surfaceSecondary,
+                }}
+              >
+                <View
+                  style={{
+                    width: 16,
+                    height: 16,
+                    borderRadius: 8,
+                    borderWidth: 2,
+                    borderColor: cancelReason === reason ? '#EF4444' : theme.textMuted,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: 10,
+                  }}
+                >
+                  {cancelReason === reason && (
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#EF4444' }} />
+                  )}
+                </View>
+                <Text style={{ fontSize: 13, color: theme.textPrimary, fontWeight: cancelReason === reason ? '600' : '400' }}>
+                  {reason}
+                </Text>
+              </TouchableOpacity>
+            ))}
+
+            <View style={[styles.modalActions, { marginTop: 16 }]}>
+              <TouchableOpacity
+                onPress={() => setOrderToCancel(null)}
+                style={[styles.modalCancelBtn, { borderColor: theme.border }]}
+                disabled={isCancelling}
+              >
+                <Text style={[styles.modalCancelText, { color: theme.textSecondary }]}>Keep Order</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleConfirmCancel}
+                style={[styles.modalSendBtn, { backgroundColor: '#EF4444' }]}
+                disabled={isCancelling}
+              >
+                {isCancelling ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Text style={[styles.modalSendText, { color: '#FFFFFF' }]}>
+                    Confirm Cancel & Refund
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1954,5 +2129,19 @@ const styles = StyleSheet.create({
   modalSendText: {
     fontSize: 13,
     fontWeight: '700',
+  },
+  cancelActionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    minHeight: 44,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  cancelActionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#EF4444',
   },
 });

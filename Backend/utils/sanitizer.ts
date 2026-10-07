@@ -122,6 +122,17 @@ export function validateBackendProfile(data: any): {
     };
   }
 
+  if (Array.isArray(data.deliverySites)) {
+    sanitized.deliverySites = data.deliverySites.map((site: any) => ({
+      siteName: sanitizeAddressField(site.siteName || 'Construction Site', 100),
+      address: sanitizeAddressField(site.address || '', 255),
+      pincode: sanitizePhone(site.pincode).slice(0, 6) || '500049',
+      supervisorName: sanitizeName(site.supervisorName || 'Supervisor', 60),
+      supervisorPhone: site.supervisorPhone ? String(site.supervisorPhone).replace(/\D/g, '').slice(-10) : '',
+      isPrimary: Boolean(site.isPrimary),
+    }));
+  }
+
   return {
     isValid: Object.keys(errors).length === 0,
     errors,

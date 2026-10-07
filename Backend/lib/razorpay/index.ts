@@ -48,6 +48,7 @@ export interface VerifySignatureParams {
   payment_id: string;
   signature: string;
   key_secret?: string;
+  isLiveMode?: boolean;
 }
 
 export interface VerifySignatureResult {
@@ -101,8 +102,72 @@ export function detectKeyMode(key_id?: string): RazorpayMode {
  * Pure cryptographic HMAC-SHA256 signature verification with sandbox bypass detection.
  */
 export function verifyRazorpaySignature(params: VerifySignatureParams): VerifySignatureResult {
-  const { order_id, payment_id, signature, key_secret } = params;
+  const { order_id, payment_id, signature, key_secret, isLiveMode = false } = params;
 
+  const isProduction = process.env.NODE_ENV === 'production';
+  const strictLiveMode = isLiveMode || isProduction;
+
+  // In LIVE production mode or when running in production, test signatures and sandbox IDs MUST be strictly rejected!
+  if (strictLiveMode) {
+    if (
+      String(payment_id || '').startsWith('pay_test_') ||
+      String(payment_id || '').startsWith('pay_sim_') ||
+      String(signature || '').startsWith('sig_test_') ||
+      signature === 'bypass_test' ||
+      signature === 'direct_verified' ||
+      String(order_id || '').startsWith('order_test_')
+    ) {
+      return {
+        isValid: false,
+        mode: 'LIVE_REJECT_SANDBOX',
+        reason: 'Test payment credentials cannot be accepted in live production environment.',
+        isSandbox: false,
+      };
+    }
+
+    if (!key_secret || key_secret === 'unconfigured_secret') {
+      return {
+        isValid: false,
+        mode: 'LIVE_CONFIG_ERROR',
+        reason: 'Razorpay Key Secret is required for live verification.',
+        isSandbox: false,
+      };
+    }
+
+    if (!order_id || !payment_id || !signature) {
+      return {
+        isValid: false,
+        mode: 'LIVE_MISSING_CREDENTIALS',
+        reason: 'Razorpay order_id, payment_id, and signature are required for HMAC verification.',
+        isSandbox: false,
+      };
+    }
+
+    const payload = `${order_id}|${payment_id}`;
+    const expectedSignature = crypto
+      .createHmac('sha256', key_secret)
+      .update(payload)
+      .digest('hex');
+
+    let isValid = false;
+    try {
+      const sigBuf = Buffer.from(signature);
+      const expBuf = Buffer.from(expectedSignature);
+      isValid = sigBuf.length === expBuf.length && crypto.timingSafeEqual(sigBuf, expBuf);
+    } catch {
+      isValid = false;
+    }
+
+    return {
+      isValid,
+      expectedSignature,
+      mode: 'HMAC_SHA256',
+      reason: isValid ? 'Signature valid' : 'Signature mismatch',
+      isSandbox: false,
+    };
+  }
+
+  // Non-live (Test / Sandbox / Development) evaluation
   const isSandboxId =
     String(payment_id || '').startsWith('pay_test_') ||
     String(payment_id || '').startsWith('pay_sim_') ||
@@ -129,7 +194,7 @@ export function verifyRazorpaySignature(params: VerifySignatureParams): VerifySi
       isValid: true,
       expectedSignature: signature,
       mode: 'SIMULATED_ACCEPT',
-      reason: 'Key secret not configured on backend',
+      reason: 'Key secret not configured on backend (development mode)',
       isSandbox: true,
     };
   }
@@ -347,17 +412,20 @@ export class RazorpayClient {
     signature?: string;
     razorpay_signature?: string;
     key_secret?: string;
+    isLiveMode?: boolean;
   }): VerifySignatureResult {
     const order_id = params.order_id || params.razorpay_order_id || '';
     const payment_id = params.payment_id || params.razorpay_payment_id || '';
     const signature = params.signature || params.razorpay_signature || '';
     const secret = params.key_secret || this.getKeySecret();
+    const isLive = params.isLiveMode !== undefined ? params.isLiveMode : this.getKeyMode() === 'LIVE';
 
     return verifyRazorpaySignature({
       order_id,
       payment_id,
       signature,
       key_secret: secret,
+      isLiveMode: isLive,
     });
   }
 

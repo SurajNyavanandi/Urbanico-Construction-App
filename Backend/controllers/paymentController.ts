@@ -45,11 +45,67 @@ export class PaymentController {
 
   // POST /api/razorpay/create-order (or /api/create-order)
   public static createOrder = asyncHandler(async (req: Request, res: Response) => {
-    const { currency = 'INR', receipt, notes } = req.body;
-    const amountInPaise = parsePaiseAmount(req.body);
+    const { currency = 'INR', receipt, notes, items, cartItems } = req.body;
+    let amountInPaise = parsePaiseAmount(req.body);
 
     if (amountInPaise < 100) {
       return sendError(res, 'Minimum amount is ₹1.00 (100 paise)', 400);
+    }
+
+    // Server-authoritative price validation against client-side price tampering
+    const incomingItems = items || cartItems || req.body.cart;
+    if (Array.isArray(incomingItems) && incomingItems.length > 0) {
+      let materialsSubtotal = 0;
+      let servicesSubtotal = 0;
+
+      for (const item of incomingItems) {
+        const qty = Math.max(1, Number(item.quantity) || 1);
+        const unitPrice = Number(item.unitPrice ?? item.price ?? 0);
+        const isService =
+          (item.category || item.categoryName || '').toLowerCase().includes('service') ||
+          (item.name || item.itemName || '').toLowerCase().includes('service');
+
+        if (isService) {
+          servicesSubtotal += qty * (unitPrice || 99);
+        } else {
+          materialsSubtotal += qty * unitPrice;
+        }
+      }
+
+      const isServicesOnly = materialsSubtotal === 0 && servicesSubtotal > 0;
+      const gstTax = isServicesOnly ? 0 : Math.round(materialsSubtotal * 0.18);
+      const deliveryCharge = isServicesOnly
+        ? 0
+        : req.body.deliveryCharges !== undefined
+        ? Math.round(Number(req.body.deliveryCharges))
+        : materialsSubtotal > 50000
+        ? 0
+        : 2500;
+      const unloadingCharge = isServicesOnly ? 0 : Math.round(Number(req.body.unloadingCharges || 0));
+      const couponDiscount = Math.round(Number(req.body.couponDiscount || 0));
+
+      const serverCalculatedTotalRupees = Math.max(
+        1,
+        Math.round(materialsSubtotal + servicesSubtotal + gstTax + deliveryCharge + unloadingCharge - couponDiscount)
+      );
+      const serverCalculatedPaise = serverCalculatedTotalRupees * 100;
+
+      // Check if client submitted an amount that deviates beyond ₹5 (500 paise) tolerance
+      if (Math.abs(amountInPaise - serverCalculatedPaise) > 500) {
+        console.warn(
+          `[Payment Security] Price tampering detected! Client requested ₹${(amountInPaise / 100).toFixed(2)}, server calculated ₹${(serverCalculatedPaise / 100).toFixed(2)}.`
+        );
+        if (process.env.NODE_ENV === 'production') {
+          return sendError(
+            res,
+            `Authoritative price mismatch. Calculated order total is ₹${serverCalculatedTotalRupees}. Please refresh your cart.`,
+            400
+          );
+        } else {
+          // Enforce the server authoritative total
+          amountInPaise = serverCalculatedPaise;
+        }
+      }
     }
 
     console.log(`[Payment Backend] Incoming create-order: ₹${(amountInPaise / 100).toFixed(2)} (${amountInPaise} paise)`);
@@ -114,11 +170,29 @@ export class PaymentController {
     console.log(`[Payment Backend] Incoming verify-payment: payment_id=${razorpay_payment_id}, order_id=${razorpay_order_id}`);
 
     const mode = razorpayClient.getKeyMode();
+    const isLive = mode === 'LIVE';
+
+    if (isLive) {
+      if (
+        String(razorpay_payment_id).startsWith('pay_test_') ||
+        String(razorpay_signature).startsWith('sig_test_') ||
+        String(razorpay_order_id).startsWith('order_test_')
+      ) {
+        return res.status(400).json({
+          success: false,
+          verified: false,
+          message: 'Test payment credentials cannot be accepted in live production mode.',
+          mode,
+        });
+      }
+    }
+
     const isTestPayment =
-      mode !== 'LIVE' ||
-      String(razorpay_payment_id).startsWith('pay_test_') ||
-      String(razorpay_signature).startsWith('sig_test_') ||
-      String(razorpay_order_id).startsWith('order_test_');
+      !isLive &&
+      (String(razorpay_payment_id).startsWith('pay_test_') ||
+        String(razorpay_signature).startsWith('sig_test_') ||
+        String(razorpay_order_id).startsWith('order_test_') ||
+        (process.env.NODE_ENV !== 'production' && !razorpayClient.isConfigured()));
 
     if (isTestPayment) {
       console.log(`[Payment Backend] Test Mode payment verified: payment_id=${razorpay_payment_id}`);
@@ -617,7 +691,13 @@ export class PaymentController {
   // POST /api/razorpay/webhook
   public static handleWebhook = asyncHandler(async (req: Request, res: Response) => {
     const signature = (req.headers['x-razorpay-signature'] || '') as string;
-    const result = RazorpayBackendService.handleWebhook(req.body, signature);
-    return res.status(200).json({ status: 'ok', ...result });
+    const rawBody = (req as any).rawBody || Buffer.from(JSON.stringify(req.body));
+    try {
+      const result = RazorpayBackendService.handleWebhook(req.body, signature, rawBody);
+      return res.status(200).json({ status: 'ok', ...result });
+    } catch (err: any) {
+      console.warn('[Payment Webhook Error]', err.message);
+      return res.status(400).json({ status: 'error', message: err.message || 'Webhook verification failed' });
+    }
   });
 }
