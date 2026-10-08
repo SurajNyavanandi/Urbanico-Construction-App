@@ -1461,7 +1461,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               <TouchableOpacity
                 onPress={() => {
                   if (typeof window !== 'undefined') {
-                    window.open('tel:+9118002008829', '_self');
+                    window.open('tel:+918297474332', '_self');
                   }
                 }}
                 style={[styles.helpItemRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
@@ -1471,7 +1471,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   <Phone size={18} color="#111111" />
                   <View>
                     <Text style={[styles.helpItemTitle, { color: theme.textPrimary }]}>Customer Support</Text>
-                    <Text style={[styles.helpItemSub, { color: theme.textSecondary }]}>Direct helpline: 1800 200 8829</Text>
+                    <Text style={[styles.helpItemSub, { color: theme.textSecondary }]}>Direct helpline: +91 8297474332</Text>
                   </View>
                 </View>
                 <ChevronRight size={16} color={theme.textSecondary} />
@@ -1480,7 +1480,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               <TouchableOpacity
                 onPress={() => {
                   if (typeof window !== 'undefined') {
-                    window.open('mailto:billing@urbanico.in', '_self');
+                    window.open('mailto:urbanicoapp@gmail.com', '_self');
                   }
                 }}
                 style={[styles.helpItemRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, marginTop: 8 }]}
@@ -1489,8 +1489,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 <View style={styles.helpItemLeft}>
                   <Mail size={18} color="#111111" />
                   <View>
-                    <Text style={[styles.helpItemTitle, { color: theme.textPrimary }]}>Commercial Invoicing Desk</Text>
-                    <Text style={[styles.helpItemSub, { color: theme.textSecondary }]}>billing@urbanico.in</Text>
+                    <Text style={[styles.helpItemTitle, { color: theme.textPrimary }]}>Commercial Invoicing & Support</Text>
+                    <Text style={[styles.helpItemSub, { color: theme.textSecondary }]}>urbanicoapp@gmail.com</Text>
                   </View>
                 </View>
                 <ChevronRight size={16} color={theme.textSecondary} />
@@ -1499,7 +1499,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               <TouchableOpacity
                 onPress={() => {
                   if (typeof window !== 'undefined') {
-                    window.open('https://wa.me/919876543210', '_blank');
+                    window.open('https://wa.me/918297474332', '_blank');
                   }
                 }}
                 style={[styles.helpItemRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, marginTop: 8 }]}
@@ -1509,7 +1509,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   <MessageSquare size={18} color="#111111" />
                   <View>
                     <Text style={[styles.helpItemTitle, { color: theme.textPrimary }]}>WhatsApp Dispatch Desk</Text>
-                    <Text style={[styles.helpItemSub, { color: theme.textSecondary }]}>Direct chat with dispatch coordinator</Text>
+                    <Text style={[styles.helpItemSub, { color: theme.textSecondary }]}>+91 8297474332 (Direct WhatsApp support)</Text>
                   </View>
                 </View>
                 <ChevronRight size={16} color={theme.textSecondary} />

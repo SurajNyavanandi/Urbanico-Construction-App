@@ -71,6 +71,103 @@ apiRouter.get('/order-status/:order_id', PaymentController.getOrderStatus);
 apiRouter.get('/order-status', PaymentController.getOrderStatus);
 apiRouter.post('/check-status', PaymentController.getOrderStatus);
 
+// Resend Invoice Dispatch API (/api/send-invoice)
+const sendInvoiceHandler = async (req: any, res: any) => {
+  try {
+    const { sendInvoiceMail } = await import('../lib/mailer');
+    const {
+      to,
+      recipientEmail,
+      customerName,
+      customerBusinessName,
+      customerGstin,
+      invoiceNumber,
+      amount,
+      totalAmount,
+      items,
+      html,
+      notes,
+      paymentStatus,
+    } = req.body;
+
+    const targetEmail = recipientEmail || (Array.isArray(to) ? to[0] : to);
+    if (!targetEmail) {
+      return res.status(400).json({ success: false, message: 'Recipient email is required' });
+    }
+
+    const result = await sendInvoiceMail({
+      to: targetEmail,
+      customerName: customerBusinessName || customerName || 'Valued Client',
+      customerGstin,
+      invoiceNumber: invoiceNumber || `INV-${Date.now().toString().slice(-6)}`,
+      amount: Number(totalAmount || amount || 0),
+      items: Array.isArray(items) ? items : [],
+      notes,
+      paymentStatus: paymentStatus || 'PAID',
+    });
+
+    return res.json({
+      success: true,
+      messageId: result.messageId,
+      mode: result.mode,
+      trackingId: `TRK-INV-${Date.now().toString().slice(-6)}`,
+      message: `Tax Invoice successfully emailed to ${targetEmail}`,
+    });
+  } catch (err: any) {
+    console.error('[API send-invoice error]:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to dispatch invoice: ' + (err?.message || err),
+    });
+  }
+};
+
+apiRouter.post('/send-invoice', sendInvoiceHandler);
+apiRouter.post('/email-invoice', sendInvoiceHandler);
+
+// MSG91 OTP API (/api/otp/send & /api/otp/verify)
+apiRouter.post('/otp/send', async (req, res) => {
+  try {
+    const { OtpBackendService } = await import('../services/otpService');
+    const { phone } = req.body;
+    const result = await OtpBackendService.sendOtp(phone);
+    return res.json(result);
+  } catch (err: any) {
+    return res.status(400).json({
+      success: false,
+      message: err?.message || 'Failed to send OTP',
+    });
+  }
+});
+
+apiRouter.post('/otp/verify', async (req, res) => {
+  try {
+    const { OtpBackendService } = await import('../services/otpService');
+    const { UserService } = await import('../services/userService');
+    const { generateAuthToken } = await import('../middleware/auth');
+    const { phone, otp } = req.body;
+    const result = await OtpBackendService.verifyOtp(phone, otp);
+
+    if (result.verified) {
+      const user = await UserService.findOrCreateUser(result.phone);
+      const token = generateAuthToken(user);
+      return res.json({
+        ...result,
+        token,
+        user,
+      });
+    }
+
+    return res.status(401).json(result);
+  } catch (err: any) {
+    return res.status(400).json({
+      success: false,
+      verified: false,
+      message: err?.message || 'Verification failed',
+    });
+  }
+});
+
 // Database & Backend System Health check
 apiRouter.get('/health', (req, res) => {
   const dbStatus = getDBStatus();

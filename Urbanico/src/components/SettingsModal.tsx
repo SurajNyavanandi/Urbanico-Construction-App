@@ -8,16 +8,13 @@ import {
   Switch,
   Modal,
   Pressable,
-  Platform,
 } from 'react-native';
 import {
   Palette,
   Languages,
   ChevronRight,
   X,
-  ShieldCheck,
   Moon,
-  LayoutGrid,
   ArrowLeft,
   Check,
 } from 'lucide-react-native';
@@ -38,7 +35,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   viewMode = 'grid',
   onViewModeChange,
 }) => {
-  const { theme, themeMode, setThemeMode, accentColor, setAccentColor } = useTheme();
+  const { theme, themeMode, setThemeMode } = useTheme();
   const { language, setLanguage, languageOptions, currentLanguageOption, t } = useLanguage();
 
   const [activeSubView, setActiveSubView] = useState<'main' | 'language'>('main');
@@ -215,93 +212,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                     thumbColor="#FFFFFF"
                   />
                 </View>
-
-                {/* Brand Color Theme Palette Selector */}
-                <View style={[styles.switchRow, { flexDirection: 'column', alignItems: 'flex-start', gap: 10 }]}>
-                  <View style={styles.switchRowLeft}>
-                    <Palette size={16} color={theme.textPrimary} strokeWidth={2} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>Brand Theme Color</Text>
-                      <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
-                        Switch primary brand accent & button styling
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={{ flexDirection: 'row', gap: 10, width: '100%', paddingTop: 6, justifyContent: 'space-between' }}>
-                    {[
-                      { id: 'yellow', hex: '#FCB026' },
-                      { id: 'black', hex: '#0F172A' },
-                      { id: 'blue', hex: '#1E3A8A' },
-                      { id: 'amber', hex: '#D97706' },
-                      { id: 'green', hex: '#059669' },
-                      { id: 'red', hex: '#DC2626' },
-                      { id: 'purple', hex: '#7C3AED' },
-                    ].map((pal) => {
-                      const isSelected = accentColor === pal.id;
-                      return (
-                        <TouchableOpacity
-                          key={pal.id}
-                          onPress={() => setAccentColor(pal.id as any)}
-                          activeOpacity={0.8}
-                          accessibilityLabel={`Theme color ${pal.id}`}
-                          style={{
-                            width: 38,
-                            height: 38,
-                            borderRadius: 19,
-                            backgroundColor: pal.hex,
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            borderWidth: isSelected ? 3 : 1,
-                            borderColor: isSelected ? (themeMode === 'dark' ? '#FFFFFF' : '#18181B') : 'rgba(0,0,0,0.12)',
-                            transform: [{ scale: isSelected ? 1.1 : 1 }],
-                            ...Platform.select({
-                              web: {
-                                boxShadow: isSelected ? '0 3px 10px rgba(0,0,0,0.25)' : '0 1px 3px rgba(0,0,0,0.1)',
-                              },
-                              default: {
-                                elevation: isSelected ? 4 : 1,
-                              },
-                            }),
-                          }}
-                        >
-                          {isSelected && (
-                            <Check size={18} color={pal.id === 'yellow' ? '#18181B' : '#FFFFFF'} strokeWidth={3} />
-                          )}
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-
-                {/* Grid Mode Switch */}
-                <View style={styles.switchRow}>
-                  <View style={styles.switchRowLeft}>
-                    <LayoutGrid size={16} color={theme.textPrimary} strokeWidth={2} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>2-Column Grid Layout</Text>
-                      <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
-                        {viewMode === 'grid' ? 'Compact two-column catalog (Default)' : 'Single-column list layout'}
-                      </Text>
-                    </View>
-                  </View>
-                  <Switch
-                    value={viewMode === 'grid'}
-                    onValueChange={(val) => {
-                      const nextMode = val ? 'grid' : 'list';
-                      if (onViewModeChange) onViewModeChange(nextMode);
-                    }}
-                    trackColor={{ false: '#E4E4E7', true: theme.primary || '#FCB026' }}
-                    thumbColor="#FFFFFF"
-                  />
-                </View>
-              </View>
-
-              {/* Security Badge */}
-              <View style={[styles.securityBanner, { backgroundColor: theme.surfaceSecondary }]}>
-                <ShieldCheck size={16} color="#059669" />
-                <Text style={[styles.securityBannerText, { color: theme.textSecondary }]}>
-                  Urbanico PRO Builder Portal v2.6.4 • Verified 18% GST Compliant
-                </Text>
               </View>
             </ScrollView>
           )}

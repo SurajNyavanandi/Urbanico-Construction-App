@@ -541,7 +541,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               <div class="brand-sub">URBANICO TECHNOLOGIES PRIVATE LIMITED • CIN: U45200TG2022PTC168234</div>
               <div class="brand-sub">Registered Office: Plot 142, HiTech City Phase 2, Madhapur, Hyderabad, Telangana - 500081</div>
               <div class="brand-sub"><b>GSTIN:</b> 36AAACU9812A1Z4 | <b>PAN:</b> AAACU9812A | <b>State:</b> Telangana (Code: 36)</div>
-              <div class="brand-sub"><b>Email:</b> billing@urbanico.in | <b>Billing Desk:</b> +91 1800 200 8829</div>
+              <div class="brand-sub"><b>Email:</b> urbanicoapp@gmail.com | <b>Support Desk:</b> +91 8297474332</div>
             </div>
             <div class="tax-title-box">
               <div class="tax-heading">TAX INVOICE</div>

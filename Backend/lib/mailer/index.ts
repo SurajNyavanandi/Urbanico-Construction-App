@@ -1,22 +1,16 @@
 // ==============================================================================
 // REUSABLE MAILER CLIENT & EMAIL SERVICE (Zero-coupling, portable Node.js/TS library)
 // ==============================================================================
-// This standalone library can be copied into any Node.js/TypeScript project.
-// Dependencies: nodemailer, @types/nodemailer
-// Supports: Standard SMTP, Gmail, SendGrid, Resend, and Graceful Dev/Console Fallback
+// Standalone library powered exclusively by Resend (https://resend.com)
+// Dependencies: resend
+// Features: Direct Resend API Dispatch with Graceful Dev/Console Fallback
 // ==============================================================================
 
-import nodemailer from 'nodemailer';
-import type { Transporter, SendMailOptions as NodemailerSendMailOptions } from 'nodemailer';
+import { Resend } from 'resend';
 
 export interface MailerConfig {
-  host?: string;
-  port?: number;
-  secure?: boolean;
-  user?: string;
-  pass?: string;
+  apiKey?: string;
   from?: string;
-  service?: string; // e.g. 'gmail', 'SendGrid', etc.
 }
 
 export interface EmailAttachment {
@@ -43,7 +37,7 @@ export interface SendMailOptions {
 export interface SendMailResult {
   success: boolean;
   messageId?: string;
-  mode: 'SMTP' | 'DEV_CONSOLE_FALLBACK' | 'ETHEREAL';
+  mode: 'RESEND' | 'DEV_CONSOLE_FALLBACK';
   previewUrl?: string | false;
   info?: any;
   error?: string;
@@ -279,133 +273,100 @@ function escapeHtml(str: string): string {
 }
 
 /**
- * Reusable Mailer Service
- * Defaults to Gmail service so only SMTP_USER and SMTP_PASS are needed in .env.
- * All SMTP connection parameters, TLS/SSL, and sender headers are self-contained.
+ * Reusable Mailer Service powered exclusively by Resend
+ * Reads RESEND_API_KEY and RESEND_FROM_EMAIL.
+ * When credentials are omitted in development, provides graceful console previews.
  */
 export class MailerService {
-  private transporter: Transporter | null = null;
+  private resend: Resend | null = null;
   private config: MailerConfig;
 
   constructor(customConfig?: MailerConfig) {
-    const rawUser = customConfig?.user || process.env.SMTP_USER || process.env.SMTP_USERNAME || '';
-    const rawPass = customConfig?.pass || process.env.SMTP_PASS || process.env.SMTP_PASSWORD || '';
-    const cleanUser = rawUser.trim().replace(/^["']|["']$/g, '');
-    // Google App Passwords are 16 chars often copied with spaces ("abcd efgh ijkl mnop")
-    const cleanPass = rawPass.trim().replace(/^["']|["']$/g, '').replace(/\s+/g, '');
+    const rawApiKey = customConfig?.apiKey || process.env.RESEND_API_KEY || '';
+    const cleanApiKey = rawApiKey.trim().replace(/^["']|["']$/g, '');
+    const cleanFrom = (
+      customConfig?.from ||
+      process.env.RESEND_FROM_EMAIL ||
+      'Urbanico Direct <invoices@urbanico.in>'
+    ).trim().replace(/^["']|["']$/g, '');
 
     this.config = {
-      // Defaults to Gmail service internally
-      service: customConfig?.service || process.env.SMTP_SERVICE || 'gmail',
-      user: cleanUser,
-      pass: cleanPass,
-      host: customConfig?.host || process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: customConfig?.port || (process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : 465),
-      secure: customConfig?.secure !== undefined ? customConfig.secure : true,
-      from:
-        customConfig?.from ||
-        process.env.SMTP_FROM ||
-        process.env.MAIL_FROM ||
-        (cleanUser ? `Urbanico Direct <${cleanUser}>` : 'Urbanico Direct <noreply@urbanico.in>'),
+      apiKey: cleanApiKey,
+      from: cleanFrom,
     };
-  }
 
-  /**
-   * Check if Gmail/SMTP credentials are fully provided
-   */
-  public hasSmtpCredentials(): boolean {
-    const u = this.config.user || '';
-    const p = this.config.pass || '';
-    return Boolean(
-      u &&
-      p &&
-      !u.includes('your-email') &&
-      !u.includes('your_email') &&
-      !p.includes('your-app-password') &&
-      !p.includes('your_app_password') &&
-      !p.includes('your-16-char')
-    );
-  }
-
-  /**
-   * Lazily initialize or return cached nodemailer transporter (Defaults to Gmail)
-   */
-  public getTransporter(): Transporter | null {
-    if (this.transporter) {
-      return this.transporter;
+    if (cleanApiKey && !cleanApiKey.includes('your_resend_api_key')) {
+      this.resend = new Resend(cleanApiKey);
     }
-
-    if (this.hasSmtpCredentials()) {
-      const isGmail = (this.config.service || '').toLowerCase() === 'gmail';
-      if (isGmail) {
-        // High-reliability pre-configured Gmail transport
-        this.transporter = nodemailer.createTransport({
-          service: 'gmail',
-          auth: {
-            user: this.config.user,
-            pass: this.config.pass,
-          },
-        });
-      } else {
-        this.transporter = nodemailer.createTransport({
-          host: this.config.host || 'smtp.gmail.com',
-          port: this.config.port || 465,
-          secure: this.config.secure ?? true,
-          auth: {
-            user: this.config.user,
-            pass: this.config.pass,
-          },
-        });
-      }
-      return this.transporter;
-    }
-
-    return null;
   }
 
   /**
-   * Core sendMail method with graceful console fallback
+   * Check if Resend API credentials are provided
+   */
+  public hasResendCredentials(): boolean {
+    const key = this.config.apiKey || '';
+    return Boolean(key && key.startsWith('re_') && !key.includes('your_resend'));
+  }
+
+  /**
+   * Core sendMail method via Resend with graceful console fallback
    */
   public async sendMail(options: SendMailOptions): Promise<SendMailResult> {
-    const defaultFrom = this.config.user
-      ? `Urbanico Direct <${this.config.user}>`
-      : 'Urbanico Direct <noreply@urbanico.in>';
-    const fromAddress = options.from || this.config.from || defaultFrom;
-    const recipientStr = Array.isArray(options.to) ? options.to.join(', ') : options.to;
+    const fromAddress = options.from || this.config.from || 'Urbanico Direct <invoices@urbanico.in>';
+    const toList = Array.isArray(options.to) ? options.to : [options.to];
+    const recipientStr = toList.join(', ');
 
-    const transporter = this.getTransporter();
-
-    if (transporter) {
+    // 1. Resend API Dispatch (if RESEND_API_KEY is configured)
+    const activeApiKey = this.config.apiKey || process.env.RESEND_API_KEY?.trim();
+    if (activeApiKey && !activeApiKey.includes('your_resend_api_key')) {
       try {
-        const mailPayload: NodemailerSendMailOptions = {
+        const client = this.resend || new Resend(activeApiKey);
+        const sendPayload: any = {
           from: fromAddress,
-          to: options.to,
-          cc: options.cc,
-          bcc: options.bcc,
-          replyTo: options.replyTo,
+          to: toList,
           subject: options.subject,
+          html: options.html || options.text || '',
           text: options.text,
-          html: options.html,
-          attachments: options.attachments as any,
         };
 
-        const info = await transporter.sendMail(mailPayload);
-        console.log(`[Mailer] Email sent successfully to ${recipientStr}: MessageId=${info.messageId}`);
-        return {
-          success: true,
-          messageId: info.messageId,
-          mode: 'SMTP',
-          info,
-        };
-      } catch (err: any) {
-        console.warn(`[Mailer] SMTP transport error: ${err?.message || err}. Falling back to clean log mode.`);
+        if (options.cc) {
+          sendPayload.cc = Array.isArray(options.cc) ? options.cc : [options.cc];
+        }
+        if (options.bcc) {
+          sendPayload.bcc = Array.isArray(options.bcc) ? options.bcc : [options.bcc];
+        }
+        if (options.replyTo) {
+          sendPayload.reply_to = options.replyTo;
+        }
+
+        if (options.attachments && options.attachments.length > 0) {
+          sendPayload.attachments = options.attachments.map((att) => ({
+            filename: att.filename,
+            content: typeof att.content === 'string' ? Buffer.from(att.content) : att.content,
+          }));
+        }
+
+        const resendRes = await client.emails.send(sendPayload);
+        if (resendRes.data && resendRes.data.id) {
+          console.log(`[Resend Live] Email dispatched to ${recipientStr}: MessageId=${resendRes.data.id}`);
+          return {
+            success: true,
+            messageId: resendRes.data.id,
+            mode: 'RESEND',
+            info: resendRes,
+          };
+        } else if (resendRes.error) {
+          console.warn(`[Resend Live] Resend returned API error:`, resendRes.error);
+        }
+      } catch (resendErr: any) {
+        console.warn(`[Resend Live] Dispatch error: ${resendErr?.message || resendErr}. Falling back to dev preview.`);
       }
     }
 
-    // Graceful Fallback Mode: Print clean preview to console without crashing
+    // 2. Graceful Fallback Mode: Print clean preview to console without crashing
     const previewMessageId = `mock_mail_${Date.now()}_${Math.random().toString(36).slice(-4)}`;
     console.log(`\n======================================================`);
-    console.log(`[MAILER DEV FALLBACK PREVIEW] (No active SMTP configured)`);
+    console.log(`[MAILER DEV FALLBACK PREVIEW] (Resend simulated dispatch)`);
     console.log(`------------------------------------------------------`);
     console.log(`From:    ${fromAddress}`);
     console.log(`To:      ${recipientStr}`);

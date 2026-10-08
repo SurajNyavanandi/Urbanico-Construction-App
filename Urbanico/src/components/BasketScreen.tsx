@@ -23,6 +23,7 @@ import {
   Truck,
   Package,
   Check,
+  Copy,
   Clock,
   Tag,
   ShieldCheck,
@@ -122,6 +123,59 @@ import { validateGSTIN, GstinValidationResult } from '../utils/gstinValidator';
 import { buildTaxInvoiceData, sendTaxInvoiceEmail } from '../utils/invoiceHelper';
 import { openProformaQuotationPrint } from '../utils/proformaQuotationHelper';
 import { useCart } from '../context/CartContext';
+import { useClipboard } from '../hooks';
+
+export const CART_ORDER_LIFECYCLE_STAGES = [
+  {
+    id: 'placed',
+    title: 'Order Placed',
+    description: 'Payment verified and booking logged into central hub inventory.',
+    minuteOffset: 0,
+  },
+  {
+    id: 'batching',
+    title: 'Yard Batching',
+    description: 'Materials inspected, batch weight verified, and loaded onto carrier.',
+    minuteOffset: 16,
+  },
+  {
+    id: 'dispatched',
+    title: 'Consignment Dispatched',
+    description: 'Fleet en route to site with live GPS telemetry active.',
+    minuteOffset: 36,
+  },
+  {
+    id: 'gate_arrival',
+    title: 'Gate Arrival',
+    description: 'Truck arrived at destination gate awaiting handover authorization.',
+    minuteOffset: 56,
+  },
+  {
+    id: 'delivered',
+    title: 'Delivered & Unloaded',
+    description: 'Materials unloaded and gate sign-off completed.',
+    minuteOffset: 75,
+  },
+];
+
+export const getCartStageTimestamp = (createdAt: string | undefined, minuteOffset: number) => {
+  const base = createdAt ? new Date(createdAt) : new Date(Date.now() - 40 * 60 * 1000);
+  const stageTime = new Date(base.getTime() + minuteOffset * 60 * 1000);
+  return stageTime.toLocaleTimeString('en-IN', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+};
+
+export const getCartActiveStageIndex = (statusRaw?: string) => {
+  const st = (statusRaw || 'in_transit').toLowerCase();
+  if (st === 'delivered') return 5;
+  if (st === 'gate_arrival' || st === 'site_arrival') return 3;
+  if (st === 'in_transit' || st === 'en_route' || st === 'en route' || st === 'dispatched') return 2;
+  if (st === 'batching' || st === 'yard_processing' || st === 'processing') return 1;
+  return 0;
+};
 
 export type PaymentMethodType = 'online' | 'pod' | 'upi_app' | 'upi_vpa' | 'card' | 'netbanking' | 'wallet' | 'emi';
 
@@ -204,6 +258,8 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     addLocation,
   } = useLocation();
   const { showToast } = useToast();
+  const { copy } = useClipboard();
+  const [copiedOtp, setCopiedOtp] = useState<string | null>(null);
   const activeLocation = globalLocation || propLocation || 'Miyapur Site, Phase 2, Hyderabad';
   const [activeTab, setActiveTab] = useState<'cart' | 'history'>('cart');
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'payment'>('cart');
@@ -2557,9 +2613,10 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
               </View>
             ) : (
               <View style={{ gap: 14 }}>
-                {/* Active Order Vertical Lifecycle Card */}
+                {/* Active Order Vertical Lifecycle Card - Minimalist Redesign with Milestone Hierarchy */}
                 {activeEnRoute && (
                   <View style={[styles.trackingCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                    {/* 1. Header: Thumbnail + Order ID & Status + Live ETA Badge */}
                     <View style={[styles.trackingCardHeader, { borderBottomColor: theme.borderLight }]}>
                       <Image
                         source={{
@@ -2569,9 +2626,9 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                           }),
                         }}
                         style={{
-                          width: 44,
-                          height: 44,
-                          borderRadius: 8,
+                          width: 48,
+                          height: 48,
+                          borderRadius: 10,
                           marginRight: 10,
                           backgroundColor: theme.surfaceSecondary,
                           borderWidth: 1,
@@ -2581,57 +2638,185 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                       />
                       <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                          <Text style={[styles.trackingOrderNumber, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]} numberOfLines={1}>
-                            Order #{activeEnRoute.orderNumber}
-                          </Text>
-                          <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                            <Text style={{ fontSize: 9.5, fontWeight: '800', color: '#15803D' }}>IN TRANSIT</Text>
+                          <TouchableOpacity
+                            onPress={() => {
+                              copy(activeEnRoute.orderNumber);
+                              showToast(`Order #${activeEnRoute.orderNumber} copied`, 'info');
+                            }}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                            activeOpacity={0.7}
+                            accessibilityLabel={`Copy Order #${activeEnRoute.orderNumber}`}
+                          >
+                            <Text style={[styles.trackingOrderNumber, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]} numberOfLines={1}>
+                              Order #{activeEnRoute.orderNumber}
+                            </Text>
+                          </TouchableOpacity>
+                          <View style={{ backgroundColor: theme.mode === 'dark' ? 'rgba(16, 185, 129, 0.2)' : '#DCFCE7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                            <Text style={{ fontSize: 9.5, fontWeight: '800', color: theme.mode === 'dark' ? '#34D399' : '#15803D' }}>IN TRANSIT</Text>
                           </View>
                         </View>
                         <Text style={[styles.trackingMaterialName, { color: theme.textSecondary }]} numberOfLines={1}>
                           {activeEnRoute.materialName}
                         </Text>
                       </View>
-                      <View style={[styles.etaPill, { backgroundColor: '#DCFCE7' }]}>
-                        <Clock size={11} color="#15803D" />
-                        <Text style={[styles.etaPillText, { color: '#15803D' }]} numberOfLines={1}>
-                          {activeEnRoute.estimatedArrival || 'Within 3 hrs'}
+                      <View style={[styles.etaPill, { backgroundColor: theme.mode === 'dark' ? 'rgba(16, 185, 129, 0.18)' : '#DCFCE7' }]}>
+                        <Clock size={11} color={theme.mode === 'dark' ? '#34D399' : '#15803D'} />
+                        <Text style={[styles.etaPillText, { color: theme.mode === 'dark' ? '#34D399' : '#15803D' }]} numberOfLines={1}>
+                          {activeEnRoute.estimatedArrival || '35 mins away'}
                         </Text>
                       </View>
                     </View>
 
-                    {/* Delivery Site Destination & OTP */}
-                    <View style={{ backgroundColor: theme.surfaceSecondary, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: theme.border, gap: 10 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-                        <MapPin size={15} color={theme.primary} style={{ marginTop: 2 }} />
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 10, fontWeight: '700', textTransform: 'uppercase', color: theme.textMuted, letterSpacing: 0.5 }}>
-                            Site Destination
-                          </Text>
-                          <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textPrimary, lineHeight: 16 }} numberOfLines={2}>
-                            {formatSiteAddress(activeEnRoute.siteAddress)}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.borderLight, paddingTop: 8 }}>
-                        <View>
-                          <Text style={{ fontSize: 10, fontWeight: '600', color: theme.textSecondary }}>Gate Verification OTP</Text>
-                          <Text style={{ fontSize: 16, fontWeight: '900', letterSpacing: 2, color: theme.textPrimary }}>
-                            {activeEnRoute.deliveryOtp || '749182'}
-                          </Text>
-                        </View>
-                        <TouchableOpacity
-                          onPress={() => setShowSupervisorModal(true)}
-                          style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 6, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border }}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textPrimary }}>Delegate</Text>
-                        </TouchableOpacity>
+                    {/* 2. Site Destination Box */}
+                    <View style={[styles.cartSiteDestBox, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                      <MapPin size={15} color="#EF4444" style={{ marginTop: 2 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 10, fontWeight: '700', textTransform: 'uppercase', color: theme.textMuted, letterSpacing: 0.5 }}>
+                          Site Destination
+                        </Text>
+                        <Text style={{ fontSize: 12.5, fontWeight: '600', color: theme.textPrimary, lineHeight: 17 }} numberOfLines={2}>
+                          {formatSiteAddress(activeEnRoute.siteAddress)}
+                        </Text>
                       </View>
                     </View>
 
-                    {/* Action Bar (GST Invoice + Supervisor + Cancel Icon) */}
+                    {/* 3. Vertical 3-Column Milestone Progress Hierarchy */}
+                    <View style={[styles.cartMilestonesCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                      <Text style={[styles.cartMilestonesTitle, { color: theme.textPrimary }]}>
+                        Consignment Milestones
+                      </Text>
+
+                      <View style={styles.cartTimelineList}>
+                        {CART_ORDER_LIFECYCLE_STAGES.map((stage, idx) => {
+                          const currentStageIdx = getCartActiveStageIndex(activeEnRoute.status);
+                          const isCompleted = idx < currentStageIdx;
+                          const isActive = idx === currentStageIdx;
+                          const isPending = idx > currentStageIdx;
+                          const isLast = idx === CART_ORDER_LIFECYCLE_STAGES.length - 1;
+
+                          return (
+                            <View key={stage.id} style={styles.cartTimelineRow}>
+                              {/* Column 1 (Left - Timestamp) */}
+                              <View style={styles.cartTimelineTimeCol}>
+                                <Text
+                                  style={[
+                                    styles.cartTimelineTimeText,
+                                    {
+                                      color: isCompleted || isActive ? theme.textPrimary : theme.textMuted,
+                                      fontWeight: isActive ? '700' : '500',
+                                    },
+                                  ]}
+                                >
+                                  {getCartStageTimestamp(activeEnRoute.timestamp, stage.minuteOffset)}
+                                </Text>
+                              </View>
+
+                              {/* Column 2 (Center - Progress Node & Hairline Connector) */}
+                              <View style={styles.cartTimelineTrackCol}>
+                                <View
+                                  style={[
+                                    styles.cartTimelineNode,
+                                    isCompleted && styles.cartTimelineNodeCompleted,
+                                    isActive && [
+                                      styles.cartTimelineNodeActive,
+                                      {
+                                        borderColor: theme.primary || '#FCB026',
+                                        backgroundColor: theme.mode === 'dark' ? 'rgba(252, 176, 38, 0.15)' : '#FFFBEB',
+                                      },
+                                    ],
+                                    isPending && [
+                                      styles.cartTimelineNodePending,
+                                      { borderColor: theme.border, backgroundColor: theme.surface },
+                                    ],
+                                  ]}
+                                >
+                                  {isCompleted && <Check size={11} color="#FFFFFF" strokeWidth={3} />}
+                                  {isActive && (
+                                    <View style={[styles.cartActivePulsingCore, { backgroundColor: theme.primary || '#FCB026' }]} />
+                                  )}
+                                </View>
+
+                                {!isLast && (
+                                  <View
+                                    style={[
+                                      styles.cartTimelineConnectorHairline,
+                                      {
+                                        backgroundColor: isCompleted ? '#059669' : theme.border,
+                                      },
+                                    ]}
+                                  />
+                                )}
+                              </View>
+
+                              {/* Column 3 (Right - Content Block) */}
+                              <View style={[styles.cartTimelineContentCol, !isLast && { paddingBottom: 16 }]}>
+                                <Text
+                                  style={[
+                                    styles.cartStageHeadingText,
+                                    {
+                                      color: isCompleted || isActive ? theme.textPrimary : theme.textMuted,
+                                      fontWeight: isActive ? '800' : '700',
+                                    },
+                                  ]}
+                                >
+                                  {stage.title}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.cartStageDescriptionText,
+                                    { color: isCompleted || isActive ? theme.textSecondary : theme.textMuted },
+                                  ]}
+                                >
+                                  {stage.description}
+                                </Text>
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </View>
+
+                    {/* 4. Gate Verification OTP Strip */}
+                    <View style={[styles.cartOtpStrip, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 10, fontWeight: '700', textTransform: 'uppercase', color: theme.textMuted, letterSpacing: 0.5 }}>
+                          Gate Verification OTP
+                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                          <Text style={{ fontSize: 18, fontWeight: '900', letterSpacing: 3, color: theme.textPrimary }}>
+                            {activeEnRoute.deliveryOtp || '484971'}
+                          </Text>
+                          <TouchableOpacity
+                            onPress={() => {
+                              const otp = activeEnRoute.deliveryOtp || '484971';
+                              copy(otp);
+                              setCopiedOtp(otp);
+                              showToast('Gate OTP copied', 'info');
+                              setTimeout(() => setCopiedOtp(null), 2500);
+                            }}
+                            style={{ padding: 4 }}
+                            accessibilityLabel="Copy Gate OTP"
+                          >
+                            {copiedOtp === (activeEnRoute.deliveryOtp || '484971') ? (
+                              <Check size={14} color="#059669" />
+                            ) : (
+                              <Copy size={14} color={theme.textMuted} />
+                            )}
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+
+                      <TouchableOpacity
+                        onPress={() => setShowSupervisorModal(true)}
+                        style={[styles.delegateOtpBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                        activeOpacity={0.7}
+                      >
+                        <Users size={12} color={theme.textPrimary} style={{ marginRight: 4 }} />
+                        <Text style={[styles.delegateOtpText, { color: theme.textPrimary }]}>Delegate</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* 5. Action Bar (GST Invoice + Supervisor + Cancel Icon) */}
                     <View style={styles.activeActionBar}>
                       {onViewInvoice && (
                         <TouchableOpacity
@@ -3417,6 +3602,100 @@ const styles = StyleSheet.create({
   etaPillText: {
     fontSize: 12,
     fontWeight: '700',
+  },
+  cartSiteDestBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 10,
+  },
+  cartMilestonesCard: {
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 12,
+  },
+  cartMilestonesTitle: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  cartTimelineList: {
+    position: 'relative',
+  },
+  cartTimelineRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  cartTimelineTimeCol: {
+    width: 62,
+    paddingTop: 2,
+    paddingRight: 6,
+    alignItems: 'flex-end',
+  },
+  cartTimelineTimeText: {
+    fontSize: 10.5,
+    textAlign: 'right',
+  },
+  cartTimelineTrackCol: {
+    width: 24,
+    alignItems: 'center',
+    position: 'relative',
+    alignSelf: 'stretch',
+  },
+  cartTimelineNode: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 3,
+  },
+  cartTimelineNodeCompleted: {
+    backgroundColor: '#059669',
+  },
+  cartTimelineNodeActive: {
+    borderWidth: 2,
+  },
+  cartActivePulsingCore: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  cartTimelineNodePending: {
+    borderWidth: 1.5,
+  },
+  cartTimelineConnectorHairline: {
+    position: 'absolute',
+    top: 20,
+    bottom: 0,
+    width: 1.5,
+    zIndex: 1,
+  },
+  cartTimelineContentCol: {
+    flex: 1,
+    paddingLeft: 8,
+    paddingTop: 1,
+  },
+  cartStageHeadingText: {
+    fontSize: 12.5,
+    lineHeight: 17,
+    marginBottom: 2,
+  },
+  cartStageDescriptionText: {
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  cartOtpStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 10,
   },
   otpCardRow: {
     backgroundColor: '#F4F4F5',

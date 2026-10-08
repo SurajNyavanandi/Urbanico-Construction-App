@@ -64,6 +64,9 @@ app.get('/api/razorpay/config', PaymentController.getConfig);
 app.get('/razorpay/config', PaymentController.getConfig);
 app.post('/create-order', PaymentController.createOrder);
 app.post('/verify-payment', PaymentController.verifyPayment);
+app.post('/send-invoice', (req, res, next) => { req.url = '/send-invoice'; apiRouter(req, res, next); });
+app.post('/otp/send', (req, res, next) => { req.url = '/otp/send'; apiRouter(req, res, next); });
+app.post('/otp/verify', (req, res, next) => { req.url = '/otp/verify'; apiRouter(req, res, next); });
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

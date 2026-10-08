@@ -6,7 +6,7 @@ A lightweight, zero-coupling, standalone Notification Library for Node.js and Ty
 
 1. **Multi-Channel Delivery (100% Free)**:
    - **In-App Real-Time Events**: In-memory pub/sub EventEmitter for Server-Sent Events (SSE) and WebSockets.
-   - **Email Notifications**: Seamless integration with `Backend/lib/mailer` using free Gmail SMTP (`SMTP_USER` & `SMTP_PASS`).
+   - **Email Notifications**: Seamless integration with `Backend/lib/mailer` using Resend (`RESEND_API_KEY` & `RESEND_FROM_EMAIL`).
    - **Web Push (VAPID)**: Standard browser push notification payload formatting with no external subscriptions.
    - **Terminal / Console Fallback**: Clean visual previews for local development and testing.
 

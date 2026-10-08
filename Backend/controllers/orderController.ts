@@ -136,7 +136,7 @@ export class OrderController {
 
     const trackingId = `TRK-INV-${Date.now().toString().slice(-6)}`;
 
-    // Dispatch via reusable mailer library (SMTP or clean dev preview)
+    // Dispatch via reusable mailer library (Resend or clean dev preview)
     const mailResult = await sendInvoiceMail({
       to: recipientEmail,
       customerName: customerDisplayName,

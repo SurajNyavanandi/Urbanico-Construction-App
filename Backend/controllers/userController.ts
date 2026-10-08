@@ -36,7 +36,6 @@ export class UserController {
     return sendSuccess(res, {
       message: 'OTP sent successfully to registered mobile number',
       phone: `+91${cleanDigits}`,
-      ...(isProduction ? {} : { otp: generatedOtp }),
     });
   });
 

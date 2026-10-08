@@ -1,3 +1,4 @@
+import React, { useState, useCallback } from 'react';
 import { Platform, Linking } from 'react-native';
 import { getBaseApiUrls, getActiveApiBase, setActiveApiBase } from './apiService';
 import { safeStorage } from '../utils/safeStorage';
@@ -179,7 +180,7 @@ export function getClientRazorpayKey(): string {
   if (cachedRazorpayKey) return cachedRazorpayKey;
   
   // Check build-time or runtime environment variables
-  const envKey = (process.env.RAZORPAY_KEY_ID || process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || '') as string;
+  const envKey = (process.env.RAZORPAY_KEY_ID || '') as string;
   if (envKey && typeof envKey === 'string' && envKey.trim()) {
     const cleaned = envKey.trim().replace(/^["']|["']$/g, '');
     setCachedRazorpayKey(cleaned);
@@ -1609,4 +1610,122 @@ export function startHeartbeatPaymentPolling(options: StartPollingOrderOptions):
     if (timerId) clearTimeout(timerId);
   };
 }
+
+// ==============================================================================
+// REUSABLE QUICK-PAY CONVENIENCE HELPERS & HOOKS
+// ==============================================================================
+
+export interface QuickPayUpiOptions {
+  amount: number;
+  app?: 'gpay' | 'phonepe' | 'paytm' | 'cred' | 'bhim';
+  payeeVpa?: string;
+  payeeName?: string;
+  orderId?: string;
+  note?: string;
+  onSuccess?: (result: any) => void;
+  onFailure?: (error: string) => void;
+}
+
+/**
+ * Rapid Quick-Pay via direct UPI Deep Link Intent (Google Pay, PhonePe, Paytm, etc.)
+ */
+export async function quickPayWithUpi(options: QuickPayUpiOptions) {
+  try {
+    const res = await launchUpiPaymentIntent({
+      amount: options.amount,
+      app: options.app || 'gpay',
+      payeeVpa: options.payeeVpa,
+      payeeName: options.payeeName,
+      orderId: options.orderId,
+      note: options.note || 'Urbanico Direct Payment',
+    });
+    if (res.success && options.onSuccess) {
+      options.onSuccess(res);
+    }
+    return res;
+  } catch (err: any) {
+    const msg = err?.message || 'Failed to initiate UPI Quick Pay';
+    if (options.onFailure) options.onFailure(msg);
+    throw err;
+  }
+}
+
+/**
+ * Rapid Quick-Pay via Razorpay Standard Checkout pre-selecting Card block
+ */
+export async function quickPayWithCard(options: Omit<RazorpayCheckoutOptions, 'preferredMethod'>) {
+  return openRazorpayStandardCheckout({
+    ...options,
+    preferredMethod: 'card',
+  });
+}
+
+/**
+ * Reusable React Hook for Razorpay integration in any component
+ */
+export function useRazorpay() {
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [lastPaymentResult, setLastPaymentResult] = useState<any>(null);
+
+  const checkout = useCallback(async (options: Omit<RazorpayCheckoutOptions, 'onSuccess' | 'onFailure'> & {
+    onSuccess?: (res: any) => void;
+    onFailure?: (err: string) => void;
+  }) => {
+    setIsProcessing(true);
+    setError(null);
+
+    return new Promise<{ success: boolean; data?: any; error?: string }>((resolve) => {
+      openRazorpayStandardCheckout({
+        ...options,
+        onSuccess: (paymentResult) => {
+          setIsProcessing(false);
+          setLastPaymentResult(paymentResult);
+          if (options.onSuccess) options.onSuccess(paymentResult);
+          resolve({ success: true, data: paymentResult });
+        },
+        onFailure: (errMsg) => {
+          setIsProcessing(false);
+          setError(errMsg);
+          if (options.onFailure) options.onFailure(errMsg);
+          resolve({ success: false, error: errMsg });
+        },
+        onDismiss: () => {
+          setIsProcessing(false);
+          if (options.onDismiss) options.onDismiss();
+          resolve({ success: false, error: 'DISMISSED' });
+        },
+      });
+    });
+  }, []);
+
+  const quickUpi = useCallback(async (options: QuickPayUpiOptions) => {
+    setIsProcessing(true);
+    setError(null);
+    try {
+      const res = await quickPayWithUpi(options);
+      setLastPaymentResult(res);
+      return res;
+    } catch (err: any) {
+      setError(err?.message || 'UPI launch failed');
+      throw err;
+    } finally {
+      setIsProcessing(false);
+    }
+  }, []);
+
+  return {
+    checkout,
+    quickPayWithUpi: quickUpi,
+    isProcessing,
+    error,
+    lastPaymentResult,
+    reset: () => {
+      setIsProcessing(false);
+      setError(null);
+      setLastPaymentResult(null);
+    },
+  };
+}
+
 

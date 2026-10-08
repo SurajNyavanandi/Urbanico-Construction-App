@@ -621,7 +621,7 @@ export class RazorpayBackendService {
     const event = payload?.event;
     console.log(`[Razorpay Webhook] Received webhook event: ${event}`);
 
-    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || process.env.RAZORPAY_KEY_SECRET;
+    const webhookSecret = process.env.RAZORPAY_KEY_SECRET;
 
     // Enforce HMAC signature check
     if (!signature) {
@@ -630,9 +630,9 @@ export class RazorpayBackendService {
 
     if (!webhookSecret) {
       if (process.env.NODE_ENV === 'production') {
-        throw new Error('RAZORPAY_WEBHOOK_SECRET is not configured on the production server');
+        throw new Error('RAZORPAY_KEY_SECRET is not configured on the production server');
       }
-      console.warn('[Razorpay Webhook] Notice: RAZORPAY_WEBHOOK_SECRET not configured in local development.');
+      console.warn('[Razorpay Webhook] Notice: RAZORPAY_KEY_SECRET not configured in local development.');
     } else {
       const bodyPayload = rawBody
         ? (Buffer.isBuffer(rawBody) ? rawBody : Buffer.from(rawBody))

@@ -64,7 +64,7 @@ export function usePhoneAuth(options?: UsePhoneAuthOptions) {
 
       setStep('otp');
       setCountdown(options?.initialCountdown || 30);
-      showToast(`OTP sent to +91 ${cleanPhone} (Verification OTP: 123456)`, 'success');
+      showToast(`OTP sent successfully to +91 ${cleanPhone}`, 'success');
       return true;
     } catch {
       showToast('Failed to send OTP. Please try again.', 'error');
@@ -95,7 +95,7 @@ export function usePhoneAuth(options?: UsePhoneAuthOptions) {
         }
         return true;
       } else {
-        showToast('Invalid OTP entered. Please enter 123456.', 'error');
+        showToast('Invalid verification OTP. Please try again.', 'error');
         return false;
       }
     } catch {

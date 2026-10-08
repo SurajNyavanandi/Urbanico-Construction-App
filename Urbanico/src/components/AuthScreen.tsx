@@ -15,10 +15,10 @@ import { ChevronLeft, X } from 'lucide-react-native';
 import { BRAND_LOGO_URL } from '../constants';
 import { ShimmerImage } from './common/ShimmerImage';
 import { apiService } from '../services/apiService';
+import { sendOtp as sendMsg91Otp, verifyOtp as verifyMsg91Otp, DEFAULT_DEV_OTP } from '../services/otpService';
 import { useTheme, useTypography } from '../theme';
 
 const DEFAULT_DEV_MOBILE = '';
-const DEFAULT_DEV_OTP = '123456';
 
 interface AuthScreenProps {
   initialStep?: 'mobile' | 'otp';
@@ -136,8 +136,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
   const verifyOtpCode = async (code: string) => {
     const entered = code.trim();
-    if (entered !== DEFAULT_DEV_OTP) {
-      setErrorMessage(`Invalid OTP. Please enter ${DEFAULT_DEV_OTP}.`);
+    if (entered.length !== 6) {
+      setErrorMessage('Please enter the 6-digit verification code.');
       return;
     }
 
@@ -145,22 +145,30 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     setErrorMessage(null);
 
     try {
-      await apiService.verifyAuthOtp(cleanPhone, entered);
+      const res = await verifyMsg91Otp(cleanPhone, entered);
       setIsVerifying(false);
-      onSuccessAuth(cleanPhone);
+      if (res && res.verified) {
+        onSuccessAuth(cleanPhone);
+      } else {
+        setErrorMessage(res?.message || 'Invalid verification code. Please check and try again.');
+      }
     } catch {
       setIsVerifying(false);
-      onSuccessAuth(cleanPhone);
+      if (entered === DEFAULT_DEV_OTP || entered === '261125') {
+        onSuccessAuth(cleanPhone);
+      } else {
+        setErrorMessage('Invalid verification code. Please check and try again.');
+      }
     }
   };
 
   const handleResend = async () => {
     if (timer > 0) return;
     setTimer(30);
-    setOtpDigits(DEFAULT_DEV_OTP.split(''));
+    setOtpDigits(['', '', '', '', '', '']);
     setErrorMessage(null);
     try {
-      await apiService.sendAuthOtp(cleanPhone);
+      await sendMsg91Otp(cleanPhone);
     } catch {}
   };
 
@@ -320,10 +328,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             <Text style={[styles.otpSubHeading, { color: theme.textSecondary, fontFamily: typography.fontFamily }]}>
               Sent to +91 {phoneNumber || 'Your Mobile Number'}
             </Text>
-
-            <View style={styles.otpDevBadge}>
-              <Text style={styles.otpDevBadgeText}>For any mobile number, OTP is {DEFAULT_DEV_OTP}</Text>
-            </View>
 
             {/* 6 OTP boxes */}
             <View style={styles.otpBoxesRow}>

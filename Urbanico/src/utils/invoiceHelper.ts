@@ -6,6 +6,7 @@
 import { CartItem, ActivityDelivery, UserProfile } from '../types';
 import { INDIAN_GST_STATES } from './gstinValidator';
 import { formatSiteAddress } from './addressHelper';
+import { sendInvoiceEmail } from '../services/resendService';
 
 export function getHSNCodeForMaterial(materialName: string, categoryName?: string): { code: string; desc: string; gstRate: number } {
   const lower = `${materialName || ''} ${categoryName || ''}`.toLowerCase();
@@ -712,32 +713,35 @@ export async function sendTaxInvoiceEmail(
   const trackingId = `TRK-INV-${Date.now().toString().slice(-6)}`;
 
   try {
-    // Attempt real backend POST /api/orders/email-invoice if server is accessible
-    const response = await fetch('/api/orders/email-invoice', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        orderNumber: data.orderNumber,
-        invoiceNumber: data.invoiceNumber,
-        recipientEmail: email,
-        recipientName: data.customerName,
-        recipientBusinessName: data.recipientBusinessName,
-        recipientGstin: data.recipientGstin,
-        totalAmount: data.totalAmount,
-        invoiceHtml: generateTaxInvoiceHtml(data).html,
-      }),
+    const resendRes = await sendInvoiceEmail({
+      to: email,
+      customerName: data.customerName,
+      customerBusinessName: data.recipientBusinessName,
+      customerGstin: data.recipientGstin,
+      invoiceNumber: data.invoiceNumber,
+      orderNumber: data.orderNumber,
+      amount: data.totalAmount,
+      siteAddress: data.deliveryAddress,
+      paymentStatus: 'PAID',
+      items: data.items.map((item) => ({
+        name: item.name,
+        hsnCode: item.hsnCode,
+        quantity: item.quantity,
+        unit: item.unit,
+        unitPrice: item.unitPrice,
+        total: item.totalAmount,
+      })),
     });
 
-    if (response.ok) {
-      const result = await response.json();
+    if (resendRes.success) {
       return {
         success: true,
         message: `Official GST Tax Invoice #${data.invoiceNumber} emailed to ${email}`,
-        trackingId: result.trackingId || trackingId,
+        trackingId: resendRes.trackingId || resendRes.messageId || trackingId,
       };
     }
   } catch (err) {
-    console.warn('Backend email endpoint notice (falling back to guaranteed client dispatch):', err);
+    console.warn('[Resend Invoice Dispatch Notice]:', err);
   }
 
   // Guaranteed fallback simulation with realistic confirmation

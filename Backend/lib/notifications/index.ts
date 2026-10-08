@@ -5,7 +5,7 @@
 // Zero required external subscriptions:
 // 1. In-App Live Events (In-memory Pub/Sub event emitter & persistent message queue)
 // 2. Web Push Notifications (Standard browser VAPID push payload formatting)
-// 3. Transactional Email Alerts (Integrated with Backend/lib/mailer / free Gmail SMTP)
+// 3. Transactional Email Alerts (Integrated with Backend/lib/mailer via Resend)
 // 4. Webhook Dispatch & Local Dev Terminal Preview
 // ==============================================================================
 
@@ -154,7 +154,7 @@ export class NotificationManager {
       deliveryStatus.in_app = true;
     }
 
-    // 2. Email Channel (Delegated to reusable MailerService via Gmail SMTP)
+    // 2. Email Channel (Delegated to reusable MailerService via Resend)
     if (channels.includes('email') && fullPayload.recipientEmail) {
       try {
         await this.mailer.sendMail({

@@ -68,30 +68,55 @@ export interface OrderHistoryProps {
 
 const ORDER_LIFECYCLE_STAGES = [
   {
-    id: 'confirmed',
-    stepNumber: 1,
-    title: 'Order Confirmed',
-    description: 'Payment authorized & order booked in central inventory',
+    id: 'placed',
+    title: 'Order Placed',
+    description: 'Payment verified and booking logged into central hub inventory.',
+    minuteOffset: 0,
   },
   {
-    id: 'yard_processing',
-    stepNumber: 2,
-    title: 'Yard Material Batching',
-    description: 'Materials inspected, batch sealed & prepared for transit',
+    id: 'batching',
+    title: 'Yard Batching',
+    description: 'Materials inspected, batch weight verified, and loaded onto carrier.',
+    minuteOffset: 16,
   },
   {
-    id: 'in_transit',
-    stepNumber: 3,
-    title: 'Out for Site Delivery',
-    description: 'Consignment en route to your construction site (Live GPS)',
+    id: 'dispatched',
+    title: 'Consignment Dispatched',
+    description: 'Fleet en route to site with live GPS telemetry active.',
+    minuteOffset: 36,
   },
   {
-    id: 'site_handover',
-    stepNumber: 4,
-    title: 'Site Delivery & Unloading',
-    description: 'Gate OTP verification, material handover & e-invoice sign-off',
+    id: 'gate_arrival',
+    title: 'Gate Arrival',
+    description: 'Truck arrived at destination gate awaiting handover authorization.',
+    minuteOffset: 56,
+  },
+  {
+    id: 'delivered',
+    title: 'Delivered & Unloaded',
+    description: 'Materials unloaded and gate sign-off completed.',
+    minuteOffset: 75,
   },
 ];
+
+const getStageTimestamp = (createdAt: string | undefined, minuteOffset: number) => {
+  const base = createdAt ? new Date(createdAt) : new Date(Date.now() - 40 * 60 * 1000);
+  const stageTime = new Date(base.getTime() + minuteOffset * 60 * 1000);
+  return stageTime.toLocaleTimeString('en-IN', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+};
+
+const getActiveStageIndex = (statusRaw?: string) => {
+  const st = (statusRaw || 'in_transit').toLowerCase();
+  if (st === 'delivered') return 5;
+  if (st === 'gate_arrival' || st === 'site_arrival') return 3;
+  if (st === 'in_transit' || st === 'en_route' || st === 'dispatched') return 2;
+  if (st === 'batching' || st === 'yard_processing' || st === 'processing') return 1;
+  return 0;
+};
 
 const EMPTY_DELIVERIES: ActivityDelivery[] = [];
 
@@ -591,6 +616,105 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
     };
   };
 
+  const renderMilestones = (timestamp?: string, statusRaw?: string, compact: boolean = false) => {
+    const currentStageIdx = getActiveStageIndex(statusRaw);
+
+    return (
+      <View style={styles.timelineList}>
+        {ORDER_LIFECYCLE_STAGES.map((stage, idx) => {
+          const isCompleted = idx < currentStageIdx;
+          const isActive = idx === currentStageIdx;
+          const isPending = idx > currentStageIdx;
+          const isLast = idx === ORDER_LIFECYCLE_STAGES.length - 1;
+
+          return (
+            <View key={stage.id} style={styles.timelineRow}>
+              {/* Column 1 (Left - Timestamp) */}
+              <View style={[styles.timelineTimeCol, compact && styles.compactTimelineTimeCol]}>
+                <Text
+                  style={[
+                    styles.timelineTimeText,
+                    compact && styles.compactTimelineTimeText,
+                    {
+                      color: isCompleted || isActive ? theme.textPrimary : theme.textMuted,
+                      fontWeight: isActive ? '700' : '500',
+                    },
+                  ]}
+                >
+                  {getStageTimestamp(timestamp, stage.minuteOffset)}
+                </Text>
+              </View>
+
+              {/* Column 2 (Center - Progress Node & Continuous Hairline Connector) */}
+              <View style={[styles.timelineTrackCol, compact && styles.compactTimelineTrackCol]}>
+                <View
+                  style={[
+                    styles.timelineNode,
+                    compact && styles.compactTimelineNode,
+                    isCompleted && styles.timelineNodeCompleted,
+                    isActive && [
+                      styles.timelineNodeActive,
+                      {
+                        borderColor: theme.primary || '#FCB026',
+                        backgroundColor: isDark ? 'rgba(252, 176, 38, 0.15)' : '#FFFBEB',
+                      },
+                    ],
+                    isPending && [
+                      styles.timelineNodePending,
+                      { borderColor: theme.border, backgroundColor: theme.surfaceSecondary },
+                    ],
+                  ]}
+                >
+                  {isCompleted && <Check size={compact ? 10 : 12} color="#FFFFFF" strokeWidth={3} />}
+                  {isActive && (
+                    <View style={[styles.activePulsingCore, { backgroundColor: theme.primary || '#FCB026' }]} />
+                  )}
+                </View>
+
+                {!isLast && (
+                  <View
+                    style={[
+                      styles.timelineConnectorHairline,
+                      compact && styles.compactTimelineConnectorHairline,
+                      {
+                        backgroundColor: isCompleted ? '#059669' : theme.border,
+                      },
+                    ]}
+                  />
+                )}
+              </View>
+
+              {/* Column 3 (Right - Content Block with Unique Non-Duplicate Descriptions) */}
+              <View style={[styles.timelineContentCol, !isLast && { paddingBottom: compact ? 12 : 22 }]}>
+                <Text
+                  style={[
+                    styles.stageHeadingText,
+                    compact && styles.compactStageHeadingText,
+                    {
+                      color: isCompleted || isActive ? theme.textPrimary : theme.textMuted,
+                      fontWeight: isActive ? '800' : '700',
+                    },
+                  ]}
+                >
+                  {stage.title}
+                </Text>
+                <Text
+                  style={[
+                    styles.stageDescriptionText,
+                    compact && styles.compactStageDescriptionText,
+                    { color: isCompleted || isActive ? theme.textSecondary : theme.textMuted },
+                  ]}
+                >
+                  {stage.description}
+                </Text>
+              </View>
+            </View>
+          );
+        })}
+      </View>
+    );
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>
       {/* 1. Mobile-First Header Bar */}
@@ -891,39 +1015,61 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
                   </View>
                 </View>
 
-                {/* 3. Live Dispatch Details (Only for Active / En-Route Orders) */}
+                {/* 3. Live Dispatch Details with Vertical Milestone Hierarchy - Minimalist Redesign */}
                 {active && (
-                  <View style={[styles.activeDispatchStrip, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-                    <View style={styles.dispatchMetaCol}>
-                      <View style={styles.dispatchVehicleRow}>
-                        <Truck size={14} color="#2563EB" />
-                        <Text style={[styles.dispatchVehicleText, { color: theme.textPrimary }]}>
-                          {order.vehicleNumber || 'TS 09 UB 5120'}
-                        </Text>
-                        <Text style={[styles.metaDot, { color: theme.textMuted }]}>·</Text>
-                        <Text style={[styles.dispatchDriverText, { color: theme.textSecondary }]} numberOfLines={1}>
-                          {order.driverName || 'Fleet Driver'}
-                        </Text>
+                  <View style={[styles.minimalActiveDispatchCard, { backgroundColor: theme.surfaceSecondary }]}>
+                    {/* Active Dispatch Header Strip: Status + Live ETA */}
+                    <View style={styles.activeCardHeaderStrip}>
+                      <View style={styles.minimalLiveDotRow}>
+                        <View style={styles.pulsingGreenDot} />
+                        <Text style={styles.minimalLiveStatusKicker}>Out for Site Delivery</Text>
                       </View>
+                      <Text style={[styles.minimalEtaBadgeText, { color: theme.primaryDark || '#B45309' }]}>
+                        ETA ~{telemetry.etaMinutes} mins en route
+                      </Text>
                     </View>
 
-                    {/* Quick Gate Handover OTP Badge */}
-                    <TouchableOpacity
-                      onPress={() => handleCopy(order.deliveryOtp || '749182', 'otp')}
-                      style={[styles.gateOtpBadge, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                      activeOpacity={0.7}
-                      accessibilityLabel="Copy Gate Handover OTP"
-                    >
-                      <KeyRound size={12} color="#2563EB" />
-                      <Text style={[styles.gateOtpText, { color: theme.textPrimary }]}>
-                        OTP: <Text style={{ fontWeight: '800' }}>{order.deliveryOtp || '749182'}</Text>
+                    {/* Site Delivery Destination */}
+                    <View style={styles.siteDestRow}>
+                      <MapPin size={13} color="#EF4444" />
+                      <Text style={[styles.siteDestText, { color: theme.textSecondary }]} numberOfLines={1}>
+                        Destination: {typeof order.siteAddress === 'string' ? order.siteAddress : (order.siteAddress?.street || order.siteAddress?.siteName || 'Site Hyderabad')}
                       </Text>
-                      {copiedOtpId === (order.deliveryOtp || '749182') ? (
-                        <Check size={11} color="#16A34A" />
-                      ) : (
-                        <Copy size={11} color={theme.textMuted} />
-                      )}
-                    </TouchableOpacity>
+                    </View>
+
+                    {/* In-Card 3-Column Milestone Progress Timeline */}
+                    <View style={[styles.inCardMilestonesWrapper, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                      <Text style={[styles.inCardMilestoneTitle, { color: theme.textPrimary }]}>
+                        Live Tracking Milestones
+                      </Text>
+                      {renderMilestones(order.createdAt, order.orderStatus, true)}
+                    </View>
+
+                    {/* Driver & OTP Details Row */}
+                    <View style={styles.minimalDriverOtpRow}>
+                      <View style={styles.minimalDriverInfo}>
+                        <Text style={[styles.minimalDriverName, { color: theme.textPrimary }]} numberOfLines={1}>
+                          {order.driverName || 'Fleet Driver'} · {order.vehicleNumber || 'TS 09 UB 5120'}
+                        </Text>
+                      </View>
+
+                      {/* 1-tap Gate OTP copy */}
+                      <TouchableOpacity
+                        onPress={() => handleCopy(order.deliveryOtp || '749182', 'otp')}
+                        style={[styles.minimalOtpPill, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                        activeOpacity={0.7}
+                        accessibilityLabel="Copy Gate Handover OTP"
+                      >
+                        <Text style={[styles.minimalOtpPillText, { color: theme.textPrimary }]}>
+                          Gate OTP <Text style={{ fontWeight: '800' }}>{order.deliveryOtp || '749182'}</Text>
+                        </Text>
+                        {copiedOtpId === (order.deliveryOtp || '749182') ? (
+                          <Check size={11} color="#16A34A" />
+                        ) : (
+                          <Copy size={11} color={theme.textMuted} />
+                        )}
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 )}
 
@@ -1055,7 +1201,7 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
           })}
       </ScrollView>
 
-      {/* 8. Integrated Live GPS Tracking Drawer / Modal */}
+      {/* 8. Integrated Live GPS Tracking Drawer / Modal - Minimalist Redesign */}
       <Modal
         visible={!!activeTrackingDelivery}
         animationType="slide"
@@ -1067,10 +1213,10 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
           <View style={[styles.trackingModalHeader, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
             <View>
               <Text style={[styles.trackingModalTitle, { color: theme.textPrimary }]}>
-                Live Consignment Tracking
+                Live Tracking
               </Text>
               <Text style={[styles.trackingModalSubtitle, { color: theme.textSecondary }]}>
-                Order #{activeTrackingDelivery?.orderNumber}
+                Order #{activeTrackingDelivery?.orderNumber} · Real-time Dispatch
               </Text>
             </View>
             <TouchableOpacity
@@ -1082,134 +1228,127 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.trackingModalBody} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
-            {/* Gate OTP Verification Banner */}
-            <View style={styles.trackingOtpBanner}>
-              <View style={styles.trackingOtpLeft}>
-                <KeyRound size={20} color="#1E40AF" />
-                <View>
-                  <Text style={styles.trackingOtpTitle}>Gate Handover Code</Text>
-                  <Text style={styles.trackingOtpDesc}>Share with driver to permit unloading</Text>
+          <ScrollView
+            style={styles.trackingModalBody}
+            contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* 1. Minimalist ETA & Real-Time Status Card */}
+            <View style={[styles.minimalHeroCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <View style={styles.minimalHeroHeader}>
+                <View style={styles.minimalLiveDotRow}>
+                  <View style={styles.pulsingGreenDot} />
+                  <Text style={styles.minimalLiveStatusKicker}>Out for Site Delivery</Text>
                 </View>
+                <Text style={[styles.minimalLiveSpeedText, { color: theme.textSecondary }]}>
+                  {telemetry.speed} km/h · Live GPS
+                </Text>
               </View>
-              <TouchableOpacity
-                onPress={() => handleCopy(activeTrackingDelivery?.deliveryOtp || '749182', 'otp')}
-                style={styles.trackingOtpCopyBtn}
-              >
-                <Text style={styles.trackingOtpCode}>{activeTrackingDelivery?.deliveryOtp || '749182'}</Text>
-                <Copy size={14} color="#1E40AF" />
-              </TouchableOpacity>
+
+              <Text style={[styles.minimalEtaDisplay, { color: theme.textPrimary }]}>
+                ~{telemetry.etaMinutes} <Text style={{ fontSize: 16, fontWeight: '600', color: theme.textSecondary }}>mins</Text>
+              </Text>
+              <Text style={[styles.minimalEtaSubtext, { color: theme.textSecondary }]}>
+                Estimated Arrival at Construction Site
+              </Text>
+
+              {/* Destination Site Address Bar */}
+              <View style={[styles.minimalAddressBar, { backgroundColor: theme.surfaceSecondary }]}>
+                <MapPin size={14} color="#EF4444" />
+                <Text style={[styles.minimalAddressText, { color: theme.textPrimary }]} numberOfLines={2}>
+                  {activeTrackingDelivery?.siteAddress || 'Site Delivery Location'}
+                </Text>
+              </View>
             </View>
 
-            {/* Vehicle & Driver Card */}
-            <View style={[styles.trackingInfoCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <View style={styles.trackingInfoRow}>
-                <Truck size={20} color={theme.primary} />
+            {/* 2. Vertical 3-Column Milestone Tracking Hierarchy (Urbanico Brand Theme) */}
+            <View style={[styles.timelineHierarchyCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              <Text style={[styles.timelineHierarchyTitle, { color: theme.textPrimary }]}>
+                Consignment Milestones
+              </Text>
+
+              {renderMilestones(
+                activeTrackingDelivery?.timestamp,
+                activeTrackingDelivery?.status || (activeTrackingDelivery as any)?.orderStatus,
+                false
+              )}
+            </View>
+
+            {/* 2. Unified Driver Contact & Gate Verification Code Card */}
+            <View style={[styles.minimalDriverGateCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+              {/* Driver info row */}
+              <View style={styles.minimalDriverHeaderRow}>
+                <View style={[styles.driverAvatarCircle, { backgroundColor: theme.surfaceSecondary }]}>
+                  <Truck size={18} color={theme.textPrimary} />
+                </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.trackingInfoTitle, { color: theme.textPrimary }]}>
-                    {activeTrackingDelivery?.vehicleNumber || 'TS 09 UB 5120'}
+                  <Text style={[styles.driverHeadingName, { color: theme.textPrimary }]}>
+                    {activeTrackingDelivery?.driverName || 'Fleet Driver'}
                   </Text>
-                  <Text style={[styles.trackingInfoSub, { color: theme.textSecondary }]}>
-                    {activeTrackingDelivery?.vehicleType || 'Commercial Heavy Fleet'} · Speed: {telemetry.speed} km/h · ETA: ~{telemetry.etaMinutes} mins · Driver: {activeTrackingDelivery?.driverName || 'Assigned Partner'}
+                  <Text style={[styles.driverVehiclePlate, { color: theme.textSecondary }]}>
+                    {activeTrackingDelivery?.vehicleNumber || 'TS 09 UB 5120'} · Heavy Carrier
                   </Text>
                 </View>
                 <TouchableOpacity
                   onPress={() => handleCall(activeTrackingDelivery?.driverPhone)}
-                  style={styles.trackingCallActionBtn}
+                  style={[styles.minimalCallBtn, { backgroundColor: '#16A34A' }]}
+                  activeOpacity={0.8}
+                  accessibilityLabel="Call Driver"
                 >
-                  <Phone size={15} color="#FFFFFF" />
-                  <Text style={styles.trackingCallActionText}>Call</Text>
+                  <Phone size={14} color="#FFFFFF" />
+                  <Text style={styles.minimalCallBtnText}>Call</Text>
                 </TouchableOpacity>
               </View>
 
-              <View style={[styles.cardDivider, { backgroundColor: theme.border }]} />
+              <View style={[styles.minimalDividerLine, { backgroundColor: theme.border }]} />
 
-              <View style={styles.trackingDestinationRow}>
-                <MapPin size={16} color="#DC2626" />
+              {/* Gate Passcode (OTP) */}
+              <View style={styles.minimalOtpSection}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.trackingDestLabel, { color: theme.textSecondary }]}>Destination Site</Text>
-                  <Text style={[styles.trackingDestValue, { color: theme.textPrimary }]}>
-                    {activeTrackingDelivery?.siteAddress}
+                  <Text style={[styles.otpSectionTitle, { color: theme.textSecondary }]}>
+                    Gate Handover Code
+                  </Text>
+                  <Text style={[styles.otpDigitsDisplay, { color: theme.textPrimary }]}>
+                    {activeTrackingDelivery?.deliveryOtp || '749182'}
+                  </Text>
+                  <Text style={[styles.otpHelpNote, { color: theme.textMuted }]}>
+                    Share with driver at gate for authorized unloading
                   </Text>
                 </View>
+
+                <TouchableOpacity
+                  onPress={() => handleCopy(activeTrackingDelivery?.deliveryOtp || '749182', 'otp')}
+                  style={[styles.otpCopyBtnMinimal, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Copy Gate Code"
+                >
+                  {copiedOtpId === (activeTrackingDelivery?.deliveryOtp || '749182') ? (
+                    <>
+                      <Check size={14} color="#16A34A" />
+                      <Text style={[styles.otpCopyBtnText, { color: '#16A34A' }]}>Copied</Text>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={14} color={theme.textPrimary} />
+                      <Text style={[styles.otpCopyBtnText, { color: theme.textPrimary }]}>Copy</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
               </View>
             </View>
 
-            {/* 4-Stage Delivery Progress Timeline */}
-            <View style={[styles.timelineCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <Text style={[styles.timelineCardTitle, { color: theme.textPrimary }]}>
-                Dispatch Milestones
-              </Text>
-
-              {ORDER_LIFECYCLE_STAGES.map((stage, idx) => {
-                const isCompleted = idx < 2;
-                const isActiveStage = idx === 2; // In Transit
-                return (
-                  <View key={stage.id} style={styles.timelineStepRow}>
-                    <View style={styles.timelineLeftCol}>
-                      <View
-                        style={[
-                          styles.timelineStepIndicator,
-                          isCompleted
-                            ? styles.timelineStepCompleted
-                            : isActiveStage
-                            ? styles.timelineStepActive
-                            : styles.timelineStepPending,
-                        ]}
-                      >
-                        {isCompleted ? (
-                          <Check size={12} color="#FFFFFF" strokeWidth={3} />
-                        ) : (
-                          <Text
-                            style={[
-                              styles.timelineStepNum,
-                              { color: isActiveStage ? '#FFFFFF' : theme.textMuted },
-                            ]}
-                          >
-                            {stage.stepNumber}
-                          </Text>
-                        )}
-                      </View>
-                      {idx < ORDER_LIFECYCLE_STAGES.length - 1 && (
-                        <View
-                          style={[
-                            styles.timelineConnector,
-                            { backgroundColor: isCompleted ? '#16A34A' : theme.border },
-                          ]}
-                        />
-                      )}
-                    </View>
-
-                    <View style={styles.timelineRightCol}>
-                      <Text
-                        style={[
-                          styles.timelineStageTitle,
-                          { color: isActiveStage ? '#2563EB' : theme.textPrimary },
-                          isActiveStage && { fontWeight: '800' },
-                        ]}
-                      >
-                        {stage.title}
-                      </Text>
-                      <Text style={[styles.timelineStageDesc, { color: theme.textSecondary }]}>
-                        {stage.description}
-                      </Text>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-
-            {/* Consignment Line Items Card with Real Product Images */}
+            {/* 3. Consignment Manifest (Clean Minimalist Item List) */}
             {activeTrackingDelivery?.cartItemsSnapshot && activeTrackingDelivery.cartItemsSnapshot.length > 0 && (
-              <View style={[styles.timelineCard, { backgroundColor: theme.surface, borderColor: theme.border, padding: 14, marginBottom: 14 }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                  <Text style={[styles.timelineCardTitle, { color: theme.textPrimary }]}>
+              <View style={[styles.minimalManifestCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                <View style={styles.manifestTitleRow}>
+                  <Text style={[styles.manifestHeading, { color: theme.textPrimary }]}>
                     Consignment Manifest
                   </Text>
-                  <Text style={{ fontSize: 12, fontWeight: '700', color: theme.textSecondary }}>
-                    {activeTrackingDelivery.cartItemsSnapshot.length} Line {activeTrackingDelivery.cartItemsSnapshot.length === 1 ? 'Item' : 'Items'}
+                  <Text style={[styles.manifestCountText, { color: theme.textSecondary }]}>
+                    {activeTrackingDelivery.cartItemsSnapshot.length} {activeTrackingDelivery.cartItemsSnapshot.length === 1 ? 'item' : 'items'}
                   </Text>
                 </View>
+
                 {activeTrackingDelivery.cartItemsSnapshot.map((cItem, cIdx) => {
                   const resolvedImg = resolveMaterialImage({
                     name: cItem.itemName,
@@ -1219,32 +1358,21 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
                   return (
                     <View
                       key={cIdx}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        paddingVertical: 9,
-                        borderTopWidth: cIdx > 0 ? StyleSheet.hairlineWidth : 0,
-                        borderTopColor: theme.border,
-                      }}
+                      style={[
+                        styles.minimalManifestItemRow,
+                        cIdx > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.border },
+                      ]}
                     >
                       <Image
                         source={{ uri: resolvedImg }}
-                        style={{
-                          width: 44,
-                          height: 44,
-                          borderRadius: 8,
-                          marginRight: 12,
-                          backgroundColor: theme.surfaceSecondary,
-                          borderWidth: 1,
-                          borderColor: theme.border,
-                        }}
+                        style={[styles.minimalItemThumb, { backgroundColor: theme.surfaceSecondary }]}
                         resizeMode="cover"
                       />
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary }} numberOfLines={1}>
+                      <View style={{ flex: 1, minWidth: 0 }}>
+                        <Text style={[styles.manifestItemName, { color: theme.textPrimary }]} numberOfLines={1}>
                           {cItem.itemName}
                         </Text>
-                        <Text style={{ fontSize: 11, color: theme.textSecondary, marginTop: 2 }}>
+                        <Text style={[styles.manifestItemMeta, { color: theme.textSecondary }]}>
                           {cItem.selectedOptionLabel || `${cItem.quantity} Units`} · {formatINR(cItem.unitPrice * cItem.quantity)}
                         </Text>
                       </View>
@@ -1254,16 +1382,10 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
               </View>
             )}
 
-            {/* E-Way Bill Verification Card */}
-            <View style={[styles.ewayBillCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              <View style={styles.ewayHeaderRow}>
-                <Building2 size={16} color={theme.textSecondary} />
-                <Text style={[styles.ewayLabel, { color: theme.textSecondary }]}>
-                  GST E-Way Bill Number:
-                </Text>
-              </View>
-              <Text style={[styles.ewayValue, { color: theme.textPrimary }]}>
-                {activeTrackingDelivery?.ewayBillNumber}
+            {/* 4. GST Compliance Footnote */}
+            <View style={styles.minimalComplianceFootnote}>
+              <Text style={[styles.complianceFootnoteText, { color: theme.textMuted }]}>
+                E-Way Bill: {activeTrackingDelivery?.ewayBillNumber || 'EB-8492048201'} · GST Compliant
               </Text>
             </View>
           </ScrollView>
@@ -1725,6 +1847,75 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     fontWeight: '500',
   },
+  minimalActiveDispatchCard: {
+    marginHorizontal: 14,
+    marginTop: 4,
+    marginBottom: 8,
+    padding: 12,
+    borderRadius: 10,
+    gap: 8,
+  },
+  activeCardHeaderStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  siteDestRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  siteDestText: {
+    fontSize: 11.5,
+    flex: 1,
+    lineHeight: 16,
+  },
+  inCardMilestonesWrapper: {
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginVertical: 4,
+  },
+  inCardMilestoneTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginBottom: 10,
+    letterSpacing: -0.1,
+  },
+  minimalDriverOtpRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  minimalDriverInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  minimalDriverName: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  minimalEtaBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 1,
+  },
+  minimalOtpPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 6,
+    borderWidth: 1,
+    flexShrink: 0,
+  },
+  minimalOtpPillText: {
+    fontSize: 11,
+  },
   activeDispatchStrip: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1880,176 +2071,293 @@ const styles = StyleSheet.create({
   trackingModalBody: {
     flex: 1,
   },
-  trackingOtpBanner: {
+  // Minimalist Live Tracking Modal Styles
+  minimalHeroCard: {
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  minimalHeroHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#DBEAFE',
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 14,
+    marginBottom: 8,
   },
-  trackingOtpLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  trackingOtpTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1E40AF',
-  },
-  trackingOtpDesc: {
-    fontSize: 11,
-    color: '#3B82F6',
-    marginTop: 1,
-  },
-  trackingOtpCopyBtn: {
+  minimalLiveDotRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
   },
-  trackingOtpCode: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#1E40AF',
-    letterSpacing: 1.5,
+  pulsingGreenDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
   },
-  trackingInfoCard: {
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 14,
-    gap: 10,
-  },
-  trackingInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  trackingInfoTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  trackingInfoSub: {
-    fontSize: 12,
-    marginTop: 1,
-  },
-  trackingCallActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#16A34A',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  trackingCallActionText: {
-    color: '#FFFFFF',
+  minimalLiveStatusKicker: {
     fontSize: 12,
     fontWeight: '700',
+    color: '#10B981',
   },
-  cardDivider: {
-    height: 1,
-    width: '100%',
-  },
-  trackingDestinationRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
-  trackingDestLabel: {
-    fontSize: 11,
+  minimalLiveSpeedText: {
+    fontSize: 11.5,
     fontWeight: '500',
   },
-  trackingDestValue: {
-    fontSize: 13,
-    fontWeight: '600',
-    marginTop: 1,
-  },
-  timelineCard: {
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginBottom: 14,
-  },
-  timelineCardTitle: {
-    fontSize: 14,
+  minimalEtaDisplay: {
+    fontSize: 32,
     fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  minimalEtaSubtext: {
+    fontSize: 12,
+    marginTop: 2,
     marginBottom: 14,
   },
-  timelineStepRow: {
+  timelineHierarchyCard: {
+    padding: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  timelineHierarchyTitle: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    marginBottom: 16,
+    letterSpacing: -0.2,
+  },
+  timelineList: {
+    position: 'relative',
+  },
+  timelineRow: {
     flexDirection: 'row',
-    minHeight: 56,
+    alignItems: 'flex-start',
   },
-  timelineLeftCol: {
+  timelineTimeCol: {
+    width: 68,
+    paddingTop: 3,
+    paddingRight: 8,
+    alignItems: 'flex-end',
+  },
+  timelineTimeText: {
+    fontSize: 11.5,
+    textAlign: 'right',
+  },
+  timelineTrackCol: {
+    width: 26,
     alignItems: 'center',
-    width: 28,
+    position: 'relative',
+    alignSelf: 'stretch',
   },
-  timelineStepIndicator: {
+  timelineNode: {
     width: 22,
     height: 22,
     borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 2,
+    zIndex: 3,
   },
-  timelineStepCompleted: {
-    backgroundColor: '#16A34A',
+  timelineNodeCompleted: {
+    backgroundColor: '#059669',
   },
-  timelineStepActive: {
-    backgroundColor: '#2563EB',
+  timelineNodeActive: {
+    borderWidth: 2,
   },
-  timelineStepPending: {
-    backgroundColor: '#E4E4E7',
+  activePulsingCore: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  timelineStepNum: {
-    fontSize: 10,
-    fontWeight: '700',
+  timelineNodePending: {
+    borderWidth: 1.5,
   },
-  timelineConnector: {
-    width: 2,
-    flex: 1,
-    marginVertical: 2,
+  timelineConnectorHairline: {
+    position: 'absolute',
+    top: 22,
+    bottom: 0,
+    width: 1.5,
+    zIndex: 1,
   },
-  timelineRightCol: {
+  timelineContentCol: {
     flex: 1,
     paddingLeft: 10,
-    paddingBottom: 14,
+    paddingTop: 2,
   },
-  timelineStageTitle: {
-    fontSize: 13,
-    fontWeight: '600',
+  stageHeadingText: {
+    fontSize: 13.5,
+    lineHeight: 18,
+    marginBottom: 2,
   },
-  timelineStageDesc: {
+  stageDescriptionText: {
     fontSize: 11.5,
-    marginTop: 2,
     lineHeight: 16,
   },
-  ewayBillCard: {
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    gap: 4,
+  compactTimelineTimeCol: {
+    width: 60,
+    paddingTop: 2,
+    paddingRight: 6,
   },
-  ewayHeaderRow: {
+  compactTimelineTimeText: {
+    fontSize: 10.5,
+  },
+  compactTimelineTrackCol: {
+    width: 22,
+  },
+  compactTimelineNode: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+  },
+  compactTimelineConnectorHairline: {
+    top: 18,
+    width: 1.5,
+  },
+  compactStageHeadingText: {
+    fontSize: 12,
+    lineHeight: 16,
+    marginBottom: 1,
+  },
+  compactStageDescriptionText: {
+    fontSize: 10.5,
+    lineHeight: 14,
+  },
+  minimalAddressBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
-  ewayLabel: {
-    fontSize: 11,
+  minimalAddressText: {
+    fontSize: 11.5,
     fontWeight: '500',
+    flex: 1,
+    lineHeight: 16,
   },
-  ewayValue: {
+  minimalDriverGateCard: {
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  minimalDriverHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  driverAvatarCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  driverHeadingName: {
+    fontSize: 13.5,
+    fontWeight: '700',
+  },
+  driverVehiclePlate: {
+    fontSize: 11.5,
+    marginTop: 1,
+  },
+  minimalCallBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    minHeight: 36,
+  },
+  minimalCallBtnText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  minimalDividerLine: {
+    height: 1,
+    marginVertical: 12,
+  },
+  minimalOtpSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  otpSectionTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  otpDigitsDisplay: {
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: 2,
+    marginVertical: 2,
+  },
+  otpHelpNote: {
+    fontSize: 10.5,
+  },
+  otpCopyBtnMinimal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    minHeight: 38,
+  },
+  otpCopyBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  minimalManifestCard: {
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 12,
+  },
+  manifestTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  manifestHeading: {
     fontSize: 13,
     fontWeight: '700',
-    letterSpacing: 0.5,
+  },
+  manifestCountText: {
+    fontSize: 11.5,
+  },
+  minimalManifestItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    gap: 10,
+  },
+  minimalItemThumb: {
+    width: 36,
+    height: 36,
+    borderRadius: 6,
+  },
+  manifestItemName: {
+    fontSize: 12.5,
+    fontWeight: '600',
+  },
+  manifestItemMeta: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  minimalComplianceFootnote: {
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  complianceFootnoteText: {
+    fontSize: 11,
   },
   modalOverlay: {
     flex: 1,

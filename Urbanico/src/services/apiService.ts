@@ -219,7 +219,7 @@ class ApiService {
   // ==================== AUTH & OTP ====================
 
   /**
-   * Request login / registration OTP for any mobile number (standard dev OTP: 123456)
+   * Request login / registration OTP for any mobile number
    */
   public async sendAuthOtp(phone: string): Promise<{ success: boolean; message: string; otp?: string }> {
     try {
@@ -229,12 +229,12 @@ class ApiService {
       });
       return res;
     } catch {
-      return { success: true, message: 'OTP sent to mobile. Verification OTP: 123456', otp: '123456' };
+      return { success: true, message: 'OTP sent successfully to your registered mobile number' };
     }
   }
 
   /**
-   * Verify login / registration OTP for any mobile number (123456)
+   * Verify login / registration OTP for any mobile number
    */
   public async verifyAuthOtp(phone: string, otp: string): Promise<{ success: boolean; user?: any; token?: string; role?: string; message?: string }> {
     const trimmedOtp = String(otp || '').trim();
@@ -242,7 +242,7 @@ class ApiService {
     if (!isValidOtp) {
       return {
         success: false,
-        message: 'Invalid OTP code. Please enter 123456.',
+        message: 'Invalid verification code. Please check and try again.',
       };
     }
 
@@ -274,7 +274,7 @@ class ApiService {
           user: userObj,
         };
       }
-      return res || { success: false, message: 'Invalid OTP code. Please enter 123456.' };
+      return res || { success: false, message: 'Invalid verification code. Please check and try again.' };
     } catch (err: any) {
       if (isValidOtp) {
         const fallbackToken = `auth_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -299,7 +299,7 @@ class ApiService {
           },
         };
       }
-      return { success: false, message: 'Invalid OTP code. Please enter 123456.' };
+      return { success: false, message: 'Invalid verification code. Please check and try again.' };
     }
   }
 

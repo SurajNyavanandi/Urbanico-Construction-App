@@ -235,8 +235,8 @@ export class RazorpayClient {
   private clientInstance: Razorpay | null = null;
 
   constructor(config?: RazorpayConfig) {
-    const envKey = process.env.RAZORPAY_KEY_ID || process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID || '';
-    const envSecret = process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_SECRET || '';
+    const envKey = process.env.RAZORPAY_KEY_ID || '';
+    const envSecret = process.env.RAZORPAY_KEY_SECRET || '';
 
     this.keyId = (config?.key_id ?? envKey).trim().replace(/^["']|["']$/g, '').replace(/[\r\n\t]/g, '');
     this.keySecret = (config?.key_secret ?? envSecret).trim().replace(/^["']|["']$/g, '').replace(/[\r\n\t]/g, '');

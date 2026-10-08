@@ -64,12 +64,11 @@ const refund = await razorpayClient.processRefund({
 
 ## 2. Mailer Service (`Backend/lib/mailer/index.ts`)
 
-Provides Nodemailer email delivery supporting standard SMTP, Gmail, SendGrid, and Resend, with **clean dev console preview fallback** when no SMTP credentials are provided (preventing development crashes). Includes a responsive, inline-styled tax invoice HTML email template generator.
+Provides email delivery powered exclusively by **Resend** (https://resend.com), with **clean dev console preview fallback** when no Resend API credentials are provided (preventing development crashes). Includes a responsive, inline-styled tax invoice HTML email template generator.
 
 ### Installation in another project:
 ```bash
-npm install nodemailer
-npm install -D @types/nodemailer
+npm install resend
 ```
 
 ### Usage Examples:
@@ -103,9 +102,8 @@ await sendInvoiceMail({
 ```
 
 ### Environment Variables:
-All SMTP hosts, ports, SSL, and sender defaults are built into the library. You only need:
 ```env
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-16-char-google-app-password
+RESEND_API_KEY=re_your_api_key_here
+RESEND_FROM_EMAIL="Urbanico Direct <invoices@urbanico.in>"
 ```
-*(Defaults directly to Gmail service. If credentials are omitted, emails log cleanly to the terminal in development without throwing errors)*
+*(If credentials are omitted, emails log cleanly to the terminal in development without throwing errors)*
