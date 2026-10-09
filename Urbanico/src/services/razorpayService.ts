@@ -199,7 +199,7 @@ export function getClientRazorpayKey(): string {
     // Ignore storage read errors
   }
 
-  return 'rzp_test_1DP5mmOlF5G5ag';
+  return (process.env.RAZORPAY_KEY_ID || '') as string;
 }
 
 export function getClientKeyMode(): 'LIVE' | 'TEST' {
@@ -822,8 +822,8 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
       }
     }
 
-    const keyId = orderKeyId || getClientRazorpayKey() || 'rzp_test_1DP5mmOlF5G5ag';
-    const isLive = keyId.startsWith('rzp_live_') || getClientKeyMode() === 'LIVE';
+    const keyId = orderKeyId || getClientRazorpayKey() || (process.env.RAZORPAY_KEY_ID || '');
+    const isLive = Boolean(keyId && (keyId.startsWith('rzp_live_') || getClientKeyMode() === 'LIVE'));
 
     // 2. Automatic Test Mode vs Live Key Handling:
     // When test credentials (rzp_test_...) or sandbox keys are active,
@@ -1178,7 +1178,7 @@ export async function openRazorpayOneTapPayment(options: RazorpayOneTapOptions):
     throw new Error('Razorpay SDK failed to load. Please check your internet connection.');
   }
 
-  const keyId = getClientRazorpayKey() || 'rzp_test_1DP5mmOlF5G5ag';
+  const keyId = getClientRazorpayKey() || (process.env.RAZORPAY_KEY_ID || '');
   const orderAmountPaise = Math.round(options.amount * 100);
 
   // Extract mobile strictly from profile / session

@@ -243,7 +243,7 @@ export class RazorpayClient {
   }
 
   public getKeyId(): string {
-    return this.keyId || 'rzp_test_1DP5mmOlF5G5ag';
+    return this.keyId || process.env.RAZORPAY_KEY_ID || '';
   }
 
   public getKeySecret(): string {

@@ -29,33 +29,58 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: true }));
 
-// CORS middleware allowing https://urbanico.vercel.app and development origins
-const allowedOrigins = [
-  'https://urbanico.vercel.app',
-  'https://urbanico-construction-app.vercel.app',
-  'http://localhost:3000',
-  'http://localhost:5173',
-  'http://localhost:8081',
-];
+// CORS middleware configured strictly from process.env.CORS_ORIGIN
+const configuredCorsOrigin = process.env.CORS_ORIGIN?.trim();
+const allowedOrigins = configuredCorsOrigin
+  ? configuredCorsOrigin.split(',').map((o) => o.trim()).filter(Boolean)
+  : [];
+
+function isOriginAllowed(origin: string): boolean {
+  // If unconfigured or set to wildcard '*', permit access
+  if (!configuredCorsOrigin || configuredCorsOrigin === '*' || allowedOrigins.includes('*')) {
+    return true;
+  }
+
+  // Exact origin match
+  if (allowedOrigins.includes(origin)) {
+    return true;
+  }
+
+  // Wildcard pattern matching (e.g., https://*.run.app or *.run.app)
+  for (const pattern of allowedOrigins) {
+    if (pattern.includes('*')) {
+      const regexStr = '^' + pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace('\\*', '.*') + '$';
+      if (new RegExp(regexStr).test(origin)) {
+        return true;
+      }
+    }
+  }
+
+  // Non-production & preview environments (e.g. Cloud Run, localhost, 127.0.0.1)
+  if (process.env.NODE_ENV !== 'production') {
+    if (origin.endsWith('.run.app') || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 app.use(cors({
   origin: function (origin, callback) {
+    // Allow non-browser requests (mobile native, server-to-server, curl)
     if (!origin) return callback(null, true);
-    if (
-      origin === 'https://urbanico.vercel.app' ||
-      allowedOrigins.includes(origin) ||
-      origin.endsWith('.vercel.app') ||
-      origin.includes('localhost') ||
-      origin.includes('127.0.0.1') ||
-      origin.includes('.run.app')
-    ) {
+
+    if (isOriginAllowed(origin)) {
       return callback(null, true);
     }
-    return callback(null, true);
+
+    // Disallow CORS headers cleanly without throwing 500 internal server error
+    return callback(null, false);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'x-admin-secret']
 }));
 
 app.use('/api', apiRouter);

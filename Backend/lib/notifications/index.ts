@@ -96,11 +96,12 @@ export class NotificationManager {
     this.emitter = new EventEmitter();
     this.emitter.setMaxListeners(100);
     this.mailer = config?.mailer || new MailerService();
+    const defaultAdminEmail = process.env.ADMIN_EMAIL?.trim();
     this.config = {
       defaultChannels: config?.defaultChannels || ['in_app', 'console'],
       appName: config?.appName || 'Urbanico Direct Dispatch',
       maxQueueSize: config?.maxQueueSize || 1000,
-      vapidSubject: config?.vapidSubject || 'mailto:notifications@urbanico.in',
+      vapidSubject: config?.vapidSubject || (defaultAdminEmail ? `mailto:${defaultAdminEmail}` : 'mailto:notifications@urbanico.in'),
       ...config,
     };
   }
@@ -310,6 +311,30 @@ export class NotificationManager {
       message: `Payment of ${formattedAmount} for Order #${params.orderNumber} was received via ${params.paymentMethod || 'Online Gateway'}.`,
       actionUrl: `/orders`,
       data: { orderNumber: params.orderNumber, amount: params.amount },
+    });
+  }
+
+  /**
+   * Template 6: Admin System & Dispatch Alert (Direct to process.env.ADMIN_EMAIL)
+   */
+  public async sendAdminAlert(params: {
+    title: string;
+    message: string;
+    category?: NotificationCategory;
+    priority?: NotificationPriority;
+    data?: Record<string, any>;
+  }) {
+    const adminEmail = process.env.ADMIN_EMAIL?.trim();
+    return this.sendNotification({
+      recipientId: 'admin',
+      recipientEmail: adminEmail || undefined,
+      category: params.category || 'system',
+      priority: params.priority || 'high',
+      channels: adminEmail ? ['in_app', 'email', 'console'] : ['in_app', 'console'],
+      title: `[ADMIN] ${params.title}`,
+      message: params.message,
+      actionUrl: '/admin',
+      data: params.data,
     });
   }
 

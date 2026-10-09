@@ -141,7 +141,7 @@ export class DatabaseSeeder {
           {
             phone: '+919999999999',
             name: 'Urbanico Master Admin',
-            email: 'admin@urbanico.in',
+            email: process.env.ADMIN_EMAIL?.trim() || 'admin@urbanico.in',
             role: 'admin',
             companyName: 'Urbanico Technologies Head Office',
             gstin: '36AAACU9821M1Z5',

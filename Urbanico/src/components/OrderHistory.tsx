@@ -454,7 +454,7 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
   // Handle Send Email Invoice
   const handleTriggerEmailInvoice = async () => {
     if (!targetOrderForEmail) return;
-    const recipient = customEmail.trim() || user?.email || 'procurement@urbanico.in';
+    const recipient = customEmail.trim() || user?.email || (process.env.ADMIN_EMAIL || '');
     if (!recipient.includes('@')) {
       showToast('Please enter a valid recipient email address', 'error');
       return;

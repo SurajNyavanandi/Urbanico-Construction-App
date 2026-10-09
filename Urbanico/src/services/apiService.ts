@@ -36,13 +36,8 @@ export function getBaseApiUrls(): string[] {
     urls.push(sharedActiveApiBase);
   }
 
-  // Environment-configured backend URL (compatible with Expo Metro, Vite, and Node)
-  const envBackendUrl =
-    (typeof process !== 'undefined' &&
-      ((process.env as any)?.EXPO_PUBLIC_BACKEND_URL ||
-        (process.env as any)?.VITE_BACKEND_URL ||
-        (process.env as any)?.REACT_APP_BACKEND_URL)) ||
-    '';
+  // Environment-configured backend URL (strictly unified BACKEND_URI)
+  const envBackendUrl = (typeof process !== 'undefined' && ((process.env as any)?.BACKEND_URI || (process.env as any)?.VITE_BACKEND_URI)) || '';
   if (envBackendUrl && typeof envBackendUrl === 'string' && envBackendUrl.trim().length > 0) {
     const clean = envBackendUrl.trim().replace(/\/+$/, '');
     urls.push(clean.endsWith('/api') ? clean : `${clean}/api`);

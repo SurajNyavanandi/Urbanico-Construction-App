@@ -1,20 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 
-const DEFAULT_INSECURE_SECRET = 'urbanico_jwt_auth_secret_production_2026_key';
-
 function resolveJwtSecret(): string {
-  const envSecret = process.env.JWT_SECRET;
-  if (process.env.NODE_ENV === 'production') {
-    if (!envSecret || envSecret === DEFAULT_INSECURE_SECRET) {
-      console.warn(
-        '[SECURITY WARNING] process.env.JWT_SECRET is unset or using default static key in production. Generating an ephemeral cryptographic secret for this runtime process.'
-      );
-      return crypto.randomBytes(48).toString('hex');
-    }
+  const envSecret = process.env.JWT_SECRET?.trim();
+  if (envSecret) {
     return envSecret;
   }
-  return envSecret || DEFAULT_INSECURE_SECRET;
+  // If not configured, generate an ephemeral cryptographic secret for this runtime process
+  return crypto.randomBytes(48).toString('hex');
 }
 
 const JWT_SECRET = resolveJwtSecret();
