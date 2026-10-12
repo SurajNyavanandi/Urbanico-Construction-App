@@ -2,16 +2,68 @@ import { Request, Response } from 'express';
 import { OrderService } from '../services/orderService';
 import { asyncHandler, sendSuccess, sendError } from '../utils/apiResponse';
 import { sendInvoiceMail, InvoiceItem } from '../lib/mailer';
+import { validateOrderPayload } from '../utils/requestValidator';
+import { idempotencyStore, extractIdempotencyKey } from '../utils/idempotency';
+import { AuditService } from '../services/auditService';
 
 export class OrderController {
   public static createOrder = asyncHandler(async (req: Request, res: Response) => {
+    // 1. Check idempotency key to prevent accidental duplicate order placement
+    const idempotencyKey = extractIdempotencyKey(req);
+    if (idempotencyKey) {
+      const cached = idempotencyStore.get(idempotencyKey);
+      if (cached) {
+        res.setHeader('Idempotent-Replay', 'true');
+        return res.status(cached.statusCode).json(cached.body);
+      }
+    }
+
+    // 2. Strict Payload Validation
+    const validation = validateOrderPayload(req.body);
+    if (!validation.isValid) {
+      return sendError(res, 'Order validation failed: Missing or invalid fields', 400, validation.errors);
+    }
+
     const order = await OrderService.createOrder(req.body);
-    return sendSuccess(res, { order }, 'Order placed successfully in Urbanico system', 201);
+
+    const responsePayload = {
+      success: true,
+      data: { order },
+      message: 'Order placed successfully in Urbanico system',
+      statusCode: 201,
+    };
+
+    if (idempotencyKey) {
+      idempotencyStore.set(idempotencyKey, 201, responsePayload);
+    }
+
+    // 3. Log audit event
+    await AuditService.log({
+      action: 'order.create',
+      actorType: 'user',
+      actorId: order.customerPhone || 'guest',
+      targetType: 'order',
+      targetId: order.orderNumber || String(order._id),
+      details: {
+        totalAmount: order.totalAmount,
+        itemCount: order.items?.length,
+        paymentStatus: order.paymentStatus,
+      },
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    return res.status(201).json(responsePayload);
   });
 
   public static getOrders = asyncHandler(async (req: Request, res: Response) => {
     const authUser = (req as any).user;
-    const { status, search, phone, email } = req.query;
+    const { status, search, phone, email, limit: qLimit, page: qPage } = req.query;
+
+    const rawLimit = Number(qLimit);
+    const rawPage = Number(qPage);
+    const limit = Math.min(100, Math.max(1, isNaN(rawLimit) ? 50 : rawLimit));
+    const page = Math.max(1, isNaN(rawPage) ? 1 : rawPage);
 
     const filterPhone = authUser && authUser.role === 'admin'
       ? (phone as string)
@@ -22,8 +74,10 @@ export class OrderController {
       search: search as string,
       phone: filterPhone,
       email: authUser && authUser.role === 'admin' ? (email as string) : authUser?.email,
+      limit,
+      page,
     });
-    return sendSuccess(res, { orders, count: orders.length });
+    return sendSuccess(res, { orders, count: orders.length, limit, page });
   });
 
   public static getOrderById = asyncHandler(async (req: Request, res: Response) => {

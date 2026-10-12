@@ -56,8 +56,12 @@ export async function connectDB(): Promise<typeof mongoose | null> {
 
   try {
     const conn = await mongoose.connect(uri, {
+      maxPoolSize: 50,
+      minPoolSize: 5,
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
+      connectTimeoutMS: 10000,
+      heartbeatFrequencyMS: 10000,
       autoIndex: true,
     });
 
@@ -114,8 +118,12 @@ function scheduleReconnect() {
     }
     try {
       const conn = await mongoose.connect(uri, {
+        maxPoolSize: 50,
+        minPoolSize: 5,
         serverSelectionTimeoutMS: 5000,
         socketTimeoutMS: 45000,
+        connectTimeoutMS: 10000,
+        heartbeatFrequencyMS: 10000,
         autoIndex: true,
       });
       await onConnectionSuccess(conn);

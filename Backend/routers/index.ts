@@ -14,6 +14,7 @@ const apiRouter = Router();
 
 // Modular Sub-routers
 apiRouter.use('/razorpay', paymentRouter);
+apiRouter.use('/payments', paymentRouter);
 apiRouter.use('/orders', orderRouter);
 apiRouter.use('/materials', materialRouter);
 apiRouter.use('/services', serviceRouter);
@@ -65,6 +66,7 @@ apiRouter.get('/razorpay-config', PaymentController.getConfig);
 apiRouter.get('/config', PaymentController.getConfig);
 apiRouter.post('/create-order', PaymentController.createOrder);
 apiRouter.post('/verify-payment', PaymentController.verifyPayment);
+apiRouter.post('/payments/verify', PaymentController.verifyPayment);
 apiRouter.post('/penny-drop-verify', PaymentController.pennyDropVerifyAndRefund);
 apiRouter.post('/refund', PaymentController.processRefund);
 apiRouter.get('/order-status/:order_id', PaymentController.getOrderStatus);
@@ -130,8 +132,11 @@ apiRouter.post('/otp/send', async (req, res) => {
   try {
     const { OtpBackendService } = await import('../services/otpService');
     const { phone } = req.body;
+    if (!phone) {
+      return res.status(400).json({ success: false, message: 'Phone number is required' });
+    }
     const result = await OtpBackendService.sendOtp(phone);
-    return res.json(result);
+    return res.json({ success: true, ...result });
   } catch (err: any) {
     return res.status(400).json({
       success: false,
@@ -146,19 +151,23 @@ apiRouter.post('/otp/verify', async (req, res) => {
     const { UserService } = await import('../services/userService');
     const { generateAuthToken } = await import('../middleware/auth');
     const { phone, otp } = req.body;
+    if (!phone || !otp) {
+      return res.status(400).json({ success: false, verified: false, message: 'Phone and OTP are required' });
+    }
     const result = await OtpBackendService.verifyOtp(phone, otp);
 
     if (result.verified) {
       const user = await UserService.findOrCreateUser(result.phone);
       const token = generateAuthToken(user);
       return res.json({
+        success: true,
         ...result,
         token,
         user,
       });
     }
 
-    return res.status(401).json(result);
+    return res.status(401).json({ success: false, ...result });
   } catch (err: any) {
     return res.status(400).json({
       success: false,
@@ -171,11 +180,19 @@ apiRouter.post('/otp/verify', async (req, res) => {
 // Database & Backend System Health check
 apiRouter.get('/health', (req, res) => {
   const dbStatus = getDBStatus();
+  const memory = process.memoryUsage();
   res.json({
     status: 'ok',
+    success: true,
     service: 'Urbanico Express Backend',
     timestamp: new Date().toISOString(),
+    uptime: Math.floor(process.uptime()),
     database: dbStatus,
+    memory: {
+      rssMb: Math.round(memory.rss / (1024 * 1024)),
+      heapUsedMb: Math.round(memory.heapUsed / (1024 * 1024)),
+      heapTotalMb: Math.round(memory.heapTotal / (1024 * 1024)),
+    },
     architecture: {
       framework: 'Express.js',
       orm: 'Mongoose',

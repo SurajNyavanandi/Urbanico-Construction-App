@@ -10,6 +10,7 @@ import { razorpayClient } from '../lib/razorpay';
 import { RazorpayBackendService } from '../services/razorpayService';
 import { OrderService } from '../services/orderService';
 import { asyncHandler, sendSuccess, sendError } from '../utils/apiResponse';
+import { AuditService } from '../services/auditService';
 
 /**
  * Reusable helper to safely parse and validate amount in paise from diverse request bodies.
@@ -250,6 +251,21 @@ export class PaymentController {
       }
     }
 
+    await AuditService.log({
+      action: 'payment.verified',
+      actorType: 'gateway',
+      actorId: razorpay_payment_id,
+      targetType: 'order',
+      targetId: orderId || razorpay_order_id,
+      details: {
+        razorpay_order_id,
+        razorpay_payment_id,
+        mode,
+      },
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     return sendSuccess(res, {
       verified: true,
       razorpay_order_id,
@@ -334,6 +350,22 @@ export class PaymentController {
       amountInPaise: Number(amountInPaise),
       notes,
     });
+
+    await AuditService.log({
+      action: 'payment.refund',
+      actorType: 'admin',
+      actorId: (req as any).user?.id || 'admin',
+      targetType: 'payment',
+      targetId: String(paymentId),
+      details: {
+        refundId: result.refundId,
+        amountInPaise,
+        status: result.status,
+      },
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     return sendSuccess(res, result, result.message);
   });
 
@@ -694,10 +726,16 @@ export class PaymentController {
     const rawBody = (req as any).rawBody || Buffer.from(JSON.stringify(req.body));
     try {
       const result = RazorpayBackendService.handleWebhook(req.body, signature, rawBody);
-      return res.status(200).json({ status: 'ok', ...result });
+      return res.status(200).json({ status: 'ok', success: true, ...result });
     } catch (err: any) {
       console.warn('[Payment Webhook Error]', err.message);
-      return res.status(400).json({ status: 'error', message: err.message || 'Webhook verification failed' });
+      return res.status(400).json({ status: 'error', success: false, error: err.message || 'Webhook verification failed', message: err.message });
     }
+  });
+
+  // POST /api/razorpay/reconcile-pending (or /api/payments/reconcile-pending)
+  public static reconcilePendingOrders = asyncHandler(async (req: Request, res: Response) => {
+    const result = await RazorpayBackendService.reconcilePendingOrders();
+    return sendSuccess(res, result, `Reconciled ${result.reconciledCount} of ${result.checkedCount} pending orders.`);
   });
 }

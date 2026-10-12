@@ -58,8 +58,12 @@ export class MaterialService {
   // ==========================================
   // MATERIALS GET & FILTER
   // ==========================================
-  public static async getAllMaterials(filter: { category?: string; search?: string } = {}) {
-    const cacheKey = `materials:${filter.category || 'all'}:${filter.search || ''}`;
+  public static async getAllMaterials(filter: { category?: string; search?: string; limit?: number; page?: number } = {}) {
+    const limit = Math.min(100, Math.max(1, filter.limit || 50));
+    const page = Math.max(1, filter.page || 1);
+    const skip = (page - 1) * limit;
+
+    const cacheKey = `materials:${filter.category || 'all'}:${filter.search || ''}:${page}:${limit}`;
     const cached = materialCache.get(cacheKey);
     if (cached) {
       return cached;
@@ -82,16 +86,13 @@ export class MaterialService {
           ];
         }
 
-        let materials = await Material.find(query).sort({ createdAt: -1 }).lean().exec();
-
-        // Auto-seed default materials if collection is completely empty
-        if (materials.length === 0 && !filter.search && (!filter.category || filter.category === 'All' || filter.category === 'all')) {
-          materials = await Material.find(query).sort({ createdAt: -1 }).lean().exec();
-        }
+        const total = await Material.countDocuments(query);
+        let materials = await Material.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean().exec();
 
         if (materials && materials.length > 0) {
-          materialCache.set(cacheKey, materials, 120_000);
-          return materials;
+          const payload = { materials, total, page, limit, totalPages: Math.ceil(total / limit) };
+          materialCache.set(cacheKey, payload, 120_000);
+          return payload;
         }
       }
     } catch (err) {
@@ -99,7 +100,7 @@ export class MaterialService {
     }
 
     // Filter in-memory dynamic catalogue
-    const result = inMemoryMaterials.filter((m) => {
+    const filtered = inMemoryMaterials.filter((m) => {
       if (filter.category && filter.category !== 'All' && filter.category !== 'all') {
         const cat = filter.category.toLowerCase();
         const matchesCategory =
@@ -118,8 +119,16 @@ export class MaterialService {
       return true;
     });
 
-    materialCache.set(cacheKey, result, 120_000);
-    return result;
+    const paginated = filtered.slice(skip, skip + limit);
+    const payload = {
+      materials: paginated,
+      total: filtered.length,
+      page,
+      limit,
+      totalPages: Math.ceil(filtered.length / limit),
+    };
+    materialCache.set(cacheKey, payload, 120_000);
+    return payload;
   }
 
   public static async getMaterialById(id: string) {

@@ -5,6 +5,7 @@ import { MaterialService } from '../services/materialService';
 import { DeliveryService } from '../services/deliveryService';
 import { generateRandomOtp } from '../utils/otpHelper';
 import { asyncHandler, sendSuccess, sendError } from '../utils/apiResponse';
+import { AuditService } from '../services/auditService';
 import { Order } from '../models/Order';
 import { User } from '../models/User';
 import { Material } from '../models/Material';
@@ -15,7 +16,12 @@ export class AdminController {
   // 1. USER MANAGEMENT
   // ==========================================
   public static getUsers = asyncHandler(async (req: Request, res: Response) => {
-    const { role, search } = req.query;
+    const { role, search, limit: qLimit, page: qPage } = req.query;
+    const rawLimit = Number(qLimit);
+    const rawPage = Number(qPage);
+    const limit = Math.min(100, Math.max(1, isNaN(rawLimit) ? 50 : rawLimit));
+    const page = Math.max(1, isNaN(rawPage) ? 1 : rawPage);
+
     const filter: Record<string, any> = {};
 
     if (role && role !== 'all') {
@@ -31,16 +37,21 @@ export class AdminController {
       ];
     }
 
-    const users = await UserService.getAllUsers(filter);
+    const result = await UserService.getAllUsers(filter, { limit, page });
     return sendSuccess(res, {
-      total: users.length,
-      users,
+      total: result.total,
+      count: result.users.length,
+      limit,
+      page,
+      totalPages: result.totalPages,
+      users: result.users,
     });
   });
 
   public static updateUserRole = asyncHandler(async (req: Request, res: Response) => {
     const id = String(req.params.id);
     const { role } = req.body;
+    const authUser = (req as any).user;
 
     if (!role) {
       return sendError(res, 'Role is required (contractor, engineer, supervisor, client, user, admin)', 400);
@@ -56,6 +67,17 @@ export class AdminController {
       return sendError(res, 'User not found', 404);
     }
 
+    await AuditService.log({
+      action: 'admin.user_role_update',
+      actorType: 'admin',
+      actorId: authUser?.id || authUser?.phone || 'admin',
+      targetType: 'user',
+      targetId: id,
+      details: { newRole: role },
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     return sendSuccess(res, {
       message: `User role updated successfully to ${role}`,
       user: updatedUser,
@@ -64,10 +86,22 @@ export class AdminController {
 
   public static deleteUser = asyncHandler(async (req: Request, res: Response) => {
     const id = String(req.params.id);
+    const authUser = (req as any).user;
     const deleted = await UserService.deleteUser(id);
     if (!deleted) {
       return sendError(res, 'User not found or already deleted', 404);
     }
+
+    await AuditService.log({
+      action: 'admin.user_delete',
+      actorType: 'admin',
+      actorId: authUser?.id || authUser?.phone || 'admin',
+      targetType: 'user',
+      targetId: id,
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     return sendSuccess(res, {
       message: 'User removed successfully from database',
       deleted,
@@ -78,15 +112,25 @@ export class AdminController {
   // 2. ORDER MANAGEMENT
   // ==========================================
   public static getOrders = asyncHandler(async (req: Request, res: Response) => {
-    const { status, search, phone } = req.query;
+    const { status, search, phone, limit: qLimit, page: qPage } = req.query;
+    const rawLimit = Number(qLimit);
+    const rawPage = Number(qPage);
+    const limit = Math.min(100, Math.max(1, isNaN(rawLimit) ? 50 : rawLimit));
+    const page = Math.max(1, isNaN(rawPage) ? 1 : rawPage);
+
     const orders = await OrderService.getAllOrders({
       status: status as string,
       search: search as string,
       phone: phone as string,
+      limit,
+      page,
     });
 
     return sendSuccess(res, {
       total: orders.length,
+      count: orders.length,
+      limit,
+      page,
       orders,
     });
   });
@@ -94,6 +138,7 @@ export class AdminController {
   public static updateOrderStatus = asyncHandler(async (req: Request, res: Response) => {
     const id = String(req.params.id);
     const { status, notes, eWayBillNo } = req.body;
+    const authUser = (req as any).user;
 
     if (!status) {
       return sendError(res, 'Order status is required', 400);
@@ -113,6 +158,17 @@ export class AdminController {
     if (!updatedOrder) {
       return sendError(res, 'Order not found', 404);
     }
+
+    await AuditService.log({
+      action: 'admin.order_status_update',
+      actorType: 'admin',
+      actorId: authUser?.id || authUser?.phone || 'admin',
+      targetType: 'order',
+      targetId: id,
+      details: { newStatus: status, notes, eWayBillNo },
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     return sendSuccess(res, {
       message: `Order #${updatedOrder.orderNumber} status changed to ${status}`,
@@ -256,8 +312,8 @@ export class AdminController {
       totalRevenue = orders.reduce((acc: number, curr: any) => acc + (Number(curr.totalAmount) || 0), 0);
       activeShipments = orders.filter((o: any) => ['processing', 'dispatched', 'in_transit'].includes(o.orderStatus)).length;
       deliveredOrders = orders.filter((o: any) => o.orderStatus === 'delivered').length;
-      totalUsers = (await UserService.getAllUsers()).length;
-      totalMaterials = (await MaterialService.getAllMaterials()).length;
+      totalUsers = (await UserService.getAllUsers()).total;
+      totalMaterials = (await MaterialService.getAllMaterials()).total;
     }
 
     return sendSuccess(res, {

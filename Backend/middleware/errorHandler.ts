@@ -10,13 +10,18 @@ export function errorHandler(
   next: NextFunction
 ) {
   if (err instanceof SyntaxError && 'body' in err) {
-    return res.status(400).json({ success: false, error: 'Malformed JSON payload' });
+    return res.status(400).json({ success: false, error: 'Malformed JSON payload', message: 'Malformed JSON payload' });
   }
 
   const statusCode = err.statusCode || err.status || 500;
-  const message = err.message || 'Internal server error';
+  const isProduction = process.env.NODE_ENV === 'production';
 
-  console.error(`[Error] ${req.method} ${req.path} (${statusCode}):`, message);
+  // In production, suppress raw database driver errors, replica-set hostnames and internal traces
+  const safeMessage = isProduction && statusCode === 500
+    ? 'An unexpected internal error occurred. Please try again later.'
+    : (err.message || 'Internal server error');
+
+  console.error(`[Error] ${req.method} ${req.originalUrl || req.path} (${statusCode}):`, err.message);
 
   if (res.headersSent) {
     return next(err);
@@ -24,7 +29,10 @@ export function errorHandler(
 
   return res.status(statusCode).json({
     success: false,
-    error: message,
-    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack }),
+    error: safeMessage,
+    message: safeMessage,
+    statusCode,
+    ...(err.details ? { details: err.details } : {}),
+    ...(!isProduction && { stack: err.stack }),
   });
 }

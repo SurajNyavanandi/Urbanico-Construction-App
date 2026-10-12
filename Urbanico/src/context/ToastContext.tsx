@@ -98,8 +98,11 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         (type === 'favorite' || lower.includes('favorite') || lower.includes('favourite')) &&
         (lower.includes('saved') || lower.includes('add') || lower.includes('remov'));
 
+      // 3. Essential Error & Rate Limit alerts
+      const isErrorAction = type === 'error' || lower.includes('rate limit') || lower.includes('too many requests');
+
       // Retain ONLY essential user-action toasts
-      if (!isCartAction && !isFavoriteAction) {
+      if (!isCartAction && !isFavoriteAction && !isErrorAction) {
         return;
       }
 
@@ -130,6 +133,24 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const hideAddToCartToast = useCallback(() => {
     setCartToast((prev) => ({ ...prev, visible: false }));
+  }, []);
+
+  // Listen to central 429 rate limit events
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = (e: any) => {
+      const detail = e.detail || {};
+      const retryAfter = detail.retryAfter || 60;
+      setToast({
+        visible: true,
+        message: detail.message || `Too many requests. Please wait ${retryAfter}s before retrying.`,
+        title: 'Rate Limit Active',
+        type: 'error',
+        duration: Math.min(retryAfter * 1000, 6000),
+      });
+    };
+    window.addEventListener('urbanico:rate-limited', handler);
+    return () => window.removeEventListener('urbanico:rate-limited', handler);
   }, []);
 
   return (

@@ -104,20 +104,36 @@ export async function sendOtp(phone: string): Promise<OtpSendResponse> {
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'Idempotency-Key': `otp_send_${cleanPhone}_${Date.now()}`,
         },
         body: JSON.stringify({ phone: cleanPhone }),
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const raw = await response.json();
+        const data = raw.data || raw;
         console.log(`[OTP Service] OTP dispatched via ${endpoint}`);
         return {
           success: true,
-          message: data.message || `OTP sent successfully to +91 ${cleanPhone}`,
+          message: data.message || raw.message || `OTP sent successfully to +91 ${cleanPhone}`,
           phone: `+91 ${cleanPhone}`,
-          requestId: data.requestId || `req_${Date.now()}`,
-          expiresInSeconds: data.expiresInSeconds || 600,
-          mode: data.mode || 'MSG91_LIVE',
+          requestId: data.requestId || raw.requestId || `req_${Date.now()}`,
+          expiresInSeconds: data.expiresInSeconds || raw.expiresInSeconds || 600,
+          mode: data.mode || raw.mode || 'MSG91_LIVE',
+        };
+      } else if (response.status === 429) {
+        const retryAfterSec = parseInt(response.headers.get('Retry-After') || '60', 10);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('urbanico:rate-limited', {
+              detail: { retryAfter: retryAfterSec, endpoint },
+            })
+          );
+        }
+        return {
+          success: false,
+          message: `Too many OTP requests. Please wait ${retryAfterSec} seconds.`,
+          error: 'RATE_LIMITED',
         };
       }
     } catch {
@@ -181,6 +197,7 @@ export async function verifyOtp(phone: string, otp: string): Promise<OtpVerifyRe
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
+          'Idempotency-Key': `otp_verify_${cleanPhone}_${cleanOtp}_${Date.now()}`,
         },
         body: JSON.stringify({
           phone: cleanPhone,
@@ -189,34 +206,55 @@ export async function verifyOtp(phone: string, otp: string): Promise<OtpVerifyRe
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const raw = await response.json();
+        const data = raw.data || raw;
         console.log(`[OTP Service] OTP verified successfully via ${endpoint}`);
 
-        // Persist session token if provided
-        if (data.token) {
+        // Persist session token if provided in envelope or top-level
+        const token = data.token || raw.token;
+        const user = data.user || raw.user || { phone: cleanPhone };
+        if (token) {
           try {
-            safeStorage.setItem('urbanico_auth_token', data.token);
-            if (data.user) {
-              safeStorage.setItem('urbanico_auth_session', JSON.stringify(data.user));
-            }
+            safeStorage.setItem('urbanico_auth_token', token);
+            safeStorage.setItem('urbanico_auth_session', JSON.stringify(user));
           } catch {}
         }
 
         return {
           success: true,
           verified: true,
-          message: data.message || 'Mobile number verified successfully',
+          message: data.message || raw.message || 'Mobile number verified successfully',
           phone: cleanPhone,
-          token: data.token,
-          user: data.user || { phone: cleanPhone },
+          token,
+          user,
         };
-      } else if (response.status === 401 || response.status === 400) {
-        const errData = await response.json().catch(() => ({}));
+      } else if (response.status === 429) {
+        const retryAfterSec = parseInt(response.headers.get('Retry-After') || '60', 10);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('urbanico:rate-limited', {
+              detail: { retryAfter: retryAfterSec, endpoint },
+            })
+          );
+        }
         return {
           success: false,
           verified: false,
-          message: errData.message || 'Invalid verification code. Please check and try again.',
-          error: 'INVALID_CODE',
+          message: `Too many attempts. Please wait ${retryAfterSec} seconds before retrying.`,
+          error: 'RATE_LIMITED',
+        };
+      } else if (response.status === 401 || response.status === 400) {
+        const errData = await response.json().catch(() => ({}));
+        const errMessage =
+          errData?.error?.message ||
+          (typeof errData?.error === 'string' ? errData.error : '') ||
+          errData?.message ||
+          'Invalid verification code. Please check and try again.';
+        return {
+          success: false,
+          verified: false,
+          message: errMessage,
+          error: errData?.error?.code || 'INVALID_CODE',
         };
       }
     } catch {

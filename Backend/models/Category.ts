@@ -30,5 +30,7 @@ const CategorySchema = new Schema<ICategory>(
   }
 );
 
+CategorySchema.index({ createdAt: 1 });
+
 export const Category: Model<ICategory> =
   (mongoose.models.Category as Model<ICategory>) || mongoose.model<ICategory>('Category', CategorySchema);

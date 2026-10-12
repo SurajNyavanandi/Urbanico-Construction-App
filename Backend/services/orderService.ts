@@ -2,6 +2,7 @@ import { Order, IOrder } from '../models/Order';
 import { Delivery, IDelivery } from '../models/Delivery';
 import { DeliveryService } from './deliveryService';
 import { generateRandomOtp } from '../utils/otpHelper';
+import { sanitizeText, sanitizeName, sanitizeAddressField } from '../utils/sanitizer';
 import mongoose from 'mongoose';
 
 // In-memory store for instant zero-latency realtime operations & offline/local fallback
@@ -165,6 +166,37 @@ const inMemoryOrders: any[] = [
 
 export class OrderService {
   public static async createOrder(orderData: Partial<IOrder>) {
+    // 0. Idempotency & Concurrency Guard: Check for duplicate order submission within last 30 seconds
+    const idempotencyKey = (orderData as any).idempotencyKey || (orderData as any).receiptNumber || (orderData as any).receipt;
+    const customerPhoneDigits = (orderData.customerPhone || '').replace(/\D/g, '').slice(-10);
+
+    if (idempotencyKey) {
+      const existingByIdempotency = inMemoryOrders.find(
+        (o) => (o as any).idempotencyKey === idempotencyKey || o.paymentDetails?.receiptNumber === idempotencyKey
+      );
+      if (existingByIdempotency) {
+        console.log(`[OrderService] Idempotent hit: Returning existing order #${existingByIdempotency.orderNumber} for key ${idempotencyKey}`);
+        return existingByIdempotency;
+      }
+    }
+
+    if (customerPhoneDigits && orderData.items && orderData.items.length > 0) {
+      const recentDuplicate = inMemoryOrders.find((o) => {
+        const oPhone = (o.customerPhone || '').replace(/\D/g, '').slice(-10);
+        const ageMs = Date.now() - new Date(o.createdAt).getTime();
+        return (
+          oPhone === customerPhoneDigits &&
+          ageMs < 15000 && // Within 15 seconds
+          Math.abs(Number(o.totalAmount || 0) - Number(orderData.totalAmount || 0)) <= 2 &&
+          o.items?.length === orderData.items?.length
+        );
+      });
+      if (recentDuplicate) {
+        console.log(`[OrderService] Concurrent double-tap detected! Returning existing order #${recentDuplicate.orderNumber}`);
+        return recentDuplicate;
+      }
+    }
+
     // 1. Calculate financial sums
     const items = orderData.items || [];
     let subtotal = 0;
@@ -230,6 +262,23 @@ export class OrderService {
 
     const orderPayload = {
       ...orderData,
+      customerName: sanitizeName(orderData.customerName || 'Valued Customer', 60),
+      notes: orderData.notes ? sanitizeText(orderData.notes, 500) : '',
+      businessName: orderData.businessName ? sanitizeText(orderData.businessName, 100) : '',
+      siteAddress: orderData.siteAddress ? {
+        ...orderData.siteAddress,
+        siteName: sanitizeText(orderData.siteAddress.siteName || 'Construction Site', 80),
+        street: sanitizeAddressField(orderData.siteAddress.street || '', 200),
+        city: sanitizeName(orderData.siteAddress.city || 'Hyderabad', 50),
+        state: sanitizeName(orderData.siteAddress.state || 'Telangana', 50),
+        pincode: String(orderData.siteAddress.pincode || '').replace(/\D/g, '').slice(0, 6),
+      } : {
+        siteName: 'Construction Site',
+        street: 'Site Address',
+        city: 'Hyderabad',
+        state: 'Telangana',
+        pincode: '500032',
+      },
       orderNumber: generatedOrderNumber,
       subtotal,
       taxAmount: Math.round(taxAmount),
@@ -357,9 +406,12 @@ export class OrderService {
     return savedOrder;
   }
 
-  public static async getAllOrders(query: { status?: string; search?: string; phone?: string; email?: string } = {}) {
+  public static async getAllOrders(query: { status?: string; search?: string; phone?: string; email?: string; limit?: number; page?: number } = {}) {
     const cleanPhoneDigits = query.phone ? query.phone.replace(/\D/g, '').slice(-10) : '';
     const cleanEmail = query.email ? query.email.trim().toLowerCase() : '';
+    const safeLimit = Math.min(100, Math.max(1, Number(query.limit) || 100));
+    const safePage = Math.max(1, Number(query.page) || 1);
+    const skip = (safePage - 1) * safeLimit;
 
     try {
       if (mongoose.connection.readyState === 1) {
@@ -379,7 +431,7 @@ export class OrderService {
             { customerPhone: { $regex: query.search, $options: 'i' } },
           ];
         }
-        const dbOrders = await Order.find(filter).sort({ createdAt: -1 }).exec();
+        const dbOrders = await Order.find(filter).sort({ createdAt: -1 }).skip(skip).limit(safeLimit).exec();
         return dbOrders;
       }
     } catch (err) {
@@ -485,6 +537,24 @@ export class OrderService {
 
     const mergedFields = { ...extraFields, ...refundInfo };
 
+    // Cascading update to delivery tracking record to maintain data consistency
+    try {
+      const { Delivery } = await import('../models/Delivery');
+      const targetOrder = await this.getOrderById(id);
+      const activeOrderNum = targetOrder?.orderNumber || id;
+      if (status === 'cancelled') {
+        if (mongoose.connection.readyState === 1) {
+          await Delivery.updateMany({ orderNumber: activeOrderNum }, { $set: { status: 'cancelled' } }).exec();
+        }
+      } else if (status === 'delivered') {
+        if (mongoose.connection.readyState === 1) {
+          await Delivery.updateMany({ orderNumber: activeOrderNum }, { $set: { status: 'delivered', isOtpVerified: true } }).exec();
+        }
+      }
+    } catch (delSyncErr) {
+      console.warn('[OrderService] Cascading delivery sync notice:', delSyncErr);
+    }
+
     try {
       if (mongoose.connection.readyState === 1) {
         let dbOrder = null;
@@ -538,29 +608,74 @@ export class OrderService {
   ) {
     try {
       if (mongoose.connection.readyState === 1) {
-        const dbOrder = await Order.findByIdAndUpdate(
-          id,
+        const query = mongoose.Types.ObjectId.isValid(id)
+          ? { $or: [{ _id: id }, { orderNumber: id }, { 'paymentDetails.razorpay_order_id': id }] }
+          : { $or: [{ orderNumber: id }, { 'paymentDetails.razorpay_order_id': id }] };
+
+        const dbOrder = await Order.findOneAndUpdate(
+          query,
           {
             $set: {
               paymentStatus,
               paymentDetails,
-              orderStatus: paymentStatus === 'paid' ? 'confirmed' : 'received',
+              orderStatus: paymentStatus === 'paid' ? 'confirmed' : (paymentStatus === 'failed' ? 'received' : 'processing'),
               updatedAt: new Date(),
             },
           },
           { new: true }
         ).exec();
         if (dbOrder) {
-          const idx = inMemoryOrders.findIndex((o) => o._id === id || String(o._id) === id || o.orderNumber === id);
+          const idx = inMemoryOrders.findIndex(
+            (o) => o._id === id || String(o._id) === id || o.orderNumber === id || o.paymentDetails?.razorpay_order_id === id
+          );
           if (idx !== -1) {
             inMemoryOrders[idx] = {
               ...inMemoryOrders[idx],
               paymentStatus,
               paymentDetails,
-              orderStatus: paymentStatus === 'paid' ? 'confirmed' : 'received',
+              orderStatus: paymentStatus === 'paid' ? 'confirmed' : inMemoryOrders[idx].orderStatus,
               updatedAt: new Date(),
             };
           }
+
+          // If confirmed paid, ensure delivery dispatch record is registered
+          if (paymentStatus === 'paid') {
+            try {
+              const { DeliveryService } = await import('./deliveryService');
+              const existingDel = await DeliveryService.getDeliveryByOrderNumber(dbOrder.orderNumber);
+              if (!existingDel) {
+                const otpCode = dbOrder.deliveryOtp || generateRandomOtp();
+                await DeliveryService.registerDelivery({
+                  deliveryNumber: `DEL-${Date.now().toString().slice(-5)}`,
+                  orderId: dbOrder._id,
+                  orderNumber: dbOrder.orderNumber,
+                  vehicleNumber: dbOrder.vehicleNumber || `TS 08 UB ${Math.floor(1000 + Math.random() * 9000)} (Commercial Fleet)`,
+                  driverName: dbOrder.driverName || 'Assigned Fleet Partner',
+                  driverPhone: dbOrder.driverPhone || 'Logistics Dispatch Support',
+                  sourceQuarry: {
+                    name: 'Urbanico Central Fulfillment Hub',
+                    location: 'Hyderabad Logistics Corridor',
+                  },
+                  destinationSite: {
+                    name: dbOrder.siteAddress?.siteName || 'Construction Site',
+                    address: dbOrder.siteAddress?.street || 'Site Location, Hyderabad',
+                    pincode: dbOrder.siteAddress?.pincode || '500049',
+                    contactPerson: dbOrder.customerName || 'Site Supervisor',
+                    contactPhone: dbOrder.customerPhone || 'Site Contact',
+                  },
+                  status: 'in_transit' as const,
+                  otp: otpCode,
+                  isOtpVerified: false,
+                  estimatedArrivalTime: new Date(Date.now() + 35 * 60 * 1000),
+                  createdAt: new Date(),
+                  updatedAt: new Date(),
+                });
+              }
+            } catch (delErr) {
+              console.warn('[OrderService] Delivery tracking registration notice:', delErr);
+            }
+          }
+
           return dbOrder;
         }
       }
@@ -568,13 +683,15 @@ export class OrderService {
       // fallback
     }
 
-    const idx = inMemoryOrders.findIndex((o) => o._id === id || String(o._id) === id || o.orderNumber === id);
+    const idx = inMemoryOrders.findIndex(
+      (o) => o._id === id || String(o._id) === id || o.orderNumber === id || o.paymentDetails?.razorpay_order_id === id
+    );
     if (idx !== -1) {
       inMemoryOrders[idx] = {
         ...inMemoryOrders[idx],
         paymentStatus,
         paymentDetails,
-        orderStatus: paymentStatus === 'paid' ? 'confirmed' : 'received',
+        orderStatus: paymentStatus === 'paid' ? 'confirmed' : inMemoryOrders[idx].orderStatus,
         updatedAt: new Date(),
       };
       return inMemoryOrders[idx];

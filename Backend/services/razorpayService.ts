@@ -215,6 +215,7 @@ export class RazorpayBackendService {
   // In-memory customer & token cache for ultra-low latency & resilient fallback
   private static customerCache = new Map<string, any>();
   private static tokenStore = new Map<string, any[]>();
+  private static processedWebhooks = new Map<string, number>();
 
   public static async getOrCreateCustomer(params: {
     name: string;
@@ -662,6 +663,23 @@ export class RazorpayBackendService {
     const orderId = paymentEntity?.order_id || orderEntity?.id;
     const paymentId = paymentEntity?.id;
 
+    // Idempotent webhook processing: deduplicate repeated deliveries of the same event
+    const eventDedupeKey = `${event}_${paymentId || orderId || 'anon'}`;
+    const now = Date.now();
+    if (this.processedWebhooks.has(eventDedupeKey)) {
+      const processedAt = this.processedWebhooks.get(eventDedupeKey)!;
+      if (now - processedAt < 600_000) { // 10 minutes window
+        console.log(`[Razorpay Webhook] Idempotent short-circuit: Event ${eventDedupeKey} already processed`);
+        return {
+          received: true,
+          event,
+          orderId,
+          paymentId,
+        };
+      }
+    }
+    this.processedWebhooks.set(eventDedupeKey, now);
+
     if (event === 'payment.captured' || event === 'order.paid' || event === 'payment.authorized') {
       if (orderId) {
         const acquirerData = paymentEntity?.acquirer_data || {};
@@ -681,6 +699,40 @@ export class RazorpayBackendService {
           signature: 'webhook_captured',
         });
         console.log(`[Razorpay Webhook] Recorded payment for order: ${orderId} (payment: ${paymentId})`);
+
+        // Asynchronously synchronize MongoDB Order document and trigger delivery dispatch
+        import('./orderService').then(({ OrderService }) => {
+          OrderService.updatePaymentStatus(orderId, 'paid', {
+            razorpay_order_id: orderId,
+            razorpay_payment_id: paymentId,
+            paidAt: new Date(),
+            paymentMethod: paymentEntity?.method || 'RAZORPAY_WEBHOOK',
+            amount: paymentEntity?.amount ? paymentEntity.amount / 100 : undefined,
+            receiptNumber: paymentEntity?.receipt || `RCPT-WH-${Date.now().toString().slice(-6)}`,
+          }).catch((err) => console.warn('[Razorpay Webhook] OrderService sync notice:', err?.message || err));
+        }).catch(() => {});
+      }
+    } else if (event === 'payment.failed') {
+      if (orderId) {
+        console.warn(`[Razorpay Webhook] Payment failed for order: ${orderId} (reason: ${paymentEntity?.error_description || 'unknown'})`);
+        import('./orderService').then(({ OrderService }) => {
+          OrderService.updatePaymentStatus(orderId, 'failed', {
+            razorpay_order_id: orderId,
+            razorpay_payment_id: paymentId,
+            timestamp: new Date().toISOString(),
+          }).catch((err) => console.warn('[Razorpay Webhook] OrderService failed-state sync notice:', err?.message || err));
+        }).catch(() => {});
+      }
+    } else if (event === 'refund.processed') {
+      if (orderId) {
+        console.log(`[Razorpay Webhook] Refund processed for order: ${orderId}`);
+        import('./orderService').then(({ OrderService }) => {
+          OrderService.updatePaymentStatus(orderId, 'refunded', {
+            razorpay_order_id: orderId,
+            razorpay_payment_id: paymentId,
+            timestamp: new Date().toISOString(),
+          }).catch(() => {});
+        }).catch(() => {});
       }
     }
 
@@ -690,5 +742,63 @@ export class RazorpayBackendService {
       orderId,
       paymentId,
     };
+  }
+
+  /**
+   * Reconciles all pending orders against Razorpay API
+   */
+  public static async reconcilePendingOrders(): Promise<{ reconciledCount: number; checkedCount: number; orders: any[] }> {
+    const isConfigured = this.isConfigured();
+    if (!isConfigured) {
+      return { reconciledCount: 0, checkedCount: 0, orders: [] };
+    }
+
+    try {
+      const { OrderService } = await import('./orderService');
+      const pendingOrders = await OrderService.getAllOrders({ status: 'received' });
+      const trulyPending = (pendingOrders as any[]).filter(
+        (o) => o.paymentStatus === 'pending' && (o.paymentDetails?.razorpay_order_id || o.orderNumber)
+      );
+
+      let reconciledCount = 0;
+      const reconciledOrders: any[] = [];
+
+      for (const ord of trulyPending) {
+        const rzpOrderId = ord.paymentDetails?.razorpay_order_id;
+        if (!rzpOrderId || !rzpOrderId.startsWith('order_')) continue;
+
+        try {
+          const status = await this.checkOrderStatus(rzpOrderId);
+          if (status.paid) {
+            await OrderService.updatePaymentStatus(ord.orderNumber || ord._id, 'paid', {
+              razorpay_order_id: rzpOrderId,
+              razorpay_payment_id: status.paymentId,
+              paidAt: new Date(),
+              paymentMethod: status.method || 'upi',
+              receiptNumber: `RCPT-RECON-${Date.now().toString().slice(-6)}`,
+            });
+            reconciledCount++;
+            reconciledOrders.push({
+              orderNumber: ord.orderNumber,
+              razorpay_order_id: rzpOrderId,
+              paymentId: status.paymentId,
+              status: 'reconciled_paid',
+            });
+          }
+        } catch (itemErr: any) {
+          console.warn(`[Reconciliation] Order #${ord.orderNumber} check notice:`, itemErr?.message || itemErr);
+        }
+      }
+
+      console.log(`[Reconciliation] Checked ${trulyPending.length} pending orders, reconciled ${reconciledCount} as paid`);
+      return {
+        reconciledCount,
+        checkedCount: trulyPending.length,
+        orders: reconciledOrders,
+      };
+    } catch (err: any) {
+      console.warn('[Reconciliation] Error running pending orders reconciliation:', err?.message || err);
+      return { reconciledCount: 0, checkedCount: 0, orders: [] };
+    }
   }
 }

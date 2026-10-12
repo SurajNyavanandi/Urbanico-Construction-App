@@ -573,6 +573,7 @@ export async function createRazorpayOrder(params: CreateOrderParams): Promise<Cr
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
+            'Idempotency-Key': String(sanitizedPayload.receipt || `pay_${Date.now()}`),
           },
           body: JSON.stringify(sanitizedPayload),
         });
@@ -580,6 +581,16 @@ export async function createRazorpayOrder(params: CreateOrderParams): Promise<Cr
         const contentType = response.headers.get('content-type') || '';
 
         if (!response.ok) {
+          if (response.status === 429) {
+            const rawRetry = response.headers.get('Retry-After');
+            const retrySec = parseInt(rawRetry || '60', 10);
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('urbanico:rate-limited', {
+                detail: { retryAfter: retrySec, message: `Payment rate limit reached. Please wait ${retrySec}s before retrying.` }
+              }));
+            }
+            throw new Error(`Payment rate limit reached. Please wait ${retrySec} seconds.`);
+          }
           const errorData = await response.text().catch(() => '');
           if (errorData.includes('Razorpay LIVE Authentication Failed') || response.status === 401 || response.status === 500) {
             throw new Error(errorData || 'Backend API Error');
@@ -710,12 +721,18 @@ export async function createRazorpayPaymentLink(params: {
   return { success: false, error: 'Could not create payment link' };
 }
 
-// 3. Call backend /api/razorpay/verify-payment with graceful mobile fallback
+// 3. Call backend /api/payments/verify or /api/razorpay/verify-payment with graceful mobile fallback
 export async function verifyRazorpayPayment(params: VerifyPaymentParams): Promise<VerifyPaymentResponse> {
   const sanitizedVerifyPayload = sanitizePaymentPayload(params);
   console.log(`[Payment] Verify: ${sanitizedVerifyPayload.razorpay_payment_id}`);
 
-  const verifyEndpointsToTry = getCandidateApiEndpoints('razorpay/verify-payment');
+  const authToken = typeof window !== 'undefined' ? localStorage.getItem('urbanico_auth_token') : null;
+
+  const verifyEndpointsToTry = [
+    ...getCandidateApiEndpoints('payments/verify'),
+    ...getCandidateApiEndpoints('razorpay/verify-payment'),
+    ...getCandidateApiEndpoints('verify-payment'),
+  ];
 
   try {
     let verifyData: any = null;
@@ -727,22 +744,36 @@ export async function verifyRazorpayPayment(params: VerifyPaymentParams): Promis
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
+            'Idempotency-Key': String(sanitizedVerifyPayload.razorpay_payment_id || `vfy_${Date.now()}`),
+            ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}),
           },
           body: JSON.stringify(sanitizedVerifyPayload),
         });
+
+        if (!response.ok && response.status === 429) {
+          const rawRetry = response.headers.get('Retry-After');
+          const retrySec = parseInt(rawRetry || '60', 10);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('urbanico:rate-limited', {
+              detail: { retryAfter: retrySec, message: `Payment verification rate limited. Please wait ${retrySec}s.` }
+            }));
+          }
+          break;
+        }
 
         const contentType = response.headers.get('content-type') || '';
 
         if (response.ok && (contentType.includes('application/json') || contentType.includes('text/plain'))) {
           const data = await response.json().catch(() => null);
-          if (data && (data.success || data.verified || data.status === 'ok' || data.razorpay_payment_id)) {
+          const unwrapped = data?.data || data;
+          if (unwrapped && (unwrapped.verified || unwrapped.success || data?.success || unwrapped.razorpay_payment_id || unwrapped.status === 'ok')) {
             console.log(`[Payment] Verified: ${sanitizedVerifyPayload.razorpay_payment_id}`);
-            const baseMatch = url.split('/razorpay/')[0] || url.split('/verify-payment')[0];
+            const baseMatch = url.split('/payments/')[0] || url.split('/razorpay/')[0] || url.split('/verify-payment')[0];
             if (baseMatch) {
               setActiveApiBase(baseMatch.endsWith('/api') ? baseMatch : `${baseMatch}/api`);
             }
             verifyData = {
-              ...data,
+              ...unwrapped,
               success: true,
               verified: true,
             };
@@ -1202,13 +1233,20 @@ export async function openRazorpayOneTapPayment(options: RazorpayOneTapOptions):
   // Create One-Tap Order on Backend
   let orderId = '';
   let customerId = options.customerId || '';
+  const authToken = typeof window !== 'undefined' ? localStorage.getItem('urbanico_auth_token') : null;
   try {
     const endpoints = getCandidateApiEndpoints('razorpay/one-tap-order');
     for (const ep of endpoints) {
       try {
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': `1tap_${cleanPhone}_${orderAmountPaise}_${Date.now()}`,
+        };
+        if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+
         const res = await fetch(ep, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             amountInPaise: orderAmountPaise,
             tokenId: options.token,
@@ -1228,6 +1266,15 @@ export async function openRazorpayOneTapPayment(options: RazorpayOneTapOptions):
             orderId = d.order_id || d.order?.id;
             if (d.customerId) customerId = d.customerId;
             break;
+          }
+        } else if (res.status === 429) {
+          const retryAfterSec = parseInt(res.headers.get('Retry-After') || '30', 10);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(
+              new CustomEvent('urbanico:rate-limited', {
+                detail: { retryAfter: retryAfterSec, endpoint: ep },
+              })
+            );
           }
         }
       } catch {
@@ -1351,17 +1398,33 @@ export async function tokenizeCardAPI(params: {
   email?: string;
   customerId?: string;
 }): Promise<any> {
+  const authToken = typeof window !== 'undefined' ? localStorage.getItem('urbanico_auth_token') : null;
   const endpoints = getCandidateApiEndpoints('razorpay/tokenize-card');
   for (const ep of endpoints) {
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': `tok_${params.phone}_${Date.now()}`,
+      };
+      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+
       const res = await fetch(ep, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(params),
       });
       if (res.ok) {
         const json = await res.json();
         return json.data?.token || json.token;
+      } else if (res.status === 429) {
+        const retryAfterSec = parseInt(res.headers.get('Retry-After') || '30', 10);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('urbanico:rate-limited', {
+              detail: { retryAfter: retryAfterSec, endpoint: ep },
+            })
+          );
+        }
       }
     } catch {
       // try next
@@ -1371,12 +1434,28 @@ export async function tokenizeCardAPI(params: {
 }
 
 export async function deleteCustomerTokenAPI(tokenId: string, phone: string, customerId?: string): Promise<boolean> {
+  const authToken = typeof window !== 'undefined' ? localStorage.getItem('urbanico_auth_token') : null;
   try {
     const endpoints = getCandidateApiEndpoints(`razorpay/tokens/${encodeURIComponent(tokenId)}?phone=${encodeURIComponent(phone)}&customerId=${encodeURIComponent(customerId || '')}`);
     for (const ep of endpoints) {
       try {
-        const res = await fetch(ep, { method: 'DELETE' });
+        const headers: Record<string, string> = {
+          'Idempotency-Key': `del_tok_${tokenId}_${Date.now()}`,
+        };
+        if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+
+        const res = await fetch(ep, { method: 'DELETE', headers });
         if (res.ok) return true;
+        if (res.status === 429) {
+          const retryAfterSec = parseInt(res.headers.get('Retry-After') || '30', 10);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(
+              new CustomEvent('urbanico:rate-limited', {
+                detail: { retryAfter: retryAfterSec, endpoint: ep },
+              })
+            );
+          }
+        }
       } catch {
         // try next
       }
@@ -1401,12 +1480,19 @@ export async function verifyAndRefundPennyDropAPI(params: {
   message?: string;
   error?: string;
 }> {
+  const authToken = typeof window !== 'undefined' ? localStorage.getItem('urbanico_auth_token') : null;
   const endpoints = getCandidateApiEndpoints('razorpay/penny-drop-verify');
   for (const ep of endpoints) {
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Idempotency-Key': `pdrop_${params.razorpay_payment_id}_${Date.now()}`,
+      };
+      if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
+
       const res = await fetch(ep, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(params),
       });
       const data = await res.json();
@@ -1418,6 +1504,16 @@ export async function verifyAndRefundPennyDropAPI(params: {
           refundId: data.data?.refundId || data.refundId || `rfnd_${Date.now()}`,
           message: data.data?.message || data.message || 'Payment Method Verified • ₹1 Refund Initiated',
         };
+      }
+      if (res.status === 429) {
+        const retryAfterSec = parseInt(res.headers.get('Retry-After') || '30', 10);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('urbanico:rate-limited', {
+              detail: { retryAfter: retryAfterSec, endpoint: ep },
+            })
+          );
+        }
       }
       if (data.error || data.message) {
         return { success: false, verified: false, error: data.error || data.message };
@@ -1727,5 +1823,173 @@ export function useRazorpay() {
     },
   };
 }
+
+// ==============================================================================
+// OFFLINE PAYMENT DROP & RESUME ORDER RECONCILIATION SUBSYSTEM
+// ==============================================================================
+
+export interface PendingPaymentHandshake {
+  id: string; // razorpay_payment_id or order_id
+  orderNumber?: string;
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+  orderPayload?: any;
+  amount?: number;
+  timestamp: number;
+  attempts?: number;
+}
+
+const PENDING_PAYMENTS_STORAGE_KEY = 'urbanico_pending_payment_handshakes';
+
+export function savePendingPaymentHandshake(handshake: PendingPaymentHandshake): void {
+  try {
+    const raw = safeStorage.getItem(PENDING_PAYMENTS_STORAGE_KEY);
+    const list: PendingPaymentHandshake[] = raw ? JSON.parse(raw) : [];
+    const filtered = list.filter((item) => item.id !== handshake.id && item.razorpay_payment_id !== handshake.razorpay_payment_id);
+    filtered.push(handshake);
+    safeStorage.setItem(PENDING_PAYMENTS_STORAGE_KEY, JSON.stringify(filtered));
+  } catch (err) {
+    console.warn('[Payment Reconciliation] Failed to record pending payment handshake:', err);
+  }
+}
+
+export function clearPendingPaymentHandshake(paymentIdOrOrderId: string): void {
+  try {
+    const raw = safeStorage.getItem(PENDING_PAYMENTS_STORAGE_KEY);
+    if (!raw) return;
+    const list: PendingPaymentHandshake[] = JSON.parse(raw);
+    const filtered = list.filter(
+      (item) => item.id !== paymentIdOrOrderId &&
+                item.razorpay_payment_id !== paymentIdOrOrderId &&
+                item.razorpay_order_id !== paymentIdOrOrderId &&
+                item.orderNumber !== paymentIdOrOrderId
+    );
+    safeStorage.setItem(PENDING_PAYMENTS_STORAGE_KEY, JSON.stringify(filtered));
+  } catch (err) {
+    console.warn('[Payment Reconciliation] Failed to clear pending payment handshake:', err);
+  }
+}
+
+export function getPendingPaymentHandshakes(): PendingPaymentHandshake[] {
+  try {
+    const raw = safeStorage.getItem(PENDING_PAYMENTS_STORAGE_KEY);
+    if (!raw) return [];
+    const list = JSON.parse(raw);
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+let isReconciling = false;
+
+export async function reconcilePendingPaymentsAndOrders(): Promise<{ reconciled: number; remaining: number }> {
+  if (isReconciling) return { reconciled: 0, remaining: 0 };
+  const handshakes = getPendingPaymentHandshakes();
+  if (handshakes.length === 0) return { reconciled: 0, remaining: 0 };
+
+  isReconciling = true;
+  let reconciledCount = 0;
+
+  try {
+    console.log(`[Payment Reconciliation] Auditing ${handshakes.length} pending handshakes following resume/reconnect...`);
+
+    for (const handshake of handshakes) {
+      try {
+        // Step 1: Verify cryptographic signature with backend /api/payments/verify
+        let verified = false;
+        if (handshake.razorpay_signature && handshake.razorpay_payment_id) {
+          try {
+            const vRes = await verifyRazorpayPayment({
+              razorpay_order_id: handshake.razorpay_order_id,
+              razorpay_payment_id: handshake.razorpay_payment_id,
+              razorpay_signature: handshake.razorpay_signature,
+            });
+            verified = Boolean(vRes.verified || vRes.success);
+          } catch (vErr) {
+            console.warn(`[Payment Reconciliation] Signature verification check error:`, vErr);
+          }
+        }
+
+        // Step 2: Poll backend status for order
+        const statusRes = await checkRazorpayOrderStatus(handshake.razorpay_order_id);
+        const isPaid = statusRes.paid || verified;
+
+        if (isPaid) {
+          console.log(`[Payment Reconciliation] Payment verified for handshake ${handshake.razorpay_payment_id}. Reconciling order...`);
+
+          // If order payload was cached because network dropped before createOrder finished, dispatch order creation
+          if (handshake.orderPayload) {
+            try {
+              const { apiService } = await import('./apiService');
+              await apiService.createOrder({
+                ...handshake.orderPayload,
+                paymentStatus: 'paid',
+                paymentDetails: {
+                  razorpay_payment_id: handshake.razorpay_payment_id,
+                  razorpay_order_id: handshake.razorpay_order_id,
+                  razorpay_signature: handshake.razorpay_signature,
+                  status: 'verified_reconciled',
+                  reconciledAt: new Date().toISOString(),
+                },
+              });
+            } catch (orderErr) {
+              console.warn(`[Payment Reconciliation] Order creation during reconcile:`, orderErr);
+            }
+          }
+
+          clearPendingPaymentHandshake(handshake.razorpay_payment_id);
+          reconciledCount++;
+
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(
+              new CustomEvent('urbanico:payment-reconciled', {
+                detail: {
+                  orderId: handshake.razorpay_order_id,
+                  paymentId: handshake.razorpay_payment_id,
+                  orderNumber: handshake.orderNumber,
+                },
+              })
+            );
+          }
+        } else {
+          // If handshake is older than 24 hours and still unpaid, prune it
+          if (Date.now() - handshake.timestamp > 24 * 60 * 60 * 1000) {
+            clearPendingPaymentHandshake(handshake.id);
+          }
+        }
+      } catch (itemErr) {
+        console.warn(`[Payment Reconciliation] Error processing handshake ${handshake.id}:`, itemErr);
+      }
+    }
+  } finally {
+    isReconciling = false;
+  }
+
+  const remaining = getPendingPaymentHandshakes().length;
+  return { reconciled: reconciledCount, remaining };
+}
+
+// Auto-wire network reconnection and app resume event listeners
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    console.log('[Payment Reconciliation] Online event triggered. Running reconciliation...');
+    reconcilePendingPaymentsAndOrders().catch(() => {});
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      console.log('[Payment Reconciliation] Visibility resumed. Running reconciliation...');
+      reconcilePendingPaymentsAndOrders().catch(() => {});
+    }
+  });
+
+  // Run initial pass after slight warmup
+  setTimeout(() => {
+    reconcilePendingPaymentsAndOrders().catch(() => {});
+  }, 2500);
+}
+
 
 

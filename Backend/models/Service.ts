@@ -28,5 +28,8 @@ const ServiceSchema = new Schema<IService>(
   }
 );
 
+ServiceSchema.index({ createdAt: 1 });
+ServiceSchema.index({ tag: 1 });
+
 export const Service: Model<IService> =
   (mongoose.models.Service as Model<IService>) || mongoose.model<IService>('Service', ServiceSchema);

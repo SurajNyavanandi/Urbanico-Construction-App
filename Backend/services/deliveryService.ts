@@ -28,16 +28,34 @@ export class DeliveryService {
     return inMemoryDeliveries.find((d) => d.orderNumber === orderNumber) || null;
   }
 
-  public static async getAllDeliveries() {
+  public static async getAllDeliveries(filter: { limit?: number; page?: number } = {}) {
+    const limit = Math.min(100, Math.max(1, filter.limit || 50));
+    const page = Math.max(1, filter.page || 1);
+    const skip = (page - 1) * limit;
+
     try {
       if (mongoose.connection.readyState === 1) {
-        const dbDeliveries = await Delivery.find().sort({ createdAt: -1 }).exec();
-        if (dbDeliveries && dbDeliveries.length > 0) return dbDeliveries;
+        const total = await Delivery.countDocuments();
+        const deliveries = await Delivery.find().sort({ createdAt: -1 }).skip(skip).limit(limit).exec();
+        return {
+          deliveries: deliveries || [],
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        };
       }
     } catch (err) {
       // fallback
     }
-    return inMemoryDeliveries;
+    const paginated = inMemoryDeliveries.slice(skip, skip + limit);
+    return {
+      deliveries: paginated,
+      total: inMemoryDeliveries.length,
+      page,
+      limit,
+      totalPages: Math.ceil(inMemoryDeliveries.length / limit),
+    };
   }
 
   public static async updateDeliveryLocation(

@@ -336,14 +336,22 @@ export async function sendInvoiceEmail(params: SendInvoiceParams): Promise<SendI
     ...getCandidateApiEndpoints('send-invoice'),
   ];
 
+  const token = typeof window !== 'undefined' ? localStorage.getItem('urbanico_auth_token') : null;
+
   for (const endpoint of candidateEndpoints) {
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Idempotency-Key': `inv_${params.invoiceNumber || Date.now()}`,
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           to: params.to,
           recipientEmail: recipient,
@@ -363,16 +371,26 @@ export async function sendInvoiceEmail(params: SendInvoiceParams): Promise<SendI
       });
 
       if (response.ok) {
-        const data = await response.json();
+        const raw = await response.json();
+        const data = raw.data || raw;
         console.log(`[Resend Service] Invoice delivered successfully via ${endpoint}:`, data);
         return {
           success: true,
-          messageId: data.messageId || data.id || `resend_${Date.now()}`,
-          id: data.id || data.messageId,
-          mode: data.mode || 'RESEND_LIVE',
-          message: data.message || `Tax Invoice #${params.invoiceNumber} dispatched to ${recipient}`,
-          trackingId: data.trackingId,
+          messageId: data.messageId || data.id || raw.messageId || `resend_${Date.now()}`,
+          id: data.id || data.messageId || raw.id,
+          mode: data.mode || raw.mode || 'RESEND_LIVE',
+          message: data.message || raw.message || `Tax Invoice #${params.invoiceNumber} dispatched to ${recipient}`,
+          trackingId: data.trackingId || raw.trackingId,
         };
+      } else if (response.status === 429) {
+        const retryAfterSec = parseInt(response.headers.get('Retry-After') || '30', 10);
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(
+            new CustomEvent('urbanico:rate-limited', {
+              detail: { retryAfter: retryAfterSec, endpoint },
+            })
+          );
+        }
       }
     } catch (err) {
       // Continue to next endpoint candidate

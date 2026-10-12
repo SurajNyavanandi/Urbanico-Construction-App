@@ -61,6 +61,8 @@ export function sendError(
   const payload: Record<string, any> = {
     success: false,
     error: message,
+    message,
+    statusCode,
     ...(details !== undefined ? { details } : {}),
   };
 

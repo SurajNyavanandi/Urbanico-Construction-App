@@ -90,6 +90,17 @@ export function useAuthSession(options?: {
     }
   }, [isLoggedIn, user.phone]);
 
+  // Subscribe to central 401 Unauthorized events from ApiService
+  useEffect(() => {
+    const unsubscribe = apiService.onAuthExpired(() => {
+      console.warn('[useAuthSession] Received 401 Unauthorized notification. Resetting session.');
+      setIsLoggedIn(false);
+      setUser(INITIAL_USER);
+      options?.onLogoutCleanup?.();
+    });
+    return unsubscribe;
+  }, [options]);
+
   const login = useCallback((phoneNum: string): UserProfile => {
     const validPhone = (phoneNum || '').trim();
     setIsLoggedIn(true);

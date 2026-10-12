@@ -66,6 +66,11 @@ const MaterialSchema = new Schema<IMaterial>(
   }
 );
 
+// High-concurrency catalog indexes
+MaterialSchema.index({ categoryId: 1, inStock: 1 });
+MaterialSchema.index({ category: 1, inStock: 1 });
+MaterialSchema.index({ inStock: 1, createdAt: -1 });
+
 export const Material: Model<IMaterial> =
   (mongoose.models.Material as Model<IMaterial>) || mongoose.model<IMaterial>('Material', MaterialSchema);
 

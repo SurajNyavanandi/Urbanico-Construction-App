@@ -1,7 +1,10 @@
 /**
  * Urbanico Core API Service
- * Centralized, production-ready backend communication layer.
- * Communicates directly with /api endpoints for realtime orders, materials, deliveries, and user profiles.
+ * Centralized, production-grade backend communication layer.
+ * Communicates directly with Express /api endpoints for realtime orders, materials,
+ * services, deliveries, user profiles, authentication, and admin workflows.
+ * Fully compliant with Pillars 1-9: standardized envelopes, robust error unwrapping,
+ * 401 session expiry handling, and 429 rate limit backoff.
  */
 
 import { ActivityDelivery, UserProfile, MaterialItem } from '../types';
@@ -11,9 +14,108 @@ import { safeStorage } from '../utils/safeStorage';
 export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
-  error?: string;
+  error?: string | { message?: string; code?: string; details?: any };
   message?: string;
+  statusCode?: number;
   [key: string]: any;
+}
+
+export interface PaginatedResponse<T = any> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  hasMore: boolean;
+  count: number;
+}
+
+export class ApiError extends Error {
+  public statusCode: number;
+  public code?: string;
+  public details?: any;
+  public retryAfter?: number;
+
+  constructor(
+    message: string,
+    statusCode: number = 500,
+    code?: string,
+    details?: any,
+    retryAfter?: number
+  ) {
+    super(message);
+    this.name = 'ApiError';
+    this.statusCode = statusCode;
+    this.code = code;
+    this.details = details;
+    this.retryAfter = retryAfter;
+  }
+}
+
+/**
+ * Robust universal unwrapper for API responses.
+ * Transparently unwraps `{ success: true, data: { ... } }`, `{ success: true, data: [ ... ] }`,
+ * or flattened top-level key envelopes `{ success: true, materials: [ ... ] }`.
+ */
+export function unwrapApiResponse<T = any>(res: any, preferredKey?: string): T {
+  if (!res) return res;
+
+  // Direct array responses
+  if (Array.isArray(res)) return res as unknown as T;
+
+  // 1. Nested { data: ... } envelope
+  if (res.data !== undefined && res.data !== null) {
+    if (preferredKey && typeof res.data === 'object' && res.data[preferredKey] !== undefined) {
+      return res.data[preferredKey];
+    }
+    return res.data;
+  }
+
+  // 2. Direct top-level preferred key
+  if (preferredKey && res[preferredKey] !== undefined) {
+    return res[preferredKey];
+  }
+
+  return res as T;
+}
+
+/**
+ * Universal unwrapper for paginated endpoints.
+ * Handles both `{ data: { items, total, page, limit } }` and top-level `{ [itemsKey], total, page, limit }`.
+ */
+export function unwrapPaginatedResponse<T = any>(res: any, itemsKey: string): PaginatedResponse<T> {
+  let items: T[] = [];
+
+  if (Array.isArray(res)) {
+    items = res;
+  } else if (res?.data && Array.isArray(res.data[itemsKey])) {
+    items = res.data[itemsKey];
+  } else if (Array.isArray(res?.[itemsKey])) {
+    items = res[itemsKey];
+  } else if (Array.isArray(res?.data)) {
+    items = res.data;
+  } else if (Array.isArray(res?.items)) {
+    items = res.items;
+  }
+
+  const total = Number(res?.total ?? res?.data?.total ?? items.length);
+  const page = Number(res?.page ?? res?.data?.page ?? 1);
+  const limit = Number(res?.limit ?? res?.data?.limit ?? (items.length || 50));
+  const totalPages = Number(
+    res?.totalPages ?? res?.data?.totalPages ?? Math.max(1, Math.ceil(total / (limit || 1)))
+  );
+  const count = Number(res?.count ?? res?.data?.count ?? items.length);
+  const hasMore = page < totalPages;
+
+  return {
+    items,
+    total,
+    page,
+    limit,
+    totalPages,
+    hasMore,
+    count,
+  };
 }
 
 let sharedActiveApiBase: string | null = null;
@@ -31,13 +133,14 @@ export function setActiveApiBase(url: string | null): void {
 export function getBaseApiUrls(): string[] {
   const urls: string[] = [];
 
-  // Prioritize active verified working base URL if discovered
   if (sharedActiveApiBase) {
     urls.push(sharedActiveApiBase);
   }
 
-  // Environment-configured backend URL (strictly unified BACKEND_URI)
-  const envBackendUrl = (typeof process !== 'undefined' && ((process.env as any)?.BACKEND_URI || (process.env as any)?.VITE_BACKEND_URI)) || '';
+  const envBackendUrl =
+    (typeof process !== 'undefined' &&
+      ((process.env as any)?.BACKEND_URI || (process.env as any)?.VITE_BACKEND_URI)) ||
+    '';
   if (envBackendUrl && typeof envBackendUrl === 'string' && envBackendUrl.trim().length > 0) {
     const clean = envBackendUrl.trim().replace(/\/+$/, '');
     urls.push(clean.endsWith('/api') ? clean : `${clean}/api`);
@@ -60,8 +163,13 @@ export function getBaseApiUrls(): string[] {
     urls.push('http://localhost:3000/api');
   }
 
-  // 4. LAN IP discovery (e.g. testing on mobile device over Wi-Fi)
-  if (isWeb && window.location.hostname && !window.location.hostname.includes('localhost') && !window.location.hostname.includes('127.0.0.1')) {
+  // LAN IP discovery (e.g. testing on mobile device over Wi-Fi)
+  if (
+    isWeb &&
+    window.location.hostname &&
+    !window.location.hostname.includes('localhost') &&
+    !window.location.hostname.includes('127.0.0.1')
+  ) {
     if (
       window.location.hostname.startsWith('192.168.') ||
       window.location.hostname.startsWith('10.') ||
@@ -72,7 +180,7 @@ export function getBaseApiUrls(): string[] {
     }
   }
 
-  // 5. Mobile Native Expo Go resolution
+  // Mobile Native Expo Go resolution
   if (Platform.OS !== 'web') {
     try {
       const scriptURL = (NativeModules as any)?.SourceCode?.scriptURL;
@@ -88,42 +196,105 @@ export function getBaseApiUrls(): string[] {
     urls.push('http://localhost:3000/api');
   }
 
-  // 6. Live production cloud backend fallback (Render)
+  // Live production cloud backend fallback (Render)
   urls.push('https://urbanico.onrender.com/api');
 
   return Array.from(new Set(urls.filter(Boolean).map((u) => u.trim().replace(/\/+$/, ''))));
 }
 
-// Minimalistic runtime log for port and API URL verification
-if (typeof window !== 'undefined' && window.location) {
-  const currentPort = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
-  const targetApi = getBaseApiUrls()[0] || '/api';
-  console.log(`[Frontend] Port: ${currentPort} | URL: ${window.location.origin} | API: ${targetApi}`);
-}
+export type AuthExpiredListener = () => void;
+export type RateLimitedListener = (info: { retryAfter: number; endpoint: string; message: string }) => void;
 
 class ApiService {
+  private authExpiredListeners: Set<AuthExpiredListener> = new Set();
+  private rateLimitedListeners: Set<RateLimitedListener> = new Set();
+
   /**
-   * Safe fetch with JSON parsing and standardized error handling across candidate endpoints
+   * Register a subscriber for 401 Unauthorized session expiry events
    */
-  private async request<T = any>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  public onAuthExpired(cb: AuthExpiredListener): () => void {
+    this.authExpiredListeners.add(cb);
+    return () => this.authExpiredListeners.delete(cb);
+  }
+
+  /**
+   * Register a subscriber for 429 Too Many Requests rate-limiting events
+   */
+  public onRateLimited(cb: RateLimitedListener): () => void {
+    this.rateLimitedListeners.add(cb);
+    return () => this.rateLimitedListeners.delete(cb);
+  }
+
+  private notifyAuthExpired(): void {
+    this.clearAuthSession();
+    this.authExpiredListeners.forEach((cb) => {
+      try {
+        cb();
+      } catch (e) {
+        console.error('[ApiService] Auth listener error:', e);
+      }
+    });
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('urbanico:auth-expired'));
+    }
+  }
+
+  private notifyRateLimited(info: { retryAfter: number; endpoint: string; message: string }): void {
+    this.rateLimitedListeners.forEach((cb) => {
+      try {
+        cb(info);
+      } catch (e) {
+        console.error('[ApiService] RateLimit listener error:', e);
+      }
+    });
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('urbanico:rate-limited', { detail: info }));
+    }
+  }
+
+  /**
+   * Centralized HTTP Client with automatic candidate failover,
+   * standardized response envelope unwrapping, 401 token expiry handling,
+   * 429 rate limit extraction, and Idempotency-Key injection.
+   */
+  private async request<T = any>(
+    endpoint: string,
+    options: RequestInit & { skipAuth?: boolean; idempotencyKey?: string } = {}
+  ): Promise<T> {
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
     const token = safeStorage.getItem('urbanico_auth_token');
+
+    const method = (options.method || 'GET').toUpperCase();
+    const isMutation = method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE';
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       Accept: 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(token && !options.skipAuth ? { Authorization: `Bearer ${token}` } : {}),
       ...((options.headers as Record<string, string>) || {}),
     };
 
-    const candidateBases = getBaseApiUrls();
+    // Inject Idempotency-Key on mutating actions to prevent double-charging or duplicate orders
+    if (isMutation && !headers['Idempotency-Key']) {
+      const generatedKey =
+        options.idempotencyKey ||
+        (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : `idemp_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`);
+      headers['Idempotency-Key'] = generatedKey;
+    }
 
+    const candidateBases = getBaseApiUrls();
     let lastError: any = null;
 
     for (const base of candidateBases) {
       const formattedBase = base.endsWith('/') ? base.slice(0, -1) : base;
-      const finalUrl = formattedBase.endsWith('/api') && cleanEndpoint.startsWith('/api')
-        ? `${formattedBase}${cleanEndpoint.replace(/^\/api/, '')}`
-        : `${formattedBase}${cleanEndpoint}`;
+      const finalUrl =
+        formattedBase.endsWith('/api') && cleanEndpoint.startsWith('/api')
+          ? `${formattedBase}${cleanEndpoint.replace(/^\/api/, '')}`
+          : `${formattedBase}${cleanEndpoint}`;
 
       try {
         const response = await fetch(finalUrl, {
@@ -131,39 +302,118 @@ class ApiService {
           headers,
         });
 
+        // 1. Success (2xx)
         if (response.ok) {
           setActiveApiBase(formattedBase);
           const data = await response.json().catch(() => ({ success: true }));
-          return data;
+          return data as T;
         }
+
+        // 2. HTTP 401 Unauthorized (Expired or invalid token)
+        // Stop candidate looping immediately: server is reachable and rejecting credentials.
+        if (response.status === 401) {
+          const errorJson = await response.json().catch(() => null);
+          const message =
+            errorJson?.error?.message ||
+            errorJson?.error ||
+            errorJson?.message ||
+            'Session expired. Please sign in again.';
+          this.notifyAuthExpired();
+          throw new ApiError(message, 401, 'UNAUTHORIZED', errorJson?.error?.details || errorJson?.details);
+        }
+
+        // 3. HTTP 429 Too Many Requests (Rate limit exceeded)
+        // Stop candidate looping: prevent secondary candidate flooding.
+        if (response.status === 429) {
+          const rawRetry = response.headers.get('Retry-After');
+          const errorJson = await response.json().catch(() => null);
+          const retryAfter = Math.max(
+            1,
+            parseInt(rawRetry || '', 10) || errorJson?.retryAfterSeconds || 60
+          );
+          const message =
+            errorJson?.error?.message ||
+            errorJson?.error ||
+            errorJson?.message ||
+            `Rate limit exceeded. Please wait ${retryAfter}s before retrying.`;
+
+          this.notifyRateLimited({ retryAfter, endpoint: cleanEndpoint, message });
+          throw new ApiError(message, 429, 'RATE_LIMITED', errorJson, retryAfter);
+        }
+
+        // 4. HTTP 400 Bad Request / 403 Forbidden / 404 Not Found / 422 Unprocessable Entity
+        // Client validation error: stop candidate looping since the request payload itself is invalid.
+        if (response.status >= 400 && response.status < 500) {
+          const errorJson = await response.json().catch(() => null);
+          const message =
+            errorJson?.error?.message ||
+            errorJson?.error ||
+            errorJson?.message ||
+            `Request failed with status ${response.status}`;
+          const code = errorJson?.error?.code || (response.status === 403 ? 'FORBIDDEN' : 'VALIDATION_ERROR');
+          const details = errorJson?.error?.details || errorJson?.details || errorJson?.errors;
+
+          throw new ApiError(message, response.status, code, details);
+        }
+
+        // 5. HTTP 5xx Server Error: record error and attempt next candidate endpoint
+        const serverErrorText = await response.text().catch(() => '');
+        lastError = new ApiError(
+          `Server error ${response.status} from ${formattedBase}: ${serverErrorText || response.statusText}`,
+          response.status
+        );
       } catch (err: any) {
+        // If it's already an authoritative ApiError (401, 429, 4xx), rethrow immediately
+        if (err instanceof ApiError && err.statusCode < 500) {
+          throw err;
+        }
         lastError = err;
       }
     }
 
-    throw lastError || new Error(`Network request failed for ${endpoint}`);
+    throw lastError || new ApiError(`Network request failed for ${endpoint}`, 0);
   }
 
   // ==================== MATERIALS ====================
 
   /**
-   * Fetch live materials catalogue from the backend
+   * Fetch live materials catalogue (unwrapped array)
    */
-  public async getMaterials(params: { category?: string; search?: string } = {}): Promise<any[]> {
+  public async getMaterials(
+    params: { category?: string; search?: string; page?: number; limit?: number } = {}
+  ): Promise<any[]> {
     try {
       const queryParams = new URLSearchParams();
       if (params.category && params.category !== 'all') queryParams.append('category', params.category);
       if (params.search) queryParams.append('search', params.search);
+      if (params.page) queryParams.append('page', String(params.page));
+      if (params.limit) queryParams.append('limit', String(params.limit));
 
       const qs = queryParams.toString();
-      const res = await this.request<{ success: boolean; materials: any[] }>(`/api/materials${qs ? `?${qs}` : ''}`);
-      if (res && res.success && Array.isArray(res.materials)) {
-        return res.materials;
-      }
-      return [];
+      const res = await this.request<any>(`/api/materials${qs ? `?${qs}` : ''}`);
+      const unwrapped = unwrapApiResponse<any[]>(res, 'materials');
+      return Array.isArray(unwrapped) ? unwrapped : [];
     } catch (err) {
+      console.warn('[ApiService] getMaterials note:', (err as any)?.message || err);
       return [];
     }
+  }
+
+  /**
+   * Fetch live materials with full pagination envelope
+   */
+  public async getMaterialsPaginated(
+    params: { category?: string; search?: string; page?: number; limit?: number } = {}
+  ): Promise<PaginatedResponse<MaterialItem>> {
+    const queryParams = new URLSearchParams();
+    if (params.category && params.category !== 'all') queryParams.append('category', params.category);
+    if (params.search) queryParams.append('search', params.search);
+    if (params.page) queryParams.append('page', String(params.page));
+    if (params.limit) queryParams.append('limit', String(params.limit));
+
+    const qs = queryParams.toString();
+    const res = await this.request<any>(`/api/materials${qs ? `?${qs}` : ''}`);
+    return unwrapPaginatedResponse<MaterialItem>(res, 'materials');
   }
 
   /**
@@ -171,29 +421,45 @@ class ApiService {
    */
   public async getCategories(): Promise<any[]> {
     try {
-      const res = await this.request<{ success: boolean; categories: any[] }>('/api/materials/categories');
-      if (res && res.success && Array.isArray(res.categories)) {
-        return res.categories;
-      }
-      return [];
+      const res = await this.request<any>('/api/materials/categories');
+      const unwrapped = unwrapApiResponse<any[]>(res, 'categories');
+      return Array.isArray(unwrapped) ? unwrapped : [];
     } catch {
       return [];
     }
   }
 
   /**
-   * Fetch trade services from backend
+   * Fetch trade services from backend (unwrapped array)
    */
-  public async getServices(): Promise<any[]> {
+  public async getServices(params: { page?: number; limit?: number } = {}): Promise<any[]> {
     try {
-      const res = await this.request<{ success: boolean; services: any[] }>('/api/services');
-      if (res && res.success && Array.isArray(res.services)) {
-        return res.services;
-      }
-      return [];
+      const queryParams = new URLSearchParams();
+      if (params.page) queryParams.append('page', String(params.page));
+      if (params.limit) queryParams.append('limit', String(params.limit));
+      const qs = queryParams.toString();
+
+      const res = await this.request<any>(`/api/services${qs ? `?${qs}` : ''}`);
+      const unwrapped = unwrapApiResponse<any[]>(res, 'services');
+      return Array.isArray(unwrapped) ? unwrapped : [];
     } catch {
       return [];
     }
+  }
+
+  /**
+   * Fetch trade services with full pagination envelope
+   */
+  public async getServicesPaginated(
+    params: { page?: number; limit?: number } = {}
+  ): Promise<PaginatedResponse<any>> {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append('page', String(params.page));
+    if (params.limit) queryParams.append('limit', String(params.limit));
+    const qs = queryParams.toString();
+
+    const res = await this.request<any>(`/api/services${qs ? `?${qs}` : ''}`);
+    return unwrapPaginatedResponse<any>(res, 'services');
   }
 
   /**
@@ -201,11 +467,9 @@ class ApiService {
    */
   public async getBundles(): Promise<any[]> {
     try {
-      const res = await this.request<{ success: boolean; bundles: any[] }>('/api/materials/bundles');
-      if (res && res.success && Array.isArray(res.bundles)) {
-        return res.bundles;
-      }
-      return [];
+      const res = await this.request<any>('/api/materials/bundles');
+      const unwrapped = unwrapApiResponse<any[]>(res, 'bundles');
+      return Array.isArray(unwrapped) ? unwrapped : [];
     } catch {
       return [];
     }
@@ -223,7 +487,10 @@ class ApiService {
         body: JSON.stringify({ phone }),
       });
       return res;
-    } catch {
+    } catch (err: any) {
+      if (err instanceof ApiError && err.statusCode === 429) {
+        throw err;
+      }
       return { success: true, message: 'OTP sent successfully to your registered mobile number' };
     }
   }
@@ -231,29 +498,31 @@ class ApiService {
   /**
    * Verify login / registration OTP for any mobile number
    */
-  public async verifyAuthOtp(phone: string, otp: string): Promise<{ success: boolean; user?: any; token?: string; role?: string; message?: string }> {
+  public async verifyAuthOtp(
+    phone: string,
+    otp: string
+  ): Promise<{ success: boolean; user?: any; token?: string; role?: string; message?: string }> {
     const trimmedOtp = String(otp || '').trim();
     const isValidOtp = trimmedOtp === '123456' || trimmedOtp === '261125';
-    if (!isValidOtp) {
-      return {
-        success: false,
-        message: 'Invalid verification code. Please check and try again.',
-      };
-    }
 
     try {
-      const res = await this.request<{ success: boolean; user?: any; token?: string; role?: string; message?: string }>('/api/users/auth/verify-otp', {
+      const res = await this.request<any>('/api/users/auth/verify-otp', {
         method: 'POST',
         body: JSON.stringify({ phone, otp: trimmedOtp }),
       });
 
       if (res && res.success) {
-        if (res.token) {
-          safeStorage.setItem('urbanico_auth_token', res.token);
+        const returnedToken = res.token || res.data?.token;
+        if (returnedToken) {
+          safeStorage.setItem('urbanico_auth_token', returnedToken);
         }
-        const userObj = res.user || { phone };
-        userObj.avatarUrl = userObj.avatarUrl || 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg';
-        userObj.profilePicture = userObj.profilePicture || 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg';
+        const userObj = res.user || res.data?.user || { phone };
+        userObj.avatarUrl =
+          userObj.avatarUrl ||
+          'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg';
+        userObj.profilePicture =
+          userObj.profilePicture ||
+          'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg';
 
         safeStorage.setItem(
           'urbanico_auth_session',
@@ -261,16 +530,20 @@ class ApiService {
             isLoggedIn: true,
             phone,
             role: res.role || userObj.role || 'contractor',
-            token: res.token || '',
+            token: returnedToken || '',
           })
         );
         return {
           ...res,
+          token: returnedToken,
           user: userObj,
         };
       }
       return res || { success: false, message: 'Invalid verification code. Please check and try again.' };
     } catch (err: any) {
+      if (err instanceof ApiError && (err.statusCode === 429 || err.statusCode === 400)) {
+        return { success: false, message: err.message };
+      }
       if (isValidOtp) {
         const fallbackToken = `auth_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
         safeStorage.setItem('urbanico_auth_token', fallbackToken);
@@ -294,7 +567,7 @@ class ApiService {
           },
         };
       }
-      return { success: false, message: 'Invalid verification code. Please check and try again.' };
+      return { success: false, message: err?.message || 'Invalid verification code. Please check and try again.' };
     }
   }
 
@@ -315,7 +588,6 @@ class ApiService {
 
   // ==================== ORDERS ====================
 
-  // Local persistence helpers for seamless offline / static Vercel runtime
   private saveLocalOrder(order: any): void {
     try {
       const cleanPhone = (order.customerPhone || '').replace(/[^0-9]/g, '').slice(-10);
@@ -350,7 +622,7 @@ class ApiService {
   }
 
   /**
-   * Place a real order into the backend database with local persistence fallback
+   * Place an authoritative order into the backend database with idempotency protection and schema payload hygiene
    */
   public async createOrder(orderPayload: {
     orderNumber?: string;
@@ -359,6 +631,8 @@ class ApiService {
     customerEmail?: string;
     gstin?: string;
     businessName?: string;
+    pickupAddress?: string;
+    deliveryOptionId?: string;
     siteAddress: {
       siteName: string;
       street: string;
@@ -367,21 +641,23 @@ class ApiService {
       pincode: string;
     };
     items: Array<{
+      serviceId?: string;
+      materialId?: string;
       name: string;
       category: string;
       quantity: number;
       unit: string;
       unitPrice: number;
-      totalPrice: number;
+      totalPrice?: number;
       gstAmount?: number;
       image?: string;
     }>;
-    subtotal: number;
+    subtotal?: number;
     taxAmount?: number;
     deliveryCharges?: number;
     unloadingCharges?: number;
     couponDiscount?: number;
-    totalAmount: number;
+    totalAmount?: number;
     paymentMethod?: string;
     paymentStatus?: string;
     paymentDetails?: any;
@@ -390,19 +666,79 @@ class ApiService {
     driverName?: string;
     driverPhone?: string;
     deliveryOtp?: string;
-  }): Promise<{ success: boolean; order?: any; error?: string }> {
+    idempotencyKey?: string;
+  }): Promise<{ success: boolean; order?: any; authoritative?: boolean; error?: string }> {
     try {
-      const res = await this.request<{ success: boolean; order?: any; data?: { order?: any }; error?: string }>('/api/orders', {
+      // Payload hygiene: only send strictly accepted schema fields, stripping temporary frontend UI flags
+      const cleanItems = (orderPayload.items || []).map((it) => ({
+        ...(it.serviceId ? { serviceId: String(it.serviceId) } : {}),
+        ...(it.materialId ? { materialId: String(it.materialId) } : {}),
+        name: String(it.name || '').trim(),
+        category: String(it.category || 'General').trim(),
+        quantity: Math.max(1, Number(it.quantity) || 1),
+        unit: String(it.unit || 'Unit').trim(),
+        unitPrice: Math.max(0, Number(it.unitPrice) || 0),
+        ...(typeof it.gstAmount === 'number' ? { gstAmount: it.gstAmount } : {}),
+        ...(it.image ? { image: String(it.image) } : {}),
+      }));
+
+      const cleanSiteAddress = orderPayload.siteAddress ? {
+        siteName: String(orderPayload.siteAddress.siteName || 'Construction Site').trim(),
+        street: String(orderPayload.siteAddress.street || '').trim(),
+        city: String(orderPayload.siteAddress.city || 'Hyderabad').trim(),
+        state: String(orderPayload.siteAddress.state || 'Telangana').trim(),
+        pincode: String(orderPayload.siteAddress.pincode || '').replace(/\D/g, '').slice(0, 6),
+      } : {
+        siteName: 'Construction Site',
+        street: 'Site Destination',
+        city: 'Hyderabad',
+        state: 'Telangana',
+        pincode: '500081',
+      };
+
+      const cleanPayload: Record<string, any> = {
+        orderNumber: orderPayload.orderNumber,
+        customerName: String(orderPayload.customerName || 'Valued Customer').trim(),
+        customerPhone: String(orderPayload.customerPhone || '').replace(/\D/g, '').slice(-10),
+        ...(orderPayload.customerEmail ? { customerEmail: String(orderPayload.customerEmail).trim() } : {}),
+        ...(orderPayload.gstin ? { gstin: String(orderPayload.gstin).trim().toUpperCase() } : {}),
+        ...(orderPayload.businessName ? { businessName: String(orderPayload.businessName).trim() } : {}),
+        siteAddress: cleanSiteAddress,
+        items: cleanItems,
+        ...(orderPayload.pickupAddress ? { pickupAddress: String(orderPayload.pickupAddress).trim() } : {}),
+        ...(orderPayload.deliveryOptionId ? { deliveryOptionId: String(orderPayload.deliveryOptionId).trim() } : {}),
+        ...(typeof orderPayload.deliveryCharges === 'number' ? { deliveryCharges: orderPayload.deliveryCharges } : {}),
+        ...(typeof orderPayload.unloadingCharges === 'number' ? { unloadingCharges: orderPayload.unloadingCharges } : {}),
+        ...(typeof orderPayload.couponDiscount === 'number' ? { couponDiscount: orderPayload.couponDiscount } : {}),
+        paymentMethod: orderPayload.paymentMethod || 'Razorpay Gateway',
+        paymentStatus: orderPayload.paymentStatus || 'paid',
+        paymentDetails: orderPayload.paymentDetails,
+        ...(orderPayload.vehicleNumber ? { vehicleNumber: orderPayload.vehicleNumber } : {}),
+        ...(orderPayload.driverName ? { driverName: orderPayload.driverName } : {}),
+        ...(orderPayload.driverPhone ? { driverPhone: orderPayload.driverPhone } : {}),
+        ...(orderPayload.deliveryOtp ? { deliveryOtp: orderPayload.deliveryOtp } : {}),
+        ...(orderPayload.eWayBillNo ? { eWayBillNo: orderPayload.eWayBillNo } : {}),
+      };
+
+      const idemKey = orderPayload.idempotencyKey ||
+        (orderPayload.paymentDetails?.razorpay_payment_id ? `ord_${orderPayload.paymentDetails.razorpay_payment_id}` : undefined);
+
+      const res = await this.request<any>('/api/orders', {
         method: 'POST',
-        body: JSON.stringify(orderPayload),
+        body: JSON.stringify(cleanPayload),
+        idempotencyKey: idemKey,
       });
-      const returnedOrder = res?.order || res?.data?.order;
+
+      const returnedOrder = res?.order || res?.data?.order || res?.data || res;
       if (returnedOrder) {
         this.saveLocalOrder(returnedOrder);
       }
-      return { success: true, order: returnedOrder };
-    } catch {
-      // Offline / serverless static fallback (e.g. Vercel static deployment)
+      return { success: true, order: returnedOrder, authoritative: true };
+    } catch (err: any) {
+      if (err instanceof ApiError && err.statusCode === 429) {
+        throw err;
+      }
+      // Offline / serverless static fallback
       const localOrder = {
         ...orderPayload,
         _id: `ord_${Date.now()}`,
@@ -410,31 +746,56 @@ class ApiService {
         orderStatus: 'confirmed',
       };
       this.saveLocalOrder(localOrder);
-      return { success: true, order: localOrder };
+      return { success: true, order: localOrder, authoritative: false };
     }
   }
 
   /**
-   * Fetch all orders from backend with local cache fallback
+   * Fetch user orders from backend (unwrapped array)
    */
-  public async getOrders(params: { phone?: string; email?: string; status?: string; search?: string } = {}): Promise<any[]> {
+  public async getOrders(
+    params: { phone?: string; email?: string; status?: string; search?: string; page?: number; limit?: number } = {}
+  ): Promise<any[]> {
     try {
       const queryParams = new URLSearchParams();
       if (params.phone) queryParams.append('phone', params.phone);
       if (params.email) queryParams.append('email', params.email);
       if (params.status) queryParams.append('status', params.status);
       if (params.search) queryParams.append('search', params.search);
+      if (params.page) queryParams.append('page', String(params.page));
+      if (params.limit) queryParams.append('limit', String(params.limit));
 
       const qs = queryParams.toString();
-      const res = await this.request<{ success: boolean; orders?: any[]; data?: { orders?: any[] } }>(`/api/orders${qs ? `?${qs}` : ''}`);
-      const ordersList = Array.isArray(res?.orders) ? res.orders : res?.data?.orders;
-      if (Array.isArray(ordersList)) {
-        return ordersList;
+      const res = await this.request<any>(`/api/orders${qs ? `?${qs}` : ''}`);
+      const unwrapped = unwrapApiResponse<any[]>(res, 'orders');
+      if (Array.isArray(unwrapped)) {
+        return unwrapped;
       }
-    } catch {
-      // Backend not running / Vercel static fallback
+    } catch (err: any) {
+      if (err instanceof ApiError && err.statusCode === 401) {
+        return [];
+      }
     }
     return this.getLocalOrders(params.phone);
+  }
+
+  /**
+   * Fetch user orders with full pagination envelope
+   */
+  public async getOrdersPaginated(
+    params: { phone?: string; email?: string; status?: string; search?: string; page?: number; limit?: number } = {}
+  ): Promise<PaginatedResponse<any>> {
+    const queryParams = new URLSearchParams();
+    if (params.phone) queryParams.append('phone', params.phone);
+    if (params.email) queryParams.append('email', params.email);
+    if (params.status) queryParams.append('status', params.status);
+    if (params.search) queryParams.append('search', params.search);
+    if (params.page) queryParams.append('page', String(params.page));
+    if (params.limit) queryParams.append('limit', String(params.limit));
+
+    const qs = queryParams.toString();
+    const res = await this.request<any>(`/api/orders${qs ? `?${qs}` : ''}`);
+    return unwrapPaginatedResponse<any>(res, 'orders');
   }
 
   /**
@@ -442,8 +803,8 @@ class ApiService {
    */
   public async getOrderByNumber(orderNumber: string): Promise<any | null> {
     try {
-      const res = await this.request<{ success: boolean; order?: any; data?: { order?: any } }>(`/api/orders/number/${orderNumber}`);
-      const orderObj = res?.order || res?.data?.order;
+      const res = await this.request<any>(`/api/orders/number/${orderNumber}`);
+      const orderObj = res?.order || res?.data?.order || res?.data || null;
       if (orderObj) {
         return orderObj;
       }
@@ -463,14 +824,11 @@ class ApiService {
     extraFields: Record<string, any> = {}
   ): Promise<{ success: boolean; order?: any }> {
     try {
-      const res = await this.request<{ success: boolean; order?: any; data?: { order?: any } }>(
-        `/api/orders/${orderIdOrNumber}/status`,
-        {
-          method: 'PATCH',
-          body: JSON.stringify({ status, extraFields }),
-        }
-      );
-      const returnedOrder = res?.order || res?.data?.order;
+      const res = await this.request<any>(`/api/orders/${orderIdOrNumber}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status, extraFields }),
+      });
+      const returnedOrder = res?.order || res?.data?.order || res?.data;
       if (returnedOrder) {
         this.saveLocalOrder(returnedOrder);
       }
@@ -498,12 +856,19 @@ class ApiService {
   /**
    * Verify email OTP via backend verification endpoint
    */
-  public async verifyEmailOtp(email: string, otp: string, phone?: string): Promise<{ success: boolean; isEmailVerified?: boolean; message?: string }> {
+  public async verifyEmailOtp(
+    email: string,
+    otp: string,
+    phone?: string
+  ): Promise<{ success: boolean; isEmailVerified?: boolean; message?: string }> {
     try {
-      const res = await this.request<{ success: boolean; isEmailVerified?: boolean; message?: string }>('/api/user/email/verify-otp', {
-        method: 'POST',
-        body: JSON.stringify({ email, otp, phone }),
-      });
+      const res = await this.request<{ success: boolean; isEmailVerified?: boolean; message?: string }>(
+        '/api/user/email/verify-otp',
+        {
+          method: 'POST',
+          body: JSON.stringify({ email, otp, phone }),
+        }
+      );
       return res || { success: true, isEmailVerified: true };
     } catch {
       return { success: true, isEmailVerified: true };
@@ -547,37 +912,56 @@ class ApiService {
    */
   public async getDeliveryByOrder(orderNumber: string): Promise<any | null> {
     try {
-      const res = await this.request<{ success: boolean; delivery: any }>(`/api/deliveries/${orderNumber}`);
-      if (res && res.success) {
-        return res.delivery;
-      }
-      return null;
-    } catch (err) {
+      const res = await this.request<any>(`/api/deliveries/${orderNumber}`);
+      const unwrapped = unwrapApiResponse<any>(res, 'delivery');
+      return unwrapped || null;
+    } catch {
       return null;
     }
   }
 
   /**
-   * Fetch all deliveries from the backend
+   * Fetch all deliveries from the backend (unwrapped array)
    */
-  public async getAllDeliveries(): Promise<any[]> {
+  public async getAllDeliveries(params: { page?: number; limit?: number } = {}): Promise<any[]> {
     try {
-      const res = await this.request<{ success: boolean; deliveries: any[] }>('/api/deliveries');
-      if (res && res.success && Array.isArray(res.deliveries)) {
-        return res.deliveries;
-      }
-      return [];
-    } catch (err) {
+      const queryParams = new URLSearchParams();
+      if (params.page) queryParams.append('page', String(params.page));
+      if (params.limit) queryParams.append('limit', String(params.limit));
+      const qs = queryParams.toString();
+
+      const res = await this.request<any>(`/api/deliveries${qs ? `?${qs}` : ''}`);
+      const unwrapped = unwrapApiResponse<any[]>(res, 'deliveries');
+      return Array.isArray(unwrapped) ? unwrapped : [];
+    } catch {
       return [];
     }
+  }
+
+  /**
+   * Fetch all deliveries with full pagination envelope
+   */
+  public async getAllDeliveriesPaginated(
+    params: { page?: number; limit?: number } = {}
+  ): Promise<PaginatedResponse<any>> {
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append('page', String(params.page));
+    if (params.limit) queryParams.append('limit', String(params.limit));
+    const qs = queryParams.toString();
+
+    const res = await this.request<any>(`/api/deliveries${qs ? `?${qs}` : ''}`);
+    return unwrapPaginatedResponse<any>(res, 'deliveries');
   }
 
   /**
    * Verify on-site 6-digit delivery OTP code
    */
-  public async verifyDeliveryOtp(orderNumber: string, otp: string): Promise<{ success: boolean; message?: string; delivery?: any }> {
+  public async verifyDeliveryOtp(
+    orderNumber: string,
+    otp: string
+  ): Promise<{ success: boolean; message?: string; delivery?: any }> {
     try {
-      const res = await this.request<{ success: boolean; message?: string; delivery?: any }>(`/api/deliveries/${orderNumber}/verify-otp`, {
+      const res = await this.request<any>(`/api/deliveries/${orderNumber}/verify-otp`, {
         method: 'POST',
         body: JSON.stringify({ otp }),
       });
@@ -595,15 +979,12 @@ class ApiService {
     location: { latitude: number; longitude: number; speedKmH?: number }
   ): Promise<any | null> {
     try {
-      const res = await this.request<{ success: boolean; delivery: any }>(`/api/deliveries/${deliveryId}/location`, {
+      const res = await this.request<any>(`/api/deliveries/${deliveryId}/location`, {
         method: 'PATCH',
         body: JSON.stringify(location),
       });
-      if (res && res.success) {
-        return res.delivery;
-      }
-      return null;
-    } catch (err) {
+      return unwrapApiResponse<any>(res, 'delivery') || null;
+    } catch {
       return null;
     }
   }
@@ -611,16 +992,17 @@ class ApiService {
   // ==================== USER PROFILE ====================
 
   /**
-   * Fetch user profile from backend with local storage fallback
+   * Fetch user profile from backend
    */
   public async getUserProfile(phone: string = '+919876543210'): Promise<any | null> {
     try {
-      const res = await this.request<{ success: boolean; user: any }>(`/api/users/profile?phone=${encodeURIComponent(phone)}`);
-      if (res && res.success && res.user) {
-        return res.user;
+      const res = await this.request<any>(`/api/users/profile?phone=${encodeURIComponent(phone)}`);
+      const user = unwrapApiResponse<any>(res, 'user');
+      if (user) {
+        return user;
       }
     } catch {
-      // Offline / Vercel fallback
+      // Offline fallback
     }
     const cleanPhone = phone.replace(/[^0-9]/g, '');
     const saved =
@@ -639,15 +1021,12 @@ class ApiService {
    */
   public async updateUserProfile(idOrPhone: string, userData: Partial<UserProfile> | any): Promise<any | null> {
     try {
-      const res = await this.request<{ success: boolean; user: any }>(`/api/users/profile/${encodeURIComponent(idOrPhone)}`, {
+      const res = await this.request<any>(`/api/users/profile/${encodeURIComponent(idOrPhone)}`, {
         method: 'PUT',
         body: JSON.stringify(userData),
       });
-      if (res && res.success) {
-        return res.user;
-      }
-      return null;
-    } catch (err) {
+      return unwrapApiResponse<any>(res, 'user') || null;
+    } catch {
       return null;
     }
   }
@@ -658,9 +1037,10 @@ class ApiService {
     try {
       const cleanPhone = phone ? phone.replace(/[^0-9]/g, '') : '';
       const qs = cleanPhone ? `?phone=${cleanPhone}` : '';
-      const res = await this.request<{ success: boolean; cart: any[] }>(`/api/user/cart${qs}`);
-      if (res && res.success && Array.isArray(res.cart)) {
-        return res.cart;
+      const res = await this.request<any>(`/api/user/cart${qs}`);
+      const cart = unwrapApiResponse<any[]>(res, 'cart');
+      if (Array.isArray(cart)) {
+        return cart;
       }
     } catch {}
     return [];
@@ -685,11 +1065,11 @@ class ApiService {
     try {
       const cleanPhone = phone ? phone.replace(/[^0-9]/g, '') : '';
       const qs = cleanPhone ? `?phone=${cleanPhone}` : '';
-      const res = await this.request<{ success: boolean; deliverySites: any[]; savedLocations: string[] }>(`/api/user/addresses${qs}`);
+      const res = await this.request<any>(`/api/user/addresses${qs}`);
       if (res && res.success) {
         return {
-          deliverySites: res.deliverySites || [],
-          savedLocations: res.savedLocations || [],
+          deliverySites: res.deliverySites || res.data?.deliverySites || [],
+          savedLocations: res.savedLocations || res.data?.savedLocations || [],
         };
       }
     } catch {}
@@ -715,12 +1095,74 @@ class ApiService {
     }
   }
 
+  // ==================== ADMIN OPERATIONS ====================
+
+  /**
+   * Fetch all registered users for Admin panel
+   */
+  public async getAdminUsers(params: { role?: string; search?: string; page?: number; limit?: number } = {}): Promise<PaginatedResponse<any>> {
+    const queryParams = new URLSearchParams();
+    if (params.role) queryParams.append('role', params.role);
+    if (params.search) queryParams.append('search', params.search);
+    if (params.page) queryParams.append('page', String(params.page));
+    if (params.limit) queryParams.append('limit', String(params.limit));
+
+    const qs = queryParams.toString();
+    const res = await this.request<any>(`/api/admin/users${qs ? `?${qs}` : ''}`);
+    return unwrapPaginatedResponse<any>(res, 'users');
+  }
+
+  /**
+   * Update user role from Admin panel
+   */
+  public async updateAdminUserRole(userId: string, role: string): Promise<any> {
+    const res = await this.request<any>(`/api/admin/users/${userId}/role`, {
+      method: 'PUT',
+      body: JSON.stringify({ role }),
+    });
+    return unwrapApiResponse<any>(res, 'user');
+  }
+
+  /**
+   * Fetch all orders for Admin panel
+   */
+  public async getAdminOrders(params: { status?: string; search?: string; page?: number; limit?: number } = {}): Promise<PaginatedResponse<any>> {
+    const queryParams = new URLSearchParams();
+    if (params.status) queryParams.append('status', params.status);
+    if (params.search) queryParams.append('search', params.search);
+    if (params.page) queryParams.append('page', String(params.page));
+    if (params.limit) queryParams.append('limit', String(params.limit));
+
+    const qs = queryParams.toString();
+    const res = await this.request<any>(`/api/admin/orders${qs ? `?${qs}` : ''}`);
+    return unwrapPaginatedResponse<any>(res, 'orders');
+  }
+
+  /**
+   * Update order status from Admin panel
+   */
+  public async updateAdminOrderStatus(orderId: string, status: string, extraFields: Record<string, any> = {}): Promise<any> {
+    const res = await this.request<any>(`/api/admin/orders/${orderId}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, extraFields }),
+    });
+    return unwrapApiResponse<any>(res, 'order');
+  }
+
+  /**
+   * Fetch high-level Admin dashboard metrics
+   */
+  public async getAdminMetrics(): Promise<any> {
+    const res = await this.request<any>('/api/admin/metrics');
+    return unwrapApiResponse<any>(res, 'metrics');
+  }
+
   // ==================== SYSTEM HEALTH & PURGE ====================
 
-  public async getHealth(): Promise<{ status: string; database?: any }> {
+  public async getHealth(): Promise<{ status: string; database?: any; uptime?: number }> {
     try {
       return await this.request('/api/health');
-    } catch (err) {
+    } catch {
       return { status: 'offline' };
     }
   }

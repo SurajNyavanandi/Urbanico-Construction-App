@@ -4,3 +4,4 @@ export * from './Order';
 export * from './Delivery';
 export * from './Service';
 export * from './Category';
+export * from './AuditLog';

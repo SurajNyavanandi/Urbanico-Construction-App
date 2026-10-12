@@ -136,15 +136,34 @@ export class UserService {
     return null;
   }
 
-  public static async getAllUsers(filter: Record<string, any> = {}) {
+  public static async getAllUsers(filter: Record<string, any> = {}, options: { limit?: number; page?: number } = {}) {
+    const limit = Math.min(100, Math.max(1, options.limit || 50));
+    const page = Math.max(1, options.page || 1);
+    const skip = (page - 1) * limit;
+
     try {
       if (mongoose.connection.readyState === 1) {
-        return await User.find(filter).sort({ createdAt: -1 }).exec();
+        const total = await User.countDocuments(filter);
+        const users = await User.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).exec();
+        return {
+          users: users || [],
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        };
       }
     } catch (err) {
       console.warn('[User] DB getAllUsers error:', err);
     }
-    return inMemoryUsers;
+    const paginated = inMemoryUsers.slice(skip, skip + limit);
+    return {
+      users: paginated,
+      total: inMemoryUsers.length,
+      page,
+      limit,
+      totalPages: Math.ceil(inMemoryUsers.length / limit),
+    };
   }
 
   public static async deleteUser(id: string) {

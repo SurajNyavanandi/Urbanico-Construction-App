@@ -4,6 +4,7 @@ import { safeStorage } from '../utils/safeStorage';
 import { formatSiteAddress } from '../utils/addressHelper';
 import { apiService } from '../services/apiService';
 import { resolveMaterialImage } from '../utils/materialImageResolver';
+import { verifyRazorpayPayment, reconcilePendingPaymentsAndOrders } from '../services/razorpayService';
 
 export interface UseOrderManagerOptions {
   user: UserProfile;
@@ -231,7 +232,7 @@ export function useOrderManager({
     setDeliveries([]);
   }, []);
 
-  // Handle Native Razorpay Web Redirection / Callback URL
+  // Handle Native Razorpay Web Redirection / Callback URL & Payment Reconciliation
   useEffect(() => {
     if (typeof window === 'undefined' || !window.location) return;
 
@@ -240,11 +241,24 @@ export function useOrderManager({
       const paymentStatus = params.get('payment_status');
       const paymentId = params.get('razorpay_payment_id');
       const orderId = params.get('razorpay_order_id') || params.get('order_id');
+      const signature = params.get('razorpay_signature');
       const amountStr = params.get('amount');
       const errorMsg = params.get('error');
 
       if (paymentStatus === 'success' && paymentId) {
         const parsedAmount = amountStr ? parseFloat(amountStr) : 198;
+
+        // Verify cryptographic signature with backend /api/payments/verify
+        if (orderId && signature) {
+          verifyRazorpayPayment({
+            razorpay_order_id: orderId,
+            razorpay_payment_id: paymentId,
+            razorpay_signature: signature,
+          }).catch((err) => {
+            console.warn('[Payment Callback] Verification warning:', err);
+          });
+        }
+
         const newDelivery: ActivityDelivery = {
           id: `del-${Date.now()}`,
           orderNumber: orderId
@@ -273,6 +287,9 @@ export function useOrderManager({
         addOrder(newDelivery);
         onPaymentSuccess?.(newDelivery);
 
+        // Run reconciliation for any lingering pending handshakes
+        reconcilePendingPaymentsAndOrders().catch(() => {});
+
         window.history.replaceState({}, document.title, window.location.pathname);
       } else if (paymentStatus === 'failed' || paymentStatus === 'error') {
         onPaymentFailure?.(errorMsg || 'Payment was declined or failed. Please retry.');
@@ -284,7 +301,25 @@ export function useOrderManager({
     } catch (e) {
       console.warn('[Payment Callback] Error parsing callback parameters:', e);
     }
-  }, [addOrder, onPaymentCancel, onPaymentFailure, onPaymentSuccess, selectedLocation, user]);
+
+    // Listen for background payment reconciliation completions (e.g. on resume/reconnect)
+    const handleReconciledEvent = (event: any) => {
+      console.log('[OrderManager] Received payment-reconciled broadcast:', event.detail);
+      const cleanPhone = user?.phone ? user.phone.replace(/[^0-9]/g, '').slice(-10) : '';
+      if (cleanPhone) {
+        apiService.getOrders({ phone: cleanPhone }).then((orders) => {
+          if (orders && orders.length > 0) {
+            loadOrdersForPhone(cleanPhone);
+          }
+        }).catch(() => {});
+      }
+    };
+
+    window.addEventListener('urbanico:payment-reconciled', handleReconciledEvent);
+    return () => {
+      window.removeEventListener('urbanico:payment-reconciled', handleReconciledEvent);
+    };
+  }, [addOrder, loadOrdersForPhone, onPaymentCancel, onPaymentFailure, onPaymentSuccess, selectedLocation, user]);
 
   return {
     deliveries,

@@ -91,6 +91,8 @@ import {
   tokenizeCardAPI,
   getClientKeyMode,
   getClientRazorpayKey,
+  savePendingPaymentHandshake,
+  clearPendingPaymentHandshake,
 } from '../services/razorpayService';
 import {
   getSavedPaymentMethods,
@@ -1731,7 +1733,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     handleStartCheckout();
   };
 
-  const handlePaymentSuccess = (result: RazorpayPaymentResult) => {
+  const handlePaymentSuccess = async (result: RazorpayPaymentResult) => {
     console.log(`[Order Payment Success] Received payment confirmation from gateway!`, {
       amount: result.amount,
       paymentId: result.razorpay_payment_id,
@@ -1794,57 +1796,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       : undefined;
     const effectiveInvoiceEmail = (checkoutInvoiceEmail.trim() || user?.email || 'accounts@urbanico.in');
 
-    const newOrder: ActivityDelivery = {
-      id: `del-${Date.now()}`,
-      orderNumber: generatedOrderNum,
-      materialName: finalMaterialName,
-      quantity: isServicesOnly ? '1 Site Visit' : `${cartItems.reduce((acc, c) => acc + c.quantity, 0)} Items`,
-      driverName: finalDriverName,
-      driverPhone: assignedDriverPhone,
-      vehicleType: finalVehicleType,
-      vehicleNumber: finalVehicleNum,
-      estimatedArrival: isMixedCart
-        ? `Materials: ${isSmallLoad ? '25-30 mins' : '35-45 mins'} | Trade Visit: Today within 2 hrs`
-        : isServicesOnly
-        ? 'Today within 2 hrs'
-        : isSmallLoad
-        ? '25 mins'
-        : '35 mins',
-      status: 'En Route',
-      siteAddress: deliveryDestination,
-      siteSupervisorName: activeSupervisor.name,
-      siteSupervisorPhone: activeSupervisor.phone,
-      timestamp: `Today, ${formattedTime}`,
-      totalAmount: grandTotal,
-      deliveryOtp: Math.floor(100000 + Math.random() * 900000).toString(),
-      ewayBillNumber: `EWB-TS-2026-${Math.floor(10000000 + Math.random() * 90000000)}`,
-      unloadingCharges: optInLaborAssistance ? unloadingLaborFee : 0,
-      laborAssistanceOpted: optInLaborAssistance,
-      laborAssistanceDetails: optInLaborAssistance ? smartRecommendation.unloadingAssistance.label : undefined,
-      recommendedVehicle: smartRecommendation.vehicle.shortName,
-      cartItemsSnapshot: [...cartItems],
-      gstin: effectiveGstin,
-      businessName: effectiveBusinessName,
-      customerEmail: effectiveInvoiceEmail,
-      invoiceEmailStatus: 'sent',
-      invoiceEmailedTo: effectiveInvoiceEmail,
-      invoiceEmailedAt: new Date().toISOString(),
-    };
-
-    createdOrderRef.current = newOrder;
-
-    // Auto-generate and email professional GST Tax Invoice immediately after order success
-    try {
-      const taxInvoiceData = buildTaxInvoiceData(newOrder, user);
-      sendTaxInvoiceEmail(taxInvoiceData, effectiveInvoiceEmail).then((res) => {
-        if (res.success) {
-          showToast(`Tax invoice emailed to ${effectiveInvoiceEmail}`, 'success');
-        }
-      }).catch((e) => console.warn('Invoice email dispatch log:', e));
-    } catch (e) {
-      console.warn('Tax invoice construction log:', e);
-    }
-
     const cleanCustomerPhone = (
       user?.phone?.replace(/\D/g, '') ||
       newAddrPhone?.replace(/\D/g, '') ||
@@ -1859,14 +1810,16 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       'Customer'
     ).trim();
 
-    // Send real order data to the backend API with customer profile
-    apiService.createOrder({
+    // Prepare clean order payload conforming strictly to backend schema
+    const orderPayload = {
       orderNumber: generatedOrderNum,
       customerName: effectiveBusinessName || cleanCustomerName,
-      customerPhone: `+91 ${cleanCustomerPhone}`,
+      customerPhone: cleanCustomerPhone,
       customerEmail: effectiveInvoiceEmail,
       gstin: effectiveGstin,
       businessName: effectiveBusinessName,
+      pickupAddress: deliveryDestination,
+      deliveryOptionId: smartRecommendation.vehicle.shortName || 'standard',
       siteAddress: {
         siteName: 'Site Delivery Location',
         street: deliveryDestination,
@@ -1875,21 +1828,19 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
         pincode: activePincode || '500081',
       },
       items: cartItems.map((item) => ({
+        materialId: item.materialId || item.id,
+        serviceId: isCartItemService(item) ? (item.serviceId || item.id) : undefined,
         name: item.itemName,
         category: item.categoryName || 'General',
         quantity: item.quantity,
         unit: item.selectedOptionLabel || 'Unit',
         unitPrice: item.unitPrice,
-        totalPrice: item.unitPrice * item.quantity,
         gstAmount: isCartItemService(item) ? 0 : Math.round(item.unitPrice * item.quantity * 0.18),
         image: item.image,
       })),
-      subtotal,
-      taxAmount: gstTax,
       deliveryCharges: deliveryCharge,
       unloadingCharges: optInLaborAssistance ? unloadingLaborFee : 0,
       couponDiscount: couponDiscount || 0,
-      totalAmount: grandTotal,
       paymentMethod: result.method || (selectedPaymentMethod === 'pod' ? 'Pay on Site (Cash / RTGS)' : 'Razorpay Gateway'),
       paymentStatus: selectedPaymentMethod === 'pod' ? 'pending_site_verification' : 'paid',
       paymentDetails: {
@@ -1905,10 +1856,92 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       vehicleNumber: finalVehicleNum,
       driverName: finalDriverName,
       driverPhone: assignedDriverPhone,
-      deliveryOtp: newOrder.deliveryOtp,
-    }).catch((err) => {
+      deliveryOtp: Math.floor(100000 + Math.random() * 900000).toString(),
+      eWayBillNo: `EWB-TS-2026-${Math.floor(10000000 + Math.random() * 90000000)}`,
+      idempotencyKey: result.razorpay_payment_id || `ord_idem_${generatedOrderNum}`,
+    };
+
+    // 1. Instantly record pending payment handshake in safeStorage for network drop resilience
+    if (result.razorpay_payment_id) {
+      savePendingPaymentHandshake({
+        id: result.razorpay_payment_id,
+        orderNumber: generatedOrderNum,
+        razorpay_order_id: result.razorpay_order_id || '',
+        razorpay_payment_id: result.razorpay_payment_id,
+        razorpay_signature: result.razorpay_signature || '',
+        orderPayload,
+        amount: payableAmount,
+        timestamp: Date.now(),
+      });
+    }
+
+    let finalServerOrder: any = null;
+
+    // 2. Dispatch authoritative order creation and await server breakdown
+    try {
+      const orderRes = await apiService.createOrder(orderPayload);
+      if (orderRes.success && orderRes.order) {
+        finalServerOrder = orderRes.order;
+        if (result.razorpay_payment_id) {
+          clearPendingPaymentHandshake(result.razorpay_payment_id);
+        }
+      }
+    } catch (err) {
       console.warn('Backend order recording notice:', err);
-    });
+    }
+
+    // 3. Construct local ActivityDelivery reflecting server's authoritative breakdown
+    const newOrder: ActivityDelivery = {
+      id: finalServerOrder?._id || `del-${Date.now()}`,
+      orderNumber: finalServerOrder?.orderNumber || generatedOrderNum,
+      materialName: finalMaterialName,
+      quantity: isServicesOnly ? '1 Site Visit' : `${cartItems.reduce((acc, c) => acc + c.quantity, 0)} Items`,
+      driverName: finalServerOrder?.driverName || finalDriverName,
+      driverPhone: finalServerOrder?.driverPhone || assignedDriverPhone,
+      vehicleType: finalVehicleType,
+      vehicleNumber: finalServerOrder?.vehicleNumber || finalVehicleNum,
+      estimatedArrival: isMixedCart
+        ? `Materials: ${isSmallLoad ? '25-30 mins' : '35-45 mins'} | Trade Visit: Today within 2 hrs`
+        : isServicesOnly
+        ? 'Today within 2 hrs'
+        : isSmallLoad
+        ? '25 mins'
+        : '35 mins',
+      status: finalServerOrder?.orderStatus === 'confirmed' ? 'En Route' : 'En Route',
+      siteAddress: deliveryDestination,
+      siteSupervisorName: activeSupervisor.name,
+      siteSupervisorPhone: activeSupervisor.phone,
+      timestamp: `Today, ${formattedTime}`,
+      // Server-authoritative breakdown reflected on client UI:
+      totalAmount: typeof finalServerOrder?.totalAmount === 'number' ? finalServerOrder.totalAmount : grandTotal,
+      deliveryOtp: finalServerOrder?.deliveryOtp || orderPayload.deliveryOtp,
+      ewayBillNumber: finalServerOrder?.eWayBillNo || orderPayload.eWayBillNo,
+      unloadingCharges: typeof finalServerOrder?.unloadingCharges === 'number' ? finalServerOrder.unloadingCharges : (optInLaborAssistance ? unloadingLaborFee : 0),
+      laborAssistanceOpted: optInLaborAssistance,
+      laborAssistanceDetails: optInLaborAssistance ? smartRecommendation.unloadingAssistance.label : undefined,
+      recommendedVehicle: smartRecommendation.vehicle.shortName,
+      cartItemsSnapshot: [...cartItems],
+      gstin: effectiveGstin,
+      businessName: effectiveBusinessName,
+      customerEmail: effectiveInvoiceEmail,
+      invoiceEmailStatus: 'sent',
+      invoiceEmailedTo: effectiveInvoiceEmail,
+      invoiceEmailedAt: new Date().toISOString(),
+    };
+
+    createdOrderRef.current = newOrder;
+
+    // Auto-generate and email professional GST Tax Invoice reflecting authoritative numbers
+    try {
+      const taxInvoiceData = buildTaxInvoiceData(newOrder, user);
+      sendTaxInvoiceEmail(taxInvoiceData, effectiveInvoiceEmail).then((res) => {
+        if (res.success) {
+          showToast(`Tax invoice emailed to ${effectiveInvoiceEmail}`, 'success');
+        }
+      }).catch((e) => console.warn('Invoice email dispatch log:', e));
+    } catch (e) {
+      console.warn('Tax invoice construction log:', e);
+    }
 
     // Auto-save guest session continuity (Amazon/Flipkart flow)
     if (!isLoggedIn) {

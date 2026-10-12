@@ -1,14 +1,15 @@
 import { Router } from 'express';
 import { UserController } from '../controllers/userController';
 import { requireAuth, requireAdminSecret } from '../middleware/auth';
+import { otpSendRateLimiter, otpVerifyRateLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
 // Dynamic Authentication routes with fixed dev OTP 261125
-router.post('/auth/send-otp', UserController.sendOtp);
-router.post('/auth/verify-otp', UserController.verifyOtp);
-router.post('/email/send-otp', UserController.sendEmailOtp);
-router.post('/email/verify-otp', UserController.verifyEmailOtp);
+router.post('/auth/send-otp', otpSendRateLimiter, UserController.sendOtp);
+router.post('/auth/verify-otp', otpVerifyRateLimiter, UserController.verifyOtp);
+router.post('/email/send-otp', otpSendRateLimiter, UserController.sendEmailOtp);
+router.post('/email/verify-otp', otpVerifyRateLimiter, UserController.verifyEmailOtp);
 
 // Authenticated current session user route
 router.get('/me', requireAuth, UserController.getCurrentUser);

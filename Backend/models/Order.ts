@@ -153,5 +153,15 @@ const OrderSchema = new Schema<IOrder>(
   }
 );
 
+// High-throughput compound indexes for mobile queries and operations
+OrderSchema.index({ customerPhone: 1, createdAt: -1 });
+OrderSchema.index({ userId: 1, createdAt: -1 });
+OrderSchema.index({ customerEmail: 1, createdAt: -1 });
+OrderSchema.index({ orderStatus: 1, createdAt: -1 });
+OrderSchema.index({ paymentStatus: 1, createdAt: -1 });
+OrderSchema.index({ 'paymentDetails.razorpay_order_id': 1 });
+OrderSchema.index({ 'paymentDetails.razorpay_payment_id': 1 });
+OrderSchema.index({ createdAt: -1 });
+
 export const Order: Model<IOrder> =
   (mongoose.models.Order as Model<IOrder>) || mongoose.model<IOrder>('Order', OrderSchema);

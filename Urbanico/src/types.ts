@@ -65,6 +65,8 @@ export interface MaterialItem {
 export interface CartItem {
   id: string;
   itemId: string;
+  materialId?: string;
+  serviceId?: string;
   itemName: string;
   categoryName: string;
   selectedOptionLabel: string;
