@@ -56,7 +56,7 @@ interface HomeScreenProps {
 
 const HERO_CARD_IMAGE_URL = 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1790577407/herocard0.1_kms4vj.jpg';
 
-interface ChildPillItem {
+interface CategoryGridItem {
   id: string;
   label: string;
   image: string;
@@ -64,7 +64,7 @@ interface ChildPillItem {
   categoryId?: CategoryId;
 }
 
-const MATERIAL_CHILD_PILLS: ChildPillItem[] = [
+const URBAN_COMPANY_CATEGORY_GRID: CategoryGridItem[] = [
   {
     id: 'cement',
     label: 'Cement',
@@ -74,83 +74,73 @@ const MATERIAL_CHILD_PILLS: ChildPillItem[] = [
   },
   {
     id: 'bricks',
-    label: 'Bricks',
+    label: 'Bricks & Blocks',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693431/child-bricks_bbywkp.jpg',
     type: 'material',
     categoryId: 'bricks',
   },
   {
     id: 'sand',
-    label: 'Sand',
+    label: 'Sand & Robo',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693430/child-sand_qmbdo6.jpg',
     type: 'material',
     categoryId: 'sand',
   },
   {
-    id: 'stone',
-    label: 'Stone',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693430/child-stones_oqaced.jpg',
-    type: 'material',
-    categoryId: 'stone',
-  },
-  {
     id: 'iron_bars',
-    label: 'Steel',
+    label: 'Steel & TMT',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693449/child-ironbars_ayo0id.jpg',
     type: 'material',
     categoryId: 'iron_bars',
   },
   {
+    id: 'tiles',
+    label: 'Vitrified Tiles',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1787033354/Tiles_kw4xbl.jpg',
+    type: 'material',
+    categoryId: 'tiles',
+  },
+  {
     id: 'centring',
-    label: 'Centring',
+    label: 'Centring & Formwork',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693431/child-centering_nikj90.jpg',
     type: 'material',
     categoryId: 'centring',
   },
   {
-    id: 'tiles',
-    label: 'Tiles',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1787033354/Tiles_kw4xbl.jpg',
-    type: 'material',
-    categoryId: 'tiles',
-  },
-];
-
-const SERVICE_CHILD_PILLS: ChildPillItem[] = [
-  {
-    id: 'mason',
-    label: 'Mason',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693450/child-mason_mv6ulz.jpg',
-    type: 'service',
-  },
-  {
-    id: 'fabricator',
-    label: 'Fabricator',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693449/child-fabricator_btw9ek.jpg',
-    type: 'service',
-  },
-  {
     id: 'painter',
-    label: 'Painter',
+    label: 'Painting & Waterproofing',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693430/child-painter_eoyox2.jpg',
     type: 'service',
   },
   {
     id: 'electrician',
-    label: 'Electrician',
+    label: 'Electrician & Wiring',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693431/child-electrician_iggrlv.jpg',
     type: 'service',
   },
   {
     id: 'plumber',
-    label: 'Plumber',
+    label: 'Plumber & Sanitary',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693430/child-plumber_se4nd6.jpg',
     type: 'service',
   },
   {
+    id: 'mason',
+    label: 'Mason & Civil',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693450/child-mason_mv6ulz.jpg',
+    type: 'service',
+  },
+  {
     id: 'carpenter',
-    label: 'Carpenter',
+    label: 'Carpenter & Woodwork',
     image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693431/child-carpenter_fr1fjp.jpg',
+    type: 'service',
+  },
+  {
+    id: 'fabricator',
+    label: 'Fabricator & Welding',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693449/child-fabricator_btw9ek.jpg',
     type: 'service',
   },
 ];
@@ -183,14 +173,14 @@ export interface ProjectBundle {
 
 export const PROJECT_BUNDLES: ProjectBundle[] = [];
 
-interface InteractivePillProps {
+interface UrbanCategoryGridCardProps {
   label: string;
   image: string;
   theme: any;
   onPress: () => void;
 }
 
-const InteractivePillItem: React.FC<InteractivePillProps> = React.memo(({
+const UrbanCategoryGridCard: React.FC<UrbanCategoryGridCardProps> = React.memo(({
   label,
   image,
   theme,
@@ -200,7 +190,7 @@ const InteractivePillItem: React.FC<InteractivePillProps> = React.memo(({
 
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
-      toValue: 0.90,
+      toValue: 0.92,
       friction: 8,
       tension: 200,
       useNativeDriver: Platform.OS !== 'web',
@@ -226,14 +216,14 @@ const InteractivePillItem: React.FC<InteractivePillProps> = React.memo(({
       }}
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
-      style={styles.childPillItem}
+      style={styles.urbanGridCol}
       accessibilityRole="button"
       accessibilityLabel={label}
     >
-      <AnimatedView style={{ alignItems: 'center', transform: [{ scale: scaleAnim }] }}>
+      <AnimatedView style={{ alignItems: 'center', width: '100%', transform: [{ scale: scaleAnim }] }}>
         <View
           style={[
-            styles.childPillAvatarBox,
+            styles.urbanSquircleCard,
             {
               backgroundColor: theme.mode === 'dark' ? '#1E293B' : '#F8FAFC',
               borderColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.08)' : '#E2E8F0',
@@ -242,13 +232,16 @@ const InteractivePillItem: React.FC<InteractivePillProps> = React.memo(({
         >
           <ShimmerImage
             source={{ uri: image }}
-            style={styles.childPillAvatarImage}
+            style={styles.urbanSquircleImage}
             resizeMode="cover"
             preset="pill"
-            borderRadius={18}
+            borderRadius={14}
           />
         </View>
-        <Text style={[styles.childPillLabel, { color: theme.textPrimary }]} numberOfLines={1}>
+        <Text
+          style={[styles.urbanCardTitle, { color: theme.textPrimary }]}
+          numberOfLines={2}
+        >
           {label}
         </Text>
       </AnimatedView>
@@ -361,62 +354,50 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </View>
 
         {/* ========================================================================= */}
-        {/* 2. MATERIAL & TRADE SERVICES CHILD NAVIGATION PILLS */}
+        {/* 2. URBAN COMPANY STYLE CATEGORY & SERVICE NAVIGATION GRID (4 items/row) */}
         {/* ========================================================================= */}
-        <View style={styles.childNavSection}>
-          {/* Row 1: Materials Navigation Pills */}
-          <View style={styles.childNavRowWrapper}>
-            <View style={styles.childNavHeader}>
-              <Text style={[styles.childNavSectionTitle, { color: theme.textPrimary }]}>Materials</Text>
+        <View style={styles.urbanGridSection}>
+          <View style={styles.urbanGridHeader}>
+            <View>
+              <Text style={[styles.urbanGridTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
+                Categories & Services
+              </Text>
+              <Text style={[styles.urbanGridSubtitle, { color: theme.textSecondary, fontFamily: typography.fontFamily }]}>
+                Direct yard materials & certified site technicians
+              </Text>
             </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.childNavScroll}
-            >
-              {MATERIAL_CHILD_PILLS.map((item) => (
-                <InteractivePillItem
+          </View>
+
+          <View style={styles.urbanGridRow}>
+            {URBAN_COMPANY_CATEGORY_GRID.map((item) => {
+              const matchingItem = item.type === 'service'
+                ? activeMaterials.find((m) => m.id === `service-${item.id}`)
+                : undefined;
+
+              const handleCategoryPress = () => {
+                if (item.type === 'material') {
+                  onSelectCategory(item.categoryId || (item.id as CategoryId));
+                } else {
+                  if (matchingItem && onSelectItem) {
+                    onSelectItem(matchingItem);
+                  } else if (onNavigateAllServices) {
+                    onNavigateAllServices();
+                  } else {
+                    onSelectCategory('services-catalog');
+                  }
+                }
+              };
+
+              return (
+                <UrbanCategoryGridCard
                   key={item.id}
                   label={item.label}
                   image={item.image}
                   theme={theme}
-                  onPress={() => onSelectCategory(item.categoryId || (item.id as CategoryId))}
+                  onPress={handleCategoryPress}
                 />
-              ))}
-            </ScrollView>
-          </View>
-
-          {/* Row 2: Services Navigation Pills */}
-          <View style={styles.childNavRowWrapper}>
-            <View style={styles.childNavHeader}>
-              <Text style={[styles.childNavSectionTitle, { color: theme.textPrimary }]}>Trade Services</Text>
-            </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.childNavScroll}
-            >
-              {SERVICE_CHILD_PILLS.map((item) => {
-                const matchingItem = activeMaterials.find((m) => m.id === `service-${item.id}`);
-                return (
-                  <InteractivePillItem
-                    key={item.id}
-                    label={item.label}
-                    image={item.image}
-                    theme={theme}
-                    onPress={() => {
-                      if (matchingItem && onSelectItem) {
-                        onSelectItem(matchingItem);
-                      } else if (onNavigateAllServices) {
-                        onNavigateAllServices();
-                      } else {
-                        onSelectCategory('services-catalog');
-                      }
-                    }}
-                  />
-                );
-              })}
-            </ScrollView>
+              );
+            })}
           </View>
         </View>
 
@@ -593,56 +574,74 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
 
-  /* ---------------- CHILD NAVIGATION PILLS (MODERN MINIMALIST) ---------------- */
-  childNavSection: {
-    paddingTop: 0,
-    paddingBottom: 2,
-    gap: 16,
+  /* ---------------- URBAN COMPANY CATEGORY GRID (4 ITEMS / ROW) ---------------- */
+  urbanGridSection: {
+    paddingHorizontal: 12,
+    paddingTop: 4,
+    paddingBottom: 8,
   },
-  childNavRowWrapper: {
-    gap: 10,
-  },
-  childNavHeader: {
+  urbanGridHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+    marginBottom: 12,
   },
-  childNavSectionTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: -0.2,
+  urbanGridTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
-  childNavScroll: {
-    paddingHorizontal: 16,
-    gap: 14,
+  urbanGridSubtitle: {
+    fontSize: 12,
+    marginTop: 2,
   },
-  childPillItem: {
+  urbanGridRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    marginHorizontal: -4,
+  },
+  urbanGridCol: {
+    width: '25%',
     alignItems: 'center',
-    width: 64,
-    gap: 6,
+    paddingHorizontal: 3,
+    marginBottom: 14,
   },
-  childPillAvatarBox: {
-    width: 54,
-    height: 54,
+  urbanSquircleCard: {
+    width: 62,
+    height: 62,
     borderRadius: 18,
     overflow: 'hidden',
-    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
     alignItems: 'center',
     justifyContent: 'center',
+    ...Platform.select({
+      web: {
+        boxShadow: '0 2px 6px rgba(0, 0, 0, 0.04)',
+      },
+      default: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.04,
+        shadowRadius: 4,
+        elevation: 1,
+      },
+    }),
   },
-  childPillAvatarImage: {
-    width: '100%',
-    height: '100%',
+  urbanSquircleImage: {
+    width: 44,
+    height: 44,
   },
-  childPillLabel: {
-    fontSize: 11.5,
+  urbanCardTitle: {
+    fontSize: 11,
     fontWeight: '600',
-    color: '#1E293B',
     textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 14,
+    minHeight: 28,
     letterSpacing: -0.1,
+    paddingHorizontal: 2,
   },
 
   /* ---------------- SECTION HEADINGS & CONTAINERS ---------------- */

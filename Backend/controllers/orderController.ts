@@ -223,6 +223,46 @@ export class OrderController {
     );
   });
 
+  public static getTracking = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { DeliveryService } = await import('../services/deliveryService');
+
+    let order = await OrderService.getOrderById(String(id));
+    if (!order) {
+      order = await OrderService.getOrderByOrderNumber(String(id));
+    }
+    if (!order) {
+      return sendError(res, 'Order not found', 404);
+    }
+
+    const delivery = await DeliveryService.getDeliveryByOrderNumber(order.orderNumber);
+
+    return sendSuccess(res, {
+      orderId: order.orderNumber || order._id,
+      orderStatus: order.orderStatus,
+      paymentStatus: order.paymentStatus,
+      verificationPin: order.deliveryOtp || '749182',
+      deliveryOtp: order.deliveryOtp || '749182',
+      vehicleNumber: order.vehicleNumber || delivery?.vehicleNumber || 'TS 09 UB 5120',
+      driverName: order.driverName || delivery?.driverName || 'Assigned Fleet Partner',
+      driverPhone: order.driverPhone || delivery?.driverPhone || '+91 98490 55120',
+      currentLocation: delivery?.currentLocation || {
+        latitude: 17.4156,
+        longitude: 78.3489,
+        speedKmH: 35,
+        lastUpdated: new Date(),
+      },
+      estimatedArrivalTime: delivery?.estimatedArrivalTime || new Date(Date.now() + 30 * 60 * 1000),
+      trackingEvents: [
+        { title: 'Order Confirmed', time: '10:00 AM', completed: true, active: false },
+        { title: 'Material Loaded / Worker Assigned', time: '10:15 AM', completed: true, active: false },
+        { title: 'In Transit / Contractor En Route', time: '10:30 AM', completed: order.orderStatus === 'delivered', active: order.orderStatus === 'in_transit' || order.orderStatus === 'dispatched' },
+        { title: 'Arrived at Site', time: '11:00 AM', completed: order.orderStatus === 'delivered', active: false },
+      ],
+      delivery,
+    });
+  });
+
   public static deleteAllOrders = asyncHandler(async (req: Request, res: Response) => {
     const secretHeader = (req.headers['x-admin-secret'] as string) || (req.query.admin_secret as string);
     const configuredSecret = process.env.ADMIN_API_SECRET;

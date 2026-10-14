@@ -5,10 +5,11 @@ import { materialRouter } from './materialRouter';
 import { serviceRouter } from './serviceRouter';
 import { userRouter } from './userRouter';
 import { deliveryRouter } from './deliveryRouter';
+import { quoteRouter } from './quoteRouter';
 import { adminRouter } from './adminRouter';
 import { PaymentController } from '../controllers/paymentController';
+import { requireAdminSecret } from '../middleware';
 import { getDBStatus } from '../config/db';
-import { requireAdminSecret } from '../middleware/auth';
 
 const apiRouter = Router();
 
@@ -17,10 +18,12 @@ apiRouter.use('/razorpay', paymentRouter);
 apiRouter.use('/payments', paymentRouter);
 apiRouter.use('/orders', orderRouter);
 apiRouter.use('/materials', materialRouter);
+apiRouter.use('/products', materialRouter);
 apiRouter.use('/services', serviceRouter);
 apiRouter.use('/users', userRouter);
 apiRouter.use('/user', userRouter);
 apiRouter.use('/deliveries', deliveryRouter);
+apiRouter.use('/quotes', quoteRouter);
 apiRouter.use('/admin', adminRouter);
 
 // Administrative Purge & Clean Slate API (Protected by requireAdminSecret)

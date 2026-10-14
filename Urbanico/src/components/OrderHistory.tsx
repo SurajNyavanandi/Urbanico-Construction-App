@@ -39,6 +39,7 @@ import {
   KeyRound,
   Building2,
   Calendar,
+  Wrench,
 } from 'lucide-react-native';
 import { ActivityDelivery, CartItem, UserProfile } from '../types';
 import { useTheme } from '../context/ThemeContext';
@@ -157,11 +158,24 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
   // Live Dispatch Tracking In-Place Modal
   const [activeTrackingDelivery, setActiveTrackingDelivery] = useState<ActivityDelivery | null>(null);
 
+  // Active in-transit / dispatched orders list for multi-order tracking switcher
+  const activeOrdersList = useMemo(() => {
+    return orders.filter((o) => {
+      const s = (o.orderStatus || '').toLowerCase();
+      return s === 'placed' || s === 'confirmed' || s === 'processing' || s === 'in_transit' || s === 'dispatched' || s === 'en_route';
+    });
+  }, [orders]);
+
   // Live GPS Telemetry with Page Visibility API guard (pauses when browser tab is inactive)
   const [telemetry, setTelemetry] = useState<{ speed: number; etaMinutes: number }>({ speed: 42, etaMinutes: 24 });
 
   useEffect(() => {
     if (!activeTrackingDelivery) return;
+
+    // Reset initial ETA per order so each active order reflects its specific remaining arrival time
+    const seedNum = (activeTrackingDelivery.orderNumber || '10').replace(/\D/g, '').slice(-2);
+    const initialEta = Math.max(8, (parseInt(seedNum || '24', 10) % 25) + 12);
+    setTelemetry({ speed: 42, etaMinutes: initialEta });
 
     let intervalId: any = null;
 
@@ -1228,6 +1242,39 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
             </TouchableOpacity>
           </View>
 
+          {/* Multi-Order Active Switcher Bar within Live Tracking Modal */}
+          {activeOrdersList.length > 1 && (
+            <View style={[styles.modalActiveSwitcherBar, { backgroundColor: theme.surfaceSecondary, borderBottomColor: theme.border }]}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingHorizontal: 14, paddingVertical: 8 }}>
+                {activeOrdersList.map((actOrd) => {
+                  const isCurrent = activeTrackingDelivery?.orderNumber === actOrd.orderNumber;
+                  return (
+                    <TouchableOpacity
+                      key={actOrd.orderNumber}
+                      onPress={() => {
+                        const mapped = mapOrderToActivityDelivery(actOrd);
+                        setActiveTrackingDelivery(mapped);
+                      }}
+                      style={[
+                        styles.modalSwitcherChip,
+                        {
+                          backgroundColor: isCurrent ? (theme.primary || '#FCB026') : theme.surface,
+                          borderColor: isCurrent ? (theme.primary || '#FCB026') : theme.border,
+                        },
+                      ]}
+                      activeOpacity={0.8}
+                    >
+                      <Truck size={12} color={isCurrent ? '#18181B' : theme.textPrimary} />
+                      <Text style={{ fontSize: 11, fontWeight: '700', color: isCurrent ? '#18181B' : theme.textPrimary }}>
+                        #{actOrd.orderNumber}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          )}
+
           <ScrollView
             style={styles.trackingModalBody}
             contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
@@ -1275,67 +1322,96 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
             </View>
 
             {/* 2. Unified Driver Contact & Gate Verification Code Card */}
-            <View style={[styles.minimalDriverGateCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-              {/* Driver info row */}
-              <View style={styles.minimalDriverHeaderRow}>
-                <View style={[styles.driverAvatarCircle, { backgroundColor: theme.surfaceSecondary }]}>
-                  <Truck size={18} color={theme.textPrimary} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.driverHeadingName, { color: theme.textPrimary }]}>
-                    {activeTrackingDelivery?.driverName || 'Fleet Driver'}
-                  </Text>
-                  <Text style={[styles.driverVehiclePlate, { color: theme.textSecondary }]}>
-                    {activeTrackingDelivery?.vehicleNumber || 'TS 09 UB 5120'} · Heavy Carrier
-                  </Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => handleCall(activeTrackingDelivery?.driverPhone)}
-                  style={[styles.minimalCallBtn, { backgroundColor: '#16A34A' }]}
-                  activeOpacity={0.8}
-                  accessibilityLabel="Call Driver"
-                >
-                  <Phone size={14} color="#FFFFFF" />
-                  <Text style={styles.minimalCallBtnText}>Call</Text>
-                </TouchableOpacity>
-              </View>
+            {(() => {
+              const isServiceOrder = Boolean(
+                activeTrackingDelivery && (
+                  (activeTrackingDelivery.materialName || '').toLowerCase().includes('mason') ||
+                  (activeTrackingDelivery.materialName || '').toLowerCase().includes('painter') ||
+                  (activeTrackingDelivery.materialName || '').toLowerCase().includes('electrician') ||
+                  (activeTrackingDelivery.materialName || '').toLowerCase().includes('plumber') ||
+                  (activeTrackingDelivery.materialName || '').toLowerCase().includes('carpenter') ||
+                  (activeTrackingDelivery.materialName || '').toLowerCase().includes('service') ||
+                  activeTrackingDelivery.cartItemsSnapshot?.some((i) =>
+                    (i.categoryName || '').toLowerCase().includes('service') ||
+                    (i.itemName || '').toLowerCase().includes('mason') ||
+                    (i.itemName || '').toLowerCase().includes('painter') ||
+                    (i.itemName || '').toLowerCase().includes('electrician')
+                  )
+                )
+              );
 
-              <View style={[styles.minimalDividerLine, { backgroundColor: theme.border }]} />
+              return (
+                <View style={[styles.minimalDriverGateCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                  {/* Driver / Technician info row */}
+                  <View style={styles.minimalDriverHeaderRow}>
+                    <View style={[styles.driverAvatarCircle, { backgroundColor: theme.surfaceSecondary }]}>
+                      {isServiceOrder ? (
+                        <Wrench size={18} color={theme.textPrimary} />
+                      ) : (
+                        <Truck size={18} color={theme.textPrimary} />
+                      )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.driverHeadingName, { color: theme.textPrimary }]}>
+                        {activeTrackingDelivery?.driverName || (isServiceOrder ? 'Rajesh Kumar (Master Contractor)' : 'Fleet Driver')}
+                      </Text>
+                      <Text style={[styles.driverVehiclePlate, { color: theme.textSecondary }]}>
+                        {isServiceOrder
+                          ? 'Verified Skilled Partner • On-Site Arrival Slot Today'
+                          : `${activeTrackingDelivery?.vehicleNumber || 'TS 09 UB 5120'} · Heavy Carrier`}
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => handleCall(activeTrackingDelivery?.driverPhone)}
+                      style={[styles.minimalCallBtn, { backgroundColor: '#16A34A' }]}
+                      activeOpacity={0.8}
+                      accessibilityLabel="Call Partner"
+                    >
+                      <Phone size={14} color="#FFFFFF" />
+                      <Text style={styles.minimalCallBtnText}>Call</Text>
+                    </TouchableOpacity>
+                  </View>
 
-              {/* Gate Passcode (OTP) */}
-              <View style={styles.minimalOtpSection}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.otpSectionTitle, { color: theme.textSecondary }]}>
-                    Gate Handover Code
-                  </Text>
-                  <Text style={[styles.otpDigitsDisplay, { color: theme.textPrimary }]}>
-                    {activeTrackingDelivery?.deliveryOtp || '749182'}
-                  </Text>
-                  <Text style={[styles.otpHelpNote, { color: theme.textMuted }]}>
-                    Share with driver at gate for authorized unloading
-                  </Text>
+                  <View style={[styles.minimalDividerLine, { backgroundColor: theme.border }]} />
+
+                  {/* Gate Passcode (OTP) or Service PIN */}
+                  <View style={styles.minimalOtpSection}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.otpSectionTitle, { color: theme.textSecondary }]}>
+                        {isServiceOrder ? 'Job Start / Service Verification PIN' : 'Gate Handover Code'}
+                      </Text>
+                      <Text style={[styles.otpDigitsDisplay, { color: theme.textPrimary }]}>
+                        {activeTrackingDelivery?.deliveryOtp || '749182'}
+                      </Text>
+                      <Text style={[styles.otpHelpNote, { color: theme.textMuted }]}>
+                        {isServiceOrder
+                          ? 'Share with technician upon arrival to verify booking & start job'
+                          : 'Share with driver at gate for authorized unloading'}
+                      </Text>
+                    </View>
+
+                    <TouchableOpacity
+                      onPress={() => handleCopy(activeTrackingDelivery?.deliveryOtp || '749182', 'otp')}
+                      style={[styles.otpCopyBtnMinimal, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
+                      activeOpacity={0.7}
+                      accessibilityLabel="Copy PIN"
+                    >
+                      {copiedOtpId === (activeTrackingDelivery?.deliveryOtp || '749182') ? (
+                        <>
+                          <Check size={14} color="#16A34A" />
+                          <Text style={[styles.otpCopyBtnText, { color: '#16A34A' }]}>Copied</Text>
+                        </>
+                      ) : (
+                        <>
+                          <Copy size={14} color={theme.textPrimary} />
+                          <Text style={[styles.otpCopyBtnText, { color: theme.textPrimary }]}>Copy</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
                 </View>
-
-                <TouchableOpacity
-                  onPress={() => handleCopy(activeTrackingDelivery?.deliveryOtp || '749182', 'otp')}
-                  style={[styles.otpCopyBtnMinimal, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
-                  activeOpacity={0.7}
-                  accessibilityLabel="Copy Gate Code"
-                >
-                  {copiedOtpId === (activeTrackingDelivery?.deliveryOtp || '749182') ? (
-                    <>
-                      <Check size={14} color="#16A34A" />
-                      <Text style={[styles.otpCopyBtnText, { color: '#16A34A' }]}>Copied</Text>
-                    </>
-                  ) : (
-                    <>
-                      <Copy size={14} color={theme.textPrimary} />
-                      <Text style={[styles.otpCopyBtnText, { color: theme.textPrimary }]}>Copy</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
+              );
+            })()}
 
             {/* 3. Consignment Manifest (Clean Minimalist Item List) */}
             {activeTrackingDelivery?.cartItemsSnapshot && activeTrackingDelivery.cartItemsSnapshot.length > 0 && (
@@ -2451,5 +2527,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#EF4444',
+  },
+  modalActiveSwitcherBar: {
+    borderBottomWidth: 1,
+  },
+  modalSwitcherChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
   },
 });

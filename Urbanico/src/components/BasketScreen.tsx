@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import {
   ShoppingCart,
+  Heart,
   Trash2,
   Plus,
   Minus,
@@ -60,6 +61,7 @@ import {
   RefreshCw,
   AlertCircle,
   HelpCircle,
+  Zap,
 } from 'lucide-react-native';
 import {
   GooglePayIcon,
@@ -234,6 +236,9 @@ interface BasketScreenProps {
   isLoggedIn?: boolean;
   onOpenLoginModal?: () => void;
   user?: any;
+  onToggleFavorite?: (itemId: string) => void;
+  onSaveToFavorites?: (item: CartItem) => void;
+  favoriteIds?: string[];
 }
 
 export const BasketScreen: React.FC<BasketScreenProps> = ({
@@ -251,6 +256,9 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   isLoggedIn = false,
   onOpenLoginModal,
   user,
+  onToggleFavorite,
+  onSaveToFavorites,
+  favoriteIds = [],
 }) => {
   const { theme, typography } = useTheme();
   const {
@@ -316,14 +324,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     if (user?.phone && !newAddrPhone) setNewAddrPhone(user.phone.replace(/\D/g, ''));
   }, [user]);
 
-  // Saved for Later state from unified CartContext
-  const {
-    savedForLaterItems,
-    saveForLater,
-    moveToCart,
-    removeSavedForLater,
-  } = useCart();
-
   // Stock Reservation 10-Minute Expiry Countdown (Item 3)
   const [reservationSeconds, setReservationSeconds] = useState<number>(() => {
     return syncManager.getStockReservationRemainingSeconds();
@@ -388,6 +388,15 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   } | null>(null);
   const [retryAttemptCount, setRetryAttemptCount] = useState(0);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethodType>('online');
+  const [selectedPaymentMode, setSelectedPaymentMode] = useState<'gateway' | 'bnpl'>('gateway');
+
+  const availableCreditLimit = useMemo(() => {
+    const limit = user?.creditLimit !== undefined ? user.creditLimit : 50000;
+    const used = user?.usedCredit || 0;
+    return Math.max(0, limit - used);
+  }, [user]);
+
+  const isProfileVerified = Boolean(user?.isVerified);
 
   // Check URL query parameters for payment status callback (redirection flow)
   useEffect(() => {
@@ -597,7 +606,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <MapPin size={16} color={theme.primary} />
             <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary }}>
-              Delivery Destination
+              {isServicesOnly || hasServices ? 'Service Location & Site Safety Access' : 'Delivery Destination'}
             </Text>
           </View>
           <TouchableOpacity
@@ -660,7 +669,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                       { color: theme.primaryText || '#18181B' },
                     ]}
                   >
-                    DELIVERY SITE
+                    {isServicesOnly || hasServices ? 'SERVICE SITE' : 'DELIVERY SITE'}
                   </Text>
                 </View>
               </View>
@@ -676,7 +685,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
 
               <View style={styles.contactDetailsRow}>
                 <Text style={[styles.contactName, { color: theme.textSecondary }]}>
-                  Recipient: <Text style={{ color: theme.textPrimary, fontWeight: '600' }}>{user?.name || 'Site Incharge'}</Text>
+                  {isServicesOnly || hasServices ? 'Site Supervisor: ' : 'Recipient: '}<Text style={{ color: theme.textPrimary, fontWeight: '600' }}>{user?.name || 'Site Incharge'}</Text>
                 </Text>
                 <Text style={[styles.contactDot, { color: theme.textMuted }]}>•</Text>
                 <Text style={[styles.contactPhone, { color: theme.textSecondary }]}>
@@ -1399,6 +1408,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   );
 
   const payableAmount = grandTotal;
+  const isCreditAllowed = isProfileVerified && availableCreditLimit >= grandTotal;
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -1407,19 +1417,22 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     }, 600);
   };
 
+  const handleSaveToFavorites = (item: CartItem) => {
+    soundService.playFavorite();
+    const materialId = item.itemId || item.id;
+    if (onSaveToFavorites) {
+      onSaveToFavorites(item);
+    } else if (onToggleFavorite) {
+      if (!favoriteIds.includes(materialId)) {
+        onToggleFavorite(materialId);
+      }
+    }
+    onRemoveItem(item.id);
+    showToast(`Moved "${item.itemName}" to Favorites`, 'success');
+  };
+
   const handleSaveForLater = (item: CartItem) => {
-    saveForLater(item);
-    showToast(`Saved "${item.itemName}" for later`, 'info');
-  };
-
-  const handleMoveToCart = (item: CartItem) => {
-    moveToCart(item);
-    showToast(`Moved "${item.itemName}" back to cart`, 'success');
-  };
-
-  const handleRemoveSavedItem = (id: string) => {
-    removeSavedForLater(id);
-    showToast('Removed item from saved list', 'info');
+    handleSaveToFavorites(item);
   };
 
   // Saved Delivery Addresses list (E-commerce Flipkart / Amazon style)
@@ -1608,10 +1621,32 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       `${cleanPhone}@urbanico.in`
     ).trim();
 
-    // Direct 1-Step Razorpay Checkout: Launches Razorpay standard checkout directly with prefilled user profile contact
+    // Check Urbanico Credit (BNPL) limit & company profile verification
+    if (selectedPaymentMode === 'bnpl') {
+      if (!isProfileVerified) {
+        showToast('Urbanico Credit unavailable: Company profile unverified. Verify GSTIN to unlock.', 'error');
+        return;
+      }
+      if (grandTotal > availableCreditLimit) {
+        showToast(`Credit Limit Exceeded: Available ₹${availableCreditLimit.toLocaleString('en-IN')} < ₹${grandTotal.toLocaleString('en-IN')} order total.`, 'error');
+        return;
+      }
+    }
+
+    // Direct 1-Step Checkout / BNPL Settlement
     setIsPlacingOrder(true);
     setPaymentFailure(null);
     setPaymentError(null);
+
+    if (selectedPaymentMode === 'bnpl') {
+      showToast('Order placed using Urbanico Credit (30-Day Pay Later BNPL)', 'success');
+      setIsPlacingOrder(false);
+      handlePaymentSuccess({
+        razorpay_payment_id: `bnpl_credit_${Date.now()}`,
+        method: 'Urbanico Credit (30-Day BNPL)',
+      } as any);
+      return;
+    }
 
     const isLive = getClientKeyMode() === 'LIVE' || getClientRazorpayKey().startsWith('rzp_live_');
     if (!isLive) {
@@ -1930,6 +1965,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     };
 
     createdOrderRef.current = newOrder;
+    setSelectedActiveOrderId(newOrder.id || newOrder.orderNumber);
 
     // Auto-generate and email professional GST Tax Invoice reflecting authoritative numbers
     try {
@@ -1991,7 +2027,33 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     }
   };
 
-  const activeEnRoute = deliveries.find((d) => d.status === 'En Route' && !cancelledOrderIds.includes(d.id));
+  const [selectedActiveOrderId, setSelectedActiveOrderId] = useState<string | null>(null);
+
+  const activeDeliveries = useMemo(() => {
+    return deliveries.filter((d) => {
+      const isCancelled =
+        cancelledOrderIds.includes(d.id) ||
+        cancelledOrderIds.includes(d.orderNumber) ||
+        d.status === 'Cancelled';
+      const isActive =
+        d.status === 'En Route' ||
+        d.status === 'Placed' ||
+        d.status === 'Dispatched' ||
+        (d as any).status === 'in_transit' ||
+        (d as any).status === 'Processing';
+      return isActive && !isCancelled;
+    });
+  }, [deliveries, cancelledOrderIds]);
+
+  const activeEnRoute = useMemo(() => {
+    if (selectedActiveOrderId) {
+      const found = activeDeliveries.find(
+        (d) => d.id === selectedActiveOrderId || d.orderNumber === selectedActiveOrderId
+      );
+      if (found) return found;
+    }
+    return activeDeliveries[0] || null;
+  }, [activeDeliveries, selectedActiveOrderId]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -2059,14 +2121,49 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
               ]}
               numberOfLines={1}
             >
-              Tracking & Orders
+              Tracking & Orders{activeDeliveries.length > 0 ? ` (${activeDeliveries.length})` : ''}
             </Text>
           </TouchableOpacity>
         </View>
 
         {activeTab === 'cart' ? (
           <>
-            {cartItems.length === 0 && savedForLaterItems.length === 0 ? (
+            {/* Quick Active Deliveries Dock (Blinkit / Zepto / Swiggy style) */}
+            {activeDeliveries.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setActiveTab('history')}
+                style={[
+                  styles.activeOrderCartBanner,
+                  {
+                    backgroundColor: theme.mode === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EFF6FF',
+                    borderColor: theme.mode === 'dark' ? 'rgba(37, 99, 235, 0.35)' : '#BFDBFE',
+                  },
+                ]}
+                activeOpacity={0.85}
+              >
+                <View style={styles.activeOrderBannerLeft}>
+                  <View style={styles.pulsingGreenDot} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.activeOrderBannerTitle, { color: theme.textPrimary }]}>
+                      {activeDeliveries.length === 1
+                        ? `Order #${activeDeliveries[0].orderNumber} En Route`
+                        : `${activeDeliveries.length} Active Orders in Transit`}
+                    </Text>
+                    <Text style={[styles.activeOrderBannerSubtitle, { color: theme.textSecondary }]} numberOfLines={1}>
+                      {activeDeliveries.length === 1
+                        ? `${activeDeliveries[0].materialName} · ${activeDeliveries[0].estimatedArrival || 'Arriving soon'}`
+                        : `Tracking #${activeDeliveries[0].orderNumber} + ${activeDeliveries.length - 1} more · Tap to view`}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.activeOrderBannerAction}>
+                  <Text style={styles.activeOrderBannerActionText}>Track Live</Text>
+                  <ChevronRight size={14} color="#2563EB" />
+                </View>
+              </TouchableOpacity>
+            )}
+
+            {cartItems.length === 0 ? (
               <View style={[styles.nikeEmptyBagContainer, { backgroundColor: theme.surface }]}>
                 <View style={[styles.nikeEmptyBagIconCircle, { backgroundColor: theme.surfaceSecondary }]}>
                   <ShoppingCart size={34} color={theme.textPrimary} strokeWidth={1.5} />
@@ -2163,22 +2260,23 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                             ) : null}
                           </Text>
                           <TouchableOpacity
-                            onPress={() => handleSaveForLater(item)}
+                            onPress={() => handleSaveToFavorites(item)}
                             style={styles.saveForLaterBtn}
                             activeOpacity={0.7}
+                            accessibilityLabel={`Save ${item.itemName} to Favorites`}
                           >
-                            <Bookmark size={12} color={theme.textSecondary} />
-                            <Text style={[styles.saveForLaterText, { color: theme.textSecondary }]}>Save for Later</Text>
+                            <Heart size={12} color={theme.textSecondary} />
+                            <Text style={[styles.saveForLaterText, { color: theme.textSecondary }]}>Save to Favorites</Text>
                           </TouchableOpacity>
                         </View>
 
                         {/* Stepper + Delete (Locked to 1 for Services) */}
-                        {(item as any).categoryId === 'services' || item.unitPrice === 99 || (item.selectedOptionLabel && item.selectedOptionLabel.toLowerCase().includes('demo')) ? (
+                        {isCartItemService(item) ? (
                           <View style={styles.stepperActionRow}>
                             <View style={[styles.serviceFixedPill, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
                               <ShieldCheck size={13} color="#059669" strokeWidth={2.4} />
                               <Text style={[styles.serviceFixedPillText, { color: theme.textPrimary }]}>
-                                1 Demo Visit
+                                1 Visit / Site Inspection
                               </Text>
                             </View>
                             <TouchableOpacity
@@ -2188,7 +2286,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                               }}
                               style={styles.deleteBtn}
                               activeOpacity={0.7}
-                              accessibilityLabel="Remove demo visit"
+                              accessibilityLabel="Remove service booking"
                             >
                               <Trash2 size={15} color={theme.textSecondary} />
                             </TouchableOpacity>
@@ -2401,6 +2499,86 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                 {/* Apply Contractor Promo Code / Coupon (Positioned directly below GSTIN) */}
                 {cartItems.length > 0 && renderPromoCard(false)}
 
+                {/* Payment Method / BNPL Credit Selector */}
+                {cartItems.length > 0 && (
+                  <View style={{ backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 12 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary, marginBottom: 8 }}>
+                      Payment Mode
+                    </Text>
+
+                    <View style={{ gap: 8 }}>
+                      {/* Gateway Payment */}
+                      <TouchableOpacity
+                        onPress={() => setSelectedPaymentMode('gateway')}
+                        style={{
+                          padding: 10,
+                          borderRadius: 8,
+                          backgroundColor: selectedPaymentMode === 'gateway' ? (theme.mode === 'dark' ? '#1E293B' : '#EFF6FF') : theme.surfaceSecondary,
+                          borderWidth: 1,
+                          borderColor: selectedPaymentMode === 'gateway' ? (theme.primary || '#2563EB') : theme.border,
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          <Zap size={16} color={selectedPaymentMode === 'gateway' ? theme.primary : theme.textSecondary} />
+                          <View>
+                            <Text style={{ fontSize: 12.5, fontWeight: '700', color: theme.textPrimary }}>
+                              Online Direct / Razorpay / UPI / Cards / NetBanking
+                            </Text>
+                            <Text style={{ fontSize: 11, color: theme.textSecondary }}>
+                              Instant confirmation & automatic tax invoice generation
+                            </Text>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+
+                      {/* Urbanico Credit (30-Day Pay Later BNPL) */}
+                      <TouchableOpacity
+                        onPress={() => setSelectedPaymentMode('bnpl')}
+                        style={{
+                          padding: 10,
+                          borderRadius: 8,
+                          backgroundColor: selectedPaymentMode === 'bnpl' ? (theme.mode === 'dark' ? '#1E293B' : '#FFFBEB') : theme.surfaceSecondary,
+                          borderWidth: 1,
+                          borderColor: selectedPaymentMode === 'bnpl' ? (isCreditAllowed ? '#D97706' : '#EF4444') : theme.border,
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                            <Lock size={16} color={selectedPaymentMode === 'bnpl' ? '#D97706' : theme.textSecondary} />
+                            <View>
+                              <Text style={{ fontSize: 12.5, fontWeight: '700', color: theme.textPrimary }}>
+                                Urbanico Credit (30-Day Pay Later BNPL)
+                              </Text>
+                              <Text style={{ fontSize: 11, color: theme.textSecondary }}>
+                                Available Limit: ₹{availableCreditLimit.toLocaleString('en-IN')} • 0% Interest for 30 Days
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+
+                        {/* Credit Status Warnings */}
+                        {!isProfileVerified && (
+                          <View style={{ marginTop: 6, padding: 6, borderRadius: 6, backgroundColor: theme.mode === 'dark' ? '#311212' : '#FEF2F2', borderWidth: 1, borderColor: '#FCA5A5' }}>
+                            <Text style={{ fontSize: 11, color: '#B91C1C', fontWeight: '600' }}>
+                              ⚠️ Profile Unverified: Complete GSTIN & company profile verification to activate your credit limit.
+                            </Text>
+                          </View>
+                        )}
+
+                        {isProfileVerified && grandTotal > availableCreditLimit && (
+                          <View style={{ marginTop: 6, padding: 6, borderRadius: 6, backgroundColor: theme.mode === 'dark' ? '#311212' : '#FEF2F2', borderWidth: 1, borderColor: '#FCA5A5' }}>
+                            <Text style={{ fontSize: 11, color: '#B91C1C', fontWeight: '600' }}>
+                              ⚠️ Exceeds Limit: Order total (₹{grandTotal.toLocaleString('en-IN')}) exceeds available credit limit (₹{availableCreditLimit.toLocaleString('en-IN')}).
+                            </Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
                 {/* Price Summary Breakdown */}
                 {cartItems.length > 0 && (
                   <View style={[styles.summaryCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -2558,48 +2736,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                   </View>
                 )}
 
-                {/* Saved for Later Section (Item 24) */}
-                {savedForLaterItems.length > 0 && (
-                  <View style={[styles.savedSection, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                    <View style={styles.savedSectionHeader}>
-                      <BookmarkCheck size={16} color={theme.textPrimary} />
-                      <Text style={[styles.savedSectionTitle, { color: theme.textPrimary }]}>
-                        Saved for Later ({savedForLaterItems.length})
-                      </Text>
-                    </View>
-
-                    <View style={styles.savedItemsList}>
-                      {savedForLaterItems.map((item, idx) => (
-                        <View
-                          key={item.id ? `saved-${item.id}-${idx}` : `saved-item-${item.itemId || 'item'}-${idx}`}
-                          style={[styles.savedItemRow, { borderTopColor: theme.borderLight }]}
-                        >
-                          <View style={styles.savedItemInfo}>
-                            <Text style={[styles.savedItemName, { color: theme.textPrimary }]} numberOfLines={1}>
-                              {item.itemName}
-                            </Text>
-                            <Text style={[styles.savedItemOption, { color: theme.textSecondary }]}>
-                              {item.selectedOptionLabel} • ₹{item.unitPrice.toLocaleString('en-IN')}
-                            </Text>
-                          </View>
-
-                          <View style={styles.savedItemActions}>
-                            <TouchableOpacity
-                              onPress={() => handleMoveToCart(item)}
-                              style={[styles.moveToCartBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
-                              activeOpacity={0.7}
-                            >
-                              <Text style={[styles.moveToCartText, { color: theme.textPrimary }]}>Move to Cart</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={() => handleRemoveSavedItem(item.id)} style={styles.deleteBtn}>
-                              <Trash2 size={14} color={theme.textSecondary} />
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-                )}
           </View>
         )}
       </>
@@ -2646,6 +2782,86 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
               </View>
             ) : (
               <View style={{ gap: 14 }}>
+                {/* Multi-Order Active Deliveries Switcher / Carousel (Blinkit / Zepto / Swiggy standard) */}
+                {activeDeliveries.length > 1 && (
+                  <View style={[styles.activeSwitcherCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                    <View style={styles.activeSwitcherHeader}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <View style={styles.pulsingGreenDot} />
+                        <Text style={[styles.activeSwitcherTitle, { color: theme.textPrimary }]}>
+                          Active Deliveries ({activeDeliveries.length})
+                        </Text>
+                      </View>
+                      <Text style={[styles.activeSwitcherHint, { color: theme.textSecondary }]}>
+                        Tap to switch live dispatch
+                      </Text>
+                    </View>
+
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.activeSwitcherScroll}
+                    >
+                      {activeDeliveries.map((del, idx) => {
+                        const isSelected = activeEnRoute?.orderNumber === del.orderNumber || activeEnRoute?.id === del.id;
+                        return (
+                          <TouchableOpacity
+                            key={del.id || del.orderNumber || idx}
+                            onPress={() => {
+                              setSelectedActiveOrderId(del.id || del.orderNumber);
+                              showToast(`Switched to Order #${del.orderNumber}`, 'info');
+                            }}
+                            style={[
+                              styles.activeSwitcherPill,
+                              {
+                                backgroundColor: isSelected
+                                  ? (theme.primary || '#FCB026')
+                                  : theme.surfaceSecondary,
+                                borderColor: isSelected
+                                  ? (theme.primary || '#FCB026')
+                                  : theme.border,
+                              },
+                            ]}
+                            activeOpacity={0.8}
+                          >
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Truck size={13} color={isSelected ? '#18181B' : theme.textPrimary} />
+                              <Text
+                                style={[
+                                  styles.activeSwitcherPillOrder,
+                                  { color: isSelected ? '#18181B' : theme.textPrimary, fontWeight: isSelected ? '800' : '600' },
+                                ]}
+                              >
+                                #{del.orderNumber}
+                              </Text>
+                            </View>
+                            <Text
+                              style={[
+                                styles.activeSwitcherPillMaterial,
+                                { color: isSelected ? '#27272A' : theme.textSecondary },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {del.materialName}
+                            </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                              <Clock size={10} color={isSelected ? '#18181B' : '#059669'} />
+                              <Text
+                                style={[
+                                  styles.activeSwitcherPillEta,
+                                  { color: isSelected ? '#18181B' : '#059669' },
+                                ]}
+                              >
+                                {del.estimatedArrival || 'In Transit'}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                )}
+
                 {/* Active Order Vertical Lifecycle Card - Minimalist Redesign with Milestone Hierarchy */}
                 {activeEnRoute && (
                   <View style={[styles.trackingCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -2923,16 +3139,31 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                             </Text>
                           </View>
 
-                          <View style={[styles.deliveryRightInfo, { alignItems: 'flex-end', flexShrink: 0 }]}>
+                          <View style={[styles.deliveryRightInfo, { alignItems: 'flex-end', flexShrink: 0, gap: 6 }]}>
                             <Text style={[styles.delAmountText, { color: theme.textPrimary, textDecorationLine: isCancelled ? 'line-through' : 'none' }]}>
                               ₹{del.totalAmount.toLocaleString('en-IN')}
                             </Text>
-                            <TouchableOpacity
-                              onPress={() => onViewInvoice && onViewInvoice(del)}
-                              style={styles.miniInvoiceBtn}
-                            >
-                              <Text style={styles.miniInvoiceText}>Invoice</Text>
-                            </TouchableOpacity>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              {!isCancelled && del.status !== 'Delivered' && (
+                                <TouchableOpacity
+                                  onPress={() => {
+                                    setSelectedActiveOrderId(del.id || del.orderNumber);
+                                    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+                                    showToast(`Tracking Order #${del.orderNumber}`, 'info');
+                                  }}
+                                  style={[styles.miniTrackBtn, { backgroundColor: '#2563EB' }]}
+                                  activeOpacity={0.8}
+                                >
+                                  <Text style={styles.miniTrackBtnText}>Track</Text>
+                                </TouchableOpacity>
+                              )}
+                              <TouchableOpacity
+                                onPress={() => onViewInvoice && onViewInvoice(del)}
+                                style={styles.miniInvoiceBtn}
+                              >
+                                <Text style={styles.miniInvoiceText}>Invoice</Text>
+                              </TouchableOpacity>
+                            </View>
                           </View>
                         </View>
                       );
@@ -3848,6 +4079,97 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     fontWeight: '700',
     color: '#111111',
+  },
+  miniTrackBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  miniTrackBtnText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  pulsingGreenDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+  },
+  activeOrderCartBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+    gap: 10,
+  },
+  activeOrderBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  activeOrderBannerTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  activeOrderBannerSubtitle: {
+    fontSize: 11.5,
+    marginTop: 1,
+  },
+  activeOrderBannerAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  activeOrderBannerActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  activeSwitcherCard: {
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    gap: 8,
+  },
+  activeSwitcherHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  activeSwitcherTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  activeSwitcherHint: {
+    fontSize: 11,
+  },
+  activeSwitcherScroll: {
+    gap: 8,
+    paddingVertical: 2,
+  },
+  activeSwitcherPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    minWidth: 120,
+    maxWidth: 160,
+  },
+  activeSwitcherPillOrder: {
+    fontSize: 12,
+  },
+  activeSwitcherPillMaterial: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  activeSwitcherPillEta: {
+    fontSize: 10,
+    fontWeight: '700',
   },
   nikeEmptyBagContainer: {
     alignItems: 'center',

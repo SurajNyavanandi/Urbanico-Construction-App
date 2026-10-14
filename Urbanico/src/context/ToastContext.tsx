@@ -62,7 +62,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     ) => {
       const lower = (message || '').toLowerCase();
 
-      // Suppress all noisy, non-essential notifications (auth status, locations, addresses, profile, category clicks, coupons, invoices, quotations, sync warnings)
+      // Suppress noisy, non-essential notifications (auth status, locations, addresses, profile, category clicks, coupons, invoices, quotations, sync warnings)
       if (
         lower.includes('logged in') ||
         lower.includes('logged out') ||
@@ -88,10 +88,16 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         return;
       }
 
-      // 1. Essential Cart action toasts: Item added, removed, or moved to/from cart
+      // 1. Essential Cart action toasts: Item added, removed, moved, or service duplicate warnings
       const isCartAction =
-        (lower.includes('cart') || lower.includes('basket') || lower.includes('saved for later')) &&
-        (lower.includes('add') || lower.includes('remov') || lower.includes('back to cart') || lower.includes('moved') || lower.includes('saved'));
+        (lower.includes('cart') || lower.includes('basket') || lower.includes('booking')) &&
+        (lower.includes('add') ||
+          lower.includes('remov') ||
+          lower.includes('back to cart') ||
+          lower.includes('moved') ||
+          lower.includes('saved') ||
+          lower.includes('already') ||
+          lower.includes('service'));
 
       // 2. Essential Favorite action toasts: Item added or removed from favorites
       const isFavoriteAction =
@@ -135,10 +141,10 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setCartToast((prev) => ({ ...prev, visible: false }));
   }, []);
 
-  // Listen to central 429 rate limit events
+  // Listen to central 429 rate limit events and duplicate service warnings
   React.useEffect(() => {
     if (typeof window === 'undefined') return;
-    const handler = (e: any) => {
+    const rateLimitHandler = (e: any) => {
       const detail = e.detail || {};
       const retryAfter = detail.retryAfter || 60;
       setToast({
@@ -149,8 +155,26 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         duration: Math.min(retryAfter * 1000, 6000),
       });
     };
-    window.addEventListener('urbanico:rate-limited', handler);
-    return () => window.removeEventListener('urbanico:rate-limited', handler);
+
+    const serviceAlreadyHandler = (e: any) => {
+      const detail = e.detail || {};
+      setToast({
+        visible: true,
+        message:
+          detail.message ||
+          'Service booking already in cart. You can update booking slot or location at checkout.',
+        title: 'Booking In Cart',
+        type: 'info',
+        duration: 4000,
+      });
+    };
+
+    window.addEventListener('urbanico:rate-limited', rateLimitHandler);
+    window.addEventListener('urbanico:service-already-in-cart', serviceAlreadyHandler);
+    return () => {
+      window.removeEventListener('urbanico:rate-limited', rateLimitHandler);
+      window.removeEventListener('urbanico:service-already-in-cart', serviceAlreadyHandler);
+    };
   }, []);
 
   return (

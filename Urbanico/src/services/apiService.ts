@@ -137,10 +137,16 @@ export function getBaseApiUrls(): string[] {
     urls.push(sharedActiveApiBase);
   }
 
-  const envBackendUrl =
-    (typeof process !== 'undefined' &&
-      ((process.env as any)?.BACKEND_URI || (process.env as any)?.VITE_BACKEND_URI)) ||
-    '';
+  let envBackendUrl = '';
+  try {
+    if (typeof import.meta !== 'undefined' && (import.meta as any)?.env?.VITE_BACKEND_URI) {
+      envBackendUrl = (import.meta as any).env.VITE_BACKEND_URI;
+    }
+  } catch {}
+  if (!envBackendUrl && typeof process !== 'undefined') {
+    envBackendUrl =
+      ((process.env as any)?.BACKEND_URI || (process.env as any)?.VITE_BACKEND_URI) || '';
+  }
   if (envBackendUrl && typeof envBackendUrl === 'string' && envBackendUrl.trim().length > 0) {
     const clean = envBackendUrl.trim().replace(/\/+$/, '');
     urls.push(clean.endsWith('/api') ? clean : `${clean}/api`);
@@ -344,6 +350,29 @@ class ApiService {
         // 4. HTTP 400 Bad Request / 403 Forbidden / 404 Not Found / 422 Unprocessable Entity
         // Client validation error: stop candidate looping since the request payload itself is invalid.
         if (response.status >= 400 && response.status < 500) {
+          const contentType = response.headers.get('content-type') || '';
+          const isHtml = contentType.toLowerCase().includes('text/html');
+
+          // If a static web server returns a 404 HTML page (e.g. Vite SPA fallback or CDN 404 "The page could not be found"),
+          // this means this candidate host does NOT serve the API. Allow failover to the next candidate (e.g. Render).
+          if (response.status === 404 && (isHtml || !contentType.toLowerCase().includes('application/json'))) {
+            const rawBody = await response.text().catch(() => '');
+            if (
+              isHtml ||
+              rawBody.includes('<!DOCTYPE') ||
+              rawBody.includes('The page could not be found') ||
+              rawBody.includes('<html') ||
+              !rawBody.trim()
+            ) {
+              lastError = new ApiError(
+                `Endpoint ${cleanEndpoint} not found on host ${formattedBase} (received static HTML 404)`,
+                404,
+                'NOT_FOUND'
+              );
+              continue;
+            }
+          }
+
           const errorJson = await response.json().catch(() => null);
           const message =
             errorJson?.error?.message ||
@@ -375,6 +404,52 @@ class ApiService {
   }
 
   // ==================== MATERIALS ====================
+
+  public async getProducts(
+    params: { category?: string; search?: string; page?: number; limit?: number } = {}
+  ): Promise<any[]> {
+    return this.getMaterials(params);
+  }
+
+  public async getProductById(id: string): Promise<any | null> {
+    try {
+      const res = await this.request<any>(`/api/products/${id}`);
+      return unwrapApiResponse<any>(res, 'material') || unwrapApiResponse<any>(res, 'product') || null;
+    } catch {
+      return null;
+    }
+  }
+
+  public async submitQuote(quotePayload: {
+    customerName: string;
+    customerPhone: string;
+    customerEmail?: string;
+    siteLocation: {
+      siteName?: string;
+      street: string;
+      city?: string;
+      state?: string;
+      pincode: string;
+    };
+    items: Array<{
+      title: string;
+      category?: string;
+      quantity: number;
+      unit?: string;
+      specifications?: string;
+    }>;
+    notes?: string;
+  }): Promise<{ success: boolean; quote?: any; message?: string }> {
+    try {
+      const res = await this.request<any>('/api/quotes', {
+        method: 'POST',
+        body: JSON.stringify(quotePayload),
+      });
+      return { success: true, quote: res?.data?.quote || res?.quote || res, message: 'RFQ quote submitted successfully' };
+    } catch (err: any) {
+      return { success: false, message: err?.message || 'Failed to submit quote RFQ' };
+    }
+  }
 
   /**
    * Fetch live materials catalogue (unwrapped array)

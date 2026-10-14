@@ -60,6 +60,30 @@ export interface IOrder extends Document {
   driverPhone?: string;
   deliveryOtp?: string;
   notes?: string;
+  orderId?: string;
+  serviceDetails?: {
+    headcount?: number;
+    shiftDays?: number;
+    selectedTimeSlot?: string;
+    scopeNotes?: string;
+    ratePerWorkerShift?: number;
+  };
+  totals?: {
+    subtotal: number;
+    taxAmount: number;
+    deliveryCharges: number;
+    unloadingCharges: number;
+    totalAmount: number;
+  };
+  status?: string;
+  deliveryAddress?: any;
+  verificationPin?: string;
+  trackingEvents?: Array<{
+    title: string;
+    time: string;
+    completed: boolean;
+    active: boolean;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -147,9 +171,19 @@ const OrderSchema = new Schema<IOrder>(
     driverPhone: { type: String },
     deliveryOtp: { type: String },
     notes: { type: String },
+    orderId: { type: String },
+    serviceDetails: { type: Schema.Types.Mixed },
+    totals: { type: Schema.Types.Mixed },
+    status: { type: String },
+    deliveryAddress: { type: Schema.Types.Mixed },
+    verificationPin: { type: String },
+    trackingEvents: [Schema.Types.Mixed],
   },
   {
     timestamps: true,
+    strict: false,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
 

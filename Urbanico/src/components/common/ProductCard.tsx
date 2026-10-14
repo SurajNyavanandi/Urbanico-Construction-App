@@ -8,7 +8,7 @@ import {
   Animated,
   Platform,
 } from 'react-native';
-import { Heart, Plus, Share2 } from 'lucide-react-native';
+import { Heart, Plus, Minus, ChevronRight, Share2 } from 'lucide-react-native';
 import { MaterialItem } from '../../types';
 import { ShimmerImage } from './ShimmerImage';
 import { useTheme, useTypography } from '../../theme';
@@ -18,6 +18,8 @@ import { preloadImage } from '../../utils/imageOptimization';
 import { getHighlightedSegments } from '../../services/searchService';
 import { useClipboard } from '../../hooks';
 import { useCartActions } from '../../hooks/useCartActions';
+import { useCart } from '../../context/CartContext';
+import { useToast } from '../../context/ToastContext';
 
 export interface ProductCardProps {
   item?: MaterialItem;
@@ -36,6 +38,7 @@ export interface ProductCardProps {
   style?: ViewStyle;
   showAddButton?: boolean;
   searchQuery?: string;
+  isCategoryCard?: boolean;
 }
 
 const ProductCardComponent: React.FC<ProductCardProps> = ({
@@ -50,20 +53,47 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
   onAddToCartPress,
   isFavorite = false,
   onToggleFavorite,
+  cartQuantity,
   width,
   style,
   showAddButton = true,
   searchQuery = '',
+  isCategoryCard,
 }) => {
   const { theme } = useTheme();
   const typography = useTypography();
+  const { cartItems, updateQuantity, removeFromCart } = useCart();
   const { addMaterialWithFeedback } = useCartActions();
+  const { showToast } = useToast();
   const lastClickTimeRef = React.useRef<number>(0);
 
   // Micro-interaction animation references (Animations 1, 2, 4)
   const cardScaleAnim = useRef(new Animated.Value(1)).current;
   const favScaleAnim = useRef(new Animated.Value(1)).current;
   const addBtnScaleAnim = useRef(new Animated.Value(1)).current;
+
+  // Determine if this card is a category navigation tile vs a purchasable SKU
+  const isCategory = isCategoryCard ?? (!item && Boolean(title));
+
+  // Determine multi-variant capability (e.g. 50kg Bag vs 1 Ton vs Truckload)
+  const hasMultipleVariants = Boolean(item?.options && item.options.length > 1);
+
+  // Determine inventory cap & stock availability
+  const maxOrderLimit = item?.maxOrderQuantity || 50;
+  const isOutOfStock = item?.inStock === false || (item?.stock !== undefined && item.stock <= 0);
+  const isLowStock = !isOutOfStock && item?.stock !== undefined && item.stock > 0 && item.stock <= 5;
+
+  // Determine current quantity in cart for this specific item
+  const matchingCartItems = React.useMemo(() => {
+    if (!item?.id) return [];
+    return cartItems.filter((ci) => ci.itemId === item.id);
+  }, [cartItems, item?.id]);
+
+  const hasMultipleVariantsInCart = matchingCartItems.length > 1;
+
+  const currentQuantity = cartQuantity !== undefined
+    ? cartQuantity
+    : matchingCartItems.reduce((acc, ci) => acc + (ci.quantity || 0), 0);
 
   const handleCardPressIn = () => {
     // Pre-cache full fidelity detail image on user intent/hover
@@ -114,6 +144,30 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
 
   const handleAddPress = (e: any) => {
     e.stopPropagation?.();
+    if (isOutOfStock) {
+      if (typeof navigator !== 'undefined' && (navigator as any).vibrate) {
+        try {
+          (navigator as any).vibrate(10);
+        } catch {}
+      }
+      soundService.playTap();
+      showToast(`We'll notify you as soon as ${displayTitle} arrives!`, 'info');
+      return;
+    }
+
+    // When an item has multiple units/options (e.g., 50kg bag vs 1 Ton vs Truckload),
+    // open the variant picker modal to prevent accidental default mismatch!
+    if (hasMultipleVariants) {
+      soundService.playTap();
+      onPress();
+      return;
+    }
+
+    if (typeof navigator !== 'undefined' && (navigator as any).vibrate) {
+      try {
+        (navigator as any).vibrate(15);
+      } catch {}
+    }
     Animated.sequence([
       Animated.spring(addBtnScaleAnim, {
         toValue: 1.25,
@@ -138,6 +192,100 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
         onPress();
       }
     });
+  };
+
+  const handleIncrement = (e: any) => {
+    e.stopPropagation?.();
+    // If the user already has multiple distinct options in the cart, open the variant modal
+    // so they can choose which specific variant to adjust!
+    if (hasMultipleVariantsInCart) {
+      soundService.playTap();
+      onPress();
+      return;
+    }
+
+    // Enforce max order limit per SKU (Blinkit / Zepto / Amazon standard)
+    if (currentQuantity >= maxOrderLimit) {
+      if (typeof navigator !== 'undefined' && (navigator as any).vibrate) {
+        try {
+          (navigator as any).vibrate(20);
+        } catch {}
+      }
+      soundService.playTap();
+      showToast(`Maximum limit of ${maxOrderLimit} units reached for this item.`, 'info');
+      return;
+    }
+
+    if (typeof navigator !== 'undefined' && (navigator as any).vibrate) {
+      try {
+        (navigator as any).vibrate(12);
+      } catch {}
+    }
+    soundService.playAddToCart();
+
+    Animated.sequence([
+      Animated.spring(addBtnScaleAnim, {
+        toValue: 1.15,
+        friction: 4,
+        tension: 140,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+      Animated.spring(addBtnScaleAnim, {
+        toValue: 1,
+        friction: 5,
+        tension: 100,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+    ]).start();
+
+    if (matchingCartItems.length > 0) {
+      const target = matchingCartItems[0];
+      updateQuantity(target.id, target.quantity + 1);
+    } else if (item) {
+      addMaterialWithFeedback(item, undefined, 1, { silent: true });
+    }
+  };
+
+  const handleDecrement = (e: any) => {
+    e.stopPropagation?.();
+    // If user has multiple variants in cart, open variant modal to review and adjust
+    if (hasMultipleVariantsInCart) {
+      soundService.playTap();
+      onPress();
+      return;
+    }
+
+    if (typeof navigator !== 'undefined' && (navigator as any).vibrate) {
+      try {
+        (navigator as any).vibrate(8);
+      } catch {}
+    }
+    soundService.playTap();
+
+    Animated.sequence([
+      Animated.spring(addBtnScaleAnim, {
+        toValue: 0.88,
+        friction: 4,
+        tension: 140,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+      Animated.spring(addBtnScaleAnim, {
+        toValue: 1,
+        friction: 5,
+        tension: 100,
+        useNativeDriver: Platform.OS !== 'web',
+      }),
+    ]).start();
+
+    if (matchingCartItems.length > 0) {
+      const target = matchingCartItems[0];
+      if (target.quantity <= 1) {
+        removeFromCart(target.id);
+        showToast(`Removed "${displayTitle}" from Cart`, 'info');
+      } else {
+        updateQuantity(target.id, target.quantity - 1);
+      }
+    }
   };
 
   const handleSafeAction = (callback?: () => void) => {
@@ -253,6 +401,21 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
               <Text style={[styles.productTag, { color: theme.textSecondary }]}>
                 {(displayTag || 'MATERIALS').toUpperCase()}
               </Text>
+              {hasMultipleVariants && (
+                <View style={styles.optionsBadge}>
+                  <Text style={styles.optionsBadgeText}>OPTIONS</Text>
+                </View>
+              )}
+              {isLowStock && (
+                <View style={styles.lowStockBadge}>
+                  <Text style={styles.lowStockBadgeText}>Only {item?.stock} left</Text>
+                </View>
+              )}
+              {isOutOfStock && (
+                <View style={styles.outOfStockBadge}>
+                  <Text style={styles.outOfStockBadgeText}>OUT OF STOCK</Text>
+                </View>
+              )}
             </View>
             {renderHighlightedTitle([styles.productTitleList, { color: theme.textPrimary }], 1)}
             <Text style={[styles.productSubtitle, { color: theme.textSecondary }]} numberOfLines={1}>
@@ -284,19 +447,112 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
             )}
           </View>
 
-          {showAddButton && (
+          {isCategory ? (
+            <TouchableOpacity
+              onPress={() => handleSafeAction(onPress)}
+              style={[
+                styles.explorePill,
+                {
+                  backgroundColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.08)' : '#F1F5F9',
+                  borderColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.12)' : '#E2E8F0',
+                },
+              ]}
+              activeOpacity={0.75}
+              accessibilityLabel="Explore Category"
+            >
+              <Text
+                style={[
+                  styles.explorePillText,
+                  { color: theme.primary, fontFamily: typography.fontFamily },
+                ]}
+              >
+                Explore
+              </Text>
+              <ChevronRight size={13} color={theme.primary} strokeWidth={2.5} />
+            </TouchableOpacity>
+          ) : isOutOfStock ? (
             <TouchableOpacity
               onPress={handleAddPress}
-              style={[styles.addPill, { backgroundColor: theme.buttonBg || theme.primary }]}
+              style={[styles.notifyMePill, { borderColor: theme.border }]}
               activeOpacity={0.8}
-              accessibilityLabel="Add to Cart"
+              accessibilityLabel="Notify Me when back in stock"
             >
-              <AnimatedView style={{ flexDirection: 'row', alignItems: 'center', gap: 4, transform: [{ scale: addBtnScaleAnim }] }}>
-                <Plus size={14} color={theme.buttonText || '#18181B'} />
-                <Text style={[styles.addPillText, { color: theme.buttonText || '#18181B', fontFamily: typography.fontFamily }]}>Add</Text>
-              </AnimatedView>
+              <Text style={[styles.notifyMePillText, { color: theme.textSecondary }]}>Notify Me</Text>
             </TouchableOpacity>
-          )}
+          ) : showAddButton ? (
+            hasMultipleVariantsInCart ? (
+              <TouchableOpacity
+                onPress={() => handleSafeAction(onPress)}
+                style={[styles.variantsInCartPill, { backgroundColor: theme.surfaceSecondary, borderColor: theme.primary }]}
+                activeOpacity={0.8}
+                accessibilityLabel="Configure Variants in Cart"
+              >
+                <Text style={[styles.variantsInCartText, { color: theme.textPrimary }]}>
+                  {matchingCartItems.length} Variants ({currentQuantity})
+                </Text>
+              </TouchableOpacity>
+            ) : currentQuantity > 0 ? (
+              <AnimatedView
+                style={[
+                  styles.stepperContainer,
+                  { backgroundColor: theme.buttonBg || theme.primary },
+                  { transform: [{ scale: addBtnScaleAnim }] },
+                ]}
+              >
+                <TouchableOpacity
+                  onPress={handleDecrement}
+                  style={styles.stepperBtn}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Decrease Quantity"
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
+                >
+                  <Minus size={13} color={theme.buttonText || '#18181B'} strokeWidth={2.8} />
+                </TouchableOpacity>
+
+                <Text
+                  style={[
+                    styles.stepperQtyText,
+                    { color: theme.buttonText || '#18181B', fontFamily: typography.fontFamilyHeading },
+                  ]}
+                >
+                  {currentQuantity}
+                </Text>
+
+                <TouchableOpacity
+                  onPress={handleIncrement}
+                  style={styles.stepperBtn}
+                  activeOpacity={0.7}
+                  accessibilityLabel="Increase Quantity"
+                  hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+                >
+                  <Plus size={13} color={theme.buttonText || '#18181B'} strokeWidth={2.8} />
+                </TouchableOpacity>
+              </AnimatedView>
+            ) : hasMultipleVariants ? (
+              <TouchableOpacity
+                onPress={handleAddPress}
+                style={[styles.addWithOptionsPill, { backgroundColor: theme.buttonBg || theme.primary }]}
+                activeOpacity={0.8}
+                accessibilityLabel="Choose Options and Add to Cart"
+              >
+                <Text style={[styles.addPillText, { color: theme.buttonText || '#18181B', fontFamily: typography.fontFamily }]}>
+                  + Options
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={handleAddPress}
+                style={[styles.addPill, { backgroundColor: theme.buttonBg || theme.primary }]}
+                activeOpacity={0.8}
+                accessibilityLabel="Add to Cart"
+              >
+                <AnimatedView style={{ flexDirection: 'row', alignItems: 'center', gap: 4, transform: [{ scale: addBtnScaleAnim }] }}>
+                  <Plus size={14} color={theme.buttonText || '#18181B'} />
+                  <Text style={[styles.addPillText, { color: theme.buttonText || '#18181B', fontFamily: typography.fontFamily }]}>Add</Text>
+                </AnimatedView>
+              </TouchableOpacity>
+            )
+          ) : null}
         </View>
       </AnimatedView>
     );
@@ -360,9 +616,26 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
         </View>
 
         <View style={styles.productInfo}>
-          <Text style={[styles.productTag, { color: theme.textSecondary, fontFamily: typography.fontFamily }]}>
-            {(displayTag || 'MATERIALS').toUpperCase()}
-          </Text>
+          <View style={styles.gridTagRow}>
+            <Text style={[styles.productTag, { color: theme.textSecondary, fontFamily: typography.fontFamily }]}>
+              {(displayTag || 'MATERIALS').toUpperCase()}
+            </Text>
+            {hasMultipleVariants && (
+              <View style={styles.optionsBadge}>
+                <Text style={styles.optionsBadgeText}>OPTIONS</Text>
+              </View>
+            )}
+            {isLowStock && (
+              <View style={styles.lowStockBadge}>
+                <Text style={styles.lowStockBadgeText}>Only {item?.stock} left</Text>
+              </View>
+            )}
+            {isOutOfStock && (
+              <View style={styles.outOfStockBadge}>
+                <Text style={styles.outOfStockBadgeText}>OUT OF STOCK</Text>
+              </View>
+            )}
+          </View>
           {renderHighlightedTitle([styles.productTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }], 2)}
           <Text style={[styles.productSubtitle, { color: theme.textSecondary, fontFamily: typography.fontFamily }]} numberOfLines={1}>
             {displaySubtitle}
@@ -374,19 +647,112 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
                 {displayPrice}
               </Text>
             </View>
-            {showAddButton && (
+            {isCategory ? (
+              <TouchableOpacity
+                onPress={() => handleSafeAction(onPress)}
+                style={[
+                  styles.explorePill,
+                  {
+                    backgroundColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.08)' : '#F1F5F9',
+                    borderColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.12)' : '#E2E8F0',
+                  },
+                ]}
+                activeOpacity={0.75}
+                accessibilityLabel="Explore Category"
+              >
+                <Text
+                  style={[
+                    styles.explorePillText,
+                    { color: theme.primary, fontFamily: typography.fontFamily },
+                  ]}
+                >
+                  Explore
+                </Text>
+                <ChevronRight size={13} color={theme.primary} strokeWidth={2.5} />
+              </TouchableOpacity>
+            ) : isOutOfStock ? (
               <TouchableOpacity
                 onPress={handleAddPress}
-                style={[styles.addPill, { backgroundColor: theme.buttonBg || theme.primary }]}
+                style={[styles.notifyMePill, { borderColor: theme.border }]}
                 activeOpacity={0.8}
-                accessibilityLabel="Add to Cart"
+                accessibilityLabel="Notify Me when back in stock"
               >
-                <AnimatedView style={{ flexDirection: 'row', alignItems: 'center', gap: 4, transform: [{ scale: addBtnScaleAnim }] }}>
-                  <Plus size={14} color={theme.buttonText || '#18181B'} />
-                  <Text style={[styles.addPillText, { color: theme.buttonText || '#18181B', fontFamily: typography.fontFamily }]}>Add</Text>
-                </AnimatedView>
+                <Text style={[styles.notifyMePillText, { color: theme.textSecondary }]}>Notify Me</Text>
               </TouchableOpacity>
-            )}
+            ) : showAddButton ? (
+              hasMultipleVariantsInCart ? (
+                <TouchableOpacity
+                  onPress={() => handleSafeAction(onPress)}
+                  style={[styles.variantsInCartPill, { backgroundColor: theme.surfaceSecondary, borderColor: theme.primary }]}
+                  activeOpacity={0.8}
+                  accessibilityLabel="Configure Variants in Cart"
+                >
+                  <Text style={[styles.variantsInCartText, { color: theme.textPrimary }]}>
+                    {matchingCartItems.length} Variants ({currentQuantity})
+                  </Text>
+                </TouchableOpacity>
+              ) : currentQuantity > 0 ? (
+                <AnimatedView
+                  style={[
+                    styles.stepperContainer,
+                    { backgroundColor: theme.buttonBg || theme.primary },
+                    { transform: [{ scale: addBtnScaleAnim }] },
+                  ]}
+                >
+                  <TouchableOpacity
+                    onPress={handleDecrement}
+                    style={styles.stepperBtn}
+                    activeOpacity={0.7}
+                    accessibilityLabel="Decrease Quantity"
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
+                  >
+                    <Minus size={13} color={theme.buttonText || '#18181B'} strokeWidth={2.8} />
+                  </TouchableOpacity>
+
+                  <Text
+                    style={[
+                      styles.stepperQtyText,
+                      { color: theme.buttonText || '#18181B', fontFamily: typography.fontFamilyHeading },
+                    ]}
+                  >
+                    {currentQuantity}
+                  </Text>
+
+                  <TouchableOpacity
+                    onPress={handleIncrement}
+                    style={styles.stepperBtn}
+                    activeOpacity={0.7}
+                    accessibilityLabel="Increase Quantity"
+                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+                  >
+                    <Plus size={13} color={theme.buttonText || '#18181B'} strokeWidth={2.8} />
+                  </TouchableOpacity>
+                </AnimatedView>
+              ) : hasMultipleVariants ? (
+                <TouchableOpacity
+                  onPress={handleAddPress}
+                  style={[styles.addWithOptionsPill, { backgroundColor: theme.buttonBg || theme.primary }]}
+                  activeOpacity={0.8}
+                  accessibilityLabel="Choose Options and Add to Cart"
+                >
+                  <Text style={[styles.addPillText, { color: theme.buttonText || '#18181B', fontFamily: typography.fontFamily }]}>
+                    + Options
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  onPress={handleAddPress}
+                  style={[styles.addPill, { backgroundColor: theme.buttonBg || theme.primary }]}
+                  activeOpacity={0.8}
+                  accessibilityLabel="Add to Cart"
+                >
+                  <AnimatedView style={{ flexDirection: 'row', alignItems: 'center', gap: 4, transform: [{ scale: addBtnScaleAnim }] }}>
+                    <Plus size={14} color={theme.buttonText || '#18181B'} />
+                    <Text style={[styles.addPillText, { color: theme.buttonText || '#18181B', fontFamily: typography.fontFamily }]}>Add</Text>
+                  </AnimatedView>
+                </TouchableOpacity>
+              )
+            ) : null}
           </View>
         </View>
       </TouchableOpacity>
@@ -394,22 +760,7 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
   );
 };
 
-export const ProductCard = React.memo(ProductCardComponent, (prev, next) => {
-  return (
-    prev.item?.id === next.item?.id &&
-    prev.item?.defaultPrice === next.item?.defaultPrice &&
-    prev.title === next.title &&
-    prev.subtitle === next.subtitle &&
-    prev.priceLabel === next.priceLabel &&
-    prev.image === next.image &&
-    prev.isFavorite === next.isFavorite &&
-    prev.cartQuantity === next.cartQuantity &&
-    prev.viewMode === next.viewMode &&
-    prev.showAddButton === next.showAddButton &&
-    prev.searchQuery === next.searchQuery &&
-    prev.width === next.width
-  );
-});
+export const ProductCard = React.memo(ProductCardComponent);
 
 const styles = StyleSheet.create({
   productCard: {
@@ -611,5 +962,114 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  stepperContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 999,
+    minWidth: 78,
+    height: 28,
+  },
+  stepperBtn: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperQtyText: {
+    fontSize: 12,
+    fontWeight: '800',
+    paddingHorizontal: 3,
+    minWidth: 16,
+    textAlign: 'center',
+  },
+  explorePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  explorePillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  gridTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  optionsBadge: {
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  optionsBadgeText: {
+    color: '#2563EB',
+    fontSize: 8.5,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  lowStockBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  lowStockBadgeText: {
+    color: '#B45309',
+    fontSize: 8.5,
+    fontWeight: '700',
+  },
+  outOfStockBadge: {
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  outOfStockBadgeText: {
+    color: '#6B7280',
+    fontSize: 8.5,
+    fontWeight: '700',
+  },
+  notifyMePill: {
+    paddingHorizontal: 9,
+    paddingVertical: 4.5,
+    borderRadius: 999,
+    borderWidth: 1,
+    backgroundColor: 'transparent',
+  },
+  notifyMePillText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+  },
+  variantsInCartPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 4.5,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  variantsInCartText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+  },
+  addWithOptionsPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
   },
 });

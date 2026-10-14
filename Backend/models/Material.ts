@@ -27,6 +27,12 @@ export interface IMaterial extends Document {
   fastDispatch?: boolean;
   options?: any[];
   specifications?: Record<string, any>;
+  title?: string;
+  price?: number;
+  unitOptions?: any[];
+  bulkPricing?: any[];
+  rating?: number;
+  vendor?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -35,6 +41,7 @@ const MaterialSchema = new Schema<IMaterial>(
   {
     id: { type: String, index: true },
     name: { type: String, required: true, trim: true, index: true },
+    title: { type: String, trim: true },
     category: { type: String, index: true },
     categoryId: { type: String, index: true },
     subCategory: { type: String, trim: true },
@@ -44,7 +51,12 @@ const MaterialSchema = new Schema<IMaterial>(
     description: { type: String, default: '' },
     basePrice: { type: Number, default: 0 },
     defaultPrice: { type: Number, default: 0 },
+    price: { type: Number, default: 0 },
     unit: { type: String, default: 'Unit' },
+    unitOptions: [Schema.Types.Mixed],
+    bulkPricing: [Schema.Types.Mixed],
+    rating: { type: Number, default: 4.8 },
+    vendor: { type: String, default: 'Urbanico Direct Direct' },
     hsnCode: { type: String, trim: true },
     gstRate: { type: Number, default: 18 },
     inStock: { type: Boolean, default: true },
@@ -63,6 +75,8 @@ const MaterialSchema = new Schema<IMaterial>(
   {
     timestamps: true,
     strict: false,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
 

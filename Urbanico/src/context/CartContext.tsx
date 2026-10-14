@@ -7,7 +7,6 @@ import { apiService } from '../services/apiService';
 
 interface CartContextType {
   cartItems: CartItem[];
-  savedForLaterItems: CartItem[];
   appliedCoupon: string | null;
   couponDiscount: number;
   totals: CartTotals;
@@ -23,9 +22,6 @@ interface CartContextType {
   setCartItems: React.Dispatch<React.SetStateAction<CartItem[]>>;
   applyCoupon: (code: string) => { success: boolean; message: string };
   removeCoupon: () => void;
-  saveForLater: (item: CartItem) => void;
-  moveToCart: (item: CartItem) => void;
-  removeSavedForLater: (id: string) => void;
   addBundleToCart: (bundleItems: Array<{
     itemId: string;
     itemName: string;
@@ -73,18 +69,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return [];
   });
 
-  const [savedForLaterItems, setSavedForLaterItems] = useState<CartItem[]>(() => {
+  // Ensure legacy saved-for-later key is removed from storage
+  useEffect(() => {
     try {
-      const saved = safeStorage.getItem('urbanico_saved_for_later');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch {
-      // ignore
-    }
-    return [];
-  });
+      safeStorage.removeItem('urbanico_saved_for_later');
+    } catch {}
+  }, []);
 
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [couponDiscount, setCouponDiscount] = useState<number>(0);
@@ -189,15 +179,6 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   }, [cartItems]);
 
-  // Non-blocking auto-save for saved-for-later items
-  useEffect(() => {
-    try {
-      safeStorage.setAsyncObject('urbanico_saved_for_later', savedForLaterItems, 300);
-    } catch {
-      // ignore
-    }
-  }, [savedForLaterItems]);
-
   // Recalculate totals synchronously whenever cartItems or couponDiscount changes
   const totals = useMemo(() => {
     return calculateCartTotals(cartItems, couponDiscount);
@@ -252,23 +233,42 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         categoryName: item.categoryId,
         categoryId: item.categoryId,
         itemId: item.id,
+        id: item.id,
         itemName: item.name,
+        name: item.name,
+        selectedOptionLabel: option?.label,
       });
 
       const effectiveUnitPrice = isService
         ? 99
         : customUnitPrice !== undefined
         ? customUnitPrice
-        : option.price || item.defaultPrice || 500;
+        : option?.price || item.defaultPrice || 500;
 
-      const safeQuantity = Math.max(1, quantity || 1);
+      const safeQuantity = isService ? 1 : Math.max(1, quantity || 1);
 
       setCartItems((prev) => {
         const existingIdx = prev.findIndex(
-          (ci) => ci.itemId === item.id && ci.selectedOptionLabel === option.label
+          (ci) => ci.itemId === item.id || (isService && isCartItemService(ci))
         );
 
         if (existingIdx >= 0) {
+          const existingItem = prev[existingIdx];
+          if (isCartItemService(existingItem) || isService) {
+            // Service booking already in cart! Do not add multiple or increment quantity.
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(
+                new CustomEvent('urbanico:service-already-in-cart', {
+                  detail: {
+                    message:
+                      'Service booking already in cart. You can update booking slot or location at checkout.',
+                  },
+                })
+              );
+            }
+            return prev;
+          }
+
           const updated = [...prev];
           updated[existingIdx] = {
             ...updated[existingIdx],
@@ -283,7 +283,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           itemId: item.id,
           itemName: item.name,
           categoryName: item.categoryId,
-          selectedOptionLabel: option.label,
+          selectedOptionLabel: option?.label || (isService ? '1 Visit / Site Inspection' : 'Standard Unit'),
           unitPrice: effectiveUnitPrice,
           quantity: safeQuantity,
           image: item.image,
@@ -301,7 +301,16 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return;
     }
     setCartItems((prev) =>
-      prev.map((item) => (item.id === cartId ? { ...item, quantity: newQty } : item))
+      prev.map((item) => {
+        if (item.id === cartId) {
+          if (isCartItemService(item)) {
+            // Service quantity is locked to strictly 1
+            return { ...item, quantity: 1 };
+          }
+          return { ...item, quantity: newQty };
+        }
+        return item;
+      })
     );
   }, []);
 
@@ -367,30 +376,6 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const removeCoupon = useCallback(() => {
     setAppliedCoupon(null);
     setCouponDiscount(0);
-  }, []);
-
-  const saveForLater = useCallback((item: CartItem) => {
-    setCartItems((prev) => prev.filter((i) => i.id !== item.id));
-    setSavedForLaterItems((prev) => [...prev.filter((i) => i.id !== item.id), item]);
-  }, []);
-
-  const moveToCart = useCallback((item: CartItem) => {
-    setSavedForLaterItems((prev) => prev.filter((i) => i.id !== item.id));
-    setCartItems((prev) => {
-      const exists = prev.find(
-        (ci) => ci.itemId === item.itemId && ci.selectedOptionLabel === item.selectedOptionLabel
-      );
-      if (exists) {
-        return prev.map((ci) =>
-          ci.id === exists.id ? { ...ci, quantity: ci.quantity + item.quantity } : ci
-        );
-      }
-      return [item, ...prev];
-    });
-  }, []);
-
-  const removeSavedForLater = useCallback((id: string) => {
-    setSavedForLaterItems((prev) => prev.filter((i) => i.id !== id));
   }, []);
 
   const addBundleToCart = useCallback(
@@ -502,7 +487,6 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const value = useMemo(
     () => ({
       cartItems,
-      savedForLaterItems,
       appliedCoupon,
       couponDiscount,
       totals,
@@ -513,16 +497,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setCartItems,
       applyCoupon,
       removeCoupon,
-      saveForLater,
-      moveToCart,
-      removeSavedForLater,
       addBundleToCart,
       mergeGuestCartOnAuth,
       resetCartOnLogout,
     }),
     [
       cartItems,
-      savedForLaterItems,
       appliedCoupon,
       couponDiscount,
       totals,
@@ -532,9 +512,6 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       clearCart,
       applyCoupon,
       removeCoupon,
-      saveForLater,
-      moveToCart,
-      removeSavedForLater,
       addBundleToCart,
       mergeGuestCartOnAuth,
       resetCartOnLogout,
@@ -546,7 +523,6 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 const fallbackCartContext: CartContextType = {
   cartItems: [],
-  savedForLaterItems: [],
   appliedCoupon: null,
   couponDiscount: 0,
   totals: {
@@ -572,9 +548,6 @@ const fallbackCartContext: CartContextType = {
   setCartItems: () => {},
   applyCoupon: () => ({ success: false, message: 'Cart not initialized' }),
   removeCoupon: () => {},
-  saveForLater: () => {},
-  moveToCart: () => {},
-  removeSavedForLater: () => {},
   addBundleToCart: () => {},
   mergeGuestCartOnAuth: () => {},
   resetCartOnLogout: () => {},

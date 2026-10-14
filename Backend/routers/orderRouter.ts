@@ -12,6 +12,7 @@ router.post('/', orderCreateRateLimiter, OrderController.createOrder);
 router.delete('/', requireAdminSecret, OrderController.deleteAllOrders);
 router.post('/email-invoice', OrderController.emailInvoice);
 router.get('/:id', requireAuth, OrderController.getOrderById);
+router.get('/:id/tracking', OrderController.getTracking);
 router.get('/number/:orderNumber', requireAuth, OrderController.getOrderByOrderNumber);
 router.patch('/:id/status', requireAuth, OrderController.updateStatus);
 

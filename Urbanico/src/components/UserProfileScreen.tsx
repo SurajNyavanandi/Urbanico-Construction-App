@@ -58,7 +58,6 @@ import { useTheme } from '../context/ThemeContext';
 import { useLocation } from '../context/LocationContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
-import { useCart } from '../context/CartContext';
 import { ShimmerImage } from './common/ShimmerImage';
 import { useAsyncModal } from '../hooks/useAsyncModal';
 import { MODAL_PRELOADERS } from './modals/AppModalsContainer';
@@ -138,9 +137,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     deleteLocation,
   } = useLocation();
 
-  // Saved for Later and Cart items
-  const { savedForLaterItems, moveToCart, removeSavedForLater } = useCart();
-
   // Consistent Modals state across the entire Profile Module with strict mutual exclusivity
   const [isAddressesModalOpen, setIsAddressesModalOpen] = useState(initialOpenAddressesModal);
   const [isReferModalOpen, setIsReferModalOpen] = useState(false);
@@ -148,10 +144,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(initialOpenSettingsModal);
   const [isOrdersModalOpen, setIsOrdersModalOpen] = useState(initialOpenOrdersModal);
-  const [isSavedForLaterModalOpen, setIsSavedForLaterModalOpen] = useState(false);
   const { isModalLoading, triggerAsyncModal } = useAsyncModal();
 
-  const openSingleModal = (modalName: 'addresses' | 'refer' | 'help' | 'edit_profile' | 'settings' | 'orders' | 'saved_for_later') => {
+  const openSingleModal = (modalName: 'addresses' | 'refer' | 'help' | 'edit_profile' | 'settings' | 'orders') => {
     if (modalName === 'settings') {
       triggerAsyncModal('settings', MODAL_PRELOADERS.settings, () => {
         setIsAddressesModalOpen(false);
@@ -160,7 +155,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         setIsEditProfileModalOpen(false);
         setIsSettingsModalOpen(true);
         setIsOrdersModalOpen(false);
-        setIsSavedForLaterModalOpen(false);
       });
       return;
     }
@@ -173,7 +167,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         setIsEditProfileModalOpen(false);
         setIsSettingsModalOpen(false);
         setIsOrdersModalOpen(true);
-        setIsSavedForLaterModalOpen(false);
       });
       return;
     }
@@ -184,7 +177,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     setIsEditProfileModalOpen(modalName === 'edit_profile');
     setIsSettingsModalOpen(false);
     setIsOrdersModalOpen(false);
-    setIsSavedForLaterModalOpen(modalName === 'saved_for_later');
   };
 
   const closeAllSubModals = () => {
@@ -194,7 +186,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     setIsEditProfileModalOpen(false);
     setIsSettingsModalOpen(false);
     setIsOrdersModalOpen(false);
-    setIsSavedForLaterModalOpen(false);
   };
 
   // Indian E-Commerce Standard Address input state
@@ -604,11 +595,9 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
         <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
 
-        {
-
         <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
 
-        /* 3. Wishlist / Saved Materials */}
+        {/* 3. Favorites */}
         <TouchableOpacity
           onPress={() => {
             closeAllSubModals();
@@ -616,6 +605,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           }}
           style={styles.menuRow}
           activeOpacity={0.7}
+          accessibilityLabel="Favorites"
         >
           <View style={styles.menuRowLeft}>
             <View style={[styles.iconCircle, { backgroundColor: theme.surfaceSecondary }]}>
@@ -623,7 +613,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.menuRowLabel, { color: theme.textPrimary }]}>
-                Favourites & Saved Supplies
+                Favorites
               </Text>
               <Text style={[styles.menuRowSubLabel, { color: theme.textSecondary }]}>
                 Quick re-ordering list
@@ -631,53 +621,14 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             </View>
           </View>
           <View style={styles.menuRowRight}>
-            {favoriteCount > 0 && (
+            {favoriteCount > 0 ? (
               <View style={[styles.countBadge, { backgroundColor: theme.surfaceSecondary }]}>
-                <Text style={[styles.countBadgeText, { color: theme.textPrimary }]}>
+                <Text style={[styles.countBadgeText, { color: theme.textPrimary, fontWeight: '700' }]}>
                   {favoriteCount}
                 </Text>
               </View>
-            )}
-            <ChevronRight size={18} color={theme.textMuted} />
-          </View>
-        </TouchableOpacity>
-
-        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
-
-        {
-
-        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
-
-        /* 4. Saved for Later (Direct Profile Access) */}
-        <TouchableOpacity
-          onPress={() => openSingleModal('saved_for_later')}
-          style={styles.menuRow}
-          activeOpacity={0.7}
-        >
-          <View style={styles.menuRowLeft}>
-            <View style={[styles.iconCircle, { backgroundColor: theme.surfaceSecondary }]}>
-              <Bookmark size={18} color={theme.textPrimary} strokeWidth={2} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.menuRowLabel, { color: theme.textPrimary }]}>
-                Saved for Later
-              </Text>
-              <Text style={[styles.menuRowSubLabel, { color: theme.textSecondary }]}>
-                {savedForLaterItems.length > 0
-                  ? `${savedForLaterItems.length} item${savedForLaterItems.length > 1 ? 's' : ''} kept for later`
-                  : 'Items saved from your cart'}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.menuRowRight}>
-            {savedForLaterItems.length > 0 ? (
-              <View style={[styles.countBadge, { backgroundColor: theme.surfaceSecondary }]}>
-                <Text style={[styles.countBadgeText, { color: theme.textPrimary, fontWeight: '700' }]}>
-                  {savedForLaterItems.length}
-                </Text>
-              </View>
             ) : (
-              <Text style={[styles.subValueText, { color: theme.textSecondary }]}>0 Items</Text>
+              <Text style={[styles.subValueText, { color: theme.textSecondary }]}>0 Saved</Text>
             )}
             <ChevronRight size={18} color={theme.textMuted} />
           </View>
@@ -685,11 +636,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
         <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
 
-        {
-
-        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
-
-        /* 5. Address Management: Saved Addresses */}
+        {/* 4. Address Management: Saved Addresses */}
         <TouchableOpacity
           onPress={() => {
             if (!isLoggedIn) {
@@ -1815,204 +1762,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             </View>
           </View>
           </KeyboardAvoidingView>
-        </View>
-      </Modal>
-
-      {/* ======================================================== */}
-      {/* POPUP MODAL 7: SAVED FOR LATER SUPPLIES                  */}
-      {/* ======================================================== */}
-      <Modal
-        visible={isSavedForLaterModalOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsSavedForLaterModalOpen(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setIsSavedForLaterModalOpen(false)} />
-          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
-            <View style={styles.modalHeader}>
-              <View style={styles.modalHeaderTitleRow}>
-                <Bookmark size={18} color={theme.mode === 'dark' ? '#F9FAFB' : '#111111'} />
-                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
-                  Saved for Later {savedForLaterItems.length > 0 ? `(${savedForLaterItems.length})` : ''}
-                </Text>
-              </View>
-              <TouchableOpacity onPress={() => setIsSavedForLaterModalOpen(false)} style={styles.closeBtn}>
-                <X size={18} color={theme.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-              {savedForLaterItems.length === 0 ? (
-                <View style={{ alignItems: 'center', paddingVertical: 32, paddingHorizontal: 16 }}>
-                  <View
-                    style={{
-                      width: 56,
-                      height: 56,
-                      borderRadius: 28,
-                      backgroundColor: theme.surfaceSecondary,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      marginBottom: 12,
-                    }}
-                  >
-                    <Bookmark size={24} color={theme.textMuted} />
-                  </View>
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: theme.textPrimary, marginBottom: 4 }}>
-                    No Saved Items
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 12.5,
-                      color: theme.textSecondary,
-                      textAlign: 'center',
-                      lineHeight: 18,
-                      marginBottom: 16,
-                      maxWidth: 280,
-                    }}
-                  >
-                    Items saved from your cart will appear here so you can easily order them whenever you're ready.
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setIsSavedForLaterModalOpen(false);
-                      if (onExploreCatalog) {
-                        onExploreCatalog();
-                      } else {
-                        onNavigateScreen('home');
-                      }
-                    }}
-                    style={styles.modalPrimaryBtn}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.modalPrimaryBtnText}>Explore Supplies</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <View style={{ gap: 10, paddingBottom: 6 }}>
-                  {savedForLaterItems.map((item) => {
-                    const price = item.unitPrice || 0;
-                    const totalItemPrice = price * (item.quantity || 1);
-                    return (
-                      <View
-                        key={item.id}
-                        style={{
-                          backgroundColor: theme.surfaceSecondary,
-                          borderRadius: 12,
-                          borderWidth: 1,
-                          borderColor: theme.border,
-                          padding: 10,
-                          flexDirection: 'row',
-                          gap: 10,
-                          alignItems: 'center',
-                        }}
-                      >
-                        <View style={{ width: 56, height: 56, borderRadius: 8, overflow: 'hidden', backgroundColor: theme.surface }}>
-                          <ShimmerImage
-                            source={{ uri: item.image }}
-                            style={{ width: '100%', height: '100%' }}
-                            resizeMode="cover"
-                            preset="thumbnail"
-                            borderRadius={8}
-                          />
-                        </View>
-
-                        <View style={{ flex: 1, minWidth: 0 }}>
-                          <Text
-                            style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary }}
-                            numberOfLines={1}
-                          >
-                            {item.itemName}
-                          </Text>
-                          <Text
-                            style={{ fontSize: 11, color: theme.textSecondary, marginTop: 1 }}
-                            numberOfLines={1}
-                          >
-                            {item.selectedOptionLabel || item.categoryName || 'Standard Supply'} • Qty: {item.quantity || 1}
-                          </Text>
-                          <Text
-                            style={{ fontSize: 12.5, fontWeight: '800', color: theme.textPrimary, marginTop: 2 }}
-                          >
-                            ₹{totalItemPrice.toLocaleString('en-IN')}
-                            <Text style={{ fontSize: 10.5, fontWeight: '500', color: theme.textSecondary }}>
-                              {' '}(₹{price}/unit)
-                            </Text>
-                          </Text>
-                        </View>
-
-                        <View style={{ gap: 6, alignItems: 'flex-end' }}>
-                          <TouchableOpacity
-                            onPress={() => {
-                              moveToCart(item);
-                              showToast(`Moved ${item.itemName} to Cart`, 'success');
-                            }}
-                            style={{
-                              backgroundColor: theme.buttonBg || theme.primary,
-                              paddingHorizontal: 10,
-                              paddingVertical: 6,
-                              borderRadius: 6,
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              gap: 4,
-                            }}
-                            activeOpacity={0.85}
-                          >
-                            <ShoppingCart size={12} color="#18181B" />
-                            <Text style={{ color: '#18181B', fontSize: 11, fontWeight: '700' }}>
-                              Move to Cart
-                            </Text>
-                          </TouchableOpacity>
-
-                          <TouchableOpacity
-                            onPress={() => {
-                              removeSavedForLater(item.id);
-                              showToast(`Removed from saved for later`, 'info');
-                            }}
-                            style={{
-                              paddingHorizontal: 6,
-                              paddingVertical: 3,
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              gap: 3,
-                            }}
-                            activeOpacity={0.7}
-                          >
-                            <Trash2 size={12} color="#EF4444" />
-                            <Text style={{ color: '#EF4444', fontSize: 10.5, fontWeight: '600' }}>
-                              Remove
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
-            </ScrollView>
-
-            {savedForLaterItems.length > 0 && (
-              <View style={styles.modalFooter}>
-                <TouchableOpacity
-                  onPress={() => setIsSavedForLaterModalOpen(false)}
-                  style={styles.cancelBtn}
-                >
-                  <Text style={styles.cancelBtnText}>Close</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => {
-                    savedForLaterItems.forEach((it) => moveToCart(it));
-                    setIsSavedForLaterModalOpen(false);
-                    showToast(`Moved all items to Cart!`, 'success');
-                    onNavigateScreen('basket');
-                  }}
-                  style={styles.modalPrimaryBtn}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.modalPrimaryBtnText}>Move All to Cart</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
         </View>
       </Modal>
 

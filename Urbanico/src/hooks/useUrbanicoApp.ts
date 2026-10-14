@@ -14,7 +14,8 @@ import { useScrollLock } from './useScrollLock';
 import { preloadImages } from '../utils/imageOptimization';
 import { MATERIAL_ITEMS } from '../data/materialsData';
 import { MaterialItem, CartItem, UnitOption, ActivityDelivery } from '../types';
-import { ProjectBundle } from '../components/HomeScreen';
+import { isCartItemService } from '../utils/cartCalculations';
+import type { ProjectBundle } from '../components/HomeScreen';
 
 export function useUrbanicoApp() {
   const { theme } = useTheme();
@@ -195,33 +196,73 @@ export function useUrbanicoApp() {
 
   const handleAddToCartFromModal = useCallback(
     (item: MaterialItem, option: UnitOption, quantity: number, totalPrice: number) => {
-      const isService = item.categoryId === 'services' || item.id.startsWith('service-');
-      const unitPrice = isService ? 99 : option.price;
+      const isService = isCartItemService({
+        categoryName: item.categoryId,
+        categoryId: item.categoryId,
+        itemId: item.id,
+        id: item.id,
+        itemName: item.name,
+        name: item.name,
+        selectedOptionLabel: option?.label,
+      });
 
-      addToCart(item, option, quantity, unitPrice);
+      const alreadyHasService = isService && cartItems.some((ci) => isCartItemService(ci));
+      if (alreadyHasService) {
+        showToast(
+          'Service booking already in cart. You can update booking slot or location at checkout.',
+          'info'
+        );
+        return;
+      }
+
+      const unitPrice = isService ? 99 : option.price;
+      const safeQty = isService ? 1 : quantity;
+
+      addToCart(item, option, safeQty, unitPrice);
 
       showAddToCartToast({
         name: item.name,
-        optionLabel: option.label,
-        price: totalPrice || unitPrice * quantity,
+        optionLabel: option?.label || '1 Visit / Site Inspection',
+        price: isService ? 99 : (totalPrice || unitPrice * safeQty),
         image: item.image,
-        quantity,
+        quantity: safeQty,
         onViewCart: () => setCurrentScreen('basket'),
       });
     },
-    [addToCart, showAddToCartToast, setCurrentScreen]
+    [addToCart, showAddToCartToast, setCurrentScreen, cartItems, showToast]
   );
 
   const handleBuyNowFromModal = useCallback(
     (item: MaterialItem, option: UnitOption, quantity: number) => {
-      const isService = item.categoryId === 'services' || item.id.startsWith('service-');
-      const unitPrice = isService ? 99 : option.price;
+      const isService = isCartItemService({
+        categoryName: item.categoryId,
+        categoryId: item.categoryId,
+        itemId: item.id,
+        id: item.id,
+        itemName: item.name,
+        name: item.name,
+        selectedOptionLabel: option?.label,
+      });
 
-      addToCart(item, option, quantity, unitPrice);
+      const alreadyHasService = isService && cartItems.some((ci) => isCartItemService(ci));
+      if (alreadyHasService) {
+        setSelectedItemForModal(null);
+        setCurrentScreen('basket');
+        showToast(
+          'Service booking already in cart. You can update booking slot or location at checkout.',
+          'info'
+        );
+        return;
+      }
+
+      const unitPrice = isService ? 99 : option.price;
+      const safeQty = isService ? 1 : quantity;
+
+      addToCart(item, option, safeQty, unitPrice);
       setSelectedItemForModal(null);
       setCurrentScreen('basket');
     },
-    [addToCart, setCurrentScreen]
+    [addToCart, setCurrentScreen, cartItems, showToast]
   );
 
   const handleAddBundleToCartAndNavigate = useCallback(

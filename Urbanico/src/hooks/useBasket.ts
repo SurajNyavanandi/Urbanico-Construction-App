@@ -21,7 +21,6 @@ export function useBasket({
 }: UseBasketOptions) {
   const {
     cartItems,
-    savedForLaterItems,
     totals,
     appliedCoupon,
     couponDiscount,
@@ -30,9 +29,6 @@ export function useBasket({
     clearCart,
     applyCoupon,
     removeCoupon,
-    saveForLater,
-    moveToCart,
-    removeSavedForLater,
   } = useCart();
 
   const { showToast } = useToast();
@@ -79,29 +75,30 @@ export function useBasket({
     [removeFromCart, showToast, updateQuantity]
   );
 
-  const handleSaveForLater = useCallback(
-    (item: CartItem) => {
-      soundService.playTap();
-      saveForLater(item);
-      showToast(`Saved "${item.itemName}" for later`, 'info');
+  const handleSaveToFavorites = useCallback(
+    (item: CartItem, onToggleFavorite?: (id: string) => void) => {
+      soundService.playFavorite();
+      if (onToggleFavorite) {
+        onToggleFavorite(item.itemId);
+      }
+      removeFromCart(item.id);
+      showToast(`Moved "${item.itemName}" to Favorites`, 'success');
     },
-    [saveForLater, showToast]
+    [removeFromCart, showToast]
   );
 
-  const handleMoveToCart = useCallback(
+  // Backward compatibility alias for any existing callers
+  const handleSaveForLater = useCallback(
     (item: CartItem) => {
-      soundService.playTap();
-      moveToCart(item);
-      showToast(`Moved "${item.itemName}" to cart`, 'success');
+      handleSaveToFavorites(item);
     },
-    [moveToCart, showToast]
+    [handleSaveToFavorites]
   );
 
   const isEmpty = cartItems.length === 0;
 
   return {
     cartItems,
-    savedForLaterItems,
     totals,
     appliedCoupon,
     couponDiscount,
@@ -115,11 +112,10 @@ export function useBasket({
     handleRemoveCoupon,
     handleIncrement,
     handleDecrement,
+    handleSaveToFavorites,
     handleSaveForLater,
-    handleMoveToCart,
     removeFromCart,
     clearCart,
-    removeSavedForLater,
     isEmpty,
   };
 }

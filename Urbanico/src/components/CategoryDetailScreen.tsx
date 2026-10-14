@@ -838,6 +838,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                     priceLabel={cat.priceLabel}
                     image={cat.image}
                     viewMode="grid"
+                    isCategoryCard={true}
                     onPress={() => onSelectCategoryTab(cat.id)}
                   />
                 ))}
@@ -852,6 +853,7 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                     priceLabel={cat.priceLabel}
                     image={cat.image}
                     viewMode="list"
+                    isCategoryCard={true}
                     onPress={() => onSelectCategoryTab(cat.id)}
                   />
                 ))}

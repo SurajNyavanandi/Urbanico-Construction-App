@@ -38,6 +38,17 @@ export interface IUser extends Document {
   }>;
   creditLimit?: number;
   availableCredit?: number;
+  usedCredit?: number;
+  isVerified?: boolean;
+  addresses?: Array<{
+    siteName: string;
+    address: string;
+    pincode: string;
+    supervisorName?: string;
+    supervisorPhone?: string;
+    isPrimary?: boolean;
+  }>;
+  savedItems?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -54,6 +65,7 @@ const UserSchema = new Schema<IUser>(
     },
     gstin: { type: String, trim: true, uppercase: true },
     companyName: { type: String, trim: true },
+    isVerified: { type: Boolean, default: false },
     avatarUrl: {
       type: String,
       default: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg',
@@ -79,10 +91,13 @@ const UserSchema = new Schema<IUser>(
         isPrimary: { type: Boolean, default: false },
       },
     ],
+    addresses: [Schema.Types.Mixed],
     savedLocations: [{ type: String }],
+    savedItems: [{ type: String }],
     cart: [{ type: Schema.Types.Mixed }],
     creditLimit: { type: Number, default: 500000 },
     availableCredit: { type: Number, default: 500000 },
+    usedCredit: { type: Number, default: 0 },
   },
   {
     timestamps: true,

@@ -37,10 +37,20 @@ export const useWindowDimensions = () => {
   return dimensions;
 };
 
+const rawAnimated = (RNW as any).Animated || {};
+export const Animated = {
+  ...rawAnimated,
+  timing: (value: any, config: any) =>
+    rawAnimated.timing?.(value, config ? { ...config, useNativeDriver: false } : config),
+  spring: (value: any, config: any) =>
+    rawAnimated.spring?.(value, config ? { ...config, useNativeDriver: false } : config),
+  decay: (value: any, config: any) =>
+    rawAnimated.decay?.(value, config ? { ...config, useNativeDriver: false } : config),
+};
+
 export const {
   ActivityIndicator,
   Alert,
-  Animated,
   AppState,
   BackHandler,
   Button,

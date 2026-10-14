@@ -654,9 +654,23 @@ export const Header: React.FC<HeaderProps> = ({
                         <TouchableOpacity
                           key={srv.id}
                           onPress={() => {
-                            const serviceMat = activeMaterials.find((m) => m.id === `service-${srv.id}`);
-                            if (serviceMat && onSelectItemModal) {
-                              handleCloseSearch();
+                            const foundMat = activeMaterials.find(
+                              (m) => m.id === `service-${srv.id}` || (m.categoryId === 'services' && m.name.toLowerCase().includes(srv.name.toLowerCase()))
+                            );
+                            const serviceMat: MaterialItem = foundMat || {
+                              id: `service-${srv.id}`,
+                              categoryId: 'services',
+                              name: `${srv.name} Service`,
+                              subtitle: srv.subtitle || 'Certified On-Site Skilled Contractor',
+                              image: srv.image || 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=600&q=80',
+                              actionType: 'add_to_cart',
+                              defaultPrice: 850,
+                              options: [{ id: 'daily-shift', label: '1 Skilled Worker / Shift', price: 850, type: 'radio' }],
+                              inStock: true,
+                            };
+
+                            handleCloseSearch();
+                            if (onSelectItemModal) {
                               onSelectItemModal(serviceMat);
                             } else {
                               handleExecuteSearch(srv.name);

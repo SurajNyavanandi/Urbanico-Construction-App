@@ -214,6 +214,8 @@ export const ScreenRouter: React.FC<ScreenRouterProps> = ({
             }}
             isLoggedIn={isLoggedIn}
             onOpenLoginModal={onOpenAuthModal}
+            favoriteIds={favoriteIds}
+            onToggleFavorite={onToggleFavorite}
           />
         </ScreenSuspense>
       )}
@@ -286,14 +288,14 @@ export const ScreenRouter: React.FC<ScreenRouterProps> = ({
         </ScreenSuspense>
       )}
 
-      {(currentScreen === 'activity' || currentScreen === 'orders' || currentScreen === 'order_history') && (
+      {(currentScreen === 'activity' || currentScreen === 'orders' || currentScreen === 'order_history' || currentScreen === 'tracking') && (
         <ScreenSuspense type="tracking">
           <OrderHistory
             user={user}
             deliveries={deliveries}
-            initialFilter={currentScreen === 'activity' ? 'active' : 'all'}
+            initialFilter={currentScreen === 'activity' || currentScreen === 'tracking' ? 'active' : 'all'}
             isLoggedIn={isLoggedIn}
-            onBack={() => onNavigateScreen('profile')}
+            onBack={() => onNavigateScreen(currentScreen === 'tracking' ? 'basket' : 'profile')}
             onExploreCatalog={() => {
               onSelectCategory('all');
               onNavigateScreen('shop');

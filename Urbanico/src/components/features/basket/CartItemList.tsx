@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Trash2, Bookmark } from 'lucide-react-native';
+import { Trash2, Heart } from 'lucide-react-native';
 import { AppText } from '../../common/AppText';
 import { ShimmerImage } from '../../common/ShimmerImage';
 import { QuantityStepper } from '../../common/QuantityStepper';
@@ -13,7 +13,8 @@ export interface CartItemListProps {
   onIncrement: (cartId: string, currentQty: number) => void;
   onDecrement: (cartId: string, currentQty: number) => void;
   onRemove: (cartId: string) => void;
-  onSaveForLater: (item: CartItem) => void;
+  onSaveToFavorites?: (item: CartItem) => void;
+  onSaveForLater?: (item: CartItem) => void;
 }
 
 export const CartItemList: React.FC<CartItemListProps> = ({
@@ -21,6 +22,7 @@ export const CartItemList: React.FC<CartItemListProps> = ({
   onIncrement,
   onDecrement,
   onRemove,
+  onSaveToFavorites,
   onSaveForLater,
 }) => {
   const { theme } = useTheme();
@@ -72,13 +74,17 @@ export const CartItemList: React.FC<CartItemListProps> = ({
             <View style={[styles.cardFooter, { borderTopColor: theme.borderLight }]}>
               <View style={styles.actionsLeft}>
                 <TouchableOpacity
-                  onPress={() => onSaveForLater(item)}
+                  onPress={() => {
+                    if (onSaveToFavorites) onSaveToFavorites(item);
+                    else if (onSaveForLater) onSaveForLater(item);
+                  }}
                   activeOpacity={0.7}
                   style={styles.actionBtn}
+                  accessibilityLabel="Save to Favorites"
                 >
-                  <Bookmark size={14} color={theme.textSecondary} />
+                  <Heart size={14} color={theme.textSecondary} />
                   <AppText style={[styles.actionBtnText, { color: theme.textSecondary }]} weight="medium">
-                    Save for Later
+                    Save to Favorites
                   </AppText>
                 </TouchableOpacity>
 

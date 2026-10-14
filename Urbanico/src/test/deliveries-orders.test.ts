@@ -248,5 +248,69 @@ describe('Deliveries & Orders Module', () => {
       const elevenMinutesAgo = now - 11 * 60 * 1000;
       expect(syncManager.getStockReservationRemainingSeconds(elevenMinutesAgo)).toBe(0);
     });
+
+    it('retains all concurrent active orders and enables multi-order tracking without overwriting', () => {
+      const { result } = renderHook(() =>
+        useOrderManager({
+          user: mockUser,
+          isLoggedIn: true,
+        })
+      );
+
+      const order1: ActivityDelivery = {
+        id: 'del-101',
+        orderNumber: 'UB-101',
+        materialName: 'River Sand & Aggregates',
+        quantity: '2 Tipper Loads',
+        driverName: 'Ramesh Kumar',
+        vehicleType: 'Heavy Tipper',
+        vehicleNumber: 'TS 09 UB 1001',
+        estimatedArrival: '15 mins away',
+        status: 'En Route',
+        siteAddress: 'Plot 45, HITEC City',
+        timestamp: 'Today, 10:00 AM',
+        totalAmount: 18000,
+        siteSupervisorPhone: '9848012345',
+      };
+
+      const order2: ActivityDelivery = {
+        id: 'del-102',
+        orderNumber: 'UB-102',
+        materialName: 'UltraTech Cement 53G',
+        quantity: '50 Bags',
+        driverName: 'Suresh Varma',
+        vehicleType: 'Covered Freight Truck',
+        vehicleNumber: 'TS 09 UB 2002',
+        estimatedArrival: '35 mins away',
+        status: 'En Route',
+        siteAddress: 'Plot 45, HITEC City',
+        timestamp: 'Today, 10:30 AM',
+        totalAmount: 22000,
+        siteSupervisorPhone: '9848012345',
+      };
+
+      // Place first order
+      act(() => {
+        result.current.addOrder(order1);
+      });
+
+      expect(result.current.deliveries).toHaveLength(1);
+      expect(result.current.deliveries[0].orderNumber).toBe('UB-101');
+
+      // Place second order concurrently
+      act(() => {
+        result.current.addOrder(order2);
+      });
+
+      // Both orders must be retained and active!
+      expect(result.current.deliveries).toHaveLength(2);
+      expect(result.current.deliveries.map((d) => d.orderNumber)).toEqual(['UB-102', 'UB-101']);
+
+      // Filter active orders - both must be active and trackable simultaneously
+      const activeDeliveries = result.current.deliveries.filter(
+        (d) => d.status === 'En Route' || d.status === 'Placed' || d.status === 'Dispatched'
+      );
+      expect(activeDeliveries).toHaveLength(2);
+    });
   });
 });

@@ -8,6 +8,7 @@ export type ScreenType =
   | 'activity'
   | 'orders'
   | 'order_history'
+  | 'tracking'
   | 'auth_mobile'
   | 'auth_otp';
 
@@ -60,6 +61,9 @@ export interface MaterialItem {
   actionType: 'add_to_cart' | 'get_quote';
   defaultPrice?: number;
   options: UnitOption[];
+  maxOrderQuantity?: number;
+  inStock?: boolean;
+  stock?: number;
 }
 
 export interface CartItem {
@@ -73,6 +77,12 @@ export interface CartItem {
   unitPrice: number;
   quantity: number;
   image: string;
+  serviceDetails?: {
+    headcount?: number;
+    shiftDays?: number;
+    timeSlot?: string;
+    scopeNotes?: string;
+  };
 }
 
 export interface UserProfile {

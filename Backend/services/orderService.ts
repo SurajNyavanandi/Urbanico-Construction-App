@@ -243,6 +243,31 @@ export class OrderService {
       }
     }
 
+    // 2. Database-Backed Credit / BNPL Limit Verification
+    const isBnpl = (orderData.paymentMethod || '').toLowerCase().includes('credit') ||
+                   (orderData.paymentMethod || '').toLowerCase().includes('later') ||
+                   (orderData.paymentMethod || '').toLowerCase().includes('bnpl');
+
+    if (isBnpl && customerPhoneDigits) {
+      const { UserService } = await import('./userService');
+      const user = await UserService.getUserByPhone(customerPhoneDigits);
+      if (user) {
+        const creditLimit = Number(user.creditLimit) || 500000;
+        const currentUsed = Number(user.usedCredit) || 0;
+        if (currentUsed + finalTotalAmount > creditLimit) {
+          const avail = Math.max(0, creditLimit - currentUsed);
+          throw new Error(`Urbanico Credit limit exceeded. Order total ₹${finalTotalAmount.toLocaleString('en-IN')} exceeds your available BNPL credit limit of ₹${avail.toLocaleString('en-IN')} (Credit Limit: ₹${creditLimit.toLocaleString('en-IN')}).`);
+        }
+        // Update usedCredit balance on user record
+        const newUsed = currentUsed + finalTotalAmount;
+        const newAvail = Math.max(0, creditLimit - newUsed);
+        await UserService.updateUser(user.phone, {
+          usedCredit: newUsed,
+          availableCredit: newAvail,
+        });
+      }
+    }
+
     const generatedOrderNumber = orderData.orderNumber || `URB-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`;
     const effectivePaymentStatus = orderData.paymentStatus || (orderData.paymentMethod?.toLowerCase().includes('site') || orderData.paymentMethod?.toLowerCase().includes('pod') ? 'pending_site_verification' : 'paid');
 
