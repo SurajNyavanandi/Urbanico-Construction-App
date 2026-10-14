@@ -83,5 +83,12 @@ const DeliverySchema = new Schema<IDelivery>(
   }
 );
 
+// High-frequency dispatch and live GPS tracking indexes
+DeliverySchema.index({ orderNumber: 1 });
+DeliverySchema.index({ orderId: 1 });
+DeliverySchema.index({ driverPhone: 1, status: 1 });
+DeliverySchema.index({ status: 1, createdAt: -1 });
+DeliverySchema.index({ 'currentLocation.lastUpdated': -1 });
+
 export const Delivery: Model<IDelivery> =
   (mongoose.models.Delivery as Model<IDelivery>) || mongoose.model<IDelivery>('Delivery', DeliverySchema);

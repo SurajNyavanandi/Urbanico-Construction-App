@@ -34,6 +34,7 @@ import { useTheme } from '../context/ThemeContext';
 import { ShimmerImage } from './common/ShimmerImage';
 import { isServiceablePincode } from '../utils/freightCalculator';
 import { soundService } from '../utils/soundHelper';
+import { isCartItemService } from '../utils/cartCalculations';
 
 interface ItemQuantityModalProps {
   item: MaterialItem | null;
@@ -72,6 +73,12 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
   const [pincodeInput, setPincodeInput] = useState<string>('500081');
   const [pincodeChecked, setPincodeChecked] = useState<boolean>(true);
   const [showImageLightbox, setShowImageLightbox] = useState<boolean>(false);
+
+  // Contractor Service Booking Configuration States
+  const [headcount, setHeadcount] = useState<number>(1);
+  const [shiftDays, setShiftDays] = useState<number>(1);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('Full Day (8:00 AM - 5:00 PM)');
+  const [scopeNotes, setScopeNotes] = useState<string>('');
 
   // Bottom Sheet Modal Animation Values (Animation 3)
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -125,11 +132,15 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
     setSelectedOptionId(defaultOpt?.id || item.options?.[0]?.id || '');
     setQuantity(1);
     setQuantityInputStr('1');
+    setHeadcount(1);
+    setShiftDays(1);
+    setSelectedTimeSlot('Full Day (8:00 AM - 5:00 PM)');
+    setScopeNotes('');
   }, [item]);
 
   if (!item) return null;
 
-  const isTradeService = item.categoryId === 'services' || item.id.startsWith('service-');
+  const isTradeService = item.categoryId === 'services' || item.id.startsWith('service-') || isCartItemService(item as any);
   const isFav = favoriteIds.includes(item.id);
 
   // Derive IS Code compliance standard
@@ -145,11 +156,14 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
   const isCodeStandard = getIsStandardCode();
   const labCertNo = `LAB-TS-2026-${(item.id.length * 1421 + 8812).toString().slice(0, 5)}`;
 
+  // Service daily rate per worker
+  const defaultServiceRate = 99;
+
   // Selected option & pricing with safe positive fallback
-  const selectedOption: UnitOption = isTradeService
-    ? (item.options && item.options[0]) || {
-        id: 'demo-session',
-        label: 'Expert Site Visit Demo Session',
+  const rawSelectedOption: UnitOption = isTradeService
+    ? {
+        id: 'configured-service-slot',
+        label: `1 Visit / Site Inspection (${selectedTimeSlot})`,
         price: 99,
         type: 'radio',
       }
@@ -159,6 +173,8 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
         price: Math.max(1, item.defaultPrice || 500),
         type: 'radio',
       };
+
+  const selectedOption = rawSelectedOption;
 
   const rawUnitPrice = isTradeService ? 99 : (selectedOption?.price && selectedOption.price > 0 ? selectedOption.price : item.defaultPrice || 500);
   const unitPrice = Math.max(1, rawUnitPrice);
@@ -172,7 +188,8 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
       : 0
     : 0;
 
-  const grossTotal = unitPrice * quantity;
+  const effectiveQty = isTradeService ? 1 : quantity;
+  const grossTotal = isTradeService ? 99 : unitPrice * quantity;
   const bulkDiscountAmount = Math.round((grossTotal * bulkDiscountPercent) / 100);
   const totalPrice = Math.max(1, grossTotal - bulkDiscountAmount);
 
@@ -244,24 +261,21 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
     setIsAdding(true);
     soundService.playAddToCart();
 
-    setTimeout(() => {
-      setIsAdding(false);
-      const effectiveQty = isTradeService ? 1 : quantity;
-      const effectiveTotal = isTradeService ? 99 : totalPrice;
-      onAddToCart(item, selectedOption, effectiveQty, effectiveTotal);
-      handleAnimatedClose();
-    }, 250);
+    // Dispatch immediately with effective quantity and calculated total price
+    onAddToCart(item, selectedOption, effectiveQty, totalPrice);
+
+    // Smoothly close sheet in parallel
+    handleAnimatedClose();
+    setIsAdding(false);
   };
 
   const handleBuyNowClick = () => {
     if (!selectedOption) return;
     soundService.playAddToCart();
-    const effectiveQty = isTradeService ? 1 : quantity;
-    const effectiveTotal = isTradeService ? 99 : totalPrice;
     if (onBuyNow) {
-      onBuyNow(item, selectedOption, effectiveQty, effectiveTotal);
+      onBuyNow(item, selectedOption, effectiveQty, totalPrice);
     } else {
-      onAddToCart(item, selectedOption, effectiveQty, effectiveTotal);
+      onAddToCart(item, selectedOption, effectiveQty, totalPrice);
     }
     handleAnimatedClose();
   };
@@ -373,125 +387,78 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
           {/* ======================================================== */}
           {isTradeService ? (
             <View style={styles.serviceFlowContainer}>
-              {/* Card 1: Expert Site Visit & Session Selector */}
-              <View style={[styles.serviceBookingCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                {/* Inspection Scope & Pricing */}
-                <View style={styles.serviceBookingTop}>
-                  <View style={styles.serviceBadgeRow}>
-                    <Calendar size={13} color={theme.textPrimary} strokeWidth={2.2} />
-                    <Text style={[styles.serviceMicroLabel, { color: theme.textSecondary }]}>EXPERT SITE VISIT</Text>
-                  </View>
-                  <View style={styles.servicePriceRow}>
-                    <Text style={[styles.servicePriceValue, { color: theme.textPrimary }]}>₹99</Text>
-                    <Text style={[styles.servicePriceUnit, { color: theme.textSecondary }]}>/ session</Text>
-                  </View>
-                  <Text style={[styles.serviceInspectionDesc, { color: theme.textSecondary }]}>
-                    Direct on-site inspection, scope evaluation, and verified measurement.
+              {/* Card 1: 1 Visit / Site Inspection Banner */}
+              <View style={[styles.serviceBookingCard, { backgroundColor: theme.surface, borderColor: theme.border, padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 12 }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary }}>
+                    1. On-Site Inspection Booking
                   </Text>
+                  <View style={{ backgroundColor: '#D1FAE5', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 }}>
+                    <Text style={{ fontSize: 11, fontWeight: '800', color: '#065F46' }}>
+                      1 Visit / Site Inspection
+                    </Text>
+                  </View>
                 </View>
+                <Text style={{ fontSize: 11.5, color: theme.textSecondary, lineHeight: 16 }}>
+                  A certified technician/contractor will visit your site to inspect the work area, measure scope, and provide an itemized final estimate. Quantity is locked to 1 visit per service booking.
+                </Text>
+              </View>
 
-                {/* Subtle Divider */}
-                <View style={[styles.serviceDivider, { backgroundColor: theme.border }]} />
-
-                {/* Single Site Visit Confirmation Box (Locked to 1 Visit) */}
-                <View style={[styles.serviceVisitConfirmationBox, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-                  <View style={styles.serviceVisitIconBadge}>
-                    <ShieldCheck size={16} color="#059669" strokeWidth={2.5} />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 10 }}>
-                    <Text style={[styles.serviceVisitNoticeTitle, { color: theme.textPrimary }]}>
-                      Single Site Demo & Scope Inspection
-                    </Text>
-                    <Text style={[styles.serviceVisitNoticeSub, { color: theme.textSecondary }]}>
-                      Fee credited toward your final project bill upon hire.
-                    </Text>
-                  </View>
-                  <View style={[styles.serviceFixedQtyBadge, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                    <Text style={[styles.serviceFixedQtyText, { color: theme.textPrimary }]}>1 Visit</Text>
-                  </View>
+              {/* Card 2: Preferred On-Site Time Slot */}
+              <View style={[styles.serviceBookingCard, { backgroundColor: theme.surface, borderColor: theme.border, padding: 14, borderRadius: 12, borderWidth: 1, marginBottom: 12 }]}>
+                <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary, marginBottom: 8 }}>
+                  2. Preferred On-Site Time Slot
+                </Text>
+                <View style={{ gap: 8 }}>
+                  {[
+                    'Morning (8:00 AM - 12:00 PM)',
+                    'Afternoon (1:00 PM - 5:00 PM)',
+                    'Full Day (8:00 AM - 5:00 PM)',
+                    'Evening / Emergency Slot (6:00 PM - 10:00 PM)',
+                  ].map((slot) => {
+                    const isSelected = selectedTimeSlot === slot;
+                    return (
+                      <TouchableOpacity
+                        key={slot}
+                        onPress={() => {
+                          soundService.playTap();
+                          setSelectedTimeSlot(slot);
+                        }}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 10,
+                          padding: 10,
+                          borderRadius: 8,
+                          backgroundColor: isSelected ? (theme.mode === 'dark' ? '#1E293B' : '#EFF6FF') : theme.surfaceSecondary,
+                          borderWidth: 1,
+                          borderColor: isSelected ? (theme.primary || '#2563EB') : theme.border,
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Calendar size={14} color={isSelected ? theme.primary : theme.textSecondary} />
+                        <Text style={{ fontSize: 12.5, fontWeight: isSelected ? '700' : '500', color: theme.textPrimary }}>
+                          {slot}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
                 </View>
               </View>
 
-              {/* Card 2: Structured Service Process & Guidelines Hierarchy */}
-              <View style={[styles.serviceProcessCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                <View style={styles.serviceProcessHeader}>
-                  <Text style={[styles.serviceProcessHeading, { color: theme.textPrimary }]}>
-                    Service Process & Guidelines
+              {/* Transparent Price Summary & Service Guarantee */}
+              <View style={{ padding: 12, borderRadius: 10, backgroundColor: theme.mode === 'dark' ? '#0F172A' : '#ECFDF5', borderWidth: 1, borderColor: theme.mode === 'dark' ? '#1E293B' : '#A7F3D0' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textSecondary }}>
+                    Site Inspection Token Fee (Quantity: 1):
+                  </Text>
+                  <Text style={{ fontSize: 15, fontWeight: '800', color: '#047857' }}>
+                    ₹99
                   </Text>
                 </View>
-
-                <View style={styles.timelineContainer}>
-                  {/* Step 1: Site Inspection */}
-                  <View style={styles.timelineItem}>
-                    <View style={styles.timelineLeftTrack}>
-                      <View style={[styles.timelineNode, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-                        <Text style={[styles.timelineNodeText, { color: theme.textPrimary }]}>1</Text>
-                      </View>
-                      <View style={[styles.timelineConnectingLine, { backgroundColor: theme.border }]} />
-                    </View>
-
-                    <View style={styles.timelineContent}>
-                      <View style={styles.timelineTitleRow}>
-                        <Text style={[styles.timelineStepTitle, { color: theme.textPrimary }]}>
-                          Site Inspection
-                        </Text>
-                        <View style={[styles.timelinePriceBadge, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-                          <Text style={[styles.timelinePriceBadgeText, { color: theme.textPrimary }]}>₹99</Text>
-                        </View>
-                      </View>
-                      <Text style={[styles.timelineStepDesc, { color: theme.textSecondary }]}>
-                        On-site visit to evaluate requirements and project scope.
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Step 2: Labor Rate Estimate */}
-                  <View style={styles.timelineItem}>
-                    <View style={styles.timelineLeftTrack}>
-                      <View style={[styles.timelineNode, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-                        <Text style={[styles.timelineNodeText, { color: theme.textPrimary }]}>2</Text>
-                      </View>
-                      <View style={[styles.timelineConnectingLine, { backgroundColor: theme.border }]} />
-                    </View>
-
-                    <View style={styles.timelineContent}>
-                      <View style={styles.timelineTitleRow}>
-                        <Text style={[styles.timelineStepTitle, { color: theme.textPrimary }]}>
-                          Labor Rate Estimate
-                        </Text>
-                        <View style={[styles.timelinePriceBadge, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-                          <Text style={[styles.timelinePriceBadgeText, { color: theme.textPrimary }]}>₹800 – ₹1,000 / day</Text>
-                        </View>
-                      </View>
-                      <Text style={[styles.timelineStepDesc, { color: theme.textSecondary }]}>
-                        Standardized daily labor pricing determined transparently based on project complexity.
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Step 3: In-App Settlement & Warranty */}
-                  <View style={styles.timelineItem}>
-                    <View style={styles.timelineLeftTrack}>
-                      <View style={[styles.timelineNode, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
-                        <ShieldCheck size={12} color="#059669" strokeWidth={2.6} />
-                      </View>
-                    </View>
-
-                    <View style={styles.timelineContent}>
-                      <View style={styles.timelineTitleRow}>
-                        <Text style={[styles.timelineStepTitle, { color: theme.textPrimary }]}>
-                          In-App Settlement
-                        </Text>
-                        <View style={[styles.timelinePriceBadge, { backgroundColor: '#ECFDF5', borderColor: '#A7F3D0' }]}>
-                          <Text style={[styles.timelinePriceBadgeText, { color: '#047857' }]}>30-Day Warranty</Text>
-                        </View>
-                      </View>
-                      <Text style={[styles.timelineStepDesc, { color: theme.textSecondary }]}>
-                        Final scope is updated in the app for digital settlement, activating your 30-day workmanship warranty.
-                      </Text>
-                    </View>
-                  </View>
-                </View>
+                <Text style={{ fontSize: 11, color: '#065F46', lineHeight: 15 }}>
+                  ✓ Direct site dispatch • Handshake Job PIN verification • 100% adjustable against final job invoice.
+                </Text>
               </View>
             </View>
           ) : (
@@ -580,7 +547,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
                               : { borderColor: theme.border, backgroundColor: 'transparent' },
                           ]}
                         >
-                          {isSelected && <Check size={10} color="#FFFFFF" strokeWidth={3} />}
+                          {isSelected && <Check size={10} color={theme.primaryText || '#18181B'} strokeWidth={3} />}
                         </View>
                         <Text
                           style={[
@@ -709,12 +676,12 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
               },
             ]}
           >
-            <Zap size={16} color={theme.buttonText || '#FFFFFF'} strokeWidth={2} />
+            <Zap size={16} color={theme.buttonText || '#18181B'} strokeWidth={2} />
             <Text
               numberOfLines={1}
               style={[
                 styles.primaryBtnText,
-                { color: theme.buttonText || '#FFFFFF' },
+                { color: theme.buttonText || '#18181B' },
               ]}
             >
               {isTradeService

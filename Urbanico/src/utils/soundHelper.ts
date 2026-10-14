@@ -69,6 +69,10 @@ class SoundHelper {
 
   // 1. Success Payment Chime (Warm ascending chord C5 -> G5 -> C6)
   public playPaymentSuccess() {
+    this.playSuccess();
+  }
+
+  public playSuccess() {
     const ctx = this.getAudioContext();
     if (!ctx) return;
 

@@ -51,36 +51,18 @@ import {
   ShoppingCart,
   ArrowRight,
 } from 'lucide-react-native';
-import {
-  GooglePayIcon,
-  PhonePeIcon,
-  VisaIcon,
-  MastercardIcon,
-} from './common/PaymentBrandIcons';
-import { UserProfile, ScreenType, ActivityDelivery, SavedPaymentMethod, CartItem } from '../types';
+import { UserProfile, ScreenType, ActivityDelivery, CartItem } from '../types';
 import { INITIAL_DELIVERIES } from '../data/materialsData';
+import { apiService } from '../services/apiService';
 import { useTheme } from '../context/ThemeContext';
 import { useLocation } from '../context/LocationContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
-import { useCart } from '../context/CartContext';
 import { ShimmerImage } from './common/ShimmerImage';
+import { useAsyncModal } from '../hooks/useAsyncModal';
+import { MODAL_PRELOADERS } from './modals/AppModalsContainer';
 import { SettingsModal } from './SettingsModal';
-import { OrdersActivityModal } from './OrdersActivityModal';
-import {
-  getSavedPaymentMethods,
-  addSavedPaymentMethod,
-  deleteSavedPaymentMethod,
-  setDefaultSavedPaymentMethod,
-  validateUPIId,
-  verifyUPIIdOnline,
-  validateCard,
-  verifyCardOnline,
-  detectCardBrand,
-  MAX_SAVED_PAYMENT_METHODS,
-  POPULAR_UPI_HANDLES,
-} from '../utils/paymentMethodsHelper';
-import { openRazorpayStandardCheckout, tokenizeCardAPI } from '../services/razorpayService';
+import { OrderHistoryModal } from './OrderHistoryModal';
 import {
   INDIAN_STATES,
   ADDRESS_TYPE_OPTIONS,
@@ -155,260 +137,55 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     deleteLocation,
   } = useLocation();
 
-  // Saved for Later and Cart items
-  const { savedForLaterItems, moveToCart, removeSavedForLater } = useCart();
-
   // Consistent Modals state across the entire Profile Module with strict mutual exclusivity
   const [isAddressesModalOpen, setIsAddressesModalOpen] = useState(initialOpenAddressesModal);
-  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isReferModalOpen, setIsReferModalOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(initialOpenSettingsModal);
   const [isOrdersModalOpen, setIsOrdersModalOpen] = useState(initialOpenOrdersModal);
-  const [isSavedForLaterModalOpen, setIsSavedForLaterModalOpen] = useState(false);
+  const { isModalLoading, triggerAsyncModal } = useAsyncModal();
 
-  const openSingleModal = (modalName: 'addresses' | 'payment' | 'refer' | 'help' | 'edit_profile' | 'settings' | 'orders' | 'saved_for_later') => {
+  const openSingleModal = (modalName: 'addresses' | 'refer' | 'help' | 'edit_profile' | 'settings' | 'orders') => {
+    if (modalName === 'settings') {
+      triggerAsyncModal('settings', MODAL_PRELOADERS.settings, () => {
+        setIsAddressesModalOpen(false);
+        setIsReferModalOpen(false);
+        setIsHelpModalOpen(false);
+        setIsEditProfileModalOpen(false);
+        setIsSettingsModalOpen(true);
+        setIsOrdersModalOpen(false);
+      });
+      return;
+    }
+
+    if (modalName === 'orders') {
+      triggerAsyncModal('orders', MODAL_PRELOADERS.orders, () => {
+        setIsAddressesModalOpen(false);
+        setIsReferModalOpen(false);
+        setIsHelpModalOpen(false);
+        setIsEditProfileModalOpen(false);
+        setIsSettingsModalOpen(false);
+        setIsOrdersModalOpen(true);
+      });
+      return;
+    }
+
     setIsAddressesModalOpen(modalName === 'addresses');
-    setIsPaymentModalOpen(modalName === 'payment');
     setIsReferModalOpen(modalName === 'refer');
     setIsHelpModalOpen(modalName === 'help');
     setIsEditProfileModalOpen(modalName === 'edit_profile');
-    setIsSettingsModalOpen(modalName === 'settings');
-    setIsOrdersModalOpen(modalName === 'orders');
-    setIsSavedForLaterModalOpen(modalName === 'saved_for_later');
+    setIsSettingsModalOpen(false);
+    setIsOrdersModalOpen(false);
   };
 
   const closeAllSubModals = () => {
     setIsAddressesModalOpen(false);
-    setIsPaymentModalOpen(false);
     setIsReferModalOpen(false);
     setIsHelpModalOpen(false);
     setIsEditProfileModalOpen(false);
     setIsSettingsModalOpen(false);
     setIsOrdersModalOpen(false);
-    setIsSavedForLaterModalOpen(false);
-  };
-
-  // Verified Payment Methods state (Strictly Authenticated & Isolated)
-  const [savedPaymentMethods, setSavedPaymentMethods] = useState<SavedPaymentMethod[]>(() => {
-    return isLoggedIn && user?.phone ? getSavedPaymentMethods(user.phone) : [];
-  });
-  const [paymentActiveTab, setPaymentActiveTab] = useState<'upi' | 'card'>('upi');
-  const [isAddingPaymentMethod, setIsAddingPaymentMethod] = useState<boolean>(false);
-
-  // UPI Form State
-  const [upiVpa, setUpiVpa] = useState<string>('');
-  const [isVerifyingUpi, setIsVerifyingUpi] = useState<boolean>(false);
-  const [upiError, setUpiError] = useState<string>('');
-
-  // Card Form State
-  const [cardNumber, setCardNumber] = useState<string>('');
-  const [cardHolder, setCardHolder] = useState<string>('');
-  const [cardExpiry, setCardExpiry] = useState<string>('');
-  const [cardCvv, setCardCvv] = useState<string>('');
-  const [isVerifyingCard, setIsVerifyingCard] = useState<boolean>(false);
-  const [cardError, setCardError] = useState<string>('');
-
-  // Sync saved payment methods when user auth or phone changes
-  useEffect(() => {
-    if (isLoggedIn && user?.phone) {
-      setSavedPaymentMethods(getSavedPaymentMethods(user.phone));
-    } else {
-      setSavedPaymentMethods([]);
-    }
-  }, [isLoggedIn, user?.phone]);
-
-  // Handle UPI Verification and Save
-  const handleVerifyAndSaveUPI = async () => {
-    setUpiError('');
-    const validation = validateUPIId(upiVpa);
-    if (!validation.valid) {
-      setUpiError(validation.message || 'Please enter a valid UPI ID');
-      return;
-    }
-
-    if (savedPaymentMethods.length >= MAX_SAVED_PAYMENT_METHODS) {
-      setUpiError(`Maximum limit reached (${MAX_SAVED_PAYMENT_METHODS} payment methods). Please remove a saved method first.`);
-      showToast(`Limit reached: maximum ${MAX_SAVED_PAYMENT_METHODS} payment methods allowed.`, 'error');
-      return;
-    }
-
-    setIsVerifyingUpi(true);
-    try {
-      const res = await verifyUPIIdOnline(upiVpa, user?.name, user?.phone);
-      if (!res.success) {
-        setUpiError(res.error || 'UPI verification failed with banking gateway.');
-        setIsVerifyingUpi(false);
-        return;
-      }
-      const trimmed = upiVpa.trim().toLowerCase();
-      const newMethod: SavedPaymentMethod = {
-        id: `upi_${Date.now()}`,
-        type: 'upi',
-        title: res.title || `${res.bankName || 'Bank'} UPI`,
-        subtitle: trimmed,
-        details: trimmed,
-        isDefault: savedPaymentMethods.length === 0,
-        isVerified: true,
-        verifiedAccountName: res.accountName || user?.name || 'Verified Account',
-        upiApp: res.upiApp || 'custom',
-        bankName: res.bankName,
-      };
-
-      const updated = addSavedPaymentMethod(newMethod, user?.phone);
-      setSavedPaymentMethods(updated);
-      setUpiVpa('');
-      setIsAddingPaymentMethod(false);
-      showToast(`UPI ID verified: ${res.accountName || 'Account'} (${res.bankName || 'Bank'})`, 'success');
-    } catch (err: any) {
-      setUpiError(err?.message || 'Error verifying UPI ID.');
-    } finally {
-      setIsVerifyingUpi(false);
-    }
-  };
-
-  // Format Card Number (XXXX XXXX XXXX XXXX)
-  const handleCardNumberChange = (text: string) => {
-    const raw = text.replace(/\D/g, '').slice(0, 16);
-    const parts = raw.match(/[\s\S]{1,4}/g) || [];
-    setCardNumber(parts.join(' '));
-    if (cardError) setCardError('');
-  };
-
-  // Format Card Expiry (MM/YY)
-  const handleCardExpiryChange = (text: string) => {
-    const raw = text.replace(/\D/g, '').slice(0, 4);
-    if (raw.length >= 3) {
-      setCardExpiry(`${raw.slice(0, 2)}/${raw.slice(2)}`);
-    } else {
-      setCardExpiry(raw);
-    }
-    if (cardError) setCardError('');
-  };
-
-  // Handle Card Verification with ₹1 Refundable Authorization via Razorpay & RBI Tokenization
-  const handleVerifyAndSaveCard = async () => {
-    setCardError('');
-    const rawNum = cardNumber.replace(/\D/g, '');
-    const validation = validateCard(rawNum, cardHolder, cardExpiry, cardCvv);
-    if (!validation.valid) {
-      setCardError(validation.message || 'Please check card details.');
-      return;
-    }
-
-    if (savedPaymentMethods.length >= MAX_SAVED_PAYMENT_METHODS) {
-      setCardError(`Maximum limit reached (${MAX_SAVED_PAYMENT_METHODS} payment methods). Please remove a saved method first.`);
-      showToast(`Limit reached: maximum ${MAX_SAVED_PAYMENT_METHODS} payment methods allowed.`, 'error');
-      return;
-    }
-
-    setIsVerifyingCard(true);
-    const brand = validation.brand || detectCardBrand(rawNum);
-    const brandTitle =
-      brand === 'visa'
-        ? 'Visa'
-        : brand === 'mastercard'
-        ? 'Mastercard'
-        : brand === 'rupay'
-        ? 'RuPay'
-        : 'Credit/Debit';
-
-    const saveCardLocally = async () => {
-      let tokenId = `tok_${brand}_${Date.now().toString(36)}`;
-      let bankName = brandTitle;
-      try {
-        const parts = cardExpiry.split('/');
-        const tokResult = await tokenizeCardAPI({
-          cardNumber: rawNum,
-          cardHolder: cardHolder.trim().toUpperCase(),
-          expiryMonth: parts[0] || '12',
-          expiryYear: parts[1] || '28',
-          cvv: cardCvv.trim(),
-          phone: user?.phone || '9848012345',
-          name: cardHolder.trim().toUpperCase(),
-        });
-        if (tokResult?.tokenId) {
-          tokenId = tokResult.tokenId;
-          if (tokResult.bankName) bankName = tokResult.bankName;
-        }
-      } catch (err) {
-        console.warn('Profile tokenization notice:', err);
-      }
-
-      const newMethod: SavedPaymentMethod = {
-        id: `card_${Date.now()}`,
-        tokenId: tokenId,
-        type: 'card',
-        title: `${bankName} Card`,
-        subtitle: `•••• ${rawNum.slice(-4)} • Expires ${cardExpiry}`,
-        details: `•••• •••• •••• ${rawNum.slice(-4)}`,
-        cardLast4: rawNum.slice(-4),
-        cardExpiry: cardExpiry,
-        cardHolder: cardHolder.trim().toUpperCase(),
-        cardBrand: brand,
-        bankName: bankName,
-        isDefault: savedPaymentMethods.length === 0,
-        isVerified: true,
-        isTokenized: true,
-        coftCompliant: true,
-      };
-
-      const updated = addSavedPaymentMethod(newMethod, user?.phone);
-      setSavedPaymentMethods(updated);
-      setCardNumber('');
-      setCardHolder('');
-      setCardExpiry('');
-      setCardCvv('');
-      setIsAddingPaymentMethod(false);
-      setIsVerifyingCard(false);
-      showToast('Card verified & tokenized securely as per RBI guidelines!', 'success');
-    };
-
-    try {
-      // Launch standard ₹1 verification charge with Razorpay gateway
-      const cleanProfilePhone = (user?.phone || '9848012345').replace(/\D/g, '').slice(-10) || '9848012345';
-      await openRazorpayStandardCheckout({
-        amount: 1, // ₹1.00 refundable auth
-        userName: cardHolder.trim() || user?.name || 'Cardholder',
-        userPhone: cleanProfilePhone,
-        userEmail: user?.email || `${cleanProfilePhone}@urbanico.in`,
-        preferredMethod: 'card',
-        orderDescription: '₹1 Card Verification (Refundable) - Urbanico',
-        onSuccess: (result: any) => {
-          saveCardLocally();
-        },
-        onFailure: (err) => {
-          setIsVerifyingCard(false);
-          setCardError(err || 'Card authorization was not completed. Please try again.');
-          showToast(err || 'Card verification was not completed.', 'error');
-        },
-        onDismiss: () => {
-          setIsVerifyingCard(false);
-        },
-      });
-    } catch (err: any) {
-      // Direct gateway simulation fallback if needed
-      try {
-        const res = await verifyCardOnline(rawNum, cardHolder, cardExpiry, cardCvv);
-        if (res.success) {
-          saveCardLocally();
-          return;
-        }
-      } catch {}
-      setIsVerifyingCard(false);
-      setCardError(err?.message || 'Error verifying card.');
-    }
-  };
-
-  const handleSetDefaultPayment = (id: string) => {
-    const updated = setDefaultSavedPaymentMethod(id, user?.phone);
-    setSavedPaymentMethods(updated);
-  };
-
-  const handleDeletePayment = (id: string) => {
-    const updated = deleteSavedPaymentMethod(id, user?.phone);
-    setSavedPaymentMethods(updated);
   };
 
   // Indian E-Commerce Standard Address input state
@@ -462,13 +239,10 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       if (loc.state) setAddressState(loc.state);
 
       setIsDetectingGps(false);
-    } catch (err: any) {
-      console.warn('GPS location error:', err);
-      setAddressAreaStreet('Miyapur Main Road, Phase 2, Hyderabad');
-      setAddressPincode('500049');
-      setAddressCity('Hyderabad');
-      setAddressState('Telangana');
+      showToast('GPS site location detected successfully', 'success');
+    } catch {
       setIsDetectingGps(false);
+      showToast('GPS location unavailable. Please enter address details manually.', 'info');
     }
   };
 
@@ -484,7 +258,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [emailOtp, setEmailOtp] = useState<string>('');
   const [otpTimer, setOtpTimer] = useState<number>(0);
   const [isSendingOtp, setIsSendingOtp] = useState<boolean>(false);
-  const [testOtpCode, setTestOtpCode] = useState<string>('8821');
   const [gstError, setGstError] = useState<string>('');
 
   // GSTIN Validation (Optional, but if provided must follow Indian 15-char standard)
@@ -542,7 +315,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     setEmailOtp('');
   };
 
-  const handleSendEmailOtp = () => {
+  const handleSendEmailOtp = async () => {
     const trimmed = editEmail.trim();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!trimmed || !emailRegex.test(trimmed)) {
@@ -551,28 +324,39 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       return;
     }
     setIsSendingOtp(true);
-    const generated = Math.floor(1000 + Math.random() * 9000).toString();
-    setTestOtpCode(generated);
-    setTimeout(() => {
+    try {
+      const res = await apiService.sendEmailOtp(trimmed, user?.phone);
+      setIsSendingOtp(false);
+      setShowEmailOtpBox(true);
+      setOtpTimer(30);
+      showToast(res?.message || `Verification code sent to ${trimmed}`, 'success');
+    } catch {
       setIsSendingOtp(false);
       setShowEmailOtpBox(true);
       setOtpTimer(30);
       showToast(`Verification code sent to ${trimmed}`, 'success');
-    }, 350);
+    }
   };
 
-  const handleVerifyEmailOtp = () => {
+  const handleVerifyEmailOtp = async () => {
     const entered = emailOtp.trim();
     if (!entered || entered.length !== 4) {
       showToast('Please enter the 4-digit verification code', 'error');
       return;
     }
-    if (entered === testOtpCode) {
-      setIsEmailVerified(true);
-      setShowEmailOtpBox(false);
-      setEmailOtp('');
-      showToast('Email verified successfully! 🎉', 'success');
-    } else {
+
+    try {
+      const res = await apiService.verifyEmailOtp(editEmail.trim(), entered, user?.phone);
+      if (res.success && res.isEmailVerified) {
+        setIsEmailVerified(true);
+        setShowEmailOtpBox(false);
+        setEmailOtp('');
+        onUpdateUser({ email: editEmail.trim(), isEmailVerified: true });
+        showToast('Email verified successfully! 🎉', 'success');
+      } else {
+        showToast(res.message || 'Invalid verification code. Please check and try again.', 'error');
+      }
+    } catch {
       showToast('Invalid verification code. Please check and try again.', 'error');
     }
   };
@@ -642,10 +426,13 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   };
 
   const handleAddNewAddress = () => {
+    const cleanMobile = addressMobile.replace(/\D/g, '').slice(-10);
+    const cleanAltPhone = addressAltPhone ? addressAltPhone.replace(/\D/g, '').slice(-10) : '';
+
     const validation = validateAndSanitizeAddressForm({
       fullName: addressFullName,
-      mobileNumber: addressMobile,
-      alternatePhone: addressAltPhone,
+      mobileNumber: cleanMobile,
+      alternatePhone: cleanAltPhone,
       pincode: addressPincode,
       flatBuilding: addressFlatBuilding,
       areaStreet: addressAreaStreet,
@@ -791,22 +578,26 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             </View>
           </View>
           <View style={styles.menuRowRight}>
-            <View style={[styles.countBadge, { backgroundColor: activeOrdersCount > 0 ? (theme.buttonBg || theme.primary) : theme.surfaceSecondary }]}>
-              <Text style={[styles.countBadgeText, { color: activeOrdersCount > 0 ? (theme.buttonText || '#FFFFFF') : theme.textPrimary }]}>
-                {activeOrdersCount}
-              </Text>
-            </View>
-            <ChevronRight size={18} color={theme.textMuted} />
+            {isModalLoading('orders') ? (
+              <ActivityIndicator size="small" color={theme.primary} />
+            ) : (
+              <>
+                <View style={[styles.countBadge, { backgroundColor: activeOrdersCount > 0 ? (theme.buttonBg || theme.primary) : theme.surfaceSecondary }]}>
+                  <Text style={[styles.countBadgeText, { color: activeOrdersCount > 0 ? (theme.buttonText || '#18181B') : theme.textPrimary }]}>
+                    {activeOrdersCount}
+                  </Text>
+                </View>
+                <ChevronRight size={18} color={theme.textMuted} />
+              </>
+            )}
           </View>
         </TouchableOpacity>
 
         <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
 
-        {
-
         <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
 
-        /* 3. Wishlist / Saved Materials */}
+        {/* 3. Favorites */}
         <TouchableOpacity
           onPress={() => {
             closeAllSubModals();
@@ -814,6 +605,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           }}
           style={styles.menuRow}
           activeOpacity={0.7}
+          accessibilityLabel="Favorites"
         >
           <View style={styles.menuRowLeft}>
             <View style={[styles.iconCircle, { backgroundColor: theme.surfaceSecondary }]}>
@@ -821,7 +613,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.menuRowLabel, { color: theme.textPrimary }]}>
-                Favourites & Saved Supplies
+                Favorites
               </Text>
               <Text style={[styles.menuRowSubLabel, { color: theme.textSecondary }]}>
                 Quick re-ordering list
@@ -829,53 +621,14 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             </View>
           </View>
           <View style={styles.menuRowRight}>
-            {favoriteCount > 0 && (
+            {favoriteCount > 0 ? (
               <View style={[styles.countBadge, { backgroundColor: theme.surfaceSecondary }]}>
-                <Text style={[styles.countBadgeText, { color: theme.textPrimary }]}>
+                <Text style={[styles.countBadgeText, { color: theme.textPrimary, fontWeight: '700' }]}>
                   {favoriteCount}
                 </Text>
               </View>
-            )}
-            <ChevronRight size={18} color={theme.textMuted} />
-          </View>
-        </TouchableOpacity>
-
-        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
-
-        {
-
-        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
-
-        /* 4. Saved for Later (Direct Profile Access) */}
-        <TouchableOpacity
-          onPress={() => openSingleModal('saved_for_later')}
-          style={styles.menuRow}
-          activeOpacity={0.7}
-        >
-          <View style={styles.menuRowLeft}>
-            <View style={[styles.iconCircle, { backgroundColor: theme.surfaceSecondary }]}>
-              <Bookmark size={18} color={theme.textPrimary} strokeWidth={2} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.menuRowLabel, { color: theme.textPrimary }]}>
-                Saved for Later
-              </Text>
-              <Text style={[styles.menuRowSubLabel, { color: theme.textSecondary }]}>
-                {savedForLaterItems.length > 0
-                  ? `${savedForLaterItems.length} item${savedForLaterItems.length > 1 ? 's' : ''} kept for later`
-                  : 'Items saved from your cart'}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.menuRowRight}>
-            {savedForLaterItems.length > 0 ? (
-              <View style={[styles.countBadge, { backgroundColor: theme.surfaceSecondary }]}>
-                <Text style={[styles.countBadgeText, { color: theme.textPrimary, fontWeight: '700' }]}>
-                  {savedForLaterItems.length}
-                </Text>
-              </View>
             ) : (
-              <Text style={[styles.subValueText, { color: theme.textSecondary }]}>0 Items</Text>
+              <Text style={[styles.subValueText, { color: theme.textSecondary }]}>0 Saved</Text>
             )}
             <ChevronRight size={18} color={theme.textMuted} />
           </View>
@@ -883,11 +636,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
         <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
 
-        {
-
-        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
-
-        /* 5. Address Management: Saved Addresses */}
+        {/* 4. Address Management: Saved Addresses */}
         <TouchableOpacity
           onPress={() => {
             if (!isLoggedIn) {
@@ -924,54 +673,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
         <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
 
-        {
-
-        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
-
-        /* 6. Payment Methods & Ledger */}
-        <TouchableOpacity
-          onPress={() => {
-            if (!isLoggedIn) {
-              if (onOpenLoginModal) onOpenLoginModal();
-              return;
-            }
-            openSingleModal('payment');
-          }}
-          style={styles.menuRow}
-          activeOpacity={0.7}
-        >
-          <View style={styles.menuRowLeft}>
-            <View style={[styles.iconCircle, { backgroundColor: theme.surfaceSecondary }]}>
-              <CreditCard size={18} color={theme.textPrimary} strokeWidth={2} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.menuRowLabel, { color: theme.textPrimary }]}>
-                Payment Methods
-              </Text>
-              <Text style={[styles.menuRowSubLabel, { color: theme.textSecondary }]}>
-                {isLoggedIn
-                  ? (savedPaymentMethods.length > 0
-                      ? `${savedPaymentMethods.length} Verified Method${savedPaymentMethods.length > 1 ? 's' : ''}`
-                      : 'Add verified UPI ID or Card')
-                  : 'Sign in to access saved cards & UPI'}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.menuRowRight}>
-            <Text style={[styles.subValueText, { color: theme.textSecondary }]}>
-              {isLoggedIn ? `${savedPaymentMethods.length} Saved` : 'Guest'}
-            </Text>
-            <ChevronRight size={18} color={theme.textMuted} />
-          </View>
-        </TouchableOpacity>
-
-        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
-
-        {
-
-        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
-
-        /* 7. Refer & Earn (Popup Modal) */}
+        {/* 6. Refer & Earn (Popup Modal) */}
         <TouchableOpacity
           onPress={() => openSingleModal('refer')}
           style={styles.menuRow}
@@ -1024,10 +726,16 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
             </View>
           </View>
           <View style={styles.menuRowRight}>
-            <Text style={[styles.subValueText, { color: theme.textSecondary }]}>
-              {currentLanguageOption.name}
-            </Text>
-            <ChevronRight size={18} color={theme.textMuted} />
+            {isModalLoading('settings') ? (
+              <ActivityIndicator size="small" color={theme.primary} />
+            ) : (
+              <>
+                <Text style={[styles.subValueText, { color: theme.textSecondary }]}>
+                  {currentLanguageOption.name}
+                </Text>
+                <ChevronRight size={18} color={theme.textMuted} />
+              </>
+            )}
           </View>
         </TouchableOpacity>
 
@@ -1113,37 +821,18 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       )}
 
       {/* ======================================================== */}
-      {/* POPUP MODAL 1: MY ORDERS & DISPATCHES                    */}
-      {/* ======================================================== */}
-      <OrdersActivityModal
-        visible={isOrdersModalOpen}
-        onClose={() => setIsOrdersModalOpen(false)}
-        deliveries={deliveries}
-        isLoggedIn={isLoggedIn}
-        onOpenLoginModal={() => {
-          setIsOrdersModalOpen(false);
-          if (onOpenLoginModal) onOpenLoginModal();
-        }}
-        onExploreCatalog={() => {
-          setIsOrdersModalOpen(false);
-          if (onExploreCatalog) onExploreCatalog();
-        }}
-        onViewInvoice={(del) => {
-          setIsOrdersModalOpen(false);
-          if (onViewInvoice) onViewInvoice(del);
-        }}
-        onReorderMaterial={onReorderMaterial}
-      />
-
-      {/* ======================================================== */}
       {/* POPUP MODAL 2: APP SETTINGS                              */}
       {/* ======================================================== */}
-      <SettingsModal
-        visible={isSettingsModalOpen}
-        onClose={() => setIsSettingsModalOpen(false)}
-        viewMode={viewMode}
-        onViewModeChange={onViewModeChange}
-      />
+      {isSettingsModalOpen && (
+        <React.Suspense fallback={null}>
+          <SettingsModal
+            visible={isSettingsModalOpen}
+            onClose={() => setIsSettingsModalOpen(false)}
+            viewMode={viewMode}
+            onViewModeChange={onViewModeChange}
+          />
+        </React.Suspense>
+      )}
 
       {/* ======================================================== */}
       {/* POPUP MODAL 3: SAVED ADDRESSES                           */}
@@ -1652,557 +1341,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       </Modal>
 
       {/* ======================================================== */}
-      {/* POPUP MODAL 4: PAYMENT METHODS                           */}
-      {/* ======================================================== */}
-      <Modal visible={isPaymentModalOpen} transparent animationType="fade" onRequestClose={() => setIsPaymentModalOpen(false)}>
-        <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setIsPaymentModalOpen(false)} />
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={styles.keyboardAvoidingModalWrapper}
-          >
-            <View style={[styles.modalContent, { backgroundColor: theme.surface, borderRadius: 24 }]}>
-              <View style={styles.modalHeader}>
-                <View style={styles.modalHeaderTitleRow}>
-                  <CreditCard size={18} color={theme.textPrimary} strokeWidth={2.2} />
-                  <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Payment Methods</Text>
-                </View>
-                <TouchableOpacity onPress={() => setIsPaymentModalOpen(false)} style={styles.closeBtn}>
-                  <X size={18} color={theme.textSecondary} />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView
-                style={styles.modalBody}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                automaticallyAdjustKeyboardInsets={true}
-                contentContainerStyle={{ paddingBottom: 24 }}
-              >
-                {!isLoggedIn ? (
-                  /* ================= GUEST / UNLOGGED STATE ================= */
-                  <View style={[styles.guestSecureBox, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-                    <View style={[styles.guestSecureIconWrap, { backgroundColor: theme.surface }]}>
-                      <Lock size={26} color={theme.textPrimary} strokeWidth={2} />
-                    </View>
-                    <Text style={[styles.guestSecureTitle, { color: theme.textPrimary }]}>
-                      Sign In to Access Payment Methods
-                    </Text>
-                    <Text style={[styles.guestSecureSub, { color: theme.textSecondary }]}>
-                      Sign in to view and manage saved payment methods.
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => {
-                        setIsPaymentModalOpen(false);
-                        if (onOpenLoginModal) onOpenLoginModal();
-                      }}
-                      style={[styles.guestSignInBtn, { backgroundColor: theme.primary }]}
-                      activeOpacity={0.85}
-                    >
-                      <Text style={styles.guestSignInBtnText}>Sign In / Register</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : (
-                  /* ================= AUTHENTICATED USER STATE ================= */
-                  <View>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                      <Text style={[styles.sectionMicroHeader, { color: theme.textMuted }]}>
-                        SAVED PAYMENT METHODS ({savedPaymentMethods.length}/{MAX_SAVED_PAYMENT_METHODS})
-                      </Text>
-                      {savedPaymentMethods.length > 0 && !isAddingPaymentMethod && (
-                        savedPaymentMethods.length < MAX_SAVED_PAYMENT_METHODS ? (
-                          <TouchableOpacity
-                            onPress={() => {
-                              setIsAddingPaymentMethod(true);
-                              setUpiError('');
-                              setCardError('');
-                            }}
-                            style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6, backgroundColor: '#EFF6FF' }}
-                            activeOpacity={0.7}
-                          >
-                            <Plus size={13} color="#0066FF" strokeWidth={2.5} />
-                            <Text style={{ fontSize: 11, fontWeight: '700', color: '#0066FF' }}>Add Method</Text>
-                          </TouchableOpacity>
-                        ) : (
-                          <View style={{ paddingVertical: 3, paddingHorizontal: 8, borderRadius: 6, backgroundColor: '#F3F4F6' }}>
-                            <Text style={{ fontSize: 10, fontWeight: '700', color: '#6B7280' }}>Limit Reached (7/7)</Text>
-                          </View>
-                        )
-                      )}
-                    </View>
-
-                    {/* Empty State - only shown when no saved methods and form is closed */}
-                    {savedPaymentMethods.length === 0 && !isAddingPaymentMethod && (
-                      <View style={[styles.noPaymentBox, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-                        <CreditCard size={28} color={theme.textMuted} />
-                        <Text style={[styles.noPaymentTitle, { color: theme.textPrimary }]}>
-                          No Saved Payment Methods
-                        </Text>
-                        <Text style={[styles.noPaymentSub, { color: theme.textSecondary }]}>
-                          Add up to {MAX_SAVED_PAYMENT_METHODS} verified UPI IDs or Cards for 1-click checkout. Cards are tokenized securely with a ₹1 refundable authorization.
-                        </Text>
-                        <TouchableOpacity
-                          onPress={() => {
-                            setIsAddingPaymentMethod(true);
-                            setUpiError('');
-                            setCardError('');
-                          }}
-                          style={[styles.addFirstPayBtn, { backgroundColor: theme.primary }]}
-                          activeOpacity={0.85}
-                        >
-                          <Plus size={15} color="#FFFFFF" strokeWidth={2.5} />
-                          <Text style={styles.addFirstPayBtnText}>Add Payment Method</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-
-                    {/* List of Verified Payment Methods */}
-                    {savedPaymentMethods.map((method) => {
-                      const isDefault = Boolean(method.isDefault);
-                      return (
-                        <View
-                          key={method.id}
-                          style={[
-                            styles.verifiedPayCard,
-                            {
-                              backgroundColor: theme.surfaceSecondary,
-                              borderColor: isDefault ? theme.primary : theme.border,
-                            },
-                          ]}
-                        >
-                          <View style={styles.verifiedPayCardLeft}>
-                            {method.type === 'upi' ? (
-                              method.upiApp === 'gpay' ? (
-                                <GooglePayIcon size={22} />
-                              ) : method.upiApp === 'phonepe' ? (
-                                <PhonePeIcon size={22} />
-                              ) : (
-                                <View style={[styles.payMethodIconSquare, { backgroundColor: theme.surface }]}>
-                                  <Smartphone size={16} color={theme.textPrimary} />
-                                </View>
-                              )
-                            ) : method.cardBrand === 'visa' ? (
-                              <VisaIcon size={22} />
-                            ) : method.cardBrand === 'mastercard' ? (
-                              <MastercardIcon size={22} />
-                            ) : (
-                              <View style={[styles.payMethodIconSquare, { backgroundColor: theme.surface }]}>
-                                <CardIcon size={16} color={theme.textPrimary} />
-                              </View>
-                            )}
-
-                            <View style={{ flex: 1, marginLeft: 10 }}>
-                              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                <Text style={[styles.verifiedPayTitle, { color: theme.textPrimary }]}>
-                                  {method.title}
-                                </Text>
-                                {isDefault && (
-                                  <View style={styles.defaultMethodPill}>
-                                    <Text style={styles.defaultMethodPillText}>DEFAULT</Text>
-                                  </View>
-                                )}
-                              </View>
-                              <Text style={[styles.verifiedPaySub, { color: theme.textSecondary }]}>
-                                {method.subtitle}
-                              </Text>
-                              <View style={styles.verifiedMetaRow}>
-                                <View style={styles.verifiedGreenBadge}>
-                                  <ShieldCheck size={11} color="#059669" strokeWidth={2.5} />
-                                  <Text style={styles.verifiedGreenBadgeText}>Verified</Text>
-                                </View>
-                                {Boolean(method.verifiedAccountName) && (
-                                  <Text style={[styles.verifiedHolderText, { color: theme.textMuted }]} numberOfLines={1}>
-                                    • {method.verifiedAccountName}
-                                  </Text>
-                                )}
-                              </View>
-                            </View>
-                          </View>
-
-                          <View style={styles.verifiedPayActions}>
-                            {!isDefault && (
-                              <TouchableOpacity
-                                onPress={() => handleSetDefaultPayment(method.id)}
-                                style={[styles.setDefaultBtn, { borderColor: theme.border }]}
-                                activeOpacity={0.7}
-                              >
-                                <Text style={[styles.setDefaultBtnText, { color: theme.textPrimary }]}>Set Default</Text>
-                              </TouchableOpacity>
-                            )}
-                            <TouchableOpacity
-                              onPress={() => handleDeletePayment(method.id)}
-                              style={styles.deletePayBtn}
-                              activeOpacity={0.7}
-                            >
-                              <Trash2 size={15} color="#EF4444" />
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      );
-                    })}
-
-                    {/* ================= ADD PAYMENT METHOD FORM ================= */}
-                    {isAddingPaymentMethod && (
-                      <View style={[styles.addPayFormCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                          <View>
-                            <Text style={[styles.addPayFormTitle, { color: theme.textPrimary }]}>
-                              Add Payment Method
-                            </Text>
-                            <Text style={{ fontSize: 11, color: theme.textSecondary, marginTop: 2 }}>
-                              Slot {savedPaymentMethods.length + 1} of {MAX_SAVED_PAYMENT_METHODS}
-                            </Text>
-                          </View>
-                          <TouchableOpacity 
-                            onPress={() => {
-                              setIsAddingPaymentMethod(false);
-                              setUpiError('');
-                              setCardError('');
-                            }}
-                            style={{ padding: 4 }}
-                          >
-                            <X size={18} color={theme.textSecondary} />
-                          </TouchableOpacity>
-                        </View>
-
-                        {/* Method Selector Tabs */}
-                        <View style={[styles.payTabRow, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                          <TouchableOpacity
-                            onPress={() => {
-                              setPaymentActiveTab('upi');
-                              setUpiError('');
-                            }}
-                            style={[
-                              styles.payTabBtn,
-                              paymentActiveTab === 'upi' && [styles.payTabBtnActive, { backgroundColor: theme.primary }],
-                            ]}
-                          >
-                            <Smartphone size={13} color={paymentActiveTab === 'upi' ? '#FFFFFF' : theme.textSecondary} />
-                            <Text
-                              style={[
-                                styles.payTabBtnText,
-                                { color: paymentActiveTab === 'upi' ? '#FFFFFF' : theme.textSecondary },
-                              ]}
-                            >
-                              UPI ID (VPA)
-                            </Text>
-                          </TouchableOpacity>
-
-                          <TouchableOpacity
-                            onPress={() => {
-                              setPaymentActiveTab('card');
-                              setCardError('');
-                            }}
-                            style={[
-                              styles.payTabBtn,
-                              paymentActiveTab === 'card' && [styles.payTabBtnActive, { backgroundColor: theme.primary }],
-                            ]}
-                          >
-                            <CardIcon size={13} color={paymentActiveTab === 'card' ? '#FFFFFF' : theme.textSecondary} />
-                            <Text
-                              style={[
-                                styles.payTabBtnText,
-                                { color: paymentActiveTab === 'card' ? '#FFFFFF' : theme.textSecondary },
-                              ]}
-                            >
-                              Debit / Credit Card
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
-
-                        {/* Tab 1: UPI Form */}
-                        {paymentActiveTab === 'upi' && (
-                          <View style={{ marginTop: 12, gap: 10 }}>
-                            <View>
-                              <Text style={[styles.inputLabelMicro, { color: theme.textSecondary }]}>
-                                UPI ID / Virtual Payment Address <Text style={{ color: '#EF4444' }}>*</Text>
-                              </Text>
-                              <TextInput
-                                value={upiVpa}
-                                onChangeText={(t) => {
-                                  setUpiVpa(t);
-                                  if (upiError) setUpiError('');
-                                }}
-                                style={[
-                                  styles.payFormInput,
-                                  {
-                                    backgroundColor: theme.surface,
-                                    borderColor: upiError ? '#EF4444' : theme.border,
-                                    color: theme.textPrimary,
-                                  },
-                                ]}
-                                placeholder="e.g. 9848012345@upi, name@okhdfcbank"
-                                placeholderTextColor={theme.textMuted}
-                                autoCapitalize="none"
-                                autoCorrect={false}
-                              />
-                              {upiError ? (
-                                <Text style={styles.fieldErrorText}>⚠️ {upiError}</Text>
-                              ) : null}
-
-                              {/* Popular NPCI Bank Handle Quick Chips */}
-                              <View style={{ marginTop: 8 }}>
-                                <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textMuted, marginBottom: 5 }}>
-                                  Tap to append verified bank handle:
-                                </Text>
-                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: 2 }}>
-                                  {POPULAR_UPI_HANDLES.map((handle) => (
-                                    <TouchableOpacity
-                                      key={handle}
-                                      onPress={() => {
-                                        const cleanInput = upiVpa.trim();
-                                        const base = cleanInput.includes('@')
-                                          ? cleanInput.split('@')[0]
-                                          : (cleanInput || (user?.phone ? user.phone.replace(/\D/g, '').slice(-10) : ''));
-                                        setUpiVpa(base ? `${base}${handle}` : handle);
-                                        if (upiError) setUpiError('');
-                                      }}
-                                      style={{
-                                        paddingHorizontal: 8,
-                                        paddingVertical: 5,
-                                        borderRadius: 6,
-                                        backgroundColor: theme.surfaceSecondary,
-                                        borderWidth: 1,
-                                        borderColor: theme.border,
-                                      }}
-                                      activeOpacity={0.7}
-                                    >
-                                      <Text style={{ fontSize: 11, fontWeight: '700', color: theme.primary }}>{handle}</Text>
-                                    </TouchableOpacity>
-                                  ))}
-                                </ScrollView>
-                              </View>
-                            </View>
-
-                            <View style={{ flexDirection: 'row', gap: 8 }}>
-                              <TouchableOpacity
-                                onPress={() => {
-                                  setIsAddingPaymentMethod(false);
-                                  setUpiError('');
-                                }}
-                                style={{
-                                  flex: 1,
-                                  paddingVertical: 12,
-                                  borderRadius: 8,
-                                  borderWidth: 1,
-                                  borderColor: theme.border,
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  backgroundColor: theme.surface,
-                                }}
-                                activeOpacity={0.7}
-                              >
-                                <Text style={{ fontSize: 13, fontWeight: '600', color: theme.textSecondary }}>Cancel</Text>
-                              </TouchableOpacity>
-
-                              <TouchableOpacity
-                                onPress={handleVerifyAndSaveUPI}
-                                disabled={isVerifyingUpi || !upiVpa.trim()}
-                                style={[
-                                  styles.verifySubmitBtn,
-                                  {
-                                    flex: 2,
-                                    backgroundColor: theme.primary,
-                                    opacity: isVerifyingUpi || !upiVpa.trim() ? 0.6 : 1,
-                                  },
-                                ]}
-                                activeOpacity={0.85}
-                              >
-                                {isVerifyingUpi ? (
-                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                    <ActivityIndicator size="small" color="#FFFFFF" />
-                                    <Text style={styles.verifySubmitBtnText}>Verifying...</Text>
-                                  </View>
-                                ) : (
-                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                    <ShieldCheck size={15} color="#FFFFFF" />
-                                    <Text style={styles.verifySubmitBtnText}>Verify & Save UPI</Text>
-                                  </View>
-                                )}
-                              </TouchableOpacity>
-                            </View>
-                          </View>
-                        )}
-
-                        {/* Tab 2: Card Form */}
-                        {paymentActiveTab === 'card' && (
-                          <View style={{ marginTop: 12, gap: 10 }}>
-                            {/* Verification info banner */}
-                            <View style={{ padding: 8, borderRadius: 6, backgroundColor: '#EFF6FF', borderWidth: 1, borderColor: '#BFDBFE', flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              <ShieldCheck size={14} color="#2563EB" />
-                              <Text style={{ fontSize: 11, color: '#1E40AF', flex: 1, lineHeight: 15 }}>
-                                ₹1 refundable authorization charge is processed via Razorpay to verify card ownership under RBI tokenization rules.
-                              </Text>
-                            </View>
-
-                            <View>
-                              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <Text style={[styles.inputLabelMicro, { color: theme.textSecondary }]}>
-                                  Card Number <Text style={{ color: '#EF4444' }}>*</Text>
-                                </Text>
-                                {cardNumber.length >= 4 && (
-                                  <Text style={{ fontSize: 10, fontWeight: '700', color: theme.textPrimary, textTransform: 'uppercase' }}>
-                                    {detectCardBrand(cardNumber)}
-                                  </Text>
-                                )}
-                              </View>
-                              <TextInput
-                                value={cardNumber}
-                                onChangeText={handleCardNumberChange}
-                                style={[
-                                  styles.payFormInput,
-                                  {
-                                    backgroundColor: theme.surface,
-                                    borderColor: cardError && !cardHolder ? '#EF4444' : theme.border,
-                                    color: theme.textPrimary,
-                                  },
-                                ]}
-                                placeholder="1234 5678 9012 3456"
-                                placeholderTextColor={theme.textMuted}
-                                keyboardType="number-pad"
-                                maxLength={19}
-                              />
-                            </View>
-
-                            <View>
-                              <Text style={[styles.inputLabelMicro, { color: theme.textSecondary }]}>
-                                Cardholder Name <Text style={{ color: '#EF4444' }}>*</Text>
-                              </Text>
-                              <TextInput
-                                value={cardHolder}
-                                onChangeText={(t) => {
-                                  setCardHolder(t);
-                                  if (cardError) setCardError('');
-                                }}
-                                style={[
-                                  styles.payFormInput,
-                                  {
-                                    backgroundColor: theme.surface,
-                                    borderColor: theme.border,
-                                    color: theme.textPrimary,
-                                  },
-                                ]}
-                                placeholder="e.g. SURESH REDDY"
-                                placeholderTextColor={theme.textMuted}
-                                autoCapitalize="characters"
-                              />
-                            </View>
-
-                            <View style={{ flexDirection: 'row', gap: 8 }}>
-                              <View style={{ flex: 1 }}>
-                                <Text style={[styles.inputLabelMicro, { color: theme.textSecondary }]}>
-                                  Expiry (MM/YY) <Text style={{ color: '#EF4444' }}>*</Text>
-                                </Text>
-                                <TextInput
-                                  value={cardExpiry}
-                                  onChangeText={handleCardExpiryChange}
-                                  style={[
-                                    styles.payFormInput,
-                                    {
-                                      backgroundColor: theme.surface,
-                                      borderColor: theme.border,
-                                      color: theme.textPrimary,
-                                    },
-                                  ]}
-                                  placeholder="MM/YY"
-                                  placeholderTextColor={theme.textMuted}
-                                  keyboardType="number-pad"
-                                  maxLength={5}
-                                />
-                              </View>
-
-                              <View style={{ flex: 1 }}>
-                                <Text style={[styles.inputLabelMicro, { color: theme.textSecondary }]}>
-                                  CVV <Text style={{ color: '#EF4444' }}>*</Text>
-                                </Text>
-                                <TextInput
-                                  value={cardCvv}
-                                  onChangeText={(t) => {
-                                    setCardCvv(t.replace(/\D/g, '').slice(0, 4));
-                                    if (cardError) setCardError('');
-                                  }}
-                                  style={[
-                                    styles.payFormInput,
-                                    {
-                                      backgroundColor: theme.surface,
-                                      borderColor: theme.border,
-                                      color: theme.textPrimary,
-                                    },
-                                  ]}
-                                  placeholder="3 or 4 digits"
-                                  placeholderTextColor={theme.textMuted}
-                                  keyboardType="number-pad"
-                                  secureTextEntry={true}
-                                  maxLength={4}
-                                />
-                              </View>
-                            </View>
-
-                            {cardError ? (
-                              <Text style={styles.fieldErrorText}>⚠️ {cardError}</Text>
-                            ) : null}
-
-                            <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
-                              <TouchableOpacity
-                                onPress={() => {
-                                  setIsAddingPaymentMethod(false);
-                                  setCardError('');
-                                }}
-                                style={{
-                                  flex: 1,
-                                  paddingVertical: 12,
-                                  borderRadius: 8,
-                                  borderWidth: 1,
-                                  borderColor: theme.border,
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  backgroundColor: theme.surface,
-                                }}
-                                activeOpacity={0.7}
-                              >
-                                <Text style={{ fontSize: 13, fontWeight: '600', color: theme.textSecondary }}>Cancel</Text>
-                              </TouchableOpacity>
-
-                              <TouchableOpacity
-                                onPress={handleVerifyAndSaveCard}
-                                disabled={isVerifyingCard || !cardNumber || !cardHolder || !cardExpiry || !cardCvv}
-                                style={[
-                                  styles.verifySubmitBtn,
-                                  {
-                                    flex: 2,
-                                    backgroundColor: theme.primary,
-                                    opacity: isVerifyingCard || !cardNumber || !cardHolder || !cardExpiry || !cardCvv ? 0.6 : 1,
-                                  },
-                                ]}
-                                activeOpacity={0.85}
-                              >
-                                {isVerifyingCard ? (
-                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                                    <ActivityIndicator size="small" color="#FFFFFF" />
-                                    <Text style={styles.verifySubmitBtnText}>Verifying ₹1 Auth...</Text>
-                                  </View>
-                                ) : (
-                                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                                    <CreditCard size={15} color="#FFFFFF" />
-                                    <Text style={styles.verifySubmitBtnText}>Verify & Save (₹1)</Text>
-                                  </View>
-                                )}
-                              </TouchableOpacity>
-                            </View>
-                          </View>
-                        )}
-                      </View>
-                    )}
-                  </View>
-                )}
-              </ScrollView>
-            </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
-
-      {/* ======================================================== */}
-      {/* POPUP MODAL 5: REFER & EARN                              */}
+      {/* POPUP MODAL 4: REFER & EARN                              */}
       {/* ======================================================== */}
       <Modal visible={isReferModalOpen} transparent animationType="fade" onRequestClose={() => setIsReferModalOpen(false)}>
         <View style={styles.modalOverlay}>
@@ -2269,7 +1408,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               <TouchableOpacity
                 onPress={() => {
                   if (typeof window !== 'undefined') {
-                    window.open('tel:+9118002008829', '_self');
+                    window.open('tel:+918297474332', '_self');
                   }
                 }}
                 style={[styles.helpItemRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
@@ -2279,7 +1418,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   <Phone size={18} color="#111111" />
                   <View>
                     <Text style={[styles.helpItemTitle, { color: theme.textPrimary }]}>Customer Support</Text>
-                    <Text style={[styles.helpItemSub, { color: theme.textSecondary }]}>Direct helpline: 1800 200 8829</Text>
+                    <Text style={[styles.helpItemSub, { color: theme.textSecondary }]}>Direct helpline: +91 8297474332</Text>
                   </View>
                 </View>
                 <ChevronRight size={16} color={theme.textSecondary} />
@@ -2288,7 +1427,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               <TouchableOpacity
                 onPress={() => {
                   if (typeof window !== 'undefined') {
-                    window.open('mailto:billing@urbanico.in', '_self');
+                    window.open('mailto:urbanicoapp@gmail.com', '_self');
                   }
                 }}
                 style={[styles.helpItemRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, marginTop: 8 }]}
@@ -2297,8 +1436,8 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                 <View style={styles.helpItemLeft}>
                   <Mail size={18} color="#111111" />
                   <View>
-                    <Text style={[styles.helpItemTitle, { color: theme.textPrimary }]}>Commercial Invoicing Desk</Text>
-                    <Text style={[styles.helpItemSub, { color: theme.textSecondary }]}>billing@urbanico.in</Text>
+                    <Text style={[styles.helpItemTitle, { color: theme.textPrimary }]}>Commercial Invoicing & Support</Text>
+                    <Text style={[styles.helpItemSub, { color: theme.textSecondary }]}>urbanicoapp@gmail.com</Text>
                   </View>
                 </View>
                 <ChevronRight size={16} color={theme.textSecondary} />
@@ -2307,7 +1446,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               <TouchableOpacity
                 onPress={() => {
                   if (typeof window !== 'undefined') {
-                    window.open('https://wa.me/919876543210', '_blank');
+                    window.open('https://wa.me/918297474332', '_blank');
                   }
                 }}
                 style={[styles.helpItemRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, marginTop: 8 }]}
@@ -2317,7 +1456,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   <MessageSquare size={18} color="#111111" />
                   <View>
                     <Text style={[styles.helpItemTitle, { color: theme.textPrimary }]}>WhatsApp Dispatch Desk</Text>
-                    <Text style={[styles.helpItemSub, { color: theme.textSecondary }]}>Direct chat with dispatch coordinator</Text>
+                    <Text style={[styles.helpItemSub, { color: theme.textSecondary }]}>+91 8297474332 (Direct WhatsApp support)</Text>
                   </View>
                 </View>
                 <ChevronRight size={16} color={theme.textSecondary} />
@@ -2571,7 +1710,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                     </Text>
                   </View>
                   <Text style={[styles.otpSubText, { color: theme.textSecondary }]}>
-                    OTP sent to <Text style={{ fontWeight: '700', color: theme.textPrimary }}>{editEmail.trim()}</Text> (Test OTP: <Text style={{ fontWeight: '800', color: '#059669' }}>{testOtpCode}</Text>)
+                    Verification code sent to <Text style={{ fontWeight: '700', color: theme.textPrimary }}>{editEmail.trim()}</Text>. Check your email inbox.
                   </Text>
 
                   <View style={styles.otpInputRow}>
@@ -2580,7 +1719,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                       onChangeText={(val) => setEmailOtp(val.replace(/[^0-9]/g, '').slice(0, 4))}
                       keyboardType="number-pad"
                       maxLength={4}
-                      placeholder="8821"
+                      placeholder="• • • •"
                       placeholderTextColor={theme.textMuted}
                       style={[styles.otpInput, { backgroundColor: theme.surface, color: theme.textPrimary, borderColor: theme.border }]}
                       autoFocus
@@ -2627,202 +1766,29 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       </Modal>
 
       {/* ======================================================== */}
-      {/* POPUP MODAL 7: SAVED FOR LATER SUPPLIES                  */}
+      {/* POPUP MODAL: PAST MATERIAL ORDER HISTORY                 */}
       {/* ======================================================== */}
-      <Modal
-        visible={isSavedForLaterModalOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsSavedForLaterModalOpen(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setIsSavedForLaterModalOpen(false)} />
-          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
-            <View style={styles.modalHeader}>
-              <View style={styles.modalHeaderTitleRow}>
-                <Bookmark size={18} color={theme.mode === 'dark' ? '#F9FAFB' : '#111111'} />
-                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>
-                  Saved for Later {savedForLaterItems.length > 0 ? `(${savedForLaterItems.length})` : ''}
-                </Text>
-              </View>
-              <TouchableOpacity onPress={() => setIsSavedForLaterModalOpen(false)} style={styles.closeBtn}>
-                <X size={18} color={theme.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-              {savedForLaterItems.length === 0 ? (
-                <View style={{ alignItems: 'center', paddingVertical: 32, paddingHorizontal: 16 }}>
-                  <View
-                    style={{
-                      width: 56,
-                      height: 56,
-                      borderRadius: 28,
-                      backgroundColor: theme.surfaceSecondary,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      marginBottom: 12,
-                    }}
-                  >
-                    <Bookmark size={24} color={theme.textMuted} />
-                  </View>
-                  <Text style={{ fontSize: 15, fontWeight: '700', color: theme.textPrimary, marginBottom: 4 }}>
-                    No Saved Items
-                  </Text>
-                  <Text
-                    style={{
-                      fontSize: 12.5,
-                      color: theme.textSecondary,
-                      textAlign: 'center',
-                      lineHeight: 18,
-                      marginBottom: 16,
-                      maxWidth: 280,
-                    }}
-                  >
-                    Items saved from your cart will appear here so you can easily order them whenever you're ready.
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => {
-                      setIsSavedForLaterModalOpen(false);
-                      if (onExploreCatalog) {
-                        onExploreCatalog();
-                      } else {
-                        onNavigateScreen('home');
-                      }
-                    }}
-                    style={styles.modalPrimaryBtn}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.modalPrimaryBtnText}>Explore Supplies</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <View style={{ gap: 10, paddingBottom: 6 }}>
-                  {savedForLaterItems.map((item) => {
-                    const price = item.unitPrice || 0;
-                    const totalItemPrice = price * (item.quantity || 1);
-                    return (
-                      <View
-                        key={item.id}
-                        style={{
-                          backgroundColor: theme.surfaceSecondary,
-                          borderRadius: 12,
-                          borderWidth: 1,
-                          borderColor: theme.border,
-                          padding: 10,
-                          flexDirection: 'row',
-                          gap: 10,
-                          alignItems: 'center',
-                        }}
-                      >
-                        <View style={{ width: 56, height: 56, borderRadius: 8, overflow: 'hidden', backgroundColor: theme.surface }}>
-                          <ShimmerImage
-                            source={{ uri: item.image }}
-                            style={{ width: '100%', height: '100%' }}
-                            resizeMode="cover"
-                            preset="thumbnail"
-                            borderRadius={8}
-                          />
-                        </View>
-
-                        <View style={{ flex: 1, minWidth: 0 }}>
-                          <Text
-                            style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary }}
-                            numberOfLines={1}
-                          >
-                            {item.itemName}
-                          </Text>
-                          <Text
-                            style={{ fontSize: 11, color: theme.textSecondary, marginTop: 1 }}
-                            numberOfLines={1}
-                          >
-                            {item.selectedOptionLabel || item.categoryName || 'Standard Supply'} • Qty: {item.quantity || 1}
-                          </Text>
-                          <Text
-                            style={{ fontSize: 12.5, fontWeight: '800', color: theme.textPrimary, marginTop: 2 }}
-                          >
-                            ₹{totalItemPrice.toLocaleString('en-IN')}
-                            <Text style={{ fontSize: 10.5, fontWeight: '500', color: theme.textSecondary }}>
-                              {' '}(₹{price}/unit)
-                            </Text>
-                          </Text>
-                        </View>
-
-                        <View style={{ gap: 6, alignItems: 'flex-end' }}>
-                          <TouchableOpacity
-                            onPress={() => {
-                              moveToCart(item);
-                              showToast(`Moved ${item.itemName} to Cart`, 'success');
-                            }}
-                            style={{
-                              backgroundColor: theme.buttonBg || theme.primary,
-                              paddingHorizontal: 10,
-                              paddingVertical: 6,
-                              borderRadius: 6,
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              gap: 4,
-                            }}
-                            activeOpacity={0.85}
-                          >
-                            <ShoppingCart size={12} color="#18181B" />
-                            <Text style={{ color: '#18181B', fontSize: 11, fontWeight: '700' }}>
-                              Move to Cart
-                            </Text>
-                          </TouchableOpacity>
-
-                          <TouchableOpacity
-                            onPress={() => {
-                              removeSavedForLater(item.id);
-                              showToast(`Removed from saved for later`, 'info');
-                            }}
-                            style={{
-                              paddingHorizontal: 6,
-                              paddingVertical: 3,
-                              flexDirection: 'row',
-                              alignItems: 'center',
-                              gap: 3,
-                            }}
-                            activeOpacity={0.7}
-                          >
-                            <Trash2 size={12} color="#EF4444" />
-                            <Text style={{ color: '#EF4444', fontSize: 10.5, fontWeight: '600' }}>
-                              Remove
-                            </Text>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-              )}
-            </ScrollView>
-
-            {savedForLaterItems.length > 0 && (
-              <View style={styles.modalFooter}>
-                <TouchableOpacity
-                  onPress={() => setIsSavedForLaterModalOpen(false)}
-                  style={styles.cancelBtn}
-                >
-                  <Text style={styles.cancelBtnText}>Close</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => {
-                    savedForLaterItems.forEach((it) => moveToCart(it));
-                    setIsSavedForLaterModalOpen(false);
-                    showToast(`Moved all items to Cart!`, 'success');
-                    onNavigateScreen('basket');
-                  }}
-                  style={styles.modalPrimaryBtn}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.modalPrimaryBtnText}>Move All to Cart</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
+      <OrderHistoryModal
+        visible={isOrdersModalOpen}
+        onClose={() => setIsOrdersModalOpen(false)}
+        user={user}
+        isLoggedIn={isLoggedIn}
+        deliveries={deliveries}
+        onViewInvoice={onViewInvoice}
+        onTrackOrder={(del) => {
+          setIsOrdersModalOpen(false);
+          onNavigateScreen('activity');
+        }}
+        onExploreCatalog={() => {
+          setIsOrdersModalOpen(false);
+          if (onExploreCatalog) onExploreCatalog();
+        }}
+        onOpenLoginModal={() => {
+          setIsOrdersModalOpen(false);
+          if (onOpenLoginModal) onOpenLoginModal();
+        }}
+        onReorderMaterial={onReorderMaterial}
+      />
     </ScrollView>
   );
 };
@@ -3644,7 +2610,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyBoxActionBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 12.5,
     fontWeight: '700',
   },
@@ -3691,201 +2657,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   guestSignInBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  // No Payment State
-  noPaymentBox: {
-    padding: 20,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  noPaymentTitle: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    marginTop: 8,
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  noPaymentSub: {
-    fontSize: 11.5,
-    lineHeight: 16,
-    textAlign: 'center',
-    marginBottom: 14,
-    paddingHorizontal: 8,
-  },
-  addFirstPayBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderRadius: 8,
-  },
-  addFirstPayBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  // Verified Payment Method Card
-  verifiedPayCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    marginBottom: 10,
-  },
-  verifiedPayCardLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  payMethodIconSquare: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  verifiedPayTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  defaultMethodPill: {
-    backgroundColor: '#FCB026',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  defaultMethodPillText: {
     color: '#18181B',
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  verifiedPaySub: {
-    fontSize: 11.5,
-    marginTop: 2,
-  },
-  verifiedMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 4,
-  },
-  verifiedGreenBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: '#ECFDF5',
-    paddingHorizontal: 6,
-    paddingVertical: 1.5,
-    borderRadius: 4,
-  },
-  verifiedGreenBadgeText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#059669',
-  },
-  verifiedHolderText: {
-    fontSize: 10.5,
-    fontWeight: '500',
-    flex: 1,
-  },
-  verifiedPayActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginLeft: 8,
-  },
-  setDefaultBtn: {
-    borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  setDefaultBtnText: {
-    fontSize: 10.5,
-    fontWeight: '600',
-  },
-  deletePayBtn: {
-    padding: 6,
-  },
-  // Add Payment Form
-  addPayFormCard: {
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    marginTop: 10,
-    marginBottom: 10,
-  },
-  addPayFormTitle: {
     fontSize: 13,
-    fontWeight: '800',
-  },
-  payTabRow: {
-    flexDirection: 'row',
-    borderRadius: 8,
-    borderWidth: 1,
-    padding: 3,
-    gap: 4,
-  },
-  payTabBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 7,
-    borderRadius: 6,
-  },
-  payTabBtnActive: {
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  payTabBtnText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-  },
-  inputLabelMicro: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  payFormInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    fontSize: 12.5,
-  },
-  fieldErrorText: {
-    color: '#DC2626',
-    fontSize: 10.5,
-    fontWeight: '600',
-    marginTop: 4,
-  },
-  fieldHintText: {
-    fontSize: 10.5,
-    marginTop: 4,
-  },
-  verifySubmitBtn: {
-    borderRadius: 8,
-    paddingVertical: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 4,
-  },
-  verifySubmitBtnText: {
-    color: '#FFFFFF',
-    fontSize: 12.5,
     fontWeight: '700',
   },
 });

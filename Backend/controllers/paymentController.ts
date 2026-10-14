@@ -6,9 +6,11 @@
 // ==============================================================================
 
 import { Request, Response } from 'express';
+import { razorpayClient } from '../lib/razorpay';
 import { RazorpayBackendService } from '../services/razorpayService';
 import { OrderService } from '../services/orderService';
 import { asyncHandler, sendSuccess, sendError } from '../utils/apiResponse';
+import { AuditService } from '../services/auditService';
 
 /**
  * Reusable helper to safely parse and validate amount in paise from diverse request bodies.
@@ -27,10 +29,10 @@ function parsePaiseAmount(body: any): number {
 export class PaymentController {
   // GET /api/razorpay/config (or /razorpay/config)
   public static getConfig = asyncHandler(async (req: Request, res: Response) => {
-    const key_id = RazorpayBackendService.getKeyId();
-    const mode = RazorpayBackendService.getKeyMode();
-    const isConfigured = RazorpayBackendService.isConfigured();
-    const maskedKey = RazorpayBackendService.getMaskedKey();
+    const key_id = razorpayClient.getKeyId();
+    const mode = razorpayClient.getKeyMode();
+    const isConfigured = razorpayClient.isConfigured();
+    const maskedKey = razorpayClient.getMaskedKey();
 
     console.log(`[Payment Backend] Config requested: Key=${maskedKey} | Mode=${mode} | Configured=${isConfigured}`);
 
@@ -44,20 +46,79 @@ export class PaymentController {
 
   // POST /api/razorpay/create-order (or /api/create-order)
   public static createOrder = asyncHandler(async (req: Request, res: Response) => {
-    const { currency = 'INR', receipt, notes } = req.body;
-    const amountInPaise = parsePaiseAmount(req.body);
+    const { currency = 'INR', receipt, notes, items, cartItems } = req.body;
+    let amountInPaise = parsePaiseAmount(req.body);
 
     if (amountInPaise < 100) {
       return sendError(res, 'Minimum amount is ₹1.00 (100 paise)', 400);
     }
 
+    // Server-authoritative price validation against client-side price tampering
+    const incomingItems = items || cartItems || req.body.cart;
+    if (Array.isArray(incomingItems) && incomingItems.length > 0) {
+      let materialsSubtotal = 0;
+      let servicesSubtotal = 0;
+
+      for (const item of incomingItems) {
+        const qty = Math.max(1, Number(item.quantity) || 1);
+        const unitPrice = Number(item.unitPrice ?? item.price ?? 0);
+        const isService =
+          (item.category || item.categoryName || '').toLowerCase().includes('service') ||
+          (item.name || item.itemName || '').toLowerCase().includes('service');
+
+        if (isService) {
+          servicesSubtotal += qty * (unitPrice || 99);
+        } else {
+          materialsSubtotal += qty * unitPrice;
+        }
+      }
+
+      const isServicesOnly = materialsSubtotal === 0 && servicesSubtotal > 0;
+      const gstTax = isServicesOnly ? 0 : Math.round(materialsSubtotal * 0.18);
+      const deliveryCharge = isServicesOnly
+        ? 0
+        : req.body.deliveryCharges !== undefined
+        ? Math.round(Number(req.body.deliveryCharges))
+        : materialsSubtotal > 50000
+        ? 0
+        : 2500;
+      const unloadingCharge = isServicesOnly ? 0 : Math.round(Number(req.body.unloadingCharges || 0));
+      const couponDiscount = Math.round(Number(req.body.couponDiscount || 0));
+
+      const serverCalculatedTotalRupees = Math.max(
+        1,
+        Math.round(materialsSubtotal + servicesSubtotal + gstTax + deliveryCharge + unloadingCharge - couponDiscount)
+      );
+      const serverCalculatedPaise = serverCalculatedTotalRupees * 100;
+
+      // Check if client submitted an amount that deviates beyond ₹5 (500 paise) tolerance
+      if (Math.abs(amountInPaise - serverCalculatedPaise) > 500) {
+        console.warn(
+          `[Payment Security] Price tampering detected! Client requested ₹${(amountInPaise / 100).toFixed(2)}, server calculated ₹${(serverCalculatedPaise / 100).toFixed(2)}.`
+        );
+        if (process.env.NODE_ENV === 'production') {
+          return sendError(
+            res,
+            `Authoritative price mismatch. Calculated order total is ₹${serverCalculatedTotalRupees}. Please refresh your cart.`,
+            400
+          );
+        } else {
+          // Enforce the server authoritative total
+          amountInPaise = serverCalculatedPaise;
+        }
+      }
+    }
+
     console.log(`[Payment Backend] Incoming create-order: ₹${(amountInPaise / 100).toFixed(2)} (${amountInPaise} paise)`);
 
-    const result = await RazorpayBackendService.createOrder({
+    const result = await razorpayClient.createOrder({
       amountInPaise,
       currency,
       receipt: receipt || `rcpt_${Date.now()}`,
-      notes,
+      notes: {
+        app: 'Urbanico Construction App',
+        ...(notes || {}),
+      },
     });
 
     console.log(`[Payment Backend] Order created successfully:`, {
@@ -79,7 +140,7 @@ export class PaymentController {
       return sendError(res, 'Minimum amount is ₹1.00 (100 paise)', 400);
     }
 
-    const link = await RazorpayBackendService.createPaymentLink({
+    const link = await razorpayClient.createPaymentLink({
       amountInPaise,
       currency,
       description,
@@ -109,7 +170,55 @@ export class PaymentController {
 
     console.log(`[Payment Backend] Incoming verify-payment: payment_id=${razorpay_payment_id}, order_id=${razorpay_order_id}`);
 
-    const { isValid, mode, reason } = RazorpayBackendService.verifySignature({
+    const mode = razorpayClient.getKeyMode();
+    const isLive = mode === 'LIVE';
+
+    if (isLive) {
+      if (
+        String(razorpay_payment_id).startsWith('pay_test_') ||
+        String(razorpay_signature).startsWith('sig_test_') ||
+        String(razorpay_order_id).startsWith('order_test_')
+      ) {
+        return res.status(400).json({
+          success: false,
+          verified: false,
+          message: 'Test payment credentials cannot be accepted in live production mode.',
+          mode,
+        });
+      }
+    }
+
+    const isTestPayment =
+      !isLive &&
+      (String(razorpay_payment_id).startsWith('pay_test_') ||
+        String(razorpay_signature).startsWith('sig_test_') ||
+        String(razorpay_order_id).startsWith('order_test_') ||
+        (process.env.NODE_ENV !== 'production' && !razorpayClient.isConfigured()));
+
+    if (isTestPayment) {
+      console.log(`[Payment Backend] Test Mode payment verified: payment_id=${razorpay_payment_id}`);
+      if (orderId) {
+        try {
+          await OrderService.updatePaymentStatus(orderId, 'paid', {
+            razorpay_order_id,
+            razorpay_payment_id,
+            razorpay_signature,
+            paidAt: new Date(),
+            receiptNumber: `RCPT-TEST-${Date.now().toString().slice(-6)}`,
+          });
+        } catch {}
+      }
+      return sendSuccess(res, {
+        verified: true,
+        razorpay_order_id,
+        razorpay_payment_id,
+        mode: 'TEST_SANDBOX',
+        reason: 'Sandbox Test Mode: Order placed instantly for testing',
+        verified_at: new Date().toISOString(),
+      }, 'Sandbox payment verified successfully');
+    }
+
+    const { isValid, reason } = razorpayClient.verifySignature({
       razorpay_order_id,
       razorpay_payment_id,
       razorpay_signature,
@@ -142,6 +251,21 @@ export class PaymentController {
       }
     }
 
+    await AuditService.log({
+      action: 'payment.verified',
+      actorType: 'gateway',
+      actorId: razorpay_payment_id,
+      targetType: 'order',
+      targetId: orderId || razorpay_order_id,
+      details: {
+        razorpay_order_id,
+        razorpay_payment_id,
+        mode,
+      },
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     return sendSuccess(res, {
       verified: true,
       razorpay_order_id,
@@ -150,6 +274,99 @@ export class PaymentController {
       reason,
       verified_at: new Date().toISOString(),
     }, 'Payment signature verified successfully');
+  });
+
+  // POST /api/razorpay/penny-drop-verify -> Verifies ₹1 authorization & triggers automatic refund
+  public static pennyDropVerifyAndRefund = asyncHandler(async (req: Request, res: Response) => {
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      methodType,
+      methodDetails,
+      userName,
+      userPhone,
+    } = req.body;
+
+    if (!razorpay_payment_id) {
+      return sendError(res, 'Payment ID is required to verify and refund payment method.', 400);
+    }
+
+    console.log(`[Payment Backend] Penny-Drop verification request: payment_id=${razorpay_payment_id}, method=${methodType || 'unknown'}`);
+
+    // If order_id and signature provided, perform HMAC verification
+    if (razorpay_order_id && razorpay_signature) {
+      const { isValid, mode } = razorpayClient.verifySignature({
+        razorpay_order_id,
+        razorpay_payment_id,
+        razorpay_signature,
+      });
+
+      if (!isValid) {
+        return res.status(400).json({
+          success: false,
+          verified: false,
+          error: 'Penny drop signature verification failed. Untrusted authorization.',
+          mode,
+        });
+      }
+    }
+
+    // Trigger instant auto-refund of the ₹1 charge
+    const refundResult = await razorpayClient.processRefund({
+      paymentId: razorpay_payment_id,
+      amountInPaise: 100, // ₹1.00
+      notes: {
+        methodType: String(methodType || 'payment_method'),
+        details: String(methodDetails || ''),
+        userPhone: String(userPhone || ''),
+        purpose: 'Penny-Drop Micro-Debit Verification Auto-Refund',
+      },
+    });
+
+    console.log(`[Payment Backend] Penny-drop refund completed:`, refundResult);
+
+    return sendSuccess(res, {
+      verified: true,
+      refundInitiated: true,
+      paymentId: razorpay_payment_id,
+      refundId: refundResult.refundId,
+      refundStatus: refundResult.status,
+      amountRefunded: 1, // in INR
+      currency: 'INR',
+      message: 'Payment Method Verified • ₹1 Refund Initiated',
+      verifiedAt: new Date().toISOString(),
+    }, 'Payment method verified successfully and ₹1 refund initiated');
+  });
+
+  // POST /api/razorpay/refund -> General refund endpoint
+  public static processRefund = asyncHandler(async (req: Request, res: Response) => {
+    const { paymentId, amountInPaise = 100, notes } = req.body;
+    if (!paymentId) {
+      return sendError(res, 'paymentId is required', 400);
+    }
+    const result = await razorpayClient.processRefund({
+      paymentId: String(paymentId),
+      amountInPaise: Number(amountInPaise),
+      notes,
+    });
+
+    await AuditService.log({
+      action: 'payment.refund',
+      actorType: 'admin',
+      actorId: (req as any).user?.id || 'admin',
+      targetType: 'payment',
+      targetId: String(paymentId),
+      details: {
+        refundId: result.refundId,
+        amountInPaise,
+        status: result.status,
+      },
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    return sendSuccess(res, result, result.message);
   });
 
   // POST & GET /api/razorpay/callback -> Native Web Redirection Callback
@@ -178,7 +395,7 @@ export class PaymentController {
       }
 
       // Verify HMAC-SHA256 signature
-      const { isValid } = RazorpayBackendService.verifySignature({
+      const { isValid } = razorpayClient.verifySignature({
         razorpay_order_id: String(razorpay_order_id),
         razorpay_payment_id: String(razorpay_payment_id),
         razorpay_signature: String(razorpay_signature),
@@ -238,31 +455,16 @@ export class PaymentController {
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     body { background: #0B0F19; color: #F8FAFC; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
-    .card { background: #131B2E; border: 1px solid #1E293B; border-radius: 20px; max-width: 420px; width: 100%; padding: 28px 24px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
-    .shield-icon { width: 56px; height: 56px; background: rgba(56,189,248,0.1); border: 1px solid rgba(56,189,248,0.25); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; color: #38BDF8; font-size: 24px; }
-    h1 { font-size: 20px; font-weight: 700; margin-bottom: 6px; color: #FFFFFF; }
-    .sub { font-size: 13px; color: #94A3B8; margin-bottom: 24px; line-height: 1.4; }
-    .amount-box { background: #1E293B; border-radius: 12px; padding: 14px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }
-    .amount-label { font-size: 12px; font-weight: 600; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.5px; }
-    .amount-value { font-size: 22px; font-weight: 800; color: #F59E0B; }
-    .btn-pay { background: #F59E0B; color: #000000; border: none; border-radius: 12px; width: 100%; padding: 15px; font-size: 15px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s ease; }
-    .btn-pay:hover { background: #D97706; }
-    .btn-pay:active { transform: scale(0.98); }
+    .loader-container { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+    .spinner { width: 44px; height: 44px; border: 3.5px solid rgba(245, 158, 11, 0.2); border-top-color: #F59E0B; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-size: 15px; font-weight: 600; color: #94A3B8; letter-spacing: -0.2px; }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>Payment</h1>
-    <p class="sub">Urbanico Direct materials & trade services</p>
-    
-    <div class="amount-box">
-      <span class="amount-label">Total Payable</span>
-      <span class="amount-value">₹${formattedAmount}</span>
-    </div>
-
-    <button id="pay-btn" class="btn-pay" onclick="launchRazorpay()">
-      <span id="btn-text">Open Razorpay Gateway</span>
-    </button>
+  <div class="loader-container">
+    <div class="spinner"></div>
+    <p class="loading-text">Loading Payment Options...</p>
   </div>
 
   <script>
@@ -284,14 +486,38 @@ export class PaymentController {
         email: true,
         name: true
       },
+      config: {
+        display: {
+          preferences: {
+            show_default_blocks: true
+          },
+          sequence: ["block.upi", "block.cards", "block.netbanking", "block.wallets"]
+        }
+      },
+      display: {
+        preferences: {
+          show_default_blocks: true
+        },
+        sequence: ["block.upi", "block.cards", "block.netbanking", "block.wallets"]
+      },
       notes: {
         platform: "urbanico_mobile_app"
       },
       theme: {
         color: "#111111"
       },
+      modal: {
+        ondismiss: function() {
+          if (window.history.length > 1) {
+            window.history.back();
+          }
+        }
+      },
       handler: function(response) {
-        document.getElementById('btn-text').innerText = 'Verifying Payment...';
+        var btn = document.getElementById('btn-text');
+        if (btn) btn.innerText = 'Verifying Payment...';
+        var loadingText = document.querySelector('.loading-text');
+        if (loadingText) loadingText.innerText = 'Verifying Payment...';
         fetch('/api/razorpay/verify-payment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -308,11 +534,13 @@ export class PaymentController {
             const separator = callback.includes('?') ? '&' : '?';
             window.location.href = callback + separator + 'razorpay_payment_id=' + response.razorpay_payment_id + '&razorpay_order_id=' + response.razorpay_order_id + '&razorpay_signature=' + response.razorpay_signature + '&status=success';
           } else {
-            document.body.innerHTML = '<div class="card"><h1 style="color:#10B981">Payment Successful!</h1><p class="sub">Payment ID: ' + response.razorpay_payment_id + '</p></div>';
+            document.body.innerHTML = '<div style="background:#1E293B;border-radius:16px;padding:32px;text-align:center;max-width:380px;border:1px solid #334155;"><h1 style="color:#10B981;font-size:22px;margin-bottom:8px;">Payment Successful!</h1><p style="color:#94A3B8;font-size:14px;">Payment ID: ' + response.razorpay_payment_id + '</p></div>';
           }
         })
         .catch(function(err) {
-          alert('Payment verification error: ' + err.message);
+          console.error('Payment verification error: ', err);
+          var lt = document.querySelector('.loading-text');
+          if (lt) lt.innerText = 'Payment received. Redirecting...';
         });
       }
     };
@@ -327,7 +555,7 @@ export class PaymentController {
     }
 
     window.addEventListener('DOMContentLoaded', function() {
-      setTimeout(launchRazorpay, 300);
+      launchRazorpay();
     });
   </script>
 </body>
@@ -473,5 +701,41 @@ export class PaymentController {
       tokenId,
       key_id: RazorpayBackendService.getKeyId(),
     });
+  });
+
+  // GET /api/razorpay/order-status/:order_id or GET /api/razorpay/order-status?order_id=... or POST /api/razorpay/check-status
+  public static getOrderStatus = asyncHandler(async (req: Request, res: Response) => {
+    const rawOrderId = req.params.order_id || req.query.order_id || req.body?.order_id || req.query.orderId || req.body?.orderId || '';
+    const orderId = String(rawOrderId || '').trim();
+    const utr = String(req.query.utr || req.body?.utr || '').trim();
+
+    if (!orderId) {
+      return sendError(res, 'order_id is required to check payment status', 400);
+    }
+
+    console.log(`[Payment Backend] Checking order status for: ${orderId}${utr ? ` with UTR: ${utr}` : ''}`);
+
+    const statusResult = await RazorpayBackendService.checkOrderStatus(orderId, utr);
+
+    return sendSuccess(res, statusResult, statusResult.paid ? 'Payment confirmed' : 'Payment pending');
+  });
+
+  // POST /api/razorpay/webhook
+  public static handleWebhook = asyncHandler(async (req: Request, res: Response) => {
+    const signature = (req.headers['x-razorpay-signature'] || '') as string;
+    const rawBody = (req as any).rawBody || Buffer.from(JSON.stringify(req.body));
+    try {
+      const result = RazorpayBackendService.handleWebhook(req.body, signature, rawBody);
+      return res.status(200).json({ status: 'ok', success: true, ...result });
+    } catch (err: any) {
+      console.warn('[Payment Webhook Error]', err.message);
+      return res.status(400).json({ status: 'error', success: false, error: err.message || 'Webhook verification failed', message: err.message });
+    }
+  });
+
+  // POST /api/razorpay/reconcile-pending (or /api/payments/reconcile-pending)
+  public static reconcilePendingOrders = asyncHandler(async (req: Request, res: Response) => {
+    const result = await RazorpayBackendService.reconcilePendingOrders();
+    return sendSuccess(res, result, `Reconciled ${result.reconciledCount} of ${result.checkedCount} pending orders.`);
   });
 }

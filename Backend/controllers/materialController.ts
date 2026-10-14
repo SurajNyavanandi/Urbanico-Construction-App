@@ -1,15 +1,30 @@
 import { Request, Response } from 'express';
 import { MaterialService } from '../services/materialService';
 import { asyncHandler, sendSuccess, sendError } from '../utils/apiResponse';
+import { validateMaterialPayload } from '../utils/requestValidator';
 
 export class MaterialController {
   public static getMaterials = asyncHandler(async (req: Request, res: Response) => {
-    const { category, search } = req.query;
-    const materials = await MaterialService.getAllMaterials({
+    const { category, search, limit: qLimit, page: qPage } = req.query;
+    const rawLimit = Number(qLimit);
+    const rawPage = Number(qPage);
+    const limit = Math.min(100, Math.max(1, isNaN(rawLimit) ? 50 : rawLimit));
+    const page = Math.max(1, isNaN(rawPage) ? 1 : rawPage);
+
+    const result = await MaterialService.getAllMaterials({
       category: category as string,
       search: search as string,
+      limit,
+      page,
     });
-    return sendSuccess(res, { materials, count: materials.length });
+    return sendSuccess(res, {
+      materials: result.materials,
+      total: result.total,
+      count: result.materials.length,
+      limit,
+      page,
+      totalPages: result.totalPages,
+    });
   });
 
   // --- CATEGORIES ---
@@ -81,6 +96,10 @@ export class MaterialController {
   });
 
   public static createMaterial = asyncHandler(async (req: Request, res: Response) => {
+    const validation = validateMaterialPayload(req.body);
+    if (!validation.isValid) {
+      return sendError(res, 'Material validation failed', 400, validation.errors);
+    }
     const material = await MaterialService.createMaterial(req.body);
     return sendSuccess(res, { material }, 'Material created successfully', 201);
   });

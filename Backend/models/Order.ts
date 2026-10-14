@@ -9,6 +9,7 @@ export interface IOrderItem {
   unitPrice: number;
   totalPrice: number;
   gstAmount: number;
+  image?: string;
 }
 
 export interface IOrder extends Document {
@@ -17,6 +18,7 @@ export interface IOrder extends Document {
   customerName: string;
   customerPhone: string;
   customerEmail?: string;
+  businessName?: string;
   gstin?: string;
   siteAddress: {
     siteName: string;
@@ -34,15 +36,21 @@ export interface IOrder extends Document {
   taxAmount: number;
   deliveryCharges: number;
   unloadingCharges: number;
+  couponDiscount?: number;
   totalAmount: number;
   paymentStatus: 'pending' | 'authorized' | 'paid' | 'failed' | 'refunded' | 'credit';
   paymentMethod: string;
   paymentDetails?: {
     razorpay_order_id?: string;
     razorpay_payment_id?: string;
+    razorpayOrderId?: string;
+    razorpayPaymentId?: string;
     razorpay_signature?: string;
     paidAt?: Date;
     receiptNumber?: string;
+    amount?: number;
+    paymentMethod?: string;
+    timestamp?: string;
   };
   orderStatus: 'received' | 'confirmed' | 'processing' | 'dispatched' | 'in_transit' | 'delivered' | 'cancelled';
   eWayBillNo?: string;
@@ -52,6 +60,30 @@ export interface IOrder extends Document {
   driverPhone?: string;
   deliveryOtp?: string;
   notes?: string;
+  orderId?: string;
+  serviceDetails?: {
+    headcount?: number;
+    shiftDays?: number;
+    selectedTimeSlot?: string;
+    scopeNotes?: string;
+    ratePerWorkerShift?: number;
+  };
+  totals?: {
+    subtotal: number;
+    taxAmount: number;
+    deliveryCharges: number;
+    unloadingCharges: number;
+    totalAmount: number;
+  };
+  status?: string;
+  deliveryAddress?: any;
+  verificationPin?: string;
+  trackingEvents?: Array<{
+    title: string;
+    time: string;
+    completed: boolean;
+    active: boolean;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -66,6 +98,7 @@ const OrderItemSchema = new Schema<IOrderItem>(
     unitPrice: { type: Number, required: true },
     totalPrice: { type: Number, required: true },
     gstAmount: { type: Number, default: 0 },
+    image: { type: String },
   },
   { _id: false }
 );
@@ -83,6 +116,7 @@ const OrderSchema = new Schema<IOrder>(
     customerName: { type: String, required: true, trim: true },
     customerPhone: { type: String, required: true, trim: true },
     customerEmail: { type: String, trim: true },
+    businessName: { type: String, trim: true },
     gstin: { type: String, trim: true },
     siteAddress: {
       siteName: { type: String, default: 'Primary Construction Site' },
@@ -100,6 +134,7 @@ const OrderSchema = new Schema<IOrder>(
     taxAmount: { type: Number, default: 0, min: 0 },
     deliveryCharges: { type: Number, default: 0 },
     unloadingCharges: { type: Number, default: 0 },
+    couponDiscount: { type: Number, default: 0 },
     totalAmount: { type: Number, required: true, min: 0 },
     paymentStatus: {
       type: String,
@@ -114,9 +149,14 @@ const OrderSchema = new Schema<IOrder>(
     paymentDetails: {
       razorpay_order_id: { type: String },
       razorpay_payment_id: { type: String },
+      razorpayOrderId: { type: String },
+      razorpayPaymentId: { type: String },
       razorpay_signature: { type: String },
       paidAt: { type: Date },
       receiptNumber: { type: String },
+      amount: { type: Number },
+      paymentMethod: { type: String },
+      timestamp: { type: String },
     },
     orderStatus: {
       type: String,
@@ -131,11 +171,31 @@ const OrderSchema = new Schema<IOrder>(
     driverPhone: { type: String },
     deliveryOtp: { type: String },
     notes: { type: String },
+    orderId: { type: String },
+    serviceDetails: { type: Schema.Types.Mixed },
+    totals: { type: Schema.Types.Mixed },
+    status: { type: String },
+    deliveryAddress: { type: Schema.Types.Mixed },
+    verificationPin: { type: String },
+    trackingEvents: [Schema.Types.Mixed],
   },
   {
     timestamps: true,
+    strict: false,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
+
+// High-throughput compound indexes for mobile queries and operations
+OrderSchema.index({ customerPhone: 1, createdAt: -1 });
+OrderSchema.index({ userId: 1, createdAt: -1 });
+OrderSchema.index({ customerEmail: 1, createdAt: -1 });
+OrderSchema.index({ orderStatus: 1, createdAt: -1 });
+OrderSchema.index({ paymentStatus: 1, createdAt: -1 });
+OrderSchema.index({ 'paymentDetails.razorpay_order_id': 1 });
+OrderSchema.index({ 'paymentDetails.razorpay_payment_id': 1 });
+OrderSchema.index({ createdAt: -1 });
 
 export const Order: Model<IOrder> =
   (mongoose.models.Order as Model<IOrder>) || mongoose.model<IOrder>('Order', OrderSchema);

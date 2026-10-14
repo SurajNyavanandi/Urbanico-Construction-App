@@ -62,49 +62,53 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     ) => {
       const lower = (message || '').toLowerCase();
 
-      // Suppress noisy/unnecessary toasts (account status, login, logout, profile updates)
+      // Suppress noisy, non-essential notifications (auth status, locations, addresses, profile, category clicks, coupons, invoices, quotations, sync warnings)
       if (
         lower.includes('logged in') ||
         lower.includes('logged out') ||
         lower.includes('log in') ||
         lower.includes('login') ||
         lower.includes('logout') ||
-        lower.includes('account verified') ||
-        lower.includes('welcome') ||
-        lower.includes('profile updated') ||
-        lower.includes('profile details')
+        lower.includes('otp') ||
+        lower.includes('verification') ||
+        lower.includes('account') ||
+        lower.includes('location') ||
+        lower.includes('address') ||
+        lower.includes('gst') ||
+        lower.includes('gstin') ||
+        lower.includes('profile') ||
+        lower.includes('auto-save') ||
+        lower.includes('sync') ||
+        lower.includes('coupon') ||
+        lower.includes('invoice') ||
+        lower.includes('quotation') ||
+        lower.includes('category') ||
+        lower.includes('welcome')
       ) {
         return;
       }
 
-      // Keep only cart additions/removals, favorites toasts, or critical alerts
-      const isCart =
-        lower.includes('cart') ||
-        lower.includes('basket') ||
-        lower.includes('requisition') ||
-        lower.includes('saved for later') ||
-        lower.includes('coupon') ||
-        lower.includes('order');
+      // 1. Essential Cart action toasts: Item added, removed, moved, or service duplicate warnings
+      const isCartAction =
+        (lower.includes('cart') || lower.includes('basket') || lower.includes('booking')) &&
+        (lower.includes('add') ||
+          lower.includes('remov') ||
+          lower.includes('back to cart') ||
+          lower.includes('moved') ||
+          lower.includes('saved') ||
+          lower.includes('already') ||
+          lower.includes('service'));
 
-      const isFavorite =
-        type === 'favorite' ||
-        lower.includes('favorite') ||
-        lower.includes('favourite');
+      // 2. Essential Favorite action toasts: Item added or removed from favorites
+      const isFavoriteAction =
+        (type === 'favorite' || lower.includes('favorite') || lower.includes('favourite')) &&
+        (lower.includes('saved') || lower.includes('add') || lower.includes('remov'));
 
-      const isCriticalNotice =
-        type === 'error' ||
-        lower.includes('failed') ||
-        lower.includes('invalid') ||
-        lower.includes('declined');
+      // 3. Essential Error & Rate Limit alerts
+      const isErrorAction = type === 'error' || lower.includes('rate limit') || lower.includes('too many requests');
 
-      const isPayment =
-        lower.includes('upi') ||
-        lower.includes('card') ||
-        lower.includes('payment') ||
-        lower.includes('tokenized');
-
-      // Drop any toast that is not Cart, Favorites, Payment, or critical notice
-      if (!isCart && !isFavorite && !isPayment && !isCriticalNotice) {
+      // Retain ONLY essential user-action toasts
+      if (!isCartAction && !isFavoriteAction && !isErrorAction) {
         return;
       }
 
@@ -135,6 +139,42 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   const hideAddToCartToast = useCallback(() => {
     setCartToast((prev) => ({ ...prev, visible: false }));
+  }, []);
+
+  // Listen to central 429 rate limit events and duplicate service warnings
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const rateLimitHandler = (e: any) => {
+      const detail = e.detail || {};
+      const retryAfter = detail.retryAfter || 60;
+      setToast({
+        visible: true,
+        message: detail.message || `Too many requests. Please wait ${retryAfter}s before retrying.`,
+        title: 'Rate Limit Active',
+        type: 'error',
+        duration: Math.min(retryAfter * 1000, 6000),
+      });
+    };
+
+    const serviceAlreadyHandler = (e: any) => {
+      const detail = e.detail || {};
+      setToast({
+        visible: true,
+        message:
+          detail.message ||
+          'Service booking already in cart. You can update booking slot or location at checkout.',
+        title: 'Booking In Cart',
+        type: 'info',
+        duration: 4000,
+      });
+    };
+
+    window.addEventListener('urbanico:rate-limited', rateLimitHandler);
+    window.addEventListener('urbanico:service-already-in-cart', serviceAlreadyHandler);
+    return () => {
+      window.removeEventListener('urbanico:rate-limited', rateLimitHandler);
+      window.removeEventListener('urbanico:service-already-in-cart', serviceAlreadyHandler);
+    };
   }, []);
 
   return (

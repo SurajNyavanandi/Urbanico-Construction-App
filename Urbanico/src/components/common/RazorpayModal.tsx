@@ -256,6 +256,16 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
               </View>
             </View>
 
+            {/* Sandbox Notice */}
+            {activeMode !== 'LIVE' && (
+              <View style={[styles.statusBox, { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0', marginBottom: 12 }]}>
+                <ShieldCheck size={16} color="#16A34A" />
+                <Text style={[styles.statusText, { color: '#15803D', fontWeight: '500' }]}>
+                  Sandbox Test Mode: Order placed instantly for testing
+                </Text>
+              </View>
+            )}
+
             {/* Error Message if any */}
             {errorMessage ? (
               <View style={styles.errorBox}>

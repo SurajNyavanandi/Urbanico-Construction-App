@@ -14,31 +14,48 @@ function getDefaultImageForCategory(categoryId: string, name?: string): string {
 }
 
 export class ServiceService {
-  public static async getAllServices() {
-    const cached = serviceCache.get('services:all');
+  public static async getAllServices(filter: { limit?: number; page?: number } = {}) {
+    const limit = Math.min(100, Math.max(1, filter.limit || 50));
+    const page = Math.max(1, filter.page || 1);
+    const skip = (page - 1) * limit;
+
+    const cacheKey = `services:${page}:${limit}`;
+    const cached = serviceCache.get(cacheKey);
     if (cached) return cached;
 
     try {
       if (mongoose.connection.readyState === 1) {
-        let services = await Service.find().lean().exec();
+        const total = await Service.countDocuments();
+        let services = await Service.find().sort({ createdAt: -1 }).skip(skip).limit(limit).lean().exec();
         if (services && services.length > 0) {
-          serviceCache.set('services:all', services, 300_000);
-          return services;
+          const payload = { services, total, page, limit, totalPages: Math.ceil(total / limit) };
+          serviceCache.set(cacheKey, payload, 300_000);
+          return payload;
         }
 
         // Auto-seed if collection is empty
         await this.seedDefaultServices();
-        services = await Service.find().lean().exec();
+        const totalAfterSeed = await Service.countDocuments();
+        services = await Service.find().sort({ createdAt: -1 }).skip(skip).limit(limit).lean().exec();
         if (services && services.length > 0) {
-          serviceCache.set('services:all', services, 300_000);
-          return services;
+          const payload = { services, total: totalAfterSeed, page, limit, totalPages: Math.ceil(totalAfterSeed / limit) };
+          serviceCache.set(cacheKey, payload, 300_000);
+          return payload;
         }
       }
     } catch (err) {
       console.warn('ServiceService getAllServices using in-memory store:', err);
     }
-    serviceCache.set('services:all', inMemoryServices, 300_000);
-    return inMemoryServices;
+    const paginated = inMemoryServices.slice(skip, skip + limit);
+    const payload = {
+      services: paginated,
+      total: inMemoryServices.length,
+      page,
+      limit,
+      totalPages: Math.ceil(inMemoryServices.length / limit),
+    };
+    serviceCache.set(cacheKey, payload, 300_000);
+    return payload;
   }
 
   public static async getServiceById(id: string) {

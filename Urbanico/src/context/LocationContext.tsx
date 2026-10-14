@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { SAVED_LOCATIONS } from '../data/materialsData';
 import { safeStorage } from '../utils/safeStorage';
+import { apiService } from '../services/apiService';
 
 export interface LocationCoords {
   lat: number;
@@ -108,8 +109,21 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
       // Preserve guest or checkout addresses added before login
       const guestKey = 'urbanico_saved_locations_guest';
       const guestStored = safeStorage.getItem(guestKey);
-      const guestList: string[] = guestStored ? JSON.parse(guestStored) : [];
-      let userList: string[] = stored ? JSON.parse(stored) : [];
+      let guestList: string[] = [];
+      if (guestStored) {
+        try {
+          const parsed = JSON.parse(guestStored);
+          if (Array.isArray(parsed)) guestList = parsed;
+        } catch {}
+      }
+
+      let userList: string[] = [];
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) userList = parsed;
+        } catch {}
+      }
 
       const merged = Array.from(new Set([...userList, ...guestList, ...savedLocations]))
         .filter((l) => Boolean(l) && !isDummyAddress(l));
@@ -128,14 +142,38 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   };
 
-  // Persist changes with user partition and universal backup
+  // Fetch user addresses from database on mount / login
+  useEffect(() => {
+    try {
+      const authSaved = safeStorage.getItem('urbanico_auth_session');
+      const phone = authSaved ? JSON.parse(authSaved).phone : null;
+      const cleanPhone = phone ? phone.replace(/\D/g, '') : null;
+      if (cleanPhone) {
+        apiService.getUserAddresses(cleanPhone).then((res) => {
+          const dbLocs: string[] = [
+            ...(res.savedLocations || []),
+            ...(res.deliverySites || []).map((s: any) => s.address || s.siteName),
+          ].filter((l) => Boolean(l) && !isDummyAddress(l));
+
+          if (dbLocs.length > 0) {
+            setSavedLocations((prev) => {
+              const merged = Array.from(new Set([...prev, ...dbLocs]));
+              return merged;
+            });
+          }
+        }).catch(() => {});
+      }
+    } catch {}
+  }, []);
+
+  // Persist changes with user partition and universal backup asynchronously
   useEffect(() => {
     try {
       const authSaved = safeStorage.getItem('urbanico_auth_session');
       const phone = authSaved ? JSON.parse(authSaved).phone : null;
       const key = phone ? `urbanico_saved_locations_${phone.replace(/\D/g, '')}` : 'urbanico_saved_locations_guest';
-      safeStorage.setItem(key, JSON.stringify(savedLocations));
-      safeStorage.setItem('urbanico_universal_saved_locations', JSON.stringify(savedLocations));
+      safeStorage.setAsyncObject(key, savedLocations, 150);
+      safeStorage.setAsyncObject('urbanico_universal_saved_locations', savedLocations, 150);
     } catch {
       // ignore
     }
@@ -146,8 +184,8 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
       const authSaved = safeStorage.getItem('urbanico_auth_session');
       const phone = authSaved ? JSON.parse(authSaved).phone : null;
       const key = phone ? `urbanico_selected_location_${phone.replace(/\D/g, '')}` : 'urbanico_selected_location_guest';
-      safeStorage.setItem(key, selectedLocation);
-      safeStorage.setItem('urbanico_universal_selected_location', selectedLocation);
+      safeStorage.setDebouncedItem(key, selectedLocation, 150);
+      safeStorage.setDebouncedItem('urbanico_universal_selected_location', selectedLocation, 150);
     } catch {
       // ignore
     }
@@ -155,7 +193,7 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   useEffect(() => {
     try {
-      safeStorage.setItem('urbanico_coords_map', JSON.stringify(coordsMap));
+      safeStorage.setAsyncObject('urbanico_coords_map', coordsMap, 200);
     } catch {
       // ignore
     }
@@ -210,6 +248,19 @@ export const LocationProvider: React.FC<{ children: ReactNode }> = ({ children }
         const nextLoc = filtered.length > 0 ? filtered[0] : DEFAULT_FALLBACK_LOCATION;
         setSelectedLocationState(nextLoc);
       }
+
+      // Synchronize deletion with MongoDB Atlas when authenticated
+      try {
+        const authSaved = safeStorage.getItem('urbanico_auth_session');
+        const phone = authSaved ? JSON.parse(authSaved).phone : null;
+        if (phone) {
+          const cleanPhone = phone.replace(/\D/g, '');
+          apiService.updateUserProfile(cleanPhone, {
+            savedLocations: filtered,
+          }).catch(() => {});
+        }
+      } catch {}
+
       return filtered;
     });
   };

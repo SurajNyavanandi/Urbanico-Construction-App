@@ -155,19 +155,35 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
     <body>
       <div id="map"></div>
       <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        function initLeafletMap() {
+          var container = document.getElementById('map');
+          if (!container) return;
+
+          // Prevent "Map container is already initialized" crash on rapid modal toggling
+          if (container._leaflet_id) {
+            container._leaflet_id = null;
+          }
+          if (window._leaflet_map) {
+            try {
+              window._leaflet_map.remove();
+            } catch (e) {}
+            window._leaflet_map = null;
+          }
+
           var centerLat = ${selectedPos.lat};
           var centerLng = ${selectedPos.lng};
           var isInteractive = ${interactive};
           var title = "${markerTitle.replace(/"/g, '\\"')}";
 
-          var map = L.map('map', {
+          var map = L.map(container, {
             zoomControl: isInteractive,
             dragging: isInteractive,
             touchZoom: isInteractive,
             scrollWheelZoom: isInteractive,
             doubleClickZoom: isInteractive
           }).setView([centerLat, centerLng], ${zoom});
+
+          window._leaflet_map = map;
 
           L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
@@ -214,6 +230,7 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
               : ''
           }
 
+          var geocodeTimer = null;
           if (isInteractive) {
             map.on('click', function(e) {
               var lat = e.latlng.lat;
@@ -222,29 +239,48 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
 
               marker.bindPopup('<div class="popup-title">' + title + '</div><div class="popup-sub">Locating address...</div>').openPopup();
 
-              fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng)
-                .then(function(res) { return res.json(); })
-                .then(function(data) {
-                  var address = data.display_name || (lat.toFixed(4) + ', ' + lng.toFixed(4));
-                  marker.bindPopup('<div class="popup-title">' + title + '</div><div class="popup-sub">' + address + '</div>').openPopup();
-                  var payload = { type: 'LOCATION_SELECTED', lat: lat, lng: lng, address: address };
-                  if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
-                    window.ReactNativeWebView.postMessage(JSON.stringify(payload));
-                  }
-                  if (window.parent && window.parent.postMessage) {
-                    window.parent.postMessage(payload, '*');
-                  }
-                })
-                .catch(function() {
-                  var payload = { type: 'LOCATION_SELECTED', lat: lat, lng: lng };
-                  if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
-                    window.ReactNativeWebView.postMessage(JSON.stringify(payload));
-                  }
-                  if (window.parent && window.parent.postMessage) {
-                    window.parent.postMessage(payload, '*');
-                  }
-                });
+              if (geocodeTimer) {
+                clearTimeout(geocodeTimer);
+              }
+              geocodeTimer = setTimeout(function() {
+                fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng)
+                  .then(function(res) { return res.json(); })
+                  .then(function(data) {
+                    var address = data.display_name || (lat.toFixed(4) + ', ' + lng.toFixed(4));
+                    marker.bindPopup('<div class="popup-title">' + title + '</div><div class="popup-sub">' + address + '</div>').openPopup();
+                    var payload = { type: 'LOCATION_SELECTED', lat: lat, lng: lng, address: address };
+                    if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+                      window.ReactNativeWebView.postMessage(JSON.stringify(payload));
+                    }
+                    if (window.parent && window.parent.postMessage) {
+                      window.parent.postMessage(payload, '*');
+                    }
+                  })
+                  .catch(function() {
+                    var payload = { type: 'LOCATION_SELECTED', lat: lat, lng: lng };
+                    if (window.ReactNativeWebView && window.ReactNativeWebView.postMessage) {
+                      window.ReactNativeWebView.postMessage(JSON.stringify(payload));
+                    }
+                    if (window.parent && window.parent.postMessage) {
+                      window.parent.postMessage(payload, '*');
+                    }
+                  });
+              }, 400);
             });
+          }
+        }
+
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+          initLeafletMap();
+        } else {
+          document.addEventListener('DOMContentLoaded', initLeafletMap);
+        }
+
+        window.addEventListener('unload', function() {
+          if (window._leaflet_map) {
+            try {
+              window._leaflet_map.remove();
+            } catch (e) {}
           }
         });
       </script>

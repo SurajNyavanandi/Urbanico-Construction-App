@@ -1,22 +1,34 @@
 import { Router } from 'express';
 import { UserController } from '../controllers/userController';
-import { authenticateToken, requireAuth } from '../middleware/auth';
+import { requireAuth, requireAdminSecret } from '../middleware/auth';
+import { otpSendRateLimiter, otpVerifyRateLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
 // Dynamic Authentication routes with fixed dev OTP 261125
-router.post('/auth/send-otp', UserController.sendOtp);
-router.post('/auth/verify-otp', UserController.verifyOtp);
+router.post('/auth/send-otp', otpSendRateLimiter, UserController.sendOtp);
+router.post('/auth/verify-otp', otpVerifyRateLimiter, UserController.verifyOtp);
+router.post('/email/send-otp', otpSendRateLimiter, UserController.sendEmailOtp);
+router.post('/email/verify-otp', otpVerifyRateLimiter, UserController.verifyEmailOtp);
 
 // Authenticated current session user route
 router.get('/me', requireAuth, UserController.getCurrentUser);
 
 // User Profile CRUD
-router.get('/profile', authenticateToken, UserController.getProfile);
-router.get('/profile/:phone', authenticateToken, UserController.getProfile);
-router.post('/profile', authenticateToken, UserController.updateProfile);
-router.put('/profile', authenticateToken, UserController.updateProfile);
-router.patch('/profile/:id', authenticateToken, UserController.updateProfile);
-router.put('/profile/:id', authenticateToken, UserController.updateProfile);
+router.delete('/', requireAdminSecret, UserController.deleteAllUsers);
+router.get('/profile', requireAuth, UserController.getProfile);
+router.get('/profile/:phone', requireAuth, UserController.getProfile);
+router.post('/profile', requireAuth, UserController.updateProfile);
+router.put('/profile', requireAuth, UserController.updateProfile);
+router.patch('/profile/:id', requireAuth, UserController.updateProfile);
+router.put('/profile/:id', requireAuth, UserController.updateProfile);
+
+// User Orders, Cart, & Delivery Sites DB Persistence (strictly authenticated to prevent IDOR)
+router.get('/orders', requireAuth, UserController.getUserOrders);
+router.get('/cart', requireAuth, UserController.getUserCart);
+router.post('/cart', requireAuth, UserController.updateUserCart);
+router.put('/cart', requireAuth, UserController.updateUserCart);
+router.get('/addresses', requireAuth, UserController.getUserAddresses);
+router.post('/addresses', requireAuth, UserController.addAddress);
 
 export const userRouter = router;

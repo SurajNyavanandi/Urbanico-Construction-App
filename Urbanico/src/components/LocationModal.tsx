@@ -157,6 +157,11 @@ export const LocationModal: React.FC<LocationModalProps> = ({
       const lookup = lookupCityStateFromPincode(clean);
       if (lookup.city) setCity(lookup.city);
       if (lookup.state) setState(lookup.state);
+      try {
+        if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+          document.activeElement.blur();
+        }
+      } catch {}
     }
   };
 
@@ -772,7 +777,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   saveBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 14,
     fontWeight: '700',
   },

@@ -1372,3 +1372,5 @@ export const MASTER_PROJECT_BUNDLES: MasterProjectBundle[] = [
     ],
   },
 ];
+
+export const MASTER_MATERIALS = MASTER_MATERIAL_ITEMS;

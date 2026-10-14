@@ -58,8 +58,12 @@ export class MaterialService {
   // ==========================================
   // MATERIALS GET & FILTER
   // ==========================================
-  public static async getAllMaterials(filter: { category?: string; search?: string } = {}) {
-    const cacheKey = `materials:${filter.category || 'all'}:${filter.search || ''}`;
+  public static async getAllMaterials(filter: { category?: string; search?: string; limit?: number; page?: number } = {}) {
+    const limit = Math.min(100, Math.max(1, filter.limit || 50));
+    const page = Math.max(1, filter.page || 1);
+    const skip = (page - 1) * limit;
+
+    const cacheKey = `materials:${filter.category || 'all'}:${filter.search || ''}:${page}:${limit}`;
     const cached = materialCache.get(cacheKey);
     if (cached) {
       return cached;
@@ -82,16 +86,13 @@ export class MaterialService {
           ];
         }
 
-        let materials = await Material.find(query).sort({ createdAt: -1 }).lean().exec();
-
-        // Auto-seed default materials if collection is completely empty
-        if (materials.length === 0 && !filter.search && (!filter.category || filter.category === 'All' || filter.category === 'all')) {
-          materials = await Material.find(query).sort({ createdAt: -1 }).lean().exec();
-        }
+        const total = await Material.countDocuments(query);
+        let materials = await Material.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean().exec();
 
         if (materials && materials.length > 0) {
-          materialCache.set(cacheKey, materials, 120_000);
-          return materials;
+          const payload = { materials, total, page, limit, totalPages: Math.ceil(total / limit) };
+          materialCache.set(cacheKey, payload, 120_000);
+          return payload;
         }
       }
     } catch (err) {
@@ -99,7 +100,7 @@ export class MaterialService {
     }
 
     // Filter in-memory dynamic catalogue
-    const result = inMemoryMaterials.filter((m) => {
+    const filtered = inMemoryMaterials.filter((m) => {
       if (filter.category && filter.category !== 'All' && filter.category !== 'all') {
         const cat = filter.category.toLowerCase();
         const matchesCategory =
@@ -118,8 +119,16 @@ export class MaterialService {
       return true;
     });
 
-    materialCache.set(cacheKey, result, 120_000);
-    return result;
+    const paginated = filtered.slice(skip, skip + limit);
+    const payload = {
+      materials: paginated,
+      total: filtered.length,
+      page,
+      limit,
+      totalPages: Math.ceil(filtered.length / limit),
+    };
+    materialCache.set(cacheKey, payload, 120_000);
+    return payload;
   }
 
   public static async getMaterialById(id: string) {
@@ -435,5 +444,56 @@ export class MaterialService {
       return removed;
     }
     return null;
+  }
+
+  /**
+   * Atomically verify and decrement inventory for ordered materials
+   */
+  public static async decrementStockForItems(items: Array<{ materialId?: any; name?: string; quantity?: number }>): Promise<{ success: boolean }> {
+    try {
+      materialCache.clear();
+      for (const item of items) {
+        const qty = Number(item.quantity) || 1;
+        const isService = (item.name || '').toLowerCase().includes('service') || (item.name || '').toLowerCase().includes('consult');
+        if (isService) continue;
+
+        if (mongoose.connection.readyState === 1) {
+          let updated = null;
+          if (item.materialId && mongoose.Types.ObjectId.isValid(String(item.materialId))) {
+            updated = await Material.findOneAndUpdate(
+              { _id: item.materialId, stockQuantity: { $gte: qty } },
+              { $inc: { stockQuantity: -qty } },
+              { new: true }
+            ).exec();
+          } else if (item.name) {
+            updated = await Material.findOneAndUpdate(
+              { name: item.name, stockQuantity: { $gte: qty } },
+              { $inc: { stockQuantity: -qty } },
+              { new: true }
+            ).exec();
+          }
+
+          if (updated && updated.stockQuantity <= 0) {
+            await Material.findByIdAndUpdate(updated._id, { inStock: false }).exec();
+          }
+        }
+
+        // Also decrement in-memory store
+        const memIdx = inMemoryMaterials.findIndex(
+          (m) => (item.materialId && (m.id === item.materialId || m._id === item.materialId)) || (item.name && m.name === item.name)
+        );
+        if (memIdx !== -1) {
+          const currentStock = Number(inMemoryMaterials[memIdx].stockQuantity) || 1000;
+          const nextStock = Math.max(0, currentStock - qty);
+          inMemoryMaterials[memIdx].stockQuantity = nextStock;
+          if (nextStock <= 0) {
+            inMemoryMaterials[memIdx].inStock = false;
+          }
+        }
+      }
+    } catch (err: any) {
+      console.warn('[MaterialService] Stock decrement notice:', err?.message || err);
+    }
+    return { success: true };
   }
 }

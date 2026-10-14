@@ -78,6 +78,14 @@ export interface TranslationDictionary {
   quickActions: string;
   allCategories: string;
   activeOrders: string;
+  applyCoupon: string;
+  siteUnloading: string;
+  deliveryCharges: string;
+  subtotal: string;
+  totalPayable: string;
+  gateOtp: string;
+  taxInvoice: string;
+  ewayBill: string;
 }
 
 const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
@@ -110,6 +118,14 @@ const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
     quickActions: 'Quick Actions',
     allCategories: 'All Categories',
     activeOrders: 'Active Orders',
+    applyCoupon: 'Apply Coupon',
+    siteUnloading: 'Site Unloading Labor',
+    deliveryCharges: 'Delivery Charges',
+    subtotal: 'Subtotal',
+    totalPayable: 'Total Payable',
+    gateOtp: 'Gate Handover OTP',
+    taxInvoice: 'GST Tax Invoice',
+    ewayBill: 'E-Way Bill',
   },
   te: {
     home: 'హోమ్',
@@ -140,6 +156,14 @@ const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
     quickActions: 'త్వరిత చర్యలు',
     allCategories: 'అన్ని వర్గాలు',
     activeOrders: 'యాక్టివ్ ఆర్డర్‌లు',
+    applyCoupon: 'కూపన్ వర్తింపజేయి',
+    siteUnloading: 'సైట్ అన్‌లోడింగ్ లేబర్',
+    deliveryCharges: 'డెలివరీ ఛార్జీలు',
+    subtotal: 'ఉపమొత్తం',
+    totalPayable: 'మొత్తం చెల్లించాల్సింది',
+    gateOtp: 'గేట్ హ్యాండోవర్ OTP',
+    taxInvoice: 'జీఎస్టీ ట్యాక్స్ ఇన్వాయిస్',
+    ewayBill: 'ఈ-వే బిల్లు',
   },
   hi: {
     home: 'होम',
@@ -170,6 +194,14 @@ const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
     quickActions: 'त्वरित कार्य',
     allCategories: 'सभी श्रेणियां',
     activeOrders: 'सक्रिय ऑर्डर',
+    applyCoupon: 'कूपन लागू करें',
+    siteUnloading: 'साइट अनलोडिंग लेबर',
+    deliveryCharges: 'डिलीवरी शुल्क',
+    subtotal: 'उप-योग',
+    totalPayable: 'कुल देय राशि',
+    gateOtp: 'गेट हैंडओवर ओटीपी',
+    taxInvoice: 'जीएसटी टैक्स इनवॉइस',
+    ewayBill: 'ई-वे बिल',
   },
   kn: {
     home: 'ಹೋಮ್',
@@ -200,6 +232,14 @@ const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
     quickActions: 'ತ್ವರಿತ ಕ್ರಿಯೆಗಳು',
     allCategories: 'ಎಲ್ಲಾ ವರ್ಗಗಳು',
     activeOrders: 'ಸಕ್ರಿಯ ಆರ್ಡರ್‌ಗಳು',
+    applyCoupon: 'ಕೂಪನ್ ಅನ್ವಯಿಸಿ',
+    siteUnloading: 'ಸೈಟ್ ಅನ್‌ಲೋಡಿಂಗ್ ಕೂಲಿ',
+    deliveryCharges: 'ಡೆಲಿವರಿ ಶುಲ್ಕಗಳು',
+    subtotal: 'ಉಪಮೊತ್ತ',
+    totalPayable: 'ಒಟ್ಟು ಪಾವತಿಸಬೇಕಾದ ಮೊತ್ತ',
+    gateOtp: 'ಗೇಟ್ ಹಸ್ತಾಂತರ ಒಟಿಪಿ',
+    taxInvoice: 'ಜಿಎಸ್‌ಟಿ ತೆರಿಗೆ ಇನ್‌ವಾಯ್ಸ್',
+    ewayBill: 'ಇ-ವೇ ಬಿಲ್',
   },
   ta: {
     home: 'முகப்பு',
@@ -230,6 +270,14 @@ const TRANSLATIONS: Record<LanguageCode, TranslationDictionary> = {
     quickActions: 'விரைவு செயல்கள்',
     allCategories: 'அனைத்து பிரிவுகள்',
     activeOrders: 'செயலில் உள்ள ஆர்டர்கள்',
+    applyCoupon: 'கூப்பனைப் பயன்படுத்து',
+    siteUnloading: 'தள இறக்குதல் கூலி',
+    deliveryCharges: 'டெலிவரி கட்டணம்',
+    subtotal: 'கூட்டுத்தொகை',
+    totalPayable: 'செலுத்த வேண்டிய மொத்தத் தொகை',
+    gateOtp: 'கேட் ஒப்படைப்பு OTP',
+    taxInvoice: 'ஜிஎஸ்டி வரி விலைப்பட்டியல்',
+    ewayBill: 'இ-வே பில்',
   },
 };
 

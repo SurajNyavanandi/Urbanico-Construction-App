@@ -35,6 +35,55 @@ export function isCartItemService(item: {
   );
 }
 
+/**
+ * Returns statutory Indian GST rate based on material/service category:
+ * - Cement: 28%
+ * - Sand, Bricks, AAC Blocks, Aggregates: 5%
+ * - TMT Steel, Centring, Hardware, Services & General: 18%
+ */
+export function getStatutoryGstRateForItem(item: {
+  categoryName?: string;
+  categoryId?: string;
+  itemName?: string;
+  name?: string;
+}): number {
+  if (isCartItemService(item as any)) return 0.18;
+
+  const cat = (item.categoryName || item.categoryId || '').toLowerCase();
+  const name = (item.itemName || item.name || '').toLowerCase();
+
+  if (cat === 'cement' || name.includes('cement')) {
+    return 0.28;
+  }
+
+  if (
+    cat === 'sand' ||
+    cat === 'bricks' ||
+    cat === 'stone' ||
+    name.includes('sand') ||
+    name.includes('brick') ||
+    name.includes('aac block') ||
+    name.includes('aggregate') ||
+    name.includes('gravel') ||
+    name.includes('quarry dust')
+  ) {
+    return 0.05;
+  }
+
+  if (
+    cat === 'iron_bars' ||
+    cat === 'centring' ||
+    name.includes('tmt') ||
+    name.includes('steel') ||
+    name.includes('rebar') ||
+    name.includes('iron')
+  ) {
+    return 0.18;
+  }
+
+  return 0.18;
+}
+
 export interface CartTotals {
   serviceItems: CartItem[];
   materialItems: CartItem[];
@@ -54,7 +103,7 @@ export interface CartTotals {
 
 /**
  * Centralized cart calculation engine.
- * Computes subtotal, taxes, delivery fee, optional unloading assistance, and grand total dynamically without hardcoded constants.
+ * Computes subtotal, statutory GST taxes, delivery fee, material unloading assistance, and grand total.
  */
 export function calculateCartTotals(
   cartItems: CartItem[],
@@ -70,36 +119,59 @@ export function calculateCartTotals(
   const hasServices = serviceItems.length > 0;
   const hasMaterials = materialItems.length > 0;
 
-  const totalQuantity = cartItems.reduce((acc, item) => acc + (item.quantity || 1), 0);
+  const roundMoney = (val: number): number => Math.round((val + Number.EPSILON) * 100) / 100;
 
-  // Each service item computes: unitPrice * quantity (default unitPrice is 99 per demo/session)
-  const servicesSubtotal = serviceItems.reduce(
-    (acc, item) => acc + (item.unitPrice || 99) * (item.quantity || 1),
-    0
+  const totalQuantity = cartItems.reduce((acc, item) => acc + (Number.isFinite(Number(item.quantity)) ? Number(item.quantity) : 1), 0);
+
+  // Each service item computes: roundMoney(unitPrice * quantity)
+  const servicesSubtotal = roundMoney(
+    serviceItems.reduce(
+      (acc, item) => {
+        const qty = Number.isFinite(Number(item.quantity)) ? Number(item.quantity) : 1;
+        const itemLineTotal = roundMoney((Number(item.unitPrice) || 99) * qty);
+        return acc + itemLineTotal;
+      },
+      0
+    )
   );
 
-  // Physical materials compute: unitPrice * quantity
-  const materialsSubtotal = materialItems.reduce(
-    (acc, item) => acc + (item.unitPrice || 0) * (item.quantity || 1),
-    0
+  // Physical materials compute: roundMoney(unitPrice * quantity) for fractional units and metric tons
+  const materialsSubtotal = roundMoney(
+    materialItems.reduce(
+      (acc, item) => {
+        const qty = Number.isFinite(Number(item.quantity)) ? Number(item.quantity) : 1;
+        const itemLineTotal = roundMoney((Number(item.unitPrice) || 0) * qty);
+        return acc + itemLineTotal;
+      },
+      0
+    )
   );
 
-  const subtotal = servicesSubtotal + materialsSubtotal;
+  const subtotal = roundMoney(servicesSubtotal + materialsSubtotal);
 
-  // GST calculation removed - no 18% tax added to physical materials or services
-  const gstTax = 0;
+  // Itemized Statutory GST calculation across materials and services
+  const gstTax = roundMoney(
+    cartItems.reduce((acc, item) => {
+      const qty = Number.isFinite(Number(item.quantity)) ? Number(item.quantity) : 1;
+      const rate = getStatutoryGstRateForItem(item);
+      const lineSubtotal = roundMoney((Number(item.unitPrice) || 0) * qty);
+      return acc + roundMoney(lineSubtotal * rate);
+    }, 0)
+  );
 
   // Delivery charge applies only if there are physical materials to transport; services carry 0 delivery charge
   const deliveryCharge =
     isServicesOnly || materialItems.length === 0
       ? 0
       : customDeliveryCharge !== undefined
-      ? customDeliveryCharge
+      ? Math.round(customDeliveryCharge)
       : Math.max(50, Math.round(deliveryDistanceKm * 5));
 
-  const effectiveUnloading = isServicesOnly || materialItems.length === 0 ? 0 : (unloadingCharge || 0);
-  const taxableTotal = subtotal + gstTax + deliveryCharge + effectiveUnloading - (couponDiscount || 0);
-  const grandTotal = Math.max(0, taxableTotal);
+  // Unloading assistance applies strictly to physical heavy materials, isolated from contractor services
+  const effectiveUnloading = isServicesOnly || materialItems.length === 0 ? 0 : roundMoney(unloadingCharge || 0);
+  const effectiveCoupon = roundMoney(couponDiscount || 0);
+  const taxableTotal = roundMoney(subtotal + gstTax + deliveryCharge + effectiveUnloading - effectiveCoupon);
+  const grandTotal = Math.max(0, Math.round(taxableTotal));
 
   return {
     serviceItems,
@@ -120,4 +192,3 @@ export function calculateCartTotals(
 }
 
 export const formatCurrency = formatINR;
-

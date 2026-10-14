@@ -125,7 +125,7 @@ export const Toast: React.FC<ToastProps> = ({
     iconColor = '#EF4444';
     badgeColor = '#EF4444';
     BadgeIcon = Heart;
-  } else if (lowerMsg.includes('cart') || lowerMsg.includes('basket') || lowerMsg.includes('saved for later')) {
+  } else if (lowerMsg.includes('cart') || lowerMsg.includes('basket')) {
     defaultTitle = lowerMsg.includes('removed') ? 'Cart Updated' : 'Cart';
     IconComponent = ShoppingBag;
     iconColor = theme.primary;

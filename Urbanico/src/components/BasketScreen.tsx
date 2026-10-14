@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,11 @@ import {
   Pressable,
   TextInput,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import {
   ShoppingCart,
+  Heart,
   Trash2,
   Plus,
   Minus,
@@ -22,6 +24,7 @@ import {
   Truck,
   Package,
   Check,
+  Copy,
   Clock,
   Tag,
   ShieldCheck,
@@ -58,6 +61,7 @@ import {
   RefreshCw,
   AlertCircle,
   HelpCircle,
+  Zap,
 } from 'lucide-react-native';
 import {
   GooglePayIcon,
@@ -79,6 +83,7 @@ import { INITIAL_DELIVERIES } from '../data/materialsData';
 import { useTheme } from '../context/ThemeContext';
 import { useLocation } from '../context/LocationContext';
 import { lookupCityStateFromPincode, formatSiteAddress } from '../utils/addressHelper';
+import { resolveMaterialImage } from '../utils/materialImageResolver';
 import { validateName, validatePhone } from '../utils/sanitizationHelper';
 import { RazorpayPaymentResult } from './common/RazorpayModal';
 import {
@@ -86,6 +91,10 @@ import {
   openRazorpayOneTapPayment,
   fetchCustomerTokensAPI,
   tokenizeCardAPI,
+  getClientKeyMode,
+  getClientRazorpayKey,
+  savePendingPaymentHandshake,
+  clearPendingPaymentHandshake,
 } from '../services/razorpayService';
 import {
   getSavedPaymentMethods,
@@ -96,6 +105,8 @@ import {
 } from '../utils/paymentMethodsHelper';
 import { SavedPaymentMethod } from '../types';
 import { PaymentSuccessModal } from './PaymentSuccessModal';
+import { LiveDispatcherChatModal } from './common/LiveDispatcherChatModal';
+import { SupervisorHandoffModal } from './common/SupervisorHandoffModal';
 import { EmptyState } from './common/EmptyState';
 import { ShimmerImage } from './common/ShimmerImage';
 import { useToast } from '../context/ToastContext';
@@ -115,8 +126,60 @@ import {
 import { validateGSTIN, GstinValidationResult } from '../utils/gstinValidator';
 import { buildTaxInvoiceData, sendTaxInvoiceEmail } from '../utils/invoiceHelper';
 import { openProformaQuotationPrint } from '../utils/proformaQuotationHelper';
-import { LiveDispatcherChatModal } from './common/LiveDispatcherChatModal';
-import { SupervisorHandoffModal } from './common/SupervisorHandoffModal';
+import { useCart } from '../context/CartContext';
+import { useClipboard } from '../hooks';
+
+export const CART_ORDER_LIFECYCLE_STAGES = [
+  {
+    id: 'placed',
+    title: 'Order Placed',
+    description: 'Payment verified and booking logged into central hub inventory.',
+    minuteOffset: 0,
+  },
+  {
+    id: 'batching',
+    title: 'Yard Batching',
+    description: 'Materials inspected, batch weight verified, and loaded onto carrier.',
+    minuteOffset: 16,
+  },
+  {
+    id: 'dispatched',
+    title: 'Consignment Dispatched',
+    description: 'Fleet en route to site with live GPS telemetry active.',
+    minuteOffset: 36,
+  },
+  {
+    id: 'gate_arrival',
+    title: 'Gate Arrival',
+    description: 'Truck arrived at destination gate awaiting handover authorization.',
+    minuteOffset: 56,
+  },
+  {
+    id: 'delivered',
+    title: 'Delivered & Unloaded',
+    description: 'Materials unloaded and gate sign-off completed.',
+    minuteOffset: 75,
+  },
+];
+
+export const getCartStageTimestamp = (createdAt: string | undefined, minuteOffset: number) => {
+  const base = createdAt ? new Date(createdAt) : new Date(Date.now() - 40 * 60 * 1000);
+  const stageTime = new Date(base.getTime() + minuteOffset * 60 * 1000);
+  return stageTime.toLocaleTimeString('en-IN', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+};
+
+export const getCartActiveStageIndex = (statusRaw?: string) => {
+  const st = (statusRaw || 'in_transit').toLowerCase();
+  if (st === 'delivered') return 5;
+  if (st === 'gate_arrival' || st === 'site_arrival') return 3;
+  if (st === 'in_transit' || st === 'en_route' || st === 'en route' || st === 'dispatched') return 2;
+  if (st === 'batching' || st === 'yard_processing' || st === 'processing') return 1;
+  return 0;
+};
 
 export type PaymentMethodType = 'online' | 'pod' | 'upi_app' | 'upi_vpa' | 'card' | 'netbanking' | 'wallet' | 'emi';
 
@@ -173,6 +236,9 @@ interface BasketScreenProps {
   isLoggedIn?: boolean;
   onOpenLoginModal?: () => void;
   user?: any;
+  onToggleFavorite?: (itemId: string) => void;
+  onSaveToFavorites?: (item: CartItem) => void;
+  favoriteIds?: string[];
 }
 
 export const BasketScreen: React.FC<BasketScreenProps> = ({
@@ -190,6 +256,9 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   isLoggedIn = false,
   onOpenLoginModal,
   user,
+  onToggleFavorite,
+  onSaveToFavorites,
+  favoriteIds = [],
 }) => {
   const { theme, typography } = useTheme();
   const {
@@ -199,6 +268,8 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     addLocation,
   } = useLocation();
   const { showToast } = useToast();
+  const { copy } = useClipboard();
+  const [copiedOtp, setCopiedOtp] = useState<string | null>(null);
   const activeLocation = globalLocation || propLocation || 'Miyapur Site, Phase 2, Hyderabad';
   const [activeTab, setActiveTab] = useState<'cart' | 'history'>('cart');
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'payment'>('cart');
@@ -206,6 +277,23 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const createdOrderRef = React.useRef<ActivityDelivery | null>(null);
   const scrollViewRef = React.useRef<any>(null);
+
+  // Check if user is authenticated with a valid mobile number (Flipkart/Amazon guest-to-auth flow)
+  const isUserLoggedInWithMobile = useMemo(() => {
+    if (!isLoggedIn) return false;
+    const phone = (user?.phone || '').replace(/\D/g, '');
+    if (phone.length >= 10) return true;
+    try {
+      const auth = safeStorage.getItem('urbanico_auth_session');
+      if (auth) {
+        const parsed = JSON.parse(auth);
+        if (parsed.isLoggedIn && parsed.phone && parsed.phone.replace(/\D/g, '').length >= 10) {
+          return true;
+        }
+      }
+    } catch {}
+    return false;
+  }, [isLoggedIn, user?.phone]);
 
   // Checkout Delivery Address Selection Modal (Flipkart / Amazon Style)
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
@@ -235,25 +323,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     if (user?.name && !newAddrName) setNewAddrName(user.name);
     if (user?.phone && !newAddrPhone) setNewAddrPhone(user.phone.replace(/\D/g, ''));
   }, [user]);
-
-  // Saved for Later state
-  const [savedForLaterItems, setSavedForLaterItems] = useState<CartItem[]>(() => {
-    try {
-      const saved = safeStorage.getItem('urbanico_saved_for_later');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed.map((item: any, idx: number) => ({
-            ...item,
-            id: item.id || `saved-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 7)}`,
-          }));
-        }
-      }
-      return [];
-    } catch {
-      return [];
-    }
-  });
 
   // Stock Reservation 10-Minute Expiry Countdown (Item 3)
   const [reservationSeconds, setReservationSeconds] = useState<number>(() => {
@@ -319,6 +388,15 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   } | null>(null);
   const [retryAttemptCount, setRetryAttemptCount] = useState(0);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethodType>('online');
+  const [selectedPaymentMode, setSelectedPaymentMode] = useState<'gateway' | 'bnpl'>('gateway');
+
+  const availableCreditLimit = useMemo(() => {
+    const limit = user?.creditLimit !== undefined ? user.creditLimit : 50000;
+    const used = user?.usedCredit || 0;
+    return Math.max(0, limit - used);
+  }, [user]);
+
+  const isProfileVerified = Boolean(user?.isVerified);
 
   // Check URL query parameters for payment status callback (redirection flow)
   useEffect(() => {
@@ -528,7 +606,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <MapPin size={16} color={theme.primary} />
             <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary }}>
-              Delivery Destination
+              {isServicesOnly || hasServices ? 'Service Location & Site Safety Access' : 'Delivery Destination'}
             </Text>
           </View>
           <TouchableOpacity
@@ -548,7 +626,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
               style={{
                 fontSize: 12,
                 fontWeight: '700',
-                color: isChangingAddress ? '#FFFFFF' : theme.primary,
+                color: isChangingAddress ? (theme.primaryText || '#18181B') : theme.primary,
               }}
             >
               {isChangingAddress ? 'Done' : 'Change'}
@@ -588,10 +666,10 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                   <Text
                     style={[
                       styles.addressTypeBadgeText,
-                      { color: '#FFFFFF' },
+                      { color: theme.primaryText || '#18181B' },
                     ]}
                   >
-                    DELIVERY SITE
+                    {isServicesOnly || hasServices ? 'SERVICE SITE' : 'DELIVERY SITE'}
                   </Text>
                 </View>
               </View>
@@ -607,11 +685,11 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
 
               <View style={styles.contactDetailsRow}>
                 <Text style={[styles.contactName, { color: theme.textSecondary }]}>
-                  Recipient: <Text style={{ color: theme.textPrimary, fontWeight: '600' }}>{user?.name || 'Site Incharge'}</Text>
+                  {isServicesOnly || hasServices ? 'Site Supervisor: ' : 'Recipient: '}<Text style={{ color: theme.textPrimary, fontWeight: '600' }}>{user?.name || 'Site Incharge'}</Text>
                 </Text>
                 <Text style={[styles.contactDot, { color: theme.textMuted }]}>•</Text>
                 <Text style={[styles.contactPhone, { color: theme.textSecondary }]}>
-                  +91 {user?.phone?.replace(/\D/g, '') || '98480 12345'}
+                  {user?.phone ? `+91 ${user.phone.replace(/\D/g, '')}` : 'Sign in to add contact'}
                 </Text>
               </View>
             </View>
@@ -695,7 +773,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                               style={[
                                 styles.addressTypeBadgeText,
                                 {
-                                  color: isSelected ? '#FFFFFF' : theme.textSecondary,
+                                  color: isSelected ? (theme.primaryText || '#18181B') : theme.textSecondary,
                                 },
                               ]}
                             >
@@ -787,7 +865,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                         setNewAddrPhone(t.replace(/\D/g, '').slice(0, 10));
                         setAddrFormError(null);
                       }}
-                      placeholder="98480 12345"
+                      placeholder="Enter 10-digit mobile"
                       placeholderTextColor={theme.textMuted}
                       keyboardType="phone-pad"
                       maxLength={10}
@@ -915,7 +993,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                           style={[
                             styles.typeChipText,
                             {
-                              color: newAddrType === typ ? '#FFFFFF' : theme.textPrimary,
+                              color: newAddrType === typ ? (theme.primaryText || '#18181B') : theme.textPrimary,
                               fontWeight: newAddrType === typ ? '700' : '500',
                             },
                           ]}
@@ -1153,9 +1231,18 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                 ⚠️ {gstinError}
               </Text>
             ) : gstinValidation?.isValid ? (
-              <Text style={{ fontSize: 11, color: '#059669', marginTop: 4, fontWeight: '600' }}>
-                ✓ Valid GSTIN ({gstinValidation.stateName}) • 18% Input Tax Credit
-              </Text>
+              <View style={{ marginTop: 4 }}>
+                <Text style={{ fontSize: 11, color: '#059669', fontWeight: '600' }}>
+                  ✓ Valid GSTIN ({gstinValidation.stateName}) • 18% Input Tax Credit
+                </Text>
+                {gstinValidation.stateCode !== '36' && (
+                  <View style={{ marginTop: 6, padding: 8, backgroundColor: theme.mode === 'dark' ? '#1E293B' : '#EFF6FF', borderRadius: 8, borderWidth: 1, borderColor: theme.mode === 'dark' ? '#334155' : '#BFDBFE' }}>
+                    <Text style={{ fontSize: 11, color: theme.mode === 'dark' ? '#93C5FD' : '#1E40AF', lineHeight: 15 }}>
+                      ℹ️ <Text style={{ fontWeight: '700' }}>Inter-State Supply Notice:</Text> Registered GSTIN is in {gstinValidation.stateName} (State {gstinValidation.stateCode}). An Integrated GST (IGST 18%) commercial tax invoice will be issued for full Input Tax Credit eligibility.
+                    </Text>
+                  </View>
+                )}
+              </View>
             ) : checkoutGstin.length > 0 ? (
               <Text style={{ fontSize: 11, color: theme.textMuted, marginTop: 4 }}>
                 {15 - checkoutGstin.length} characters remaining
@@ -1321,6 +1408,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   );
 
   const payableAmount = grandTotal;
+  const isCreditAllowed = isProfileVerified && availableCreditLimit >= grandTotal;
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -1329,39 +1417,22 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     }, 600);
   };
 
-  const handleSaveForLater = (item: CartItem) => {
-    onRemoveItem(item.id);
-    const updated = [...savedForLaterItems.filter((i) => i.id !== item.id), item];
-    setSavedForLaterItems(updated);
-    try {
-      safeStorage.setItem('urbanico_saved_for_later', JSON.stringify(updated));
-      syncManager.broadcast('SAVED_FOR_LATER_UPDATED', updated);
-    } catch {}
-  };
-
-  const handleMoveToCart = (item: CartItem) => {
-    const updatedSaved = savedForLaterItems.filter((i) => i.id !== item.id);
-    setSavedForLaterItems(updatedSaved);
-    try {
-      safeStorage.setItem('urbanico_saved_for_later', JSON.stringify(updatedSaved));
-      syncManager.broadcast('SAVED_FOR_LATER_UPDATED', updatedSaved);
-    } catch {}
-    // trigger adding back to cart
-    if (onAddToCart) {
-      onAddToCart(item);
-    } else {
-      onUpdateQuantity(item.id, 1);
+  const handleSaveToFavorites = (item: CartItem) => {
+    soundService.playFavorite();
+    const materialId = item.itemId || item.id;
+    if (onSaveToFavorites) {
+      onSaveToFavorites(item);
+    } else if (onToggleFavorite) {
+      if (!favoriteIds.includes(materialId)) {
+        onToggleFavorite(materialId);
+      }
     }
-    showToast(`Moved "${item.itemName}" back to cart`, 'success');
+    onRemoveItem(item.id);
+    showToast(`Moved "${item.itemName}" to Favorites`, 'success');
   };
 
-  const handleRemoveSavedItem = (id: string) => {
-    const updated = savedForLaterItems.filter((i) => i.id !== id);
-    setSavedForLaterItems(updated);
-    try {
-      safeStorage.setItem('urbanico_saved_for_later', JSON.stringify(updated));
-      syncManager.broadcast('SAVED_FOR_LATER_UPDATED', updated);
-    } catch {}
+  const handleSaveForLater = (item: CartItem) => {
+    handleSaveToFavorites(item);
   };
 
   // Saved Delivery Addresses list (E-commerce Flipkart / Amazon style)
@@ -1438,12 +1509,47 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     showToast('New delivery address added and selected!', 'success');
   };
 
-  const handleConfirmCancelOrder = () => {
+  const handleConfirmCancelOrder = async () => {
     if (!orderToCancel) return;
-    setCancelledOrderIds((prev) => [...prev, orderToCancel.id]);
-    showToast(`Order #${orderToCancel.orderNumber} cancelled. Refund of ₹${orderToCancel.totalAmount.toLocaleString('en-IN')} initiated to your source account.`, 'info');
+    const targetOrder = orderToCancel;
+    const cancelledId = targetOrder.id;
+    const orderNum = targetOrder.orderNumber;
+    const refundAmount = targetOrder.totalAmount || 0;
+
+    // Instant UI feedback
+    setCancelledOrderIds((prev) => [...prev, cancelledId]);
+    showToast(`Order #${orderNum} cancelled. Refund of ₹${refundAmount.toLocaleString('en-IN')} initiated to your source account.`, 'info');
     setShowCancelConfirmModal(false);
     setOrderToCancel(null);
+
+    // Persist status change to MongoDB Atlas and backend order state
+    try {
+      if (orderNum) {
+        await apiService.updateOrderStatus(orderNum, 'cancelled', {
+          cancelledAt: new Date().toISOString(),
+          cancellationReason: 'Cancelled by customer from dispatch tracker',
+        });
+      }
+
+      // Update user-scoped cache immediately
+      if (user?.phone) {
+        const cleanPhone = user.phone.replace(/[^0-9]/g, '').slice(-10);
+        const userOrdersRaw = safeStorage.getItem(`urbanico_user_orders_${cleanPhone}`);
+        if (userOrdersRaw) {
+          const list = JSON.parse(userOrdersRaw);
+          if (Array.isArray(list)) {
+            const updatedList = list.map((o: any) =>
+              o.orderNumber === orderNum || o.id === cancelledId || o._id === cancelledId
+                ? { ...o, orderStatus: 'cancelled', status: 'Cancelled' }
+                : o
+            );
+            safeStorage.setItem(`urbanico_user_orders_${cleanPhone}`, JSON.stringify(updatedList));
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('[BasketScreen] Error updating cancellation in backend:', err);
+    }
   };
 
   const handleStartCheckout = async () => {
@@ -1491,6 +1597,14 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     if (!rawDigits && activeSupervisor.phone) {
       rawDigits = activeSupervisor.phone.replace(/\D/g, '');
     }
+    // If user is not logged in with a verified mobile number, prompt seamless login without toast error
+    if (!isUserLoggedInWithMobile) {
+      if (onOpenLoginModal) {
+        onOpenLoginModal();
+        return;
+      }
+    }
+
     if (rawDigits.length > 10) rawDigits = rawDigits.slice(-10);
     const cleanPhone = rawDigits.length === 10 ? rawDigits : '9848012345';
 
@@ -1507,10 +1621,37 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       `${cleanPhone}@urbanico.in`
     ).trim();
 
-    // Direct 1-Step Razorpay Checkout: Launches Razorpay standard checkout directly with prefilled user profile contact
+    // Check Urbanico Credit (BNPL) limit & company profile verification
+    if (selectedPaymentMode === 'bnpl') {
+      if (!isProfileVerified) {
+        showToast('Urbanico Credit unavailable: Company profile unverified. Verify GSTIN to unlock.', 'error');
+        return;
+      }
+      if (grandTotal > availableCreditLimit) {
+        showToast(`Credit Limit Exceeded: Available ₹${availableCreditLimit.toLocaleString('en-IN')} < ₹${grandTotal.toLocaleString('en-IN')} order total.`, 'error');
+        return;
+      }
+    }
+
+    // Direct 1-Step Checkout / BNPL Settlement
     setIsPlacingOrder(true);
     setPaymentFailure(null);
     setPaymentError(null);
+
+    if (selectedPaymentMode === 'bnpl') {
+      showToast('Order placed using Urbanico Credit (30-Day Pay Later BNPL)', 'success');
+      setIsPlacingOrder(false);
+      handlePaymentSuccess({
+        razorpay_payment_id: `bnpl_credit_${Date.now()}`,
+        method: 'Urbanico Credit (30-Day BNPL)',
+      } as any);
+      return;
+    }
+
+    const isLive = getClientKeyMode() === 'LIVE' || getClientRazorpayKey().startsWith('rzp_live_');
+    if (!isLive) {
+      showToast('Sandbox Test Mode: Order placed instantly for testing', 'success');
+    }
 
     try {
       await openRazorpayStandardCheckout({
@@ -1627,7 +1768,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     handleStartCheckout();
   };
 
-  const handlePaymentSuccess = (result: RazorpayPaymentResult) => {
+  const handlePaymentSuccess = async (result: RazorpayPaymentResult) => {
     console.log(`[Order Payment Success] Received payment confirmation from gateway!`, {
       amount: result.amount,
       paymentId: result.razorpay_payment_id,
@@ -1690,57 +1831,6 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       : undefined;
     const effectiveInvoiceEmail = (checkoutInvoiceEmail.trim() || user?.email || 'accounts@urbanico.in');
 
-    const newOrder: ActivityDelivery = {
-      id: `del-${Date.now()}`,
-      orderNumber: generatedOrderNum,
-      materialName: finalMaterialName,
-      quantity: isServicesOnly ? '1 Site Visit' : `${cartItems.reduce((acc, c) => acc + c.quantity, 0)} Items`,
-      driverName: finalDriverName,
-      driverPhone: assignedDriverPhone,
-      vehicleType: finalVehicleType,
-      vehicleNumber: finalVehicleNum,
-      estimatedArrival: isMixedCart
-        ? `Materials: ${isSmallLoad ? '25-30 mins' : '35-45 mins'} | Trade Visit: Today within 2 hrs`
-        : isServicesOnly
-        ? 'Today within 2 hrs'
-        : isSmallLoad
-        ? '25 mins'
-        : '35 mins',
-      status: 'En Route',
-      siteAddress: deliveryDestination,
-      siteSupervisorName: activeSupervisor.name,
-      siteSupervisorPhone: activeSupervisor.phone,
-      timestamp: `Today, ${formattedTime}`,
-      totalAmount: grandTotal,
-      deliveryOtp: '261125',
-      ewayBillNumber: `EWB-TS-2026-${Math.floor(10000000 + Math.random() * 90000000)}`,
-      unloadingCharges: optInLaborAssistance ? unloadingLaborFee : 0,
-      laborAssistanceOpted: optInLaborAssistance,
-      laborAssistanceDetails: optInLaborAssistance ? smartRecommendation.unloadingAssistance.label : undefined,
-      recommendedVehicle: smartRecommendation.vehicle.shortName,
-      cartItemsSnapshot: [...cartItems],
-      gstin: effectiveGstin,
-      businessName: effectiveBusinessName,
-      customerEmail: effectiveInvoiceEmail,
-      invoiceEmailStatus: 'sent',
-      invoiceEmailedTo: effectiveInvoiceEmail,
-      invoiceEmailedAt: new Date().toISOString(),
-    };
-
-    createdOrderRef.current = newOrder;
-
-    // Auto-generate and email professional GST Tax Invoice immediately after order success
-    try {
-      const taxInvoiceData = buildTaxInvoiceData(newOrder, user);
-      sendTaxInvoiceEmail(taxInvoiceData, effectiveInvoiceEmail).then((res) => {
-        if (res.success) {
-          showToast(`Tax invoice emailed to ${effectiveInvoiceEmail}`, 'success');
-        }
-      }).catch((e) => console.warn('Invoice email dispatch log:', e));
-    } catch (e) {
-      console.warn('Tax invoice construction log:', e);
-    }
-
     const cleanCustomerPhone = (
       user?.phone?.replace(/\D/g, '') ||
       newAddrPhone?.replace(/\D/g, '') ||
@@ -1755,14 +1845,16 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       'Customer'
     ).trim();
 
-    // Send real order data to the backend API with customer profile
-    apiService.createOrder({
+    // Prepare clean order payload conforming strictly to backend schema
+    const orderPayload = {
       orderNumber: generatedOrderNum,
       customerName: effectiveBusinessName || cleanCustomerName,
-      customerPhone: `+91 ${cleanCustomerPhone}`,
+      customerPhone: cleanCustomerPhone,
       customerEmail: effectiveInvoiceEmail,
       gstin: effectiveGstin,
       businessName: effectiveBusinessName,
+      pickupAddress: deliveryDestination,
+      deliveryOptionId: smartRecommendation.vehicle.shortName || 'standard',
       siteAddress: {
         siteName: 'Site Delivery Location',
         street: deliveryDestination,
@@ -1771,24 +1863,27 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
         pincode: activePincode || '500081',
       },
       items: cartItems.map((item) => ({
+        materialId: item.materialId || item.id,
+        serviceId: isCartItemService(item) ? (item.serviceId || item.id) : undefined,
         name: item.itemName,
         category: item.categoryName || 'General',
         quantity: item.quantity,
         unit: item.selectedOptionLabel || 'Unit',
         unitPrice: item.unitPrice,
-        totalPrice: item.unitPrice * item.quantity,
         gstAmount: isCartItemService(item) ? 0 : Math.round(item.unitPrice * item.quantity * 0.18),
+        image: item.image,
       })),
-      subtotal,
-      taxAmount: gstTax,
       deliveryCharges: deliveryCharge,
       unloadingCharges: optInLaborAssistance ? unloadingLaborFee : 0,
-      totalAmount: grandTotal,
+      couponDiscount: couponDiscount || 0,
       paymentMethod: result.method || (selectedPaymentMethod === 'pod' ? 'Pay on Site (Cash / RTGS)' : 'Razorpay Gateway'),
       paymentStatus: selectedPaymentMethod === 'pod' ? 'pending_site_verification' : 'paid',
       paymentDetails: {
+        razorpay_payment_id: result.razorpay_payment_id,
+        razorpay_order_id: result.razorpay_order_id,
         razorpayPaymentId: result.razorpay_payment_id,
         razorpayOrderId: result.razorpay_order_id,
+        razorpay_signature: result.razorpay_signature,
         paymentMethod: result.method,
         amount: payableAmount,
         timestamp: new Date().toISOString(),
@@ -1796,9 +1891,93 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       vehicleNumber: finalVehicleNum,
       driverName: finalDriverName,
       driverPhone: assignedDriverPhone,
-    }).catch((err) => {
+      deliveryOtp: Math.floor(100000 + Math.random() * 900000).toString(),
+      eWayBillNo: `EWB-TS-2026-${Math.floor(10000000 + Math.random() * 90000000)}`,
+      idempotencyKey: result.razorpay_payment_id || `ord_idem_${generatedOrderNum}`,
+    };
+
+    // 1. Instantly record pending payment handshake in safeStorage for network drop resilience
+    if (result.razorpay_payment_id) {
+      savePendingPaymentHandshake({
+        id: result.razorpay_payment_id,
+        orderNumber: generatedOrderNum,
+        razorpay_order_id: result.razorpay_order_id || '',
+        razorpay_payment_id: result.razorpay_payment_id,
+        razorpay_signature: result.razorpay_signature || '',
+        orderPayload,
+        amount: payableAmount,
+        timestamp: Date.now(),
+      });
+    }
+
+    let finalServerOrder: any = null;
+
+    // 2. Dispatch authoritative order creation and await server breakdown
+    try {
+      const orderRes = await apiService.createOrder(orderPayload);
+      if (orderRes.success && orderRes.order) {
+        finalServerOrder = orderRes.order;
+        if (result.razorpay_payment_id) {
+          clearPendingPaymentHandshake(result.razorpay_payment_id);
+        }
+      }
+    } catch (err) {
       console.warn('Backend order recording notice:', err);
-    });
+    }
+
+    // 3. Construct local ActivityDelivery reflecting server's authoritative breakdown
+    const newOrder: ActivityDelivery = {
+      id: finalServerOrder?._id || `del-${Date.now()}`,
+      orderNumber: finalServerOrder?.orderNumber || generatedOrderNum,
+      materialName: finalMaterialName,
+      quantity: isServicesOnly ? '1 Site Visit' : `${cartItems.reduce((acc, c) => acc + c.quantity, 0)} Items`,
+      driverName: finalServerOrder?.driverName || finalDriverName,
+      driverPhone: finalServerOrder?.driverPhone || assignedDriverPhone,
+      vehicleType: finalVehicleType,
+      vehicleNumber: finalServerOrder?.vehicleNumber || finalVehicleNum,
+      estimatedArrival: isMixedCart
+        ? `Materials: ${isSmallLoad ? '25-30 mins' : '35-45 mins'} | Trade Visit: Today within 2 hrs`
+        : isServicesOnly
+        ? 'Today within 2 hrs'
+        : isSmallLoad
+        ? '25 mins'
+        : '35 mins',
+      status: finalServerOrder?.orderStatus === 'confirmed' ? 'En Route' : 'En Route',
+      siteAddress: deliveryDestination,
+      siteSupervisorName: activeSupervisor.name,
+      siteSupervisorPhone: activeSupervisor.phone,
+      timestamp: `Today, ${formattedTime}`,
+      // Server-authoritative breakdown reflected on client UI:
+      totalAmount: typeof finalServerOrder?.totalAmount === 'number' ? finalServerOrder.totalAmount : grandTotal,
+      deliveryOtp: finalServerOrder?.deliveryOtp || orderPayload.deliveryOtp,
+      ewayBillNumber: finalServerOrder?.eWayBillNo || orderPayload.eWayBillNo,
+      unloadingCharges: typeof finalServerOrder?.unloadingCharges === 'number' ? finalServerOrder.unloadingCharges : (optInLaborAssistance ? unloadingLaborFee : 0),
+      laborAssistanceOpted: optInLaborAssistance,
+      laborAssistanceDetails: optInLaborAssistance ? smartRecommendation.unloadingAssistance.label : undefined,
+      recommendedVehicle: smartRecommendation.vehicle.shortName,
+      cartItemsSnapshot: [...cartItems],
+      gstin: effectiveGstin,
+      businessName: effectiveBusinessName,
+      customerEmail: effectiveInvoiceEmail,
+      invoiceEmailStatus: 'sent',
+      invoiceEmailedTo: effectiveInvoiceEmail,
+      invoiceEmailedAt: new Date().toISOString(),
+    };
+
+    createdOrderRef.current = newOrder;
+    setSelectedActiveOrderId(newOrder.id || newOrder.orderNumber);
+
+    // Auto-generate and email professional GST Tax Invoice reflecting authoritative numbers
+    try {
+      const taxInvoiceData = buildTaxInvoiceData(newOrder, user);
+      sendTaxInvoiceEmail(taxInvoiceData, effectiveInvoiceEmail).then((res) => {
+        if (res.success) {
+          showToast(`Tax invoice emailed to ${effectiveInvoiceEmail}`, 'success');
+        }
+      }).catch((e) => console.warn('Invoice email dispatch log:', e));
+    } catch (e) {
+      console.warn('Tax invoice construction log:', e);
+    }
 
     // Auto-save guest session continuity (Amazon/Flipkart flow)
     if (!isLoggedIn) {
@@ -1848,7 +2027,33 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     }
   };
 
-  const activeEnRoute = deliveries.find((d) => d.status === 'En Route' && !cancelledOrderIds.includes(d.id));
+  const [selectedActiveOrderId, setSelectedActiveOrderId] = useState<string | null>(null);
+
+  const activeDeliveries = useMemo(() => {
+    return deliveries.filter((d) => {
+      const isCancelled =
+        cancelledOrderIds.includes(d.id) ||
+        cancelledOrderIds.includes(d.orderNumber) ||
+        d.status === 'Cancelled';
+      const isActive =
+        d.status === 'En Route' ||
+        d.status === 'Placed' ||
+        d.status === 'Dispatched' ||
+        (d as any).status === 'in_transit' ||
+        (d as any).status === 'Processing';
+      return isActive && !isCancelled;
+    });
+  }, [deliveries, cancelledOrderIds]);
+
+  const activeEnRoute = useMemo(() => {
+    if (selectedActiveOrderId) {
+      const found = activeDeliveries.find(
+        (d) => d.id === selectedActiveOrderId || d.orderNumber === selectedActiveOrderId
+      );
+      if (found) return found;
+    }
+    return activeDeliveries[0] || null;
+  }, [activeDeliveries, selectedActiveOrderId]);
 
   return (
     <View style={{ flex: 1 }}>
@@ -1916,14 +2121,49 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
               ]}
               numberOfLines={1}
             >
-              Tracking & Orders
+              Tracking & Orders{activeDeliveries.length > 0 ? ` (${activeDeliveries.length})` : ''}
             </Text>
           </TouchableOpacity>
         </View>
 
         {activeTab === 'cart' ? (
           <>
-            {cartItems.length === 0 && savedForLaterItems.length === 0 ? (
+            {/* Quick Active Deliveries Dock (Blinkit / Zepto / Swiggy style) */}
+            {activeDeliveries.length > 0 && (
+              <TouchableOpacity
+                onPress={() => setActiveTab('history')}
+                style={[
+                  styles.activeOrderCartBanner,
+                  {
+                    backgroundColor: theme.mode === 'dark' ? 'rgba(37, 99, 235, 0.15)' : '#EFF6FF',
+                    borderColor: theme.mode === 'dark' ? 'rgba(37, 99, 235, 0.35)' : '#BFDBFE',
+                  },
+                ]}
+                activeOpacity={0.85}
+              >
+                <View style={styles.activeOrderBannerLeft}>
+                  <View style={styles.pulsingGreenDot} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.activeOrderBannerTitle, { color: theme.textPrimary }]}>
+                      {activeDeliveries.length === 1
+                        ? `Order #${activeDeliveries[0].orderNumber} En Route`
+                        : `${activeDeliveries.length} Active Orders in Transit`}
+                    </Text>
+                    <Text style={[styles.activeOrderBannerSubtitle, { color: theme.textSecondary }]} numberOfLines={1}>
+                      {activeDeliveries.length === 1
+                        ? `${activeDeliveries[0].materialName} · ${activeDeliveries[0].estimatedArrival || 'Arriving soon'}`
+                        : `Tracking #${activeDeliveries[0].orderNumber} + ${activeDeliveries.length - 1} more · Tap to view`}
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.activeOrderBannerAction}>
+                  <Text style={styles.activeOrderBannerActionText}>Track Live</Text>
+                  <ChevronRight size={14} color="#2563EB" />
+                </View>
+              </TouchableOpacity>
+            )}
+
+            {cartItems.length === 0 ? (
               <View style={[styles.nikeEmptyBagContainer, { backgroundColor: theme.surface }]}>
                 <View style={[styles.nikeEmptyBagIconCircle, { backgroundColor: theme.surfaceSecondary }]}>
                   <ShoppingCart size={34} color={theme.textPrimary} strokeWidth={1.5} />
@@ -2020,22 +2260,23 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                             ) : null}
                           </Text>
                           <TouchableOpacity
-                            onPress={() => handleSaveForLater(item)}
+                            onPress={() => handleSaveToFavorites(item)}
                             style={styles.saveForLaterBtn}
                             activeOpacity={0.7}
+                            accessibilityLabel={`Save ${item.itemName} to Favorites`}
                           >
-                            <Bookmark size={12} color={theme.textSecondary} />
-                            <Text style={[styles.saveForLaterText, { color: theme.textSecondary }]}>Save for Later</Text>
+                            <Heart size={12} color={theme.textSecondary} />
+                            <Text style={[styles.saveForLaterText, { color: theme.textSecondary }]}>Save to Favorites</Text>
                           </TouchableOpacity>
                         </View>
 
                         {/* Stepper + Delete (Locked to 1 for Services) */}
-                        {(item as any).categoryId === 'services' || item.unitPrice === 99 || (item.selectedOptionLabel && item.selectedOptionLabel.toLowerCase().includes('demo')) ? (
+                        {isCartItemService(item) ? (
                           <View style={styles.stepperActionRow}>
                             <View style={[styles.serviceFixedPill, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
                               <ShieldCheck size={13} color="#059669" strokeWidth={2.4} />
                               <Text style={[styles.serviceFixedPillText, { color: theme.textPrimary }]}>
-                                1 Demo Visit
+                                1 Visit / Site Inspection
                               </Text>
                             </View>
                             <TouchableOpacity
@@ -2045,7 +2286,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                               }}
                               style={styles.deleteBtn}
                               activeOpacity={0.7}
-                              accessibilityLabel="Remove demo visit"
+                              accessibilityLabel="Remove service booking"
                             >
                               <Trash2 size={15} color={theme.textSecondary} />
                             </TouchableOpacity>
@@ -2258,6 +2499,86 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                 {/* Apply Contractor Promo Code / Coupon (Positioned directly below GSTIN) */}
                 {cartItems.length > 0 && renderPromoCard(false)}
 
+                {/* Payment Method / BNPL Credit Selector */}
+                {cartItems.length > 0 && (
+                  <View style={{ backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 12 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary, marginBottom: 8 }}>
+                      Payment Mode
+                    </Text>
+
+                    <View style={{ gap: 8 }}>
+                      {/* Gateway Payment */}
+                      <TouchableOpacity
+                        onPress={() => setSelectedPaymentMode('gateway')}
+                        style={{
+                          padding: 10,
+                          borderRadius: 8,
+                          backgroundColor: selectedPaymentMode === 'gateway' ? (theme.mode === 'dark' ? '#1E293B' : '#EFF6FF') : theme.surfaceSecondary,
+                          borderWidth: 1,
+                          borderColor: selectedPaymentMode === 'gateway' ? (theme.primary || '#2563EB') : theme.border,
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          <Zap size={16} color={selectedPaymentMode === 'gateway' ? theme.primary : theme.textSecondary} />
+                          <View>
+                            <Text style={{ fontSize: 12.5, fontWeight: '700', color: theme.textPrimary }}>
+                              Online Direct / Razorpay / UPI / Cards / NetBanking
+                            </Text>
+                            <Text style={{ fontSize: 11, color: theme.textSecondary }}>
+                              Instant confirmation & automatic tax invoice generation
+                            </Text>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+
+                      {/* Urbanico Credit (30-Day Pay Later BNPL) */}
+                      <TouchableOpacity
+                        onPress={() => setSelectedPaymentMode('bnpl')}
+                        style={{
+                          padding: 10,
+                          borderRadius: 8,
+                          backgroundColor: selectedPaymentMode === 'bnpl' ? (theme.mode === 'dark' ? '#1E293B' : '#FFFBEB') : theme.surfaceSecondary,
+                          borderWidth: 1,
+                          borderColor: selectedPaymentMode === 'bnpl' ? (isCreditAllowed ? '#D97706' : '#EF4444') : theme.border,
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                            <Lock size={16} color={selectedPaymentMode === 'bnpl' ? '#D97706' : theme.textSecondary} />
+                            <View>
+                              <Text style={{ fontSize: 12.5, fontWeight: '700', color: theme.textPrimary }}>
+                                Urbanico Credit (30-Day Pay Later BNPL)
+                              </Text>
+                              <Text style={{ fontSize: 11, color: theme.textSecondary }}>
+                                Available Limit: ₹{availableCreditLimit.toLocaleString('en-IN')} • 0% Interest for 30 Days
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+
+                        {/* Credit Status Warnings */}
+                        {!isProfileVerified && (
+                          <View style={{ marginTop: 6, padding: 6, borderRadius: 6, backgroundColor: theme.mode === 'dark' ? '#311212' : '#FEF2F2', borderWidth: 1, borderColor: '#FCA5A5' }}>
+                            <Text style={{ fontSize: 11, color: '#B91C1C', fontWeight: '600' }}>
+                              ⚠️ Profile Unverified: Complete GSTIN & company profile verification to activate your credit limit.
+                            </Text>
+                          </View>
+                        )}
+
+                        {isProfileVerified && grandTotal > availableCreditLimit && (
+                          <View style={{ marginTop: 6, padding: 6, borderRadius: 6, backgroundColor: theme.mode === 'dark' ? '#311212' : '#FEF2F2', borderWidth: 1, borderColor: '#FCA5A5' }}>
+                            <Text style={{ fontSize: 11, color: '#B91C1C', fontWeight: '600' }}>
+                              ⚠️ Exceeds Limit: Order total (₹{grandTotal.toLocaleString('en-IN')}) exceeds available credit limit (₹{availableCreditLimit.toLocaleString('en-IN')}).
+                            </Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
                 {/* Price Summary Breakdown */}
                 {cartItems.length > 0 && (
                   <View style={[styles.summaryCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -2325,6 +2646,15 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                       </View>
                     )}
 
+                    {/* Inter-State Tax Supply Warning if GSTIN is outside Telangana */}
+                    {Boolean(gstinValidation?.isValid && gstinValidation.stateCode !== '36') && (
+                      <View style={{ marginVertical: 8, padding: 8, backgroundColor: theme.mode === 'dark' ? '#1E293B' : '#FEF3C7', borderRadius: 8, borderWidth: 1, borderColor: theme.mode === 'dark' ? '#334155' : '#FDE68A' }}>
+                        <Text style={{ fontSize: 11, color: theme.mode === 'dark' ? '#FDE047' : '#92400E', lineHeight: 15, fontWeight: '500' }}>
+                          ⚠️ <Text style={{ fontWeight: '700' }}>Inter-State Supply Notice:</Text> Registered GSTIN is in {gstinValidation?.stateName} (State {gstinValidation?.stateCode}). IGST @ 18% will be applied to this invoice instead of CGST+SGST.
+                        </Text>
+                      </View>
+                    )}
+
                     <View style={[styles.summaryRow, styles.grandTotalRow, { borderTopColor: theme.borderLight }]}>
                       <Text style={[styles.grandTotalLabel, { color: theme.textPrimary }]}>
                         Total Payable
@@ -2336,12 +2666,18 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                   </View>
                 )}
 
-                {/* Primary Pay Button - Directly Launches Razorpay in 1 Step */}
+                {/* Unified Cart / Checkout Action Button: "Login to Place Order" if guest, "Pay ₹..." once logged in */}
                 {cartItems.length > 0 && (
                   <View style={{ marginTop: 14 }}>
                     <TouchableOpacity
                       onPress={() => {
                         soundService.playTap();
+                        if (!isUserLoggedInWithMobile) {
+                          if (onOpenLoginModal) {
+                            onOpenLoginModal();
+                          }
+                          return;
+                        }
                         handleStartCheckout();
                       }}
                       disabled={isPlacingOrder}
@@ -2364,8 +2700,18 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                           <ActivityIndicator size="small" color={theme.buttonText || '#18181B'} />
                           <Text style={[styles.nikeCheckoutPillText, { fontSize: 15, fontWeight: '600', color: theme.buttonText || '#18181B' }]}>
-                            Opening Razorpay Checkout...
+                            {getClientKeyMode() === 'LIVE' || getClientRazorpayKey().startsWith('rzp_live_')
+                              ? 'Opening Razorpay Gateway...'
+                              : 'Placing Test Order...'}
                           </Text>
+                        </View>
+                      ) : !isUserLoggedInWithMobile ? (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                          <Lock size={15} color={theme.buttonText || '#18181B'} />
+                          <Text style={[styles.nikeCheckoutPillText, { fontSize: 15.5, fontWeight: '700', letterSpacing: 0.2, textAlign: 'center', color: theme.buttonText || '#18181B' }]}>
+                            Login to Place Order
+                          </Text>
+                          <ArrowRight size={17} color={theme.buttonText || '#18181B'} strokeWidth={2.4} />
                         </View>
                       ) : (
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
@@ -2377,51 +2723,19 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                         </View>
                       )}
                     </TouchableOpacity>
+
+                    {/* Subtle Sandbox Test Mode Notice */}
+                    {isUserLoggedInWithMobile && !(getClientKeyMode() === 'LIVE' || getClientRazorpayKey().startsWith('rzp_live_')) && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 10 }}>
+                        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#10B981' }} />
+                        <Text style={{ fontSize: 12, color: theme.textSecondary, fontWeight: '500' }}>
+                          Sandbox Test Mode • Instant order placement without real charges
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 )}
 
-                {/* Saved for Later Section (Item 24) */}
-                {savedForLaterItems.length > 0 && (
-                  <View style={[styles.savedSection, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-                    <View style={styles.savedSectionHeader}>
-                      <BookmarkCheck size={16} color={theme.textPrimary} />
-                      <Text style={[styles.savedSectionTitle, { color: theme.textPrimary }]}>
-                        Saved for Later ({savedForLaterItems.length})
-                      </Text>
-                    </View>
-
-                    <View style={styles.savedItemsList}>
-                      {savedForLaterItems.map((item, idx) => (
-                        <View
-                          key={item.id ? `saved-${item.id}-${idx}` : `saved-item-${item.itemId || 'item'}-${idx}`}
-                          style={[styles.savedItemRow, { borderTopColor: theme.borderLight }]}
-                        >
-                          <View style={styles.savedItemInfo}>
-                            <Text style={[styles.savedItemName, { color: theme.textPrimary }]} numberOfLines={1}>
-                              {item.itemName}
-                            </Text>
-                            <Text style={[styles.savedItemOption, { color: theme.textSecondary }]}>
-                              {item.selectedOptionLabel} • ₹{item.unitPrice.toLocaleString('en-IN')}
-                            </Text>
-                          </View>
-
-                          <View style={styles.savedItemActions}>
-                            <TouchableOpacity
-                              onPress={() => handleMoveToCart(item)}
-                              style={[styles.moveToCartBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
-                              activeOpacity={0.7}
-                            >
-                              <Text style={[styles.moveToCartText, { color: theme.textPrimary }]}>Move to Cart</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={() => handleRemoveSavedItem(item.id)} style={styles.deleteBtn}>
-                              <Trash2 size={14} color={theme.textSecondary} />
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-                )}
           </View>
         )}
       </>
@@ -2468,63 +2782,290 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
               </View>
             ) : (
               <View style={{ gap: 14 }}>
-                {/* Active Order Vertical Lifecycle Card */}
+                {/* Multi-Order Active Deliveries Switcher / Carousel (Blinkit / Zepto / Swiggy standard) */}
+                {activeDeliveries.length > 1 && (
+                  <View style={[styles.activeSwitcherCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                    <View style={styles.activeSwitcherHeader}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <View style={styles.pulsingGreenDot} />
+                        <Text style={[styles.activeSwitcherTitle, { color: theme.textPrimary }]}>
+                          Active Deliveries ({activeDeliveries.length})
+                        </Text>
+                      </View>
+                      <Text style={[styles.activeSwitcherHint, { color: theme.textSecondary }]}>
+                        Tap to switch live dispatch
+                      </Text>
+                    </View>
+
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.activeSwitcherScroll}
+                    >
+                      {activeDeliveries.map((del, idx) => {
+                        const isSelected = activeEnRoute?.orderNumber === del.orderNumber || activeEnRoute?.id === del.id;
+                        return (
+                          <TouchableOpacity
+                            key={del.id || del.orderNumber || idx}
+                            onPress={() => {
+                              setSelectedActiveOrderId(del.id || del.orderNumber);
+                              showToast(`Switched to Order #${del.orderNumber}`, 'info');
+                            }}
+                            style={[
+                              styles.activeSwitcherPill,
+                              {
+                                backgroundColor: isSelected
+                                  ? (theme.primary || '#FCB026')
+                                  : theme.surfaceSecondary,
+                                borderColor: isSelected
+                                  ? (theme.primary || '#FCB026')
+                                  : theme.border,
+                              },
+                            ]}
+                            activeOpacity={0.8}
+                          >
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              <Truck size={13} color={isSelected ? '#18181B' : theme.textPrimary} />
+                              <Text
+                                style={[
+                                  styles.activeSwitcherPillOrder,
+                                  { color: isSelected ? '#18181B' : theme.textPrimary, fontWeight: isSelected ? '800' : '600' },
+                                ]}
+                              >
+                                #{del.orderNumber}
+                              </Text>
+                            </View>
+                            <Text
+                              style={[
+                                styles.activeSwitcherPillMaterial,
+                                { color: isSelected ? '#27272A' : theme.textSecondary },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {del.materialName}
+                            </Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                              <Clock size={10} color={isSelected ? '#18181B' : '#059669'} />
+                              <Text
+                                style={[
+                                  styles.activeSwitcherPillEta,
+                                  { color: isSelected ? '#18181B' : '#059669' },
+                                ]}
+                              >
+                                {del.estimatedArrival || 'In Transit'}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                )}
+
+                {/* Active Order Vertical Lifecycle Card - Minimalist Redesign with Milestone Hierarchy */}
                 {activeEnRoute && (
                   <View style={[styles.trackingCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                    {/* 1. Header: Thumbnail + Order ID & Status + Live ETA Badge */}
                     <View style={[styles.trackingCardHeader, { borderBottomColor: theme.borderLight }]}>
+                      <Image
+                        source={{
+                          uri: resolveMaterialImage({
+                            name: activeEnRoute.materialName,
+                            image: activeEnRoute.cartItemsSnapshot?.[0]?.image,
+                          }),
+                        }}
+                        style={{
+                          width: 48,
+                          height: 48,
+                          borderRadius: 10,
+                          marginRight: 10,
+                          backgroundColor: theme.surfaceSecondary,
+                          borderWidth: 1,
+                          borderColor: theme.border,
+                        }}
+                        resizeMode="cover"
+                      />
                       <View style={{ flex: 1, minWidth: 0, marginRight: 8 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                          <Text style={[styles.trackingOrderNumber, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]} numberOfLines={1}>
-                            Order #{activeEnRoute.orderNumber}
-                          </Text>
-                          <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                            <Text style={{ fontSize: 9.5, fontWeight: '800', color: '#15803D' }}>IN TRANSIT</Text>
+                          <TouchableOpacity
+                            onPress={() => {
+                              copy(activeEnRoute.orderNumber);
+                              showToast(`Order #${activeEnRoute.orderNumber} copied`, 'info');
+                            }}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                            activeOpacity={0.7}
+                            accessibilityLabel={`Copy Order #${activeEnRoute.orderNumber}`}
+                          >
+                            <Text style={[styles.trackingOrderNumber, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]} numberOfLines={1}>
+                              Order #{activeEnRoute.orderNumber}
+                            </Text>
+                          </TouchableOpacity>
+                          <View style={{ backgroundColor: theme.mode === 'dark' ? 'rgba(16, 185, 129, 0.2)' : '#DCFCE7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                            <Text style={{ fontSize: 9.5, fontWeight: '800', color: theme.mode === 'dark' ? '#34D399' : '#15803D' }}>IN TRANSIT</Text>
                           </View>
                         </View>
                         <Text style={[styles.trackingMaterialName, { color: theme.textSecondary }]} numberOfLines={1}>
                           {activeEnRoute.materialName}
                         </Text>
                       </View>
-                      <View style={[styles.etaPill, { backgroundColor: '#DCFCE7' }]}>
-                        <Clock size={11} color="#15803D" />
-                        <Text style={[styles.etaPillText, { color: '#15803D' }]} numberOfLines={1}>
-                          {activeEnRoute.estimatedArrival || 'Within 3 hrs'}
+                      <View style={[styles.etaPill, { backgroundColor: theme.mode === 'dark' ? 'rgba(16, 185, 129, 0.18)' : '#DCFCE7' }]}>
+                        <Clock size={11} color={theme.mode === 'dark' ? '#34D399' : '#15803D'} />
+                        <Text style={[styles.etaPillText, { color: theme.mode === 'dark' ? '#34D399' : '#15803D' }]} numberOfLines={1}>
+                          {activeEnRoute.estimatedArrival || '35 mins away'}
                         </Text>
                       </View>
                     </View>
 
-                    {/* Delivery Site Destination & OTP */}
-                    <View style={{ backgroundColor: theme.surfaceSecondary, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: theme.border, gap: 10 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
-                        <MapPin size={15} color={theme.primary} style={{ marginTop: 2 }} />
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 10, fontWeight: '700', textTransform: 'uppercase', color: theme.textMuted, letterSpacing: 0.5 }}>
-                            Site Destination
-                          </Text>
-                          <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textPrimary, lineHeight: 16 }} numberOfLines={2}>
-                            {formatSiteAddress(activeEnRoute.siteAddress)}
-                          </Text>
-                        </View>
-                      </View>
-
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: theme.borderLight, paddingTop: 8 }}>
-                        <View>
-                          <Text style={{ fontSize: 10, fontWeight: '600', color: theme.textSecondary }}>Gate Verification OTP</Text>
-                          <Text style={{ fontSize: 16, fontWeight: '900', letterSpacing: 2, color: theme.textPrimary }}>
-                            {activeEnRoute.deliveryOtp || '8842'}
-                          </Text>
-                        </View>
-                        <TouchableOpacity
-                          onPress={() => setShowSupervisorModal(true)}
-                          style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 5, borderRadius: 6, backgroundColor: theme.surface, borderWidth: 1, borderColor: theme.border }}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textPrimary }}>Delegate</Text>
-                        </TouchableOpacity>
+                    {/* 2. Site Destination Box */}
+                    <View style={[styles.cartSiteDestBox, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                      <MapPin size={15} color="#EF4444" style={{ marginTop: 2 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 10, fontWeight: '700', textTransform: 'uppercase', color: theme.textMuted, letterSpacing: 0.5 }}>
+                          Site Destination
+                        </Text>
+                        <Text style={{ fontSize: 12.5, fontWeight: '600', color: theme.textPrimary, lineHeight: 17 }} numberOfLines={2}>
+                          {formatSiteAddress(activeEnRoute.siteAddress)}
+                        </Text>
                       </View>
                     </View>
 
-                    {/* Action Bar (GST Invoice + Supervisor + Cancel Icon) */}
+                    {/* 3. Vertical 3-Column Milestone Progress Hierarchy */}
+                    <View style={[styles.cartMilestonesCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                      <Text style={[styles.cartMilestonesTitle, { color: theme.textPrimary }]}>
+                        Consignment Milestones
+                      </Text>
+
+                      <View style={styles.cartTimelineList}>
+                        {CART_ORDER_LIFECYCLE_STAGES.map((stage, idx) => {
+                          const currentStageIdx = getCartActiveStageIndex(activeEnRoute.status);
+                          const isCompleted = idx < currentStageIdx;
+                          const isActive = idx === currentStageIdx;
+                          const isPending = idx > currentStageIdx;
+                          const isLast = idx === CART_ORDER_LIFECYCLE_STAGES.length - 1;
+
+                          return (
+                            <View key={stage.id} style={styles.cartTimelineRow}>
+                              {/* Column 1 (Left - Timestamp) */}
+                              <View style={styles.cartTimelineTimeCol}>
+                                <Text
+                                  style={[
+                                    styles.cartTimelineTimeText,
+                                    {
+                                      color: isCompleted || isActive ? theme.textPrimary : theme.textMuted,
+                                      fontWeight: isActive ? '700' : '500',
+                                    },
+                                  ]}
+                                >
+                                  {getCartStageTimestamp(activeEnRoute.timestamp, stage.minuteOffset)}
+                                </Text>
+                              </View>
+
+                              {/* Column 2 (Center - Progress Node & Hairline Connector) */}
+                              <View style={styles.cartTimelineTrackCol}>
+                                <View
+                                  style={[
+                                    styles.cartTimelineNode,
+                                    isCompleted && styles.cartTimelineNodeCompleted,
+                                    isActive && [
+                                      styles.cartTimelineNodeActive,
+                                      {
+                                        borderColor: theme.primary || '#FCB026',
+                                        backgroundColor: theme.mode === 'dark' ? 'rgba(252, 176, 38, 0.15)' : '#FFFBEB',
+                                      },
+                                    ],
+                                    isPending && [
+                                      styles.cartTimelineNodePending,
+                                      { borderColor: theme.border, backgroundColor: theme.surface },
+                                    ],
+                                  ]}
+                                >
+                                  {isCompleted && <Check size={11} color="#FFFFFF" strokeWidth={3} />}
+                                  {isActive && (
+                                    <View style={[styles.cartActivePulsingCore, { backgroundColor: theme.primary || '#FCB026' }]} />
+                                  )}
+                                </View>
+
+                                {!isLast && (
+                                  <View
+                                    style={[
+                                      styles.cartTimelineConnectorHairline,
+                                      {
+                                        backgroundColor: isCompleted ? '#059669' : theme.border,
+                                      },
+                                    ]}
+                                  />
+                                )}
+                              </View>
+
+                              {/* Column 3 (Right - Content Block) */}
+                              <View style={[styles.cartTimelineContentCol, !isLast && { paddingBottom: 16 }]}>
+                                <Text
+                                  style={[
+                                    styles.cartStageHeadingText,
+                                    {
+                                      color: isCompleted || isActive ? theme.textPrimary : theme.textMuted,
+                                      fontWeight: isActive ? '800' : '700',
+                                    },
+                                  ]}
+                                >
+                                  {stage.title}
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.cartStageDescriptionText,
+                                    { color: isCompleted || isActive ? theme.textSecondary : theme.textMuted },
+                                  ]}
+                                >
+                                  {stage.description}
+                                </Text>
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    </View>
+
+                    {/* 4. Gate Verification OTP Strip */}
+                    <View style={[styles.cartOtpStrip, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 10, fontWeight: '700', textTransform: 'uppercase', color: theme.textMuted, letterSpacing: 0.5 }}>
+                          Gate Verification OTP
+                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 }}>
+                          <Text style={{ fontSize: 18, fontWeight: '900', letterSpacing: 3, color: theme.textPrimary }}>
+                            {activeEnRoute.deliveryOtp || '484971'}
+                          </Text>
+                          <TouchableOpacity
+                            onPress={() => {
+                              const otp = activeEnRoute.deliveryOtp || '484971';
+                              copy(otp);
+                              setCopiedOtp(otp);
+                              showToast('Gate OTP copied', 'info');
+                              setTimeout(() => setCopiedOtp(null), 2500);
+                            }}
+                            style={{ padding: 4 }}
+                            accessibilityLabel="Copy Gate OTP"
+                          >
+                            {copiedOtp === (activeEnRoute.deliveryOtp || '484971') ? (
+                              <Check size={14} color="#059669" />
+                            ) : (
+                              <Copy size={14} color={theme.textMuted} />
+                            )}
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+
+                      <TouchableOpacity
+                        onPress={() => setShowSupervisorModal(true)}
+                        style={[styles.delegateOtpBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                        activeOpacity={0.7}
+                      >
+                        <Users size={12} color={theme.textPrimary} style={{ marginRight: 4 }} />
+                        <Text style={[styles.delegateOtpText, { color: theme.textPrimary }]}>Delegate</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {/* 5. Action Bar (GST Invoice + Supervisor + Cancel Icon) */}
                     <View style={styles.activeActionBar}>
                       {onViewInvoice && (
                         <TouchableOpacity
@@ -2598,16 +3139,31 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                             </Text>
                           </View>
 
-                          <View style={[styles.deliveryRightInfo, { alignItems: 'flex-end', flexShrink: 0 }]}>
+                          <View style={[styles.deliveryRightInfo, { alignItems: 'flex-end', flexShrink: 0, gap: 6 }]}>
                             <Text style={[styles.delAmountText, { color: theme.textPrimary, textDecorationLine: isCancelled ? 'line-through' : 'none' }]}>
                               ₹{del.totalAmount.toLocaleString('en-IN')}
                             </Text>
-                            <TouchableOpacity
-                              onPress={() => onViewInvoice && onViewInvoice(del)}
-                              style={styles.miniInvoiceBtn}
-                            >
-                              <Text style={styles.miniInvoiceText}>Invoice</Text>
-                            </TouchableOpacity>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                              {!isCancelled && del.status !== 'Delivered' && (
+                                <TouchableOpacity
+                                  onPress={() => {
+                                    setSelectedActiveOrderId(del.id || del.orderNumber);
+                                    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+                                    showToast(`Tracking Order #${del.orderNumber}`, 'info');
+                                  }}
+                                  style={[styles.miniTrackBtn, { backgroundColor: '#2563EB' }]}
+                                  activeOpacity={0.8}
+                                >
+                                  <Text style={styles.miniTrackBtnText}>Track</Text>
+                                </TouchableOpacity>
+                              )}
+                              <TouchableOpacity
+                                onPress={() => onViewInvoice && onViewInvoice(del)}
+                                style={styles.miniInvoiceBtn}
+                              >
+                                <Text style={styles.miniInvoiceText}>Invoice</Text>
+                              </TouchableOpacity>
+                            </View>
                           </View>
                         </View>
                       );
@@ -2622,56 +3178,62 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
 
         {/* Payment Success Confirmation Receipt Screen */}
         {showSuccessModal && (
-          <PaymentSuccessModal
-            visible={showSuccessModal}
-            paymentResult={latestPaymentResult}
-            selectedLocation={selectedCheckoutAddress || activeLocation}
-            delivery={createdOrderRef.current || deliveries[0]}
-            user={user}
-            onClose={() => {
-              setShowSuccessModal(false);
-              setActiveTab('history');
-            }}
-            onTrackOrder={() => {
-              setShowSuccessModal(false);
-              setActiveTab('history');
-            }}
-            onContinueShopping={() => {
-              setShowSuccessModal(false);
-              onNavigateScreen('home');
-            }}
-            onViewInvoice={() => {
-              setShowSuccessModal(false);
-              setActiveTab('history');
-              const targetOrder = createdOrderRef.current || deliveries[0];
-              if (onViewInvoice && targetOrder) {
-                onViewInvoice(targetOrder);
-              }
-            }}
-          />
+          <React.Suspense fallback={null}>
+            <PaymentSuccessModal
+              visible={showSuccessModal}
+              paymentResult={latestPaymentResult}
+              selectedLocation={selectedCheckoutAddress || activeLocation}
+              delivery={createdOrderRef.current || deliveries[0]}
+              user={user}
+              onClose={() => {
+                setShowSuccessModal(false);
+                setActiveTab('history');
+              }}
+              onTrackOrder={() => {
+                setShowSuccessModal(false);
+                setActiveTab('history');
+              }}
+              onContinueShopping={() => {
+                setShowSuccessModal(false);
+                onNavigateScreen('home');
+              }}
+              onViewInvoice={() => {
+                setShowSuccessModal(false);
+                setActiveTab('history');
+                const targetOrder = createdOrderRef.current || deliveries[0];
+                if (onViewInvoice && targetOrder) {
+                  onViewInvoice(targetOrder);
+                }
+              }}
+            />
+          </React.Suspense>
         )}
 
         {/* Live Dispatcher Chat Modal */}
         {showDispatcherChat && (
-          <LiveDispatcherChatModal
-            visible={showDispatcherChat}
-            onClose={() => setShowDispatcherChat(false)}
-            orderNumber={activeEnRoute?.orderNumber}
-            driverName={activeEnRoute?.driverName}
-            driverPhone={activeEnRoute?.driverPhone}
-          />
+          <React.Suspense fallback={null}>
+            <LiveDispatcherChatModal
+              visible={showDispatcherChat}
+              onClose={() => setShowDispatcherChat(false)}
+              orderNumber={activeEnRoute?.orderNumber}
+              driverName={activeEnRoute?.driverName}
+              driverPhone={activeEnRoute?.driverPhone}
+            />
+          </React.Suspense>
         )}
 
         {/* Supervisor Handoff Modal */}
         {showSupervisorModal && (
-          <SupervisorHandoffModal
-            visible={showSupervisorModal}
-            onClose={() => setShowSupervisorModal(false)}
-            orderNumber={activeEnRoute?.orderNumber}
-            currentSupervisorName={activeSupervisor.name}
-            currentSupervisorPhone={activeSupervisor.phone}
-            onSaveSupervisor={(name, phone) => setActiveSupervisor({ name, phone })}
-          />
+          <React.Suspense fallback={null}>
+            <SupervisorHandoffModal
+              visible={showSupervisorModal}
+              onClose={() => setShowSupervisorModal(false)}
+              orderNumber={activeEnRoute?.orderNumber}
+              currentSupervisorName={activeSupervisor.name}
+              currentSupervisorPhone={activeSupervisor.phone}
+              onSaveSupervisor={(name, phone) => setActiveSupervisor({ name, phone })}
+            />
+          </React.Suspense>
         )}
 
         {/* Order Cancellation Guard Confirmation Modal */}
@@ -3305,6 +3867,100 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+  cartSiteDestBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 10,
+  },
+  cartMilestonesCard: {
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 12,
+  },
+  cartMilestonesTitle: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  cartTimelineList: {
+    position: 'relative',
+  },
+  cartTimelineRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  cartTimelineTimeCol: {
+    width: 62,
+    paddingTop: 2,
+    paddingRight: 6,
+    alignItems: 'flex-end',
+  },
+  cartTimelineTimeText: {
+    fontSize: 10.5,
+    textAlign: 'right',
+  },
+  cartTimelineTrackCol: {
+    width: 24,
+    alignItems: 'center',
+    position: 'relative',
+    alignSelf: 'stretch',
+  },
+  cartTimelineNode: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 3,
+  },
+  cartTimelineNodeCompleted: {
+    backgroundColor: '#059669',
+  },
+  cartTimelineNodeActive: {
+    borderWidth: 2,
+  },
+  cartActivePulsingCore: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+  },
+  cartTimelineNodePending: {
+    borderWidth: 1.5,
+  },
+  cartTimelineConnectorHairline: {
+    position: 'absolute',
+    top: 20,
+    bottom: 0,
+    width: 1.5,
+    zIndex: 1,
+  },
+  cartTimelineContentCol: {
+    flex: 1,
+    paddingLeft: 8,
+    paddingTop: 1,
+  },
+  cartStageHeadingText: {
+    fontSize: 12.5,
+    lineHeight: 17,
+    marginBottom: 2,
+  },
+  cartStageDescriptionText: {
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  cartOtpStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    gap: 10,
+  },
   otpCardRow: {
     backgroundColor: '#F4F4F5',
     borderRadius: 10,
@@ -3424,6 +4080,97 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#111111',
   },
+  miniTrackBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  miniTrackBtnText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  pulsingGreenDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#10B981',
+  },
+  activeOrderCartBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 12,
+    gap: 10,
+  },
+  activeOrderBannerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  activeOrderBannerTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  activeOrderBannerSubtitle: {
+    fontSize: 11.5,
+    marginTop: 1,
+  },
+  activeOrderBannerAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  activeOrderBannerActionText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#2563EB',
+  },
+  activeSwitcherCard: {
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    gap: 8,
+  },
+  activeSwitcherHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  activeSwitcherTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  activeSwitcherHint: {
+    fontSize: 11,
+  },
+  activeSwitcherScroll: {
+    gap: 8,
+    paddingVertical: 2,
+  },
+  activeSwitcherPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    minWidth: 120,
+    maxWidth: 160,
+  },
+  activeSwitcherPillOrder: {
+    fontSize: 12,
+  },
+  activeSwitcherPillMaterial: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  activeSwitcherPillEta: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
   nikeEmptyBagContainer: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -3458,7 +4205,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   nikeShopNowPillText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 13.5,
     fontWeight: '700',
   },
@@ -3605,7 +4352,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   continueShoppingPrimaryText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 13.5,
     fontWeight: '800',
   },
@@ -3914,7 +4661,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   saveNewAddressBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 12.5,
     fontWeight: '700',
   },
@@ -4000,7 +4747,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   checkoutProceedBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 13.5,
     fontWeight: '700',
     letterSpacing: -0.2,

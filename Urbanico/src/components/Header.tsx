@@ -38,6 +38,7 @@ import { BrandLogo } from './common/BrandLogo';
 import { ShimmerImage } from './common/ShimmerImage';
 import { NotificationsModal } from './NotificationsModal';
 import { soundService } from '../utils/soundHelper';
+import { useDebounce } from '../hooks/useDebounce';
 import {
   normalizeSearchQuery,
   searchAndRankMaterials,
@@ -112,17 +113,25 @@ export const Header: React.FC<HeaderProps> = ({
   // Notification Center Modal State
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
 
+  // Debounced search text (200ms) to prevent heavy re-filtering on every keystroke
+  const debouncedSearchText = useDebounce(searchInputText, 200);
+
   // Sync external search query
   useEffect(() => {
     setSearchInputText(searchQuery);
   }, [searchQuery]);
+
+  // Sync debounced search query to parent handler
+  useEffect(() => {
+    onSearchChange(debouncedSearchText);
+  }, [debouncedSearchText, onSearchChange]);
 
   // Close search overlay if screen changes
   useEffect(() => {
     setIsSearchOpen(false);
   }, [currentScreen]);
 
-  const queryLower = searchInputText.toLowerCase().trim();
+  const queryLower = debouncedSearchText.toLowerCase().trim();
 
   const { cleanQuery, normalizedQuery, wasCorrected, correctionNotice } = normalizeSearchQuery(queryLower);
 
@@ -362,7 +371,6 @@ export const Header: React.FC<HeaderProps> = ({
                 value={searchInputText}
                 onChangeText={(txt) => {
                   setSearchInputText(txt);
-                  onSearchChange(txt);
                 }}
                 placeholder="Search materials, grades, trades..."
                 placeholderTextColor={theme.textMuted || '#8E8E93'}
@@ -646,9 +654,23 @@ export const Header: React.FC<HeaderProps> = ({
                         <TouchableOpacity
                           key={srv.id}
                           onPress={() => {
-                            const serviceMat = activeMaterials.find((m) => m.id === `service-${srv.id}`);
-                            if (serviceMat && onSelectItemModal) {
-                              handleCloseSearch();
+                            const foundMat = activeMaterials.find(
+                              (m) => m.id === `service-${srv.id}` || (m.categoryId === 'services' && m.name.toLowerCase().includes(srv.name.toLowerCase()))
+                            );
+                            const serviceMat: MaterialItem = foundMat || {
+                              id: `service-${srv.id}`,
+                              categoryId: 'services',
+                              name: `${srv.name} Service`,
+                              subtitle: srv.subtitle || 'Certified On-Site Skilled Contractor',
+                              image: srv.image || 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=600&q=80',
+                              actionType: 'add_to_cart',
+                              defaultPrice: 850,
+                              options: [{ id: 'daily-shift', label: '1 Skilled Worker / Shift', price: 850, type: 'radio' }],
+                              inStock: true,
+                            };
+
+                            handleCloseSearch();
+                            if (onSelectItemModal) {
                               onSelectItemModal(serviceMat);
                             } else {
                               handleExecuteSearch(srv.name);

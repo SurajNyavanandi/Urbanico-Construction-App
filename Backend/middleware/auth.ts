@@ -1,7 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'urbanico_jwt_auth_secret_production_2026_key';
+function resolveJwtSecret(): string {
+  const envSecret = process.env.JWT_SECRET?.trim();
+  if (envSecret) {
+    return envSecret;
+  }
+  // If not configured, generate an ephemeral cryptographic secret for this runtime process
+  return crypto.randomBytes(48).toString('hex');
+}
+
+const JWT_SECRET = resolveJwtSecret();
 
 export interface AuthUserPayload {
   id: string;
@@ -106,7 +115,10 @@ export function verifyAuthToken(token: string): AuthUserPayload | null {
       .replace(/\+/g, '-')
       .replace(/\//g, '_');
 
-    if (signature !== expectedSignature) {
+    const sigBuf = Buffer.from(signature);
+    const expBuf = Buffer.from(expectedSignature);
+
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
       console.warn('[Auth] Invalid token signature');
       return null;
     }
@@ -205,7 +217,7 @@ export function requireAuth(req: AuthenticatedRequest, res: Response, next: Next
   if (!authHeader) {
     return res.status(401).json({
       success: false,
-      error: 'Authentication token required. Please sign in with OTP 261125.',
+      error: 'Authentication token required. Please sign in to continue.',
     });
   }
 
@@ -245,3 +257,77 @@ export function requireRole(allowedRoles: string[]) {
     return next();
   };
 }
+
+/**
+ * Express Middleware: Require Admin Secret (for sensitive operations like purge)
+ * Uses constant-time cryptographic equality to prevent timing attacks.
+ */
+export function requireAdminSecret(req: Request, res: Response, next: NextFunction) {
+  const secretHeader = (req.headers['x-admin-secret'] as string) || (req.query.admin_secret as string) || (req.body?.adminSecret as string);
+  const configuredSecret = process.env.ADMIN_API_SECRET;
+
+  if (process.env.NODE_ENV === 'production' && !configuredSecret) {
+    return res.status(403).json({
+      success: false,
+      error: 'Administrative purge operations are disabled in production mode.',
+      message: 'Administrative purge operations are disabled in production mode.',
+    });
+  }
+
+  if (configuredSecret) {
+    if (!secretHeader) {
+      return res.status(403).json({
+        success: false,
+        error: 'Unauthorized: Missing admin authorization secret.',
+        message: 'Unauthorized: Missing admin authorization secret.',
+      });
+    }
+
+    const secretBuf = Buffer.from(secretHeader);
+    const confBuf = Buffer.from(configuredSecret);
+    const isValid = secretBuf.length === confBuf.length && crypto.timingSafeEqual(secretBuf, confBuf);
+
+    if (!isValid) {
+      return res.status(403).json({
+        success: false,
+        error: 'Unauthorized: Invalid admin authorization secret.',
+        message: 'Unauthorized: Invalid admin authorization secret.',
+      });
+    }
+  } else if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({
+      success: false,
+      error: 'Unauthorized.',
+      message: 'Unauthorized.',
+    });
+  }
+
+  return next();
+}
+
+/**
+ * Express Middleware: Require Admin Role (via JWT) OR Admin Secret Header
+ */
+export function requireAdminOrSecret(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  if (req.user && req.user.role === 'admin') {
+    return next();
+  }
+
+  const secretHeader = (req.headers['x-admin-secret'] as string) || (req.query.admin_secret as string) || (req.body?.adminSecret as string);
+  const configuredSecret = process.env.ADMIN_API_SECRET;
+
+  if (configuredSecret && secretHeader) {
+    const secretBuf = Buffer.from(secretHeader);
+    const confBuf = Buffer.from(configuredSecret);
+    if (secretBuf.length === confBuf.length && crypto.timingSafeEqual(secretBuf, confBuf)) {
+      return next();
+    }
+  }
+
+  return res.status(403).json({
+    success: false,
+    error: 'Forbidden: Requires admin privileges or valid admin secret.',
+    message: 'Forbidden: Requires admin privileges or valid admin secret.',
+  });
+}
+

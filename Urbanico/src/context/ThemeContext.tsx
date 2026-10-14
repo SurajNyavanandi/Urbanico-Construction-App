@@ -234,6 +234,23 @@ export function getThemeColors(
   else if (accent === 'black') presetKey = 'modern_onyx';
 
   const tokens = resolveThemeColors(mode, presetKey, isAppleDesign);
+  const accentDef = ACCENT_DEFINITIONS[accent];
+
+  if (accentDef) {
+    const accentTheme = mode === 'dark' ? accentDef.dark : accentDef.light;
+    const isLightAccent = accent === 'yellow';
+    return {
+      ...tokens,
+      primary: accentTheme.primary,
+      primaryLight: accentTheme.primaryLight,
+      primaryDark: accentTheme.primaryDark,
+      primaryText: isLightAccent ? '#18181B' : '#FFFFFF',
+      buttonBg: accentTheme.primary,
+      buttonText: isLightAccent ? '#18181B' : '#FFFFFF',
+      accent,
+    };
+  }
+
   return {
     ...tokens,
     accent,
@@ -298,16 +315,61 @@ const ThemeContext = createContext<ThemeContextType>({
 });
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [themeMode, setThemeMode] = useState<ThemeMode>('light');
-  const [accentColor, setAccentColor] = useState<AccentColor>('yellow');
-  const [typographyFont, setTypographyFont] = useState<TypographyFontFamily>('jakarta');
+  const [themeMode, setThemeModeState] = useState<ThemeMode>(() => {
+    try {
+      const stored = safeStorage.getItem('urbanico_theme_mode');
+      if (stored === 'light' || stored === 'dark') return stored;
+    } catch {}
+    return 'light';
+  });
+
+  const [accentColor, setAccentColorState] = useState<AccentColor>(() => {
+    try {
+      const stored = safeStorage.getItem('urbanico_accent_color');
+      if (stored && stored in ACCENT_DEFINITIONS) return stored as AccentColor;
+    } catch {}
+    return 'yellow';
+  });
+
+  const [typographyFont, setTypographyFontState] = useState<TypographyFontFamily>(() => {
+    try {
+      const stored = safeStorage.getItem('urbanico_typography_font');
+      if (stored === 'system' || stored === 'inter' || stored === 'jakarta' || stored === 'mono') {
+        return stored;
+      }
+    } catch {}
+    return 'jakarta';
+  });
+
+  const setThemeMode = (mode: ThemeMode) => {
+    setThemeModeState(mode);
+    try {
+      safeStorage.setDebouncedItem('urbanico_theme_mode', mode, 150);
+    } catch {}
+  };
+
+  const setAccentColor = (accent: AccentColor) => {
+    setAccentColorState(accent);
+    try {
+      safeStorage.setDebouncedItem('urbanico_accent_color', accent, 150);
+    } catch {}
+  };
+
+  const setTypographyFont = (font: TypographyFontFamily) => {
+    setTypographyFontState(font);
+    try {
+      safeStorage.setDebouncedItem('urbanico_typography_font', font, 150);
+    } catch {}
+  };
   const [isAppleDesign, setIsAppleDesignState] = useState<boolean>(() => {
     return safeStorage.getItem('apple_design_mode') === 'true';
   });
 
   const setAppleDesign = (val: boolean) => {
     setIsAppleDesignState(val);
-    safeStorage.setItem('apple_design_mode', val ? 'true' : 'false');
+    try {
+      safeStorage.setDebouncedItem('apple_design_mode', val ? 'true' : 'false', 150);
+    } catch {}
   };
 
   const toggleAppleDesign = () => {

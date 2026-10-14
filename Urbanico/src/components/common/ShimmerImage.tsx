@@ -9,11 +9,13 @@ import {
   ImageStyle,
   TouchableOpacity,
   Text,
+  Platform,
 } from 'react-native';
 import { ImageIcon, RefreshCw } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import {
   getOptimizedImageUrl,
+  getBlurUpPlaceholderUrl,
   imageCache,
   ImageOptimizationOptions,
   ImageSizePreset,
@@ -31,6 +33,7 @@ export interface ShimmerImageProps {
   optimizationOptions?: ImageOptimizationOptions;
   priority?: 'high' | 'normal' | 'low';
   lazy?: boolean;
+  enableBlurUp?: boolean;
   rootMargin?: string;
   fallbackIconSize?: number;
   showFallbackOnMissing?: boolean;
@@ -51,7 +54,8 @@ const ShimmerImageComponent: React.FC<ShimmerImageProps> = ({
   optimizationOptions,
   priority = 'normal',
   lazy = true,
-  rootMargin = '180px 0px',
+  enableBlurUp = true,
+  rootMargin = '200px 0px',
   fallbackIconSize = 22,
   showFallbackOnMissing = true,
   showRetryOnError = false,
@@ -68,11 +72,17 @@ const ShimmerImageComponent: React.FC<ShimmerImageProps> = ({
     return null;
   }, [source]);
 
-  // Compute optimized Cloudinary URL
+  // Compute optimized Cloudinary URL (with f_auto, q_auto:eco, w_...)
   const optimizedUri = useMemo(() => {
     if (!rawUri || typeof rawUri !== 'string') return null;
     return getOptimizedImageUrl(rawUri, optimizationOptions || preset);
   }, [rawUri, optimizationOptions, preset]);
+
+  // Compute ultra-low-byte progressive blur-up placeholder URL
+  const blurUpUri = useMemo(() => {
+    if (!enableBlurUp || !rawUri || typeof rawUri !== 'string') return null;
+    return getBlurUpPlaceholderUrl(rawUri);
+  }, [enableBlurUp, rawUri]);
 
   // Check if image is already cached in memory
   const initiallyCached = useMemo(() => {
@@ -83,7 +93,7 @@ const ShimmerImageComponent: React.FC<ShimmerImageProps> = ({
   const isPriorityHigh = priority === 'high';
   const shouldLazyLoad = lazy && !isPriorityHigh && !initiallyCached;
 
-  // Native Intersection Observer for lazy loading without external dependencies
+  // Native Intersection Observer for viewport detection
   const [containerRef, isVisible] = useIntersectionObserver<any>({
     rootMargin,
     threshold: 0.01,
@@ -94,10 +104,13 @@ const ShimmerImageComponent: React.FC<ShimmerImageProps> = ({
   const isEligibleToLoad = initiallyCached || isPriorityHigh || !shouldLazyLoad || isVisible;
 
   const [loaded, setLoaded] = useState<boolean>(initiallyCached);
+  const [blurLoaded, setBlurLoaded] = useState<boolean>(false);
   const [hasError, setHasError] = useState<boolean>(false);
   const [retryCount, setRetryCount] = useState<number>(0);
 
-  // Pulse animation for placeholder shimmer
+  // Smooth Cross-Fade Animation from Blur-up placeholder to High-Res Image
+  const highResFadeAnim = useRef(new Animated.Value(initiallyCached ? 1 : 0)).current;
+  // Shimmer Pulse Animation
   const pulseAnim = useRef(new Animated.Value(0.3)).current;
 
   // Sync state if URI changes
@@ -105,11 +118,14 @@ const ShimmerImageComponent: React.FC<ShimmerImageProps> = ({
     if (optimizedUri && imageCache.isCached(optimizedUri)) {
       setLoaded(true);
       setHasError(false);
+      highResFadeAnim.setValue(1);
     } else if (rawUri) {
       setLoaded(false);
+      setBlurLoaded(false);
       setHasError(false);
+      highResFadeAnim.setValue(0);
     }
-  }, [optimizedUri, rawUri, retryCount]);
+  }, [optimizedUri, rawUri, retryCount, highResFadeAnim]);
 
   // Shimmer pulse animation while loading
   useEffect(() => {
@@ -118,13 +134,13 @@ const ShimmerImageComponent: React.FC<ShimmerImageProps> = ({
         Animated.sequence([
           Animated.timing(pulseAnim, {
             toValue: 0.65,
-            duration: 600,
-            useNativeDriver: false,
+            duration: 650,
+            useNativeDriver: true,
           }),
           Animated.timing(pulseAnim, {
             toValue: 0.25,
-            duration: 600,
-            useNativeDriver: false,
+            duration: 650,
+            useNativeDriver: true,
           }),
         ])
       );
@@ -133,12 +149,19 @@ const ShimmerImageComponent: React.FC<ShimmerImageProps> = ({
     }
   }, [loaded, hasError, pulseAnim]);
 
-  const handleLoad = (e: any) => {
+  const handleHighResLoad = (e: any) => {
     if (optimizedUri) {
       imageCache.markCached(optimizedUri);
     }
     setLoaded(true);
     setHasError(false);
+
+    // Smooth 200ms cross-fade into crisp resolution
+    Animated.timing(highResFadeAnim, {
+      toValue: 1,
+      duration: 200,
+      useNativeDriver: true,
+    }).start();
 
     if (externalOnLoad) {
       externalOnLoad(e);
@@ -156,6 +179,7 @@ const ShimmerImageComponent: React.FC<ShimmerImageProps> = ({
   const handleRetry = () => {
     setHasError(false);
     setLoaded(false);
+    setBlurLoaded(false);
     setRetryCount((prev) => prev + 1);
   };
 
@@ -218,8 +242,8 @@ const ShimmerImageComponent: React.FC<ShimmerImageProps> = ({
         style,
       ]}
     >
-      {/* Lightweight Shimmer Placeholder while unobserved or loading */}
-      {(!loaded || !isEligibleToLoad) && (
+      {/* 1. Shimmer Wave Placeholder while unobserved or loading initial bytes */}
+      {(!loaded && !blurLoaded) && (
         <AnimatedView
           style={[
             StyleSheet.absoluteFill,
@@ -232,26 +256,61 @@ const ShimmerImageComponent: React.FC<ShimmerImageProps> = ({
         />
       )}
 
-      {/* Universal Web & Native Compatible Lazy Image */}
-      {isEligibleToLoad && (
+      {/* 2. Progressive Blur-Up Micro Placeholder (LQIP) */}
+      {blurUpUri && isEligibleToLoad && !loaded && (
         <RNImage
-          source={{
-            uri: finalSourceUri ? `${finalSourceUri}${retryCount > 0 ? `?retry=${retryCount}` : ''}` : undefined,
-          }}
+          source={{ uri: blurUpUri }}
           resizeMode={finalResizeMode}
+          onLoad={() => setBlurLoaded(true)}
           style={[
-            styles.image,
+            styles.blurImage,
             {
               borderRadius,
-              opacity: loaded ? 1 : 0.99,
+              opacity: blurLoaded ? 0.95 : 0,
+              ...(Platform.OS === 'web'
+                ? {
+                    filter: 'blur(10px)',
+                    transform: 'scale(1.05)',
+                    objectFit: finalResizeMode,
+                  }
+                : {}),
             },
           ]}
-          onLoad={handleLoad}
-          onError={handleError}
-          // @ts-ignore Web specific attributes
-          loading={isPriorityHigh ? 'eager' : 'lazy'}
-          decoding="async"
         />
+      )}
+
+      {/* 3. High-Fidelity Crisp Image with Smooth Cross-Fade */}
+      {isEligibleToLoad && (
+        <AnimatedView
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              opacity: highResFadeAnim,
+              borderRadius,
+            },
+          ]}
+        >
+          <RNImage
+            source={{
+              uri: finalSourceUri
+                ? `${finalSourceUri}${retryCount > 0 ? `?retry=${retryCount}` : ''}`
+                : undefined,
+            }}
+            resizeMode={finalResizeMode}
+            style={[
+              styles.image,
+              {
+                borderRadius,
+                ...(Platform.OS === 'web' ? { objectFit: finalResizeMode } : {}),
+              },
+            ]}
+            onLoad={handleHighResLoad}
+            onError={handleError}
+            // @ts-ignore Web specific attributes
+            loading={isPriorityHigh ? 'eager' : 'lazy'}
+            decoding="async"
+          />
+        </AnimatedView>
       )}
     </View>
   );
@@ -266,6 +325,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   image: {
+    width: '100%',
+    height: '100%',
+  },
+  blurImage: {
+    ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '100%',
   },
@@ -285,3 +349,5 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+
+export default ShimmerImage;

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
-import { Building2, Layers } from 'lucide-react';
+import { Layers } from 'lucide-react';
 
 interface UrbanicoEmblemProps {
   size?: number;

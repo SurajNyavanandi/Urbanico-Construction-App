@@ -1,12 +1,15 @@
 import { Router } from 'express';
 import { DeliveryController } from '../controllers/deliveryController';
+import { authenticateToken, requireAuth, requireRole } from '../middleware/auth';
 
 const router = Router();
 
-router.get('/', DeliveryController.getDeliveries);
+// Fleet tracking routes with authentication and role-based access control
+router.use(authenticateToken);
+router.get('/', requireAuth, DeliveryController.getDeliveries);
 router.get('/:orderNumber', DeliveryController.getDeliveryByOrder);
-router.post('/:orderNumber/verify-otp', DeliveryController.verifyOtp);
-router.patch('/:id/location', DeliveryController.updateLocation);
+router.post('/:orderNumber/verify-otp', requireAuth, DeliveryController.verifyOtp);
+router.patch('/:id/location', requireAuth, requireRole(['driver', 'admin', 'supervisor']), DeliveryController.updateLocation);
 
 export const deliveryRouter = router;
 

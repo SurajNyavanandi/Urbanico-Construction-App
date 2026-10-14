@@ -3,10 +3,10 @@ import { CartItem, MaterialItem, UnitOption } from '../types';
 import { safeStorage } from '../utils/safeStorage';
 import { syncManager } from '../utils/syncManager';
 import { calculateCartTotals, CartTotals, isCartItemService } from '../utils/cartCalculations';
+import { apiService } from '../services/apiService';
 
 interface CartContextType {
   cartItems: CartItem[];
-  savedForLaterItems: CartItem[];
   appliedCoupon: string | null;
   couponDiscount: number;
   totals: CartTotals;
@@ -19,11 +19,9 @@ interface CartContextType {
   updateQuantity: (cartId: string, quantity: number) => void;
   removeFromCart: (cartId: string) => void;
   clearCart: () => void;
+  setCartItems: React.Dispatch<React.SetStateAction<CartItem[]>>;
   applyCoupon: (code: string) => { success: boolean; message: string };
   removeCoupon: () => void;
-  saveForLater: (item: CartItem) => void;
-  moveToCart: (item: CartItem) => void;
-  removeSavedForLater: (id: string) => void;
   addBundleToCart: (bundleItems: Array<{
     itemId: string;
     itemName: string;
@@ -33,6 +31,8 @@ interface CartContextType {
     quantity: number;
     image: string;
   }>) => void;
+  mergeGuestCartOnAuth: (phone: string) => void;
+  resetCartOnLogout: () => void;
 }
 
 const CartContext = createContext<CartContextType | null>(null);
@@ -45,64 +45,182 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     try {
       const authSaved = safeStorage.getItem('urbanico_auth_session');
-      const phone = authSaved ? JSON.parse(authSaved).phone : null;
-      const key = phone ? `urbanico_cart_${phone}` : 'urbanico_cart_guest';
+      const authParsed = authSaved ? JSON.parse(authSaved) : null;
+      const isAuth = authParsed?.isLoggedIn;
+      const phone = authParsed?.phone;
+      const cleanPhone = isAuth && phone ? phone.replace(/[^0-9]/g, '') : null;
+      const key = cleanPhone ? `urbanico_cart_${cleanPhone}` : 'urbanico_cart_guest';
       const saved = safeStorage.getItem(key);
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+      // Check legacy backup for guest users
+      if (!cleanPhone) {
+        const legacy = safeStorage.getItem('urbanico_cart');
+        if (legacy) {
+          const parsed = JSON.parse(legacy);
+          if (Array.isArray(parsed)) return parsed;
+        }
+      }
     } catch {
       // ignore
     }
     return [];
   });
 
-  const [savedForLaterItems, setSavedForLaterItems] = useState<CartItem[]>(() => {
+  // Ensure legacy saved-for-later key is removed from storage
+  useEffect(() => {
     try {
-      const saved = safeStorage.getItem('urbanico_saved_for_later');
-      if (saved) return JSON.parse(saved);
-    } catch {
-      // ignore
-    }
-    return [];
-  });
+      safeStorage.removeItem('urbanico_saved_for_later');
+    } catch {}
+  }, []);
 
   const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
   const [couponDiscount, setCouponDiscount] = useState<number>(0);
 
-  // Debounced auto-save mechanism for cart state to minimize storage I/O during rapid quantity adjustments
+  // Helper to merge two carts without dropping quantities or items
+  const mergeCartItems = (existingItems: CartItem[], incomingItems: CartItem[]): CartItem[] => {
+    if (!existingItems || existingItems.length === 0) return incomingItems || [];
+    if (!incomingItems || incomingItems.length === 0) return existingItems || [];
+
+    const merged = [...existingItems];
+    for (const item of incomingItems) {
+      const idx = merged.findIndex(
+        (m) => (m.itemId === item.itemId || m.id === item.id) && m.selectedOptionLabel === item.selectedOptionLabel
+      );
+      if (idx >= 0) {
+        merged[idx] = {
+          ...merged[idx],
+          quantity: Math.max(1, (merged[idx].quantity || 1) + (item.quantity || 1)),
+        };
+      } else {
+        merged.push(item);
+      }
+    }
+    return merged;
+  };
+
+  // Sync cart from backend database on login/mount with smart merge
   useEffect(() => {
     try {
       const authSaved = safeStorage.getItem('urbanico_auth_session');
       const phone = authSaved ? JSON.parse(authSaved).phone : null;
-      const key = phone ? `urbanico_cart_${phone}` : 'urbanico_cart_guest';
-      safeStorage.setDebouncedItem(key, JSON.stringify(cartItems), 400);
-    } catch {
-      // ignore
-    }
+      const cleanPhone = phone ? phone.replace(/[^0-9]/g, '') : null;
+      if (cleanPhone) {
+        apiService.getUserCart(cleanPhone).then((dbCart) => {
+          if (Array.isArray(dbCart) && dbCart.length > 0) {
+            setCartItems((prev) => mergeCartItems(prev, dbCart));
+          }
+        }).catch(() => {});
+      }
+    } catch {}
+  }, []);
 
-    return () => {
-      // Flush immediately on unmount
+  // Multi-tab synchronization: Listen to browser storage events across concurrent windows/tabs
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleStorageEvent = (e: StorageEvent) => {
       try {
         const authSaved = safeStorage.getItem('urbanico_auth_session');
-        const phone = authSaved ? JSON.parse(authSaved).phone : null;
-        const key = phone ? `urbanico_cart_${phone}` : 'urbanico_cart_guest';
-        safeStorage.flushDebounced(key);
+        const authParsed = authSaved ? JSON.parse(authSaved) : null;
+        const cleanPhone = authParsed?.isLoggedIn && authParsed?.phone ? authParsed.phone.replace(/[^0-9]/g, '') : null;
+        const targetKey = cleanPhone ? `urbanico_cart_${cleanPhone}` : 'urbanico_cart_guest';
+
+        if (e.key === targetKey && e.newValue) {
+          const updatedCart = JSON.parse(e.newValue);
+          if (Array.isArray(updatedCart)) {
+            setCartItems(updatedCart);
+          }
+        }
       } catch {}
     };
-  }, [cartItems]);
 
-  // Debounced auto-save for saved-for-later items
+    window.addEventListener('storage', handleStorageEvent);
+    return () => {
+      window.removeEventListener('storage', handleStorageEvent);
+    };
+  }, []);
+
+  // Robust auto-save mechanism for cart state with both immediate synchronous write and non-blocking background queue
   useEffect(() => {
     try {
-      safeStorage.setDebouncedItem('urbanico_saved_for_later', JSON.stringify(savedForLaterItems), 400);
+      const authSaved = safeStorage.getItem('urbanico_auth_session');
+      const authParsed = authSaved ? JSON.parse(authSaved) : null;
+      const isAuth = authParsed?.isLoggedIn;
+      const phone = authParsed?.phone;
+      const cleanPhone = isAuth && phone ? phone.replace(/[^0-9]/g, '') : null;
+      const key = cleanPhone ? `urbanico_cart_${cleanPhone}` : 'urbanico_cart_guest';
+
+      // Always write to synchronous local storage so browser refresh never loses guest cart
+      try {
+        safeStorage.setItem(key, JSON.stringify(cartItems));
+      } catch {}
+
+      // Also queue for debounced async writes and server synchronization
+      safeStorage.setAsyncObject(key, cartItems, 200);
+      let debounceServerTimer: any = null;
+      if (cleanPhone) {
+        debounceServerTimer = setTimeout(() => {
+          apiService.saveUserCart(cartItems, cleanPhone).catch(() => {});
+        }, 400);
+      }
+
+      return () => {
+        if (debounceServerTimer) clearTimeout(debounceServerTimer);
+        // Flush immediately on unmount
+        try {
+          safeStorage.flushDebounced(key);
+        } catch {}
+      };
     } catch {
       // ignore
     }
-  }, [savedForLaterItems]);
+  }, [cartItems]);
 
   // Recalculate totals synchronously whenever cartItems or couponDiscount changes
   const totals = useMemo(() => {
     return calculateCartTotals(cartItems, couponDiscount);
   }, [cartItems, couponDiscount]);
+
+  // Automatically re-validate and adjust coupons when cart contents change to prevent double-dipping or sub-zero totals
+  useEffect(() => {
+    if (!appliedCoupon) return;
+    const currentSubtotal = cartItems.reduce(
+      (acc, item) => acc + (Number(item.unitPrice) || 0) * (Number(item.quantity) || 1),
+      0
+    );
+
+    if (cartItems.length === 0 || currentSubtotal <= 0) {
+      setAppliedCoupon(null);
+      setCouponDiscount(0);
+      return;
+    }
+
+    const clean = appliedCoupon.toUpperCase().trim();
+    if (clean === 'FIRST500' || clean === 'URBAN500' || clean === 'SUPER500' || clean === 'SITE500') {
+      // Minimum cart value of ₹2,000 required for ₹500 discount
+      if (currentSubtotal < 2000) {
+        setAppliedCoupon(null);
+        setCouponDiscount(0);
+      } else {
+        setCouponDiscount(500);
+      }
+    } else if (clean === 'URBAN10' || clean === 'SAVE10' || clean === 'DISCOUNT10') {
+      const rawDisc = Math.round(currentSubtotal * 0.1);
+      const disc = Math.min(2500, Math.min(Math.max(1, currentSubtotal - 1), Math.max(50, rawDisc)));
+      setCouponDiscount(disc);
+    } else if (clean === 'URBAN50' || clean === 'SAVE50') {
+      if (currentSubtotal < 1000) {
+        setAppliedCoupon(null);
+        setCouponDiscount(0);
+      } else {
+        const disc = Math.min(250, currentSubtotal);
+        setCouponDiscount(disc);
+      }
+    }
+  }, [cartItems, appliedCoupon]);
 
   const addToCart = useCallback(
     (
@@ -115,23 +233,42 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         categoryName: item.categoryId,
         categoryId: item.categoryId,
         itemId: item.id,
+        id: item.id,
         itemName: item.name,
+        name: item.name,
+        selectedOptionLabel: option?.label,
       });
 
       const effectiveUnitPrice = isService
         ? 99
         : customUnitPrice !== undefined
         ? customUnitPrice
-        : option.price || item.defaultPrice || 500;
+        : option?.price || item.defaultPrice || 500;
 
-      const safeQuantity = Math.max(1, quantity || 1);
+      const safeQuantity = isService ? 1 : Math.max(1, quantity || 1);
 
       setCartItems((prev) => {
         const existingIdx = prev.findIndex(
-          (ci) => ci.itemId === item.id && ci.selectedOptionLabel === option.label
+          (ci) => ci.itemId === item.id || (isService && isCartItemService(ci))
         );
 
         if (existingIdx >= 0) {
+          const existingItem = prev[existingIdx];
+          if (isCartItemService(existingItem) || isService) {
+            // Service booking already in cart! Do not add multiple or increment quantity.
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(
+                new CustomEvent('urbanico:service-already-in-cart', {
+                  detail: {
+                    message:
+                      'Service booking already in cart. You can update booking slot or location at checkout.',
+                  },
+                })
+              );
+            }
+            return prev;
+          }
+
           const updated = [...prev];
           updated[existingIdx] = {
             ...updated[existingIdx],
@@ -146,7 +283,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           itemId: item.id,
           itemName: item.name,
           categoryName: item.categoryId,
-          selectedOptionLabel: option.label,
+          selectedOptionLabel: option?.label || (isService ? '1 Visit / Site Inspection' : 'Standard Unit'),
           unitPrice: effectiveUnitPrice,
           quantity: safeQuantity,
           image: item.image,
@@ -164,7 +301,16 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return;
     }
     setCartItems((prev) =>
-      prev.map((item) => (item.id === cartId ? { ...item, quantity: newQty } : item))
+      prev.map((item) => {
+        if (item.id === cartId) {
+          if (isCartItemService(item)) {
+            // Service quantity is locked to strictly 1
+            return { ...item, quantity: 1 };
+          }
+          return { ...item, quantity: newQty };
+        }
+        return item;
+      })
     );
   }, []);
 
@@ -179,60 +325,57 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const applyCoupon = useCallback((code: string) => {
+    if (cartItems.length === 0) {
+      return { success: false, message: 'Your cart is empty. Add materials before applying a promo code.' };
+    }
+
     const isServicesOnlyCart = cartItems.length > 0 && cartItems.every(isCartItemService);
     if (isServicesOnlyCart) {
       return { success: false, message: 'Coupons are not applicable on trade service visits' };
     }
 
+    const currentSubtotal = cartItems.reduce(
+      (acc, item) => acc + (Number(item.unitPrice) || 0) * (Number(item.quantity) || 1),
+      0
+    );
+
     const clean = code.trim().toUpperCase();
     if (!clean) return { success: false, message: 'Enter a valid coupon code' };
 
     if (clean === 'URBAN10' || clean === 'SAVE10' || clean === 'DISCOUNT10') {
+      if (currentSubtotal < 500) {
+        return { success: false, message: 'Minimum order value of ₹500 required for 10% discount' };
+      }
+      const rawDisc = Math.round(currentSubtotal * 0.1);
+      const disc = Math.min(2500, Math.min(Math.max(1, currentSubtotal - 1), Math.max(50, rawDisc)));
       setAppliedCoupon(clean);
-      setCouponDiscount(100);
-      return { success: true, message: 'Coupon applied: 10% discount' };
+      setCouponDiscount(disc);
+      return { success: true, message: `Coupon applied: 10% discount (₹${disc} off)` };
     }
     if (clean === 'URBAN50' || clean === 'SAVE50') {
+      if (currentSubtotal < 1000) {
+        return { success: false, message: 'Minimum order value of ₹1,000 required for ₹250 discount' };
+      }
+      const disc = Math.min(250, currentSubtotal);
       setAppliedCoupon(clean);
-      setCouponDiscount(250);
-      return { success: true, message: 'Coupon applied: ₹250 discount' };
+      setCouponDiscount(disc);
+      return { success: true, message: `Coupon applied: ₹${disc} discount` };
     }
-    if (clean === 'SUPER500' || clean === 'URBAN500' || clean === 'SITE500') {
+    if (clean === 'SUPER500' || clean === 'URBAN500' || clean === 'SITE500' || clean === 'FIRST500') {
+      if (currentSubtotal < 2000) {
+        return { success: false, message: 'Minimum order value of ₹2,000 required for ₹500 discount' };
+      }
       setAppliedCoupon(clean);
       setCouponDiscount(500);
       return { success: true, message: 'Coupon applied: ₹500 discount' };
     }
 
-    return { success: false, message: 'Invalid coupon code' };
+    return { success: false, message: 'Invalid coupon code. Try URBAN10, SAVE50, or SITE500' };
   }, [cartItems]);
 
   const removeCoupon = useCallback(() => {
     setAppliedCoupon(null);
     setCouponDiscount(0);
-  }, []);
-
-  const saveForLater = useCallback((item: CartItem) => {
-    setCartItems((prev) => prev.filter((i) => i.id !== item.id));
-    setSavedForLaterItems((prev) => [...prev.filter((i) => i.id !== item.id), item]);
-  }, []);
-
-  const moveToCart = useCallback((item: CartItem) => {
-    setSavedForLaterItems((prev) => prev.filter((i) => i.id !== item.id));
-    setCartItems((prev) => {
-      const exists = prev.find(
-        (ci) => ci.itemId === item.itemId && ci.selectedOptionLabel === item.selectedOptionLabel
-      );
-      if (exists) {
-        return prev.map((ci) =>
-          ci.id === exists.id ? { ...ci, quantity: ci.quantity + item.quantity } : ci
-        );
-      }
-      return [item, ...prev];
-    });
-  }, []);
-
-  const removeSavedForLater = useCallback((id: string) => {
-    setSavedForLaterItems((prev) => prev.filter((i) => i.id !== id));
   }, []);
 
   const addBundleToCart = useCallback(
@@ -277,10 +420,73 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     []
   );
 
+  const mergeGuestCartOnAuth = useCallback((phone: string) => {
+    if (!phone) return;
+    const cleanPhone = phone.replace(/[^0-9]/g, '');
+    const userKey = `urbanico_cart_${cleanPhone}`;
+    const guestKey = 'urbanico_cart_guest';
+
+    try {
+      // 1. Read existing saved cart for this user
+      const existingUserCartRaw = safeStorage.getItem(userKey);
+      let existingUserCart: CartItem[] = [];
+      if (existingUserCartRaw) {
+        try {
+          const parsed = JSON.parse(existingUserCartRaw);
+          if (Array.isArray(parsed)) existingUserCart = parsed;
+        } catch {}
+      }
+
+      // 2. Read guest cart from storage as well as current in-memory cartItems
+      const guestCartRaw = safeStorage.getItem(guestKey);
+      let guestStoredItems: CartItem[] = [];
+      if (guestCartRaw) {
+        try {
+          const parsed = JSON.parse(guestCartRaw);
+          if (Array.isArray(parsed)) guestStoredItems = parsed;
+        } catch {}
+      }
+
+      setCartItems((prev) => {
+        const itemsToMerge = prev.length > 0 ? prev : guestStoredItems;
+        const merged = [...existingUserCart];
+
+        itemsToMerge.forEach((guestItem) => {
+          const matchIdx = merged.findIndex(
+            (ci) => ci.itemId === guestItem.itemId && ci.selectedOptionLabel === guestItem.selectedOptionLabel
+          );
+          if (matchIdx >= 0) {
+            merged[matchIdx] = {
+              ...merged[matchIdx],
+              quantity: Math.max(merged[matchIdx].quantity, guestItem.quantity),
+            };
+          } else {
+            merged.push(guestItem);
+          }
+        });
+
+        // Persist immediately to user partition
+        safeStorage.setItem(userKey, JSON.stringify(merged));
+        safeStorage.removeItem(guestKey);
+        apiService.saveUserCart(merged, cleanPhone).catch(() => {});
+
+        return merged;
+      });
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const resetCartOnLogout = useCallback(() => {
+    setCartItems([]);
+    setAppliedCoupon(null);
+    setCouponDiscount(0);
+    safeStorage.removeItem('urbanico_cart_guest');
+  }, []);
+
   const value = useMemo(
     () => ({
       cartItems,
-      savedForLaterItems,
       appliedCoupon,
       couponDiscount,
       totals,
@@ -288,16 +494,15 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       updateQuantity,
       removeFromCart,
       clearCart,
+      setCartItems,
       applyCoupon,
       removeCoupon,
-      saveForLater,
-      moveToCart,
-      removeSavedForLater,
       addBundleToCart,
+      mergeGuestCartOnAuth,
+      resetCartOnLogout,
     }),
     [
       cartItems,
-      savedForLaterItems,
       appliedCoupon,
       couponDiscount,
       totals,
@@ -307,10 +512,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       clearCart,
       applyCoupon,
       removeCoupon,
-      saveForLater,
-      moveToCart,
-      removeSavedForLater,
       addBundleToCart,
+      mergeGuestCartOnAuth,
+      resetCartOnLogout,
     ]
   );
 
@@ -319,7 +523,6 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
 const fallbackCartContext: CartContextType = {
   cartItems: [],
-  savedForLaterItems: [],
   appliedCoupon: null,
   couponDiscount: 0,
   totals: {
@@ -342,12 +545,12 @@ const fallbackCartContext: CartContextType = {
   updateQuantity: () => {},
   removeFromCart: () => {},
   clearCart: () => {},
+  setCartItems: () => {},
   applyCoupon: () => ({ success: false, message: 'Cart not initialized' }),
   removeCoupon: () => {},
-  saveForLater: () => {},
-  moveToCart: () => {},
-  removeSavedForLater: () => {},
   addBundleToCart: () => {},
+  mergeGuestCartOnAuth: () => {},
+  resetCartOnLogout: () => {},
 };
 
 export const useCart = (): CartContextType => {

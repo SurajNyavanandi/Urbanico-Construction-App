@@ -48,29 +48,87 @@ export function lookupCityStateFromPincode(pincode: string): { city?: string; st
 
     // Karnataka
     '560': { city: 'Bengaluru', state: 'Karnataka' },
+    '561': { city: 'Chikkaballapur / Kolar', state: 'Karnataka' },
     '562': { city: 'Bengaluru Rural', state: 'Karnataka' },
+    '563': { city: 'Kolar', state: 'Karnataka' },
     '570': { city: 'Mysuru', state: 'Karnataka' },
+    '571': { city: 'Mandya / Chamarajanagar', state: 'Karnataka' },
+    '572': { city: 'Tumakuru', state: 'Karnataka' },
+    '573': { city: 'Hassan', state: 'Karnataka' },
     '575': { city: 'Mangaluru', state: 'Karnataka' },
+    '577': { city: 'Davanagere / Shivamogga', state: 'Karnataka' },
     '580': { city: 'Hubballi-Dharwad', state: 'Karnataka' },
+    '583': { city: 'Ballari / Vijayanagara', state: 'Karnataka' },
+    '585': { city: 'Kalaburagi', state: 'Karnataka' },
 
     // Maharashtra
     '400': { city: 'Mumbai', state: 'Maharashtra' },
     '401': { city: 'Thane / Palghar', state: 'Maharashtra' },
+    '402': { city: 'Raigad', state: 'Maharashtra' },
+    '410': { city: 'Lonavala / Khopoli', state: 'Maharashtra' },
     '411': { city: 'Pune', state: 'Maharashtra' },
+    '412': { city: 'Pune Rural', state: 'Maharashtra' },
+    '413': { city: 'Solapur / Ahmednagar', state: 'Maharashtra' },
+    '414': { city: 'Ahmednagar', state: 'Maharashtra' },
+    '415': { city: 'Satara / Ratnagiri', state: 'Maharashtra' },
+    '416': { city: 'Kolhapur / Sangli', state: 'Maharashtra' },
+    '421': { city: 'Kalyan / Dombivli', state: 'Maharashtra' },
     '422': { city: 'Nashik', state: 'Maharashtra' },
+    '423': { city: 'Malegaon', state: 'Maharashtra' },
+    '424': { city: 'Dhule', state: 'Maharashtra' },
+    '425': { city: 'Jalgaon', state: 'Maharashtra' },
+    '431': { city: 'Chhatrapati Sambhajinagar', state: 'Maharashtra' },
     '440': { city: 'Nagpur', state: 'Maharashtra' },
+    '444': { city: 'Amravati / Akola', state: 'Maharashtra' },
 
     // Delhi NCR & North
     '110': { city: 'New Delhi', state: 'Delhi NCR' },
+    '121': { city: 'Faridabad', state: 'Haryana' },
     '122': { city: 'Gurugram', state: 'Haryana' },
-    '201': { city: 'Noida / Ghaziabad', state: 'Uttar Pradesh' },
+    '124': { city: 'Rohtak', state: 'Haryana' },
+    '131': { city: 'Sonipat', state: 'Haryana' },
+    '132': { city: 'Panipat / Karnal', state: 'Haryana' },
+    '133': { city: 'Ambala', state: 'Haryana' },
+    '141': { city: 'Ludhiana', state: 'Punjab' },
+    '143': { city: 'Amritsar', state: 'Punjab' },
+    '144': { city: 'Jalandhar', state: 'Punjab' },
     '160': { city: 'Chandigarh', state: 'Chandigarh' },
+    '201': { city: 'Noida / Ghaziabad', state: 'Uttar Pradesh' },
+    '226': { city: 'Lucknow', state: 'Uttar Pradesh' },
+    '208': { city: 'Kanpur', state: 'Uttar Pradesh' },
+    '282': { city: 'Agra', state: 'Uttar Pradesh' },
     '302': { city: 'Jaipur', state: 'Rajasthan' },
     '380': { city: 'Ahmedabad', state: 'Gujarat' },
+    '390': { city: 'Vadodara', state: 'Gujarat' },
+    '395': { city: 'Surat', state: 'Gujarat' },
     '600': { city: 'Chennai', state: 'Tamil Nadu' },
+    '641': { city: 'Coimbatore', state: 'Tamil Nadu' },
     '682': { city: 'Kochi', state: 'Kerala' },
+    '695': { city: 'Thiruvananthapuram', state: 'Kerala' },
     '700': { city: 'Kolkata', state: 'West Bengal' },
+    '800': { city: 'Patna', state: 'Bihar' },
+    '834': { city: 'Ranchi', state: 'Jharkhand' },
+    '751': { city: 'Bhubaneswar', state: 'Odisha' },
+    '462': { city: 'Bhopal', state: 'Madhya Pradesh' },
+    '452': { city: 'Indore', state: 'Madhya Pradesh' },
   };
+
+  if (!prefixMap[clean]) {
+    const zoneDigit = clean.charAt(0);
+    const zoneMap: Record<string, { city?: string; state: string }> = {
+      '1': { state: 'Delhi NCR' },
+      '2': { state: 'Uttar Pradesh' },
+      '3': { state: 'Rajasthan' },
+      '4': { state: 'Maharashtra' },
+      '5': { state: 'Telangana' },
+      '6': { state: 'Tamil Nadu' },
+      '7': { state: 'West Bengal' },
+      '8': { state: 'Bihar' },
+    };
+    if (zoneMap[zoneDigit]) {
+      return zoneMap[zoneDigit];
+    }
+  }
 
   return prefixMap[clean] || {};
 }
