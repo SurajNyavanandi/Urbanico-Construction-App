@@ -59,7 +59,7 @@ const QuoteSchema = new Schema<IQuote>(
       index: true,
       default: () => `QT-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`,
     },
-    userId: { type: Schema.Types.ObjectId, ref: 'User' },
+    userId: { type: Schema.Types.Mixed },
     customerName: { type: String, required: true },
     customerPhone: { type: String, required: true },
     customerEmail: { type: String },

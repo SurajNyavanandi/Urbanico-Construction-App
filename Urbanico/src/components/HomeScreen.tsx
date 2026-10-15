@@ -235,7 +235,7 @@ const UrbanCategoryGridCard: React.FC<UrbanCategoryGridCardProps> = React.memo((
             style={styles.urbanSquircleImage}
             resizeMode="cover"
             preset="pill"
-            borderRadius={14}
+            borderRadius={18}
           />
         </View>
         <Text
@@ -630,8 +630,8 @@ const styles = StyleSheet.create({
     }),
   },
   urbanSquircleImage: {
-    width: 44,
-    height: 44,
+    width: '100%',
+    height: '100%',
   },
   urbanCardTitle: {
     fontSize: 11,

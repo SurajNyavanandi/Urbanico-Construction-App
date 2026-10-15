@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 
 export interface IOrderItem {
-  materialId?: mongoose.Types.ObjectId;
+  materialId?: mongoose.Types.ObjectId | string;
   name: string;
   category: string;
   quantity: number;
@@ -14,7 +14,7 @@ export interface IOrderItem {
 
 export interface IOrder extends Document {
   orderNumber: string;
-  userId?: mongoose.Types.ObjectId;
+  userId?: mongoose.Types.ObjectId | string;
   customerName: string;
   customerPhone: string;
   customerEmail?: string;
@@ -90,7 +90,7 @@ export interface IOrder extends Document {
 
 const OrderItemSchema = new Schema<IOrderItem>(
   {
-    materialId: { type: Schema.Types.ObjectId, ref: 'Material' },
+    materialId: { type: Schema.Types.Mixed },
     name: { type: String, required: true },
     category: { type: String, required: true },
     quantity: { type: Number, required: true, min: 1 },
@@ -112,7 +112,7 @@ const OrderSchema = new Schema<IOrder>(
       index: true,
       default: () => `URB-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`,
     },
-    userId: { type: Schema.Types.ObjectId, ref: 'User' },
+    userId: { type: Schema.Types.Mixed },
     customerName: { type: String, required: true, trim: true },
     customerPhone: { type: String, required: true, trim: true },
     customerEmail: { type: String, trim: true },

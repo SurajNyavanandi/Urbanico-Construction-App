@@ -285,8 +285,21 @@ export class OrderService {
       timestamp: rawPayment.timestamp || new Date().toISOString(),
     };
 
+    const normalizedItems = (orderData.items || []).map((item: any) => ({
+      name: item.name || 'Construction Material',
+      category: item.category || 'general',
+      quantity: Math.max(1, Number(item.quantity) || 1),
+      unit: item.unit || 'Ton',
+      unitPrice: Number(item.unitPrice) || 0,
+      totalPrice: Number(item.totalPrice) || ((Number(item.quantity) || 1) * (Number(item.unitPrice) || 0)),
+      gstAmount: Number(item.gstAmount) || 0,
+      image: item.image || '',
+      materialId: item.materialId || item.id || undefined,
+    }));
+
     const orderPayload = {
       ...orderData,
+      items: normalizedItems,
       customerName: sanitizeName(orderData.customerName || 'Valued Customer', 60),
       notes: orderData.notes ? sanitizeText(orderData.notes, 500) : '',
       businessName: orderData.businessName ? sanitizeText(orderData.businessName, 100) : '',

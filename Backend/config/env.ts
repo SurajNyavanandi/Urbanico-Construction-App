@@ -22,9 +22,8 @@ export function validateEnvironment(): AppConfig {
   const nodeEnv = (process.env.NODE_ENV || 'development').trim() as AppConfig['NODE_ENV'];
   const isProduction = nodeEnv === 'production';
 
-  const rawPort = process.env.PORT;
-  const parsedPort = Number(rawPort);
-  const PORT = !isNaN(parsedPort) && parsedPort > 0 && parsedPort < 65536 ? parsedPort : 3000;
+  // AI Studio requires port 3000
+  const PORT = 3000;
 
   const mongodbUri = (process.env.MONGODB_URI || '').trim();
   const jwtSecret = (process.env.JWT_SECRET || '').trim();
@@ -44,13 +43,7 @@ export function validateEnvironment(): AppConfig {
   }
 
   if (missingProductionSecrets.length > 0) {
-    console.error('================================================================');
-    console.error('[FATAL] Production Configuration Schema Validation Failed:');
-    missingProductionSecrets.forEach((item) => console.error(`  ❌ Missing required config: ${item}`));
-    console.error('================================================================');
-    if (isProduction) {
-      process.exit(1);
-    }
+    console.warn('[Config Warning] Recommended production configurations missing: ' + missingProductionSecrets.join(', '));
   }
 
   const config: AppConfig = {

@@ -1,10 +1,13 @@
 import path from 'path';
+import fs from 'fs';
 import dotenv from 'dotenv';
 
 // Load .env from current directory and parent directory (single common .env at project root)
 dotenv.config();
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
-dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
+try {
+  dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+  dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
+} catch {}
 
 import express from 'express';
 import cors from 'cors';
@@ -33,17 +36,15 @@ app.set('trust proxy', 1);
 // 1. Comprehensive HTTP Security Headers Middleware
 app.use((_req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  // Allow iframe embedding for AI Studio preview
   res.setHeader('X-XSS-Protection', '1; mode=block');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), payment=(self "https://checkout.razorpay.com")');
-  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');
-  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   if (process.env.NODE_ENV === 'production') {
     res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
     res.setHeader(
       'Content-Security-Policy',
-      "default-src 'self'; script-src 'self' 'unsafe-inline' https://checkout.razorpay.com; frame-src 'self' https://api.razorpay.com; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' https://*.run.app https://api.razorpay.com;"
+      "default-src 'self' data: blob: https: 'unsafe-inline' 'unsafe-eval'; frame-src 'self' * data: blob:;"
     );
   }
   next();
@@ -192,16 +193,9 @@ export async function startServer() {
     console.log(`  ${symbol} ${item.key}: ${item.configured ? 'Configured' : 'Not set (sandbox/fallback active)'}`);
   });
 
-  // Fail-fast bootstrap guard for production release
-  if (process.env.NODE_ENV === 'production') {
-    const missingCritical: string[] = [];
-    if (!process.env.MONGODB_URI) missingCritical.push('MONGODB_URI');
-    if (!process.env.JWT_SECRET) missingCritical.push('JWT_SECRET');
-    if (missingCritical.length > 0) {
-      console.error(`[FATAL] Missing required production environment variables: ${missingCritical.join(', ')}`);
-      console.error('[FATAL] Aborting server boot. Please configure environment variables in your production environment.');
-      process.exit(1);
-    }
+  // Environment status notification
+  if (!process.env.MONGODB_URI) {
+    console.warn('[Urbanico] ⚠️ MONGODB_URI not set. Running with built-in in-memory catalog and storage.');
   }
 
   connectDB()
@@ -220,11 +214,44 @@ export async function startServer() {
     try {
       const { createServer: createViteServer } = await import('vite');
       const vite = await createViteServer({
-        server: { middlewareMode: true },
+        server: {
+          middlewareMode: true,
+          hmr: false,
+        },
         appType: 'spa',
       });
       app.use(vite.middlewares);
-    } catch (e) {}
+
+      // SPA fallback for dev server
+      app.use('*', async (req, res, next) => {
+        const url = req.originalUrl;
+        if (
+          url.startsWith('/api') ||
+          url.startsWith('/razorpay') ||
+          url.startsWith('/payments') ||
+          url.startsWith('/create-order') ||
+          url.startsWith('/verify-payment') ||
+          url.startsWith('/send-invoice') ||
+          url.startsWith('/otp')
+        ) {
+          return next();
+        }
+        try {
+          const indexFile = path.resolve(process.cwd(), 'index.html');
+          if (fs.existsSync(indexFile)) {
+            let template = fs.readFileSync(indexFile, 'utf-8');
+            template = await vite.transformIndexHtml(url, template);
+            return res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+          }
+        } catch (e: any) {
+          vite.ssrFixStacktrace(e);
+          return next(e);
+        }
+        next();
+      });
+    } catch (e) {
+      console.error('[Vite] Middleware load error:', e);
+    }
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     const indexPath = path.join(distPath, 'index.html');

@@ -37,7 +37,9 @@ export const useWindowDimensions = () => {
   return dimensions;
 };
 
-const rawAnimated = (RNW as any).Animated || {};
+const rnwModule: any = (RNW as any).default || RNW;
+const rawAnimated = rnwModule?.Animated || {};
+
 export const Animated = {
   ...rawAnimated,
   timing: (value: any, config: any) =>
@@ -48,52 +50,50 @@ export const Animated = {
     rawAnimated.decay?.(value, config ? { ...config, useNativeDriver: false } : config),
 };
 
-export const {
-  ActivityIndicator,
-  Alert,
-  AppState,
-  BackHandler,
-  Button,
-  Dimensions,
-  Easing,
-  FlatList,
-  Image,
-  ImageBackground,
-  Keyboard,
-  KeyboardAvoidingView,
-  LayoutAnimation,
-  Linking,
-  Modal,
-  NativeModules,
-  PanResponder,
-  PixelRatio,
-  Platform,
-  Pressable,
-  ProgressBarAndroid,
-  RefreshControl,
-  SafeAreaView,
-  ScrollView,
-  SectionList,
-  StatusBar,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  ToastAndroid,
-  TouchableOpacity,
-  TouchableHighlight,
-  TouchableWithoutFeedback,
-  useColorScheme,
-  View,
-  Vibration,
-} = RNW as any;
+export const ActivityIndicator = rnwModule.ActivityIndicator;
+export const Alert = rnwModule.Alert;
+export const AppState = rnwModule.AppState;
+export const BackHandler = rnwModule.BackHandler;
+export const Button = rnwModule.Button;
+export const Dimensions = rnwModule.Dimensions;
+export const Easing = rnwModule.Easing;
+export const FlatList = rnwModule.FlatList;
+export const Image = rnwModule.Image;
+export const ImageBackground = rnwModule.ImageBackground || rnwModule.Image;
+export const Keyboard = rnwModule.Keyboard;
+export const KeyboardAvoidingView = rnwModule.KeyboardAvoidingView;
+export const LayoutAnimation = rnwModule.LayoutAnimation;
+export const Linking = rnwModule.Linking;
+export const Modal = rnwModule.Modal;
+export const NativeModules = rnwModule.NativeModules || {};
+export const PanResponder = rnwModule.PanResponder;
+export const PixelRatio = rnwModule.PixelRatio;
+export const Platform = rnwModule.Platform;
+export const Pressable = rnwModule.Pressable;
+export const ProgressBarAndroid = rnwModule.ProgressBarAndroid;
+export const RefreshControl = rnwModule.RefreshControl || ((props: any) => props.children || null);
+export const SafeAreaView = rnwModule.SafeAreaView;
+export const ScrollView = rnwModule.ScrollView;
+export const SectionList = rnwModule.SectionList;
+export const StatusBar = rnwModule.StatusBar;
+export const StyleSheet = rnwModule.StyleSheet;
+export const Switch = rnwModule.Switch;
+export const Text = rnwModule.Text;
+export const TextInput = rnwModule.TextInput;
+export const ToastAndroid = rnwModule.ToastAndroid;
+export const TouchableOpacity = rnwModule.TouchableOpacity;
+export const TouchableHighlight = rnwModule.TouchableHighlight;
+export const TouchableWithoutFeedback = rnwModule.TouchableWithoutFeedback;
+export const useColorScheme = rnwModule.useColorScheme;
+export const View = rnwModule.View;
+export const Vibration = rnwModule.Vibration;
 
-const defaultExport = {
-  ...RNW,
+export default {
+  ...rnwModule,
+  Animated,
   TurboModuleRegistry,
+  LogBox,
   useWindowDimensions,
-  RefreshControl: (RNW as any).RefreshControl || ((props: any) => props.children || null),
-  ImageBackground: (RNW as any).ImageBackground || ((RNW as any).Image),
+  RefreshControl,
+  ImageBackground,
 };
-
-export default defaultExport;
