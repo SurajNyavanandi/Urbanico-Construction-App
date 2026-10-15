@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
-import { Building2, Layers } from 'lucide-react';
+import { Layers } from 'lucide-react';
 
 interface UrbanicoEmblemProps {
   size?: number;
@@ -10,7 +10,7 @@ interface UrbanicoEmblemProps {
 
 export const UrbanicoEmblem: React.FC<UrbanicoEmblemProps> = ({
   size = 84,
-  color = '#111111',
+  color = '#FCB026',
   style,
 }) => {
   return (

@@ -53,44 +53,44 @@ export interface VehicleCapacity {
 export const VEHICLE_FLEET: Record<string, VehicleCapacity> = {
   micro_cargo: {
     type: 'micro_cargo',
-    name: '3-Wheeler Cargo Auto / Compact Tempo (Up to 250 kg)',
-    shortName: 'Cargo Auto (3-Wheeler)',
+    name: 'Piaggio Ape 3-Wheeler (Up to 250 kg)',
+    shortName: 'Piaggio Ape 3-Wheeler',
     maxTons: 0.25,
-    baseFee: 49,
-    ratePerKm: 3,
+    baseFee: 0,
+    ratePerKm: 7,
     unloadingMechanism: 'Hand Offloading / Tailgate Access',
     iconKey: 'auto',
-    recommendedFor: 'Small quantities, retail bags, fittings & tools',
+    recommendedFor: 'Small orders (1–4 cement bags, retail bags, fittings & tools)',
   },
   small_pickup: {
     type: 'small_pickup',
-    name: 'Tata Ace / 1.5 Ton Mini Truck (Up to 1.5 Tons)',
-    shortName: 'Tata Ace Mini Truck',
+    name: 'Tata Ace Gold 1.5T (Up to 1.5 Tons)',
+    shortName: 'Tata Ace Gold 1.5T',
     maxTons: 1.5,
-    baseFee: 149,
-    ratePerKm: 5,
+    baseFee: 0,
+    ratePerKm: 7,
     unloadingMechanism: 'Manual Offloading / Pallet Stacking',
     iconKey: 'mini_truck',
-    recommendedFor: 'Cement bags (up to 30), tiles, paints & plumbing supplies',
+    recommendedFor: 'Cement bags (>4 bags up to 30), tiles, paints & plumbing supplies',
   },
   medium_pickup: {
     type: 'medium_pickup',
-    name: 'Mahindra Bolero Maxi Truck (1.5 - 3.5 Tons)',
-    shortName: 'Bolero Maxi Truck',
+    name: 'Ashok Leyland Bada Dost (1.5 - 3.5 Tons)',
+    shortName: 'Ashok Leyland Bada Dost',
     maxTons: 3.5,
-    baseFee: 349,
-    ratePerKm: 8,
-    unloadingMechanism: 'Extended Deck Offloading / Forklift Compatible',
+    baseFee: 0,
+    ratePerKm: 7,
+    unloadingMechanism: 'Heavy Flatbed Deck Offloading / Certified Loaders',
     iconKey: 'maxi_truck',
     recommendedFor: 'Structural steel bars, AAC blocks, brick crates & intermediate loads',
   },
   single_axle: {
     type: 'single_axle',
-    name: '6-Wheeler Medium Tipper / 407 (3.5 - 10 Tons)',
-    shortName: '6-Wheeler Tipper Dumper',
+    name: '6-Wheeler Medium Tipper (3.5 - 10 Tons)',
+    shortName: '6-Wheeler Tipper',
     maxTons: 10,
-    baseFee: 699,
-    ratePerKm: 12,
+    baseFee: 0,
+    ratePerKm: 7,
     unloadingMechanism: 'Hydraulic Bed Tipping / Direct Chute Discharge',
     iconKey: 'tipper_6w',
     recommendedFor: 'Medium bulk sand, 10mm/20mm gravel & crushed stone for residential sites',
@@ -100,8 +100,8 @@ export const VEHICLE_FLEET: Record<string, VehicleCapacity> = {
     name: '10-Wheeler Heavy Hydraulic Tipper (10 - 25 Tons)',
     shortName: '10-Wheeler Heavy Tipper',
     maxTons: 25,
-    baseFee: 1299,
-    ratePerKm: 16,
+    baseFee: 0,
+    ratePerKm: 7,
     unloadingMechanism: 'High-Angle Hydraulic Dumper (Fast Chute Ejection)',
     iconKey: 'tipper_10w',
     recommendedFor: 'Bulk River Sand, Robo Sand, coarse aggregates & large pour concrete jobs',
@@ -111,8 +111,8 @@ export const VEHICLE_FLEET: Record<string, VehicleCapacity> = {
     name: '14-Wheeler Heavy Industrial Trailer (25 - 45 Tons)',
     shortName: '14-Wheeler Trailer',
     maxTons: 45,
-    baseFee: 2199,
-    ratePerKm: 22,
+    baseFee: 0,
+    ratePerKm: 7,
     unloadingMechanism: 'Crane / Heavy Equipment Rigging Offload',
     iconKey: 'trailer',
     recommendedFor: 'Full commercial infrastructure orders, wholesale steel coils & large project tonnage',
@@ -271,31 +271,31 @@ export function evaluateSmartVehicleRecommendation(
       reason = `Hydraulic tipper for fast unloading and colony access (${totalWeightTons} MT).`;
     } else {
       chosenVehicle = VEHICLE_FLEET.medium_pickup;
-      badge = 'Maxi Truck';
-      reason = `Covered cargo bed for secure aggregate transport (${totalWeightTons} MT).`;
+      badge = 'Ashok Leyland Bada Dost';
+      reason = `Covered flatbed cargo for secure aggregate transport (${totalWeightTons} MT).`;
     }
   }
-  // Rule 2: Small Retail / Light Orders
-  else if (totalWeightTons <= 0.25 || (totalUnits <= 3 && totalWeightTons <= 0.35)) {
+  // Rule 2: Small Retail / Light Orders (1-4 bags / under 250 kg)
+  else if (totalWeightTons <= 0.25 || (totalUnits <= 4 && totalWeightTons <= 0.35)) {
     classification = 'lightweight_retail';
     chosenVehicle = VEHICLE_FLEET.micro_cargo;
-    badge = '3-Wheeler Auto';
-    reason = `Compact cargo auto for quick local dispatch (${totalWeightKg > 0 ? totalWeightKg : 60} kg).`;
+    badge = 'Piaggio Ape 3-Wheeler';
+    reason = `Compact Piaggio Ape 3-Wheeler for quick local dispatch (${totalWeightKg > 0 ? totalWeightKg : 60} kg).`;
   }
   // Rule 3: Heavy Structural Steel or Masonry Blocks
   else if (hasSteelOrBricks && totalWeightTons > 1.5) {
     classification = 'heavy_structural';
     if (totalWeightTons > 10) {
       chosenVehicle = VEHICLE_FLEET.multi_axle;
-      badge = 'Multi-Axle Truck';
+      badge = '10-Wheeler Tipper';
       reason = `Multi-axle transport for heavy structural loads (${totalWeightTons} MT).`;
     } else if (totalWeightTons > 3.5) {
       chosenVehicle = VEHICLE_FLEET.single_axle;
-      badge = '6-Wheeler Truck';
+      badge = '6-Wheeler Tipper';
       reason = `Commercial flatbed for rebar and masonry blocks (${totalWeightTons} MT).`;
     } else {
       chosenVehicle = VEHICLE_FLEET.medium_pickup;
-      badge = 'Maxi Truck';
+      badge = 'Ashok Leyland Bada Dost';
       reason = `Extended deck for steel bundles and masonry (${totalWeightTons} MT).`;
     }
   }
@@ -303,13 +303,13 @@ export function evaluateSmartVehicleRecommendation(
   else if (totalWeightTons <= 1.5) {
     classification = 'packaged_bags';
     chosenVehicle = VEHICLE_FLEET.small_pickup;
-    badge = 'Mini Truck';
+    badge = 'Tata Ace Gold 1.5T';
     reason = `Low bed height for easy ground unloading (${totalWeightTons} MT).`;
   } else if (totalWeightTons <= 3.5) {
     classification = 'packaged_bags';
     chosenVehicle = VEHICLE_FLEET.medium_pickup;
-    badge = 'Maxi Truck';
-    reason = `Stable transport for bagged materials and tiles (${totalWeightTons} MT).`;
+    badge = 'Ashok Leyland Bada Dost';
+    reason = `Stable transport for heavy bagged materials and tiles (${totalWeightTons} MT).`;
   } else if (totalWeightTons <= 10) {
     classification = 'heavy_structural';
     chosenVehicle = VEHICLE_FLEET.single_axle;
@@ -323,41 +323,41 @@ export function evaluateSmartVehicleRecommendation(
   } else {
     classification = 'heavy_structural';
     chosenVehicle = VEHICLE_FLEET.trailer;
-    badge = 'Industrial Trailer';
+    badge = '14-Wheeler Trailer';
     reason = `Heavy trailer for industrial volume (${totalWeightTons} MT).`;
   }
 
-  // Labor Assistance calculation
+  // Labor Assistance calculation default
   let fee = 0;
   let laborCount = 0;
-  let label = 'Self-Unloading / Site Team';
-  let description = 'Customer site team will handle manual offloading.';
+  let label = 'Customer Self-Unload (₹0)';
+  let description = 'Customer site team handles offloading for small loads.';
 
   if (hasSandOrAggregates && (chosenVehicle.type === 'single_axle' || chosenVehicle.type === 'multi_axle')) {
     fee = 199;
     laborCount = 1;
-    label = '1 Chute Spotter';
+    label = '1 Certified Chute Spotter';
     description = 'Guides hydraulic dumper chute and levels material pile.';
   } else if (totalWeightTons <= 0.25) {
-    fee = 149;
-    laborCount = 1;
-    label = '1 Delivery Porter';
-    description = 'Direct doorstep and ground-floor offloading.';
+    fee = 0;
+    laborCount = 0;
+    label = 'Customer Self-Unload (₹0)';
+    description = 'Small order (1–4 bags / under 250 kg): Offloaded without extra labour charge.';
   } else if (totalWeightTons <= 1.5) {
-    fee = 349;
+    fee = 199;
     laborCount = 2;
-    label = '2 Site Loaders';
-    description = 'Ground-floor offloading and neat stacking.';
+    label = '2 Certified Site Loaders';
+    description = 'Ground-floor offloading and neat stacking by certified helpers.';
   } else if (totalWeightTons <= 5.0) {
-    fee = 649;
+    fee = 349;
     laborCount = 3;
-    label = '3 Stacking Loaders';
-    description = 'Offloading and stacking of heavy materials.';
+    label = '3 Certified Stacking Helpers';
+    description = 'Offloading and stacking of heavy materials by certified helpers.';
   } else {
-    fee = 999;
+    fee = 499;
     laborCount = 4;
-    label = '4-Person Labor Crew';
-    description = 'Offloading and organized stacking crew.';
+    label = '4-Person Certified Labour Crew';
+    description = 'Offloading and organized stacking crew dispatched with vehicle.';
   }
 
   return {
@@ -383,15 +383,174 @@ export function isServiceablePincode(pincode: string): boolean {
   return clean.length === 6;
 }
 
-// Platform delivery rate per kilometer
-export const PLATFORM_DELIVERY_RATE_PER_KM = 5;
+// Platform delivery rate per kilometer after 5 km radius
+export const PLATFORM_DELIVERY_RATE_PER_KM = 7;
 
-export function calculateDistanceDeliveryCharge(
-  distanceKm: number,
-  ratePerKm: number = PLATFORM_DELIVERY_RATE_PER_KM
-): number {
-  const effectiveDistance = Math.max(1, distanceKm);
-  return Math.round(effectiveDistance * ratePerKm);
+/**
+ * 5 km Delivery Rule Calculation:
+ * - 0 km to 5 km: Completely FREE delivery (₹0).
+ * - Above 5 km: Charge ₹7 per additional km beyond 5 km.
+ * - Split: ₹3.50/km to material supplier/transporter and ₹3.50/km to app platform.
+ */
+export function calculateDeliveryFee5KmRule(distanceKm: number): {
+  distanceKm: number;
+  freeKm: number;
+  extraKm: number;
+  deliveryCharge: number;
+  supplierSplit: number;
+  platformSplit: number;
+  isFree: boolean;
+  displayBreakdown: string;
+} {
+  const roundedDist = Math.max(0, Math.round(distanceKm * 10) / 10);
+  if (roundedDist <= 5) {
+    return {
+      distanceKm: roundedDist,
+      freeKm: roundedDist,
+      extraKm: 0,
+      deliveryCharge: 0,
+      supplierSplit: 0,
+      platformSplit: 0,
+      isFree: true,
+      displayBreakdown: 'FREE (Within 5 km radius)',
+    };
+  }
+  const extraKm = Math.round((roundedDist - 5) * 10) / 10;
+  const deliveryCharge = Math.round(extraKm * 7);
+  const supplierSplit = Math.round(extraKm * 3.5 * 100) / 100;
+  const platformSplit = Math.round(extraKm * 3.5 * 100) / 100;
+  return {
+    distanceKm: roundedDist,
+    freeKm: 5,
+    extraKm,
+    deliveryCharge,
+    supplierSplit,
+    platformSplit,
+    isFree: false,
+    displayBreakdown: `FREE up to 5 km (+ ₹7/km for ${extraKm} km)`,
+  };
+}
+
+export function calculateDistanceDeliveryCharge(distanceKm: number): number {
+  return calculateDeliveryFee5KmRule(distanceKm).deliveryCharge;
+}
+
+export interface UnloadingAssistanceEvaluation {
+  isMandatory: boolean;
+  isOptional: boolean;
+  isSmallOrder: boolean;
+  laborFee: number;
+  helperCount: number;
+  helperLabel: string;
+  helperDescription: string;
+  cementBagsCount: number;
+  hasBulkMaterials: boolean;
+  reason: string;
+}
+
+/**
+ * Evaluates whether site unloading labour is mandatory:
+ * - Small orders (1 to 4 cement bags or under 250 kg): Unloading labour is optional / ₹0 (Customer Self-Unload).
+ * - Bulk / High quantity orders (> 4 cement bags, sand, steel, bricks, aggregates):
+ *   Site Unloading Labour is MANDATORY with certified unloading helpers dispatched with the vehicle.
+ */
+export function evaluateUnloadingAssistance(
+  cartItems: { itemName: string; selectedOptionLabel?: string; quantity: number }[],
+  totalWeightTons: number
+): UnloadingAssistanceEvaluation {
+  let cementBagsCount = 0;
+  let hasBulkMaterials = false;
+
+  for (const item of cartItems) {
+    const text = `${item.itemName || ''} ${item.selectedOptionLabel || ''}`.toLowerCase();
+    const qty = Number(item.quantity) || 1;
+
+    // Check cement/putty bags
+    if (
+      text.includes('cement') ||
+      text.includes('putty') ||
+      text.includes('birla') ||
+      text.includes('ultratech') ||
+      text.includes('acc') ||
+      text.includes('ambuja') ||
+      text.includes('bag')
+    ) {
+      if (text.includes('ton')) {
+        cementBagsCount += qty * 20; // 1 ton = 20 standard 50kg bags
+      } else {
+        cementBagsCount += qty;
+      }
+    }
+
+    // Check bulk sand, aggregates, steel, bricks
+    if (
+      text.includes('sand') ||
+      text.includes('robo') ||
+      text.includes('gravel') ||
+      text.includes('aggregate') ||
+      text.includes('crusher') ||
+      text.includes('stone') ||
+      text.includes('tmt') ||
+      text.includes('steel') ||
+      text.includes('rebar') ||
+      text.includes('iron') ||
+      text.includes('brick') ||
+      text.includes('aac block') ||
+      text.includes('brass')
+    ) {
+      hasBulkMaterials = true;
+    }
+  }
+
+  // Small Orders: 1 to 4 cement bags AND under 250 kg AND no bulk sand/steel/bricks
+  const isSmall = totalWeightTons <= 0.25 && cementBagsCount <= 4 && !hasBulkMaterials;
+
+  if (isSmall) {
+    return {
+      isMandatory: false,
+      isOptional: true,
+      isSmallOrder: true,
+      laborFee: 0,
+      helperCount: 0,
+      helperLabel: 'Self-Unload (₹0)',
+      helperDescription: 'Small order (1–4 bags / under 250 kg): Customer self-unload at site.',
+      cementBagsCount,
+      hasBulkMaterials,
+      reason: 'Small Order: 1 to 4 bags or under 250 kg. Unloading labour is optional.',
+    };
+  }
+
+  // Bulk / High Quantity Orders (> 4 cement bags, sand, steel, bricks, aggregates):
+  // Mandatory certified site unloading helpers dispatched with the vehicle
+  let helperCount = 2;
+  let laborFee = 199;
+  let helperLabel = '2 Certified Unloading Helpers';
+  let helperDescription = 'Mandatory for high quantity: 2 certified helpers dispatched with vehicle to safely offload materials.';
+
+  if (totalWeightTons > 3.5 || (hasBulkMaterials && totalWeightTons > 2.0)) {
+    helperCount = 3;
+    laborFee = 349;
+    helperLabel = '3 Certified Unloading Helpers';
+    helperDescription = 'Mandatory for heavy bulk (>3.5 MT): 3 certified helpers dispatched with vehicle for site offload & stacking.';
+  } else if (cementBagsCount > 20 || totalWeightTons > 1.5) {
+    helperCount = 2;
+    laborFee = 249;
+    helperLabel = '2 Certified Loaders';
+    helperDescription = 'Mandatory for palletized batch (>20 bags): 2 certified loaders dispatched with vehicle.';
+  }
+
+  return {
+    isMandatory: true,
+    isOptional: false,
+    isSmallOrder: false,
+    laborFee,
+    helperCount,
+    helperLabel,
+    helperDescription,
+    cementBagsCount,
+    hasBulkMaterials,
+    reason: `Bulk order (${cementBagsCount > 4 ? `${cementBagsCount} cement bags` : `${totalWeightTons} MT bulk`}): Mandatory site unloading labour dispatched.`,
+  };
 }
 
 export function calculateDynamicFreight(
@@ -409,6 +568,7 @@ export function calculateDynamicFreight(
   totalFreight: number;
   areaName: string;
   hubName: string;
+  deliveryFeeBreakdown: ReturnType<typeof calculateDeliveryFee5KmRule>;
 } {
   let distance = 10.0;
   let areaName = 'Local Site Delivery';
@@ -432,22 +592,20 @@ export function calculateDynamicFreight(
   }
 
   const vehicle = recommendVehicle(totalTons);
-  const ratePerKm = vehicle.ratePerKm;
-  // Multi-trip calculation if order exceeds single vehicle capacity
-  const tripsCount = totalTons > 0 ? Math.max(1, Math.ceil(totalTons / vehicle.maxTons)) : 1;
-  const singleTripCharge = vehicle.baseFee + Math.round(distance * ratePerKm);
-  const deliveryCharge = Math.max(49, singleTripCharge * tripsCount);
+  const deliveryFeeInfo = calculateDeliveryFee5KmRule(distance);
+  const deliveryCharge = deliveryFeeInfo.deliveryCharge;
 
   return {
     distanceKm: distance,
-    ratePerKm,
+    ratePerKm: PLATFORM_DELIVERY_RATE_PER_KM,
     deliveryCharge,
     vehicle,
-    tripsCount,
+    tripsCount: 1,
     freightCost: deliveryCharge,
     tollFee: 0,
     totalFreight: deliveryCharge,
     areaName,
     hubName: HYDERABAD_CENTER.name,
+    deliveryFeeBreakdown: deliveryFeeInfo,
   };
 }

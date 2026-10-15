@@ -1,16 +1,19 @@
 import { Router } from 'express';
 import { OrderController } from '../controllers/orderController';
-import { authenticateToken } from '../middleware/auth';
+import { authenticateToken, requireAuth, requireAdminSecret } from '../middleware/auth';
+import { orderCreateRateLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
 // Order CRUD & state transitions with optional/required authorization
 router.use(authenticateToken);
-router.get('/', OrderController.getOrders);
-router.post('/', OrderController.createOrder);
+router.get('/', requireAuth, OrderController.getOrders);
+router.post('/', orderCreateRateLimiter, OrderController.createOrder);
+router.delete('/', requireAdminSecret, OrderController.deleteAllOrders);
 router.post('/email-invoice', OrderController.emailInvoice);
-router.get('/:id', OrderController.getOrderById);
-router.get('/number/:orderNumber', OrderController.getOrderByOrderNumber);
-router.patch('/:id/status', OrderController.updateStatus);
+router.get('/:id', requireAuth, OrderController.getOrderById);
+router.get('/:id/tracking', OrderController.getTracking);
+router.get('/number/:orderNumber', requireAuth, OrderController.getOrderByOrderNumber);
+router.patch('/:id/status', requireAuth, OrderController.updateStatus);
 
 export const orderRouter = router;

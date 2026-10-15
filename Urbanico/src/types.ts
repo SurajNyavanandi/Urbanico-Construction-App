@@ -6,6 +6,9 @@ export type ScreenType =
   | 'favorites'
   | 'profile'
   | 'activity'
+  | 'orders'
+  | 'order_history'
+  | 'tracking'
   | 'auth_mobile'
   | 'auth_otp';
 
@@ -58,17 +61,28 @@ export interface MaterialItem {
   actionType: 'add_to_cart' | 'get_quote';
   defaultPrice?: number;
   options: UnitOption[];
+  maxOrderQuantity?: number;
+  inStock?: boolean;
+  stock?: number;
 }
 
 export interface CartItem {
   id: string;
   itemId: string;
+  materialId?: string;
+  serviceId?: string;
   itemName: string;
   categoryName: string;
   selectedOptionLabel: string;
   unitPrice: number;
   quantity: number;
   image: string;
+  serviceDetails?: {
+    headcount?: number;
+    shiftDays?: number;
+    timeSlot?: string;
+    scopeNotes?: string;
+  };
 }
 
 export interface UserProfile {
@@ -161,4 +175,10 @@ export interface SavedPaymentMethod {
   cardHolder?: string;
   cardBrand?: 'visa' | 'mastercard' | 'rupay' | 'card';
   bankName?: string;
+  // Razorpay RBI Card-on-File Tokenization (CoFT)
+  tokenId?: string;
+  cardToken?: string;
+  razorpayCustomerId?: string;
+  isTokenized?: boolean;
+  coftCompliant?: boolean;
 }

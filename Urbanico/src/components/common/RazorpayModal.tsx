@@ -256,6 +256,16 @@ export const RazorpayModal: React.FC<RazorpayModalProps> = ({
               </View>
             </View>
 
+            {/* Sandbox Notice */}
+            {activeMode !== 'LIVE' && (
+              <View style={[styles.statusBox, { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0', marginBottom: 12 }]}>
+                <ShieldCheck size={16} color="#16A34A" />
+                <Text style={[styles.statusText, { color: '#15803D', fontWeight: '500' }]}>
+                  Sandbox Test Mode: Order placed instantly for testing
+                </Text>
+              </View>
+            )}
+
             {/* Error Message if any */}
             {errorMessage ? (
               <View style={styles.errorBox}>
@@ -414,7 +424,7 @@ const styles = StyleSheet.create({
   amountValue: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#F59E0B',
+    color: '#FCB026',
     marginTop: 2,
   },
   amountSubtext: {
@@ -543,7 +553,7 @@ const styles = StyleSheet.create({
     color: '#334155',
   },
   primaryPayBtn: {
-    backgroundColor: '#F59E0B',
+    backgroundColor: '#FCB026',
     borderRadius: 14,
     paddingVertical: 15,
     paddingHorizontal: 18,
@@ -551,7 +561,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    shadowColor: '#F59E0B',
+    shadowColor: '#FCB026',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,

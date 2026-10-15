@@ -157,7 +157,7 @@ export const ChildNavPills: React.FC<ChildNavPillsProps> = ({
                   styles.iconBox,
                   {
                     backgroundColor: isFeatured
-                      ? (theme.mode === 'dark' ? '#27272A' : '#1D1D1F')
+                      ? '#FCB026'
                       : theme.surface,
                     borderColor: isFeatured ? 'transparent' : theme.border,
                     borderWidth: isFeatured ? 0 : 1,
@@ -165,7 +165,7 @@ export const ChildNavPills: React.FC<ChildNavPillsProps> = ({
                 ]}
               >
                 {item.iconType === 'star' ? (
-                  <Star size={17} color="#FFFFFF" fill="#FFFFFF" />
+                  <Star size={17} color="#18181B" fill="#18181B" />
                 ) : item.image ? (
                   <ShimmerImage
                     source={{ uri: item.image }}

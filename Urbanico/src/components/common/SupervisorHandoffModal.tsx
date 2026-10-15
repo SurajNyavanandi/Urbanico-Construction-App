@@ -69,7 +69,7 @@ export const SupervisorHandoffModal: React.FC<SupervisorHandoffModalProps> = ({
             {/* Header */}
             <View style={[styles.header, { borderBottomColor: theme.border }]}>
               <View style={styles.headerTitleRow}>
-                <Users size={18} color="#111111" />
+                <Users size={18} color={theme.primary || '#FCB026'} />
                 <Text style={[styles.title, { color: theme.textPrimary }]}>
                   Site Supervisor OTP Handoff
                 </Text>
@@ -137,7 +137,7 @@ export const SupervisorHandoffModal: React.FC<SupervisorHandoffModalProps> = ({
 
             <View style={[styles.footer, { borderTopColor: theme.border }]}>
               <TouchableOpacity onPress={handleSave} style={styles.saveBtn} activeOpacity={0.85}>
-                <Check size={16} color="#FFFFFF" />
+                <Check size={16} color="#18181B" />
                 <Text style={styles.saveBtnText}>Confirm Delegation</Text>
               </TouchableOpacity>
             </View>
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   saveBtn: {
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   saveBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 13,
     fontWeight: '700',
   },

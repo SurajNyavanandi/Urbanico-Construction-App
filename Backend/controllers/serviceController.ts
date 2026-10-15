@@ -1,11 +1,24 @@
 import { Request, Response } from 'express';
 import { ServiceService } from '../services/serviceService';
 import { asyncHandler, sendSuccess, sendError } from '../utils/apiResponse';
+import { validateServicePayload } from '../utils/requestValidator';
 
 export class ServiceController {
   public static getServices = asyncHandler(async (req: Request, res: Response) => {
-    const services = await ServiceService.getAllServices();
-    return sendSuccess(res, { services, count: services.length });
+    const rawLimit = Number(req.query.limit);
+    const rawPage = Number(req.query.page);
+    const limit = Math.min(100, Math.max(1, isNaN(rawLimit) ? 50 : rawLimit));
+    const page = Math.max(1, isNaN(rawPage) ? 1 : rawPage);
+
+    const result = await ServiceService.getAllServices({ limit, page });
+    return sendSuccess(res, {
+      services: result.services,
+      total: result.total,
+      count: result.services.length,
+      limit,
+      page,
+      totalPages: result.totalPages,
+    });
   });
 
   public static getServiceById = asyncHandler(async (req: Request, res: Response) => {
@@ -18,6 +31,10 @@ export class ServiceController {
   });
 
   public static createService = asyncHandler(async (req: Request, res: Response) => {
+    const validation = validateServicePayload(req.body);
+    if (!validation.isValid) {
+      return sendError(res, 'Service validation failed', 400, validation.errors);
+    }
     const service = await ServiceService.createService(req.body);
     return sendSuccess(res, { service }, 'Service created successfully', 201);
   });

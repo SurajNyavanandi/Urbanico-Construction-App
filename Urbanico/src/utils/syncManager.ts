@@ -7,7 +7,6 @@ import { safeStorage } from './safeStorage';
 
 type SyncEventType =
   | 'CART_UPDATED'
-  | 'SAVED_FOR_LATER_UPDATED'
   | 'FAVORITES_UPDATED'
   | 'PROFILE_UPDATED'
   | 'ORDER_STATUS_CHANGED'

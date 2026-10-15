@@ -1,6 +1,6 @@
 import React from 'react';
 import { Text as RNText, TextProps as RNTextProps, TextStyle, StyleSheet } from 'react-native';
-import { useTheme } from '../../context/ThemeContext';
+import { useTheme, useTypography } from '../../theme';
 
 export type TextVariant =
   | 'display'

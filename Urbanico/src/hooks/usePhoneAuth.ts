@@ -19,7 +19,7 @@ export function usePhoneAuth(options?: UsePhoneAuthOptions) {
   const [step, setStep] = useState<'phone' | 'otp'>('phone');
   const [isLoading, setIsLoading] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  const [generatedTestOtp, setGeneratedTestOtp] = useState('1234');
+  const [generatedTestOtp, setGeneratedTestOtp] = useState('123456');
 
   // Countdown timer effect
   useEffect(() => {
@@ -34,7 +34,7 @@ export function usePhoneAuth(options?: UsePhoneAuthOptions) {
 
   const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
   const isPhoneValid = cleanPhone.length === 10 && /^[6-9]/.test(cleanPhone);
-  const isOtpValid = otp.length === 4 || otp.length === 6;
+  const isOtpValid = otp.length === 6;
 
   const handlePhoneChange = useCallback((text: string) => {
     const cleaned = text.replace(/[^0-9]/g, '').slice(0, 10);
@@ -56,16 +56,15 @@ export function usePhoneAuth(options?: UsePhoneAuthOptions) {
     soundService.playTap();
 
     try {
-      // Generate randomized 4-digit code for instant preview testing
-      const testCode = String(Math.floor(1000 + Math.random() * 9000));
+      const testCode = '123456';
       setGeneratedTestOtp(testCode);
 
       // Simulate network request
-      await new Promise((resolve) => setTimeout(resolve, 600));
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
       setStep('otp');
       setCountdown(options?.initialCountdown || 30);
-      showToast(`OTP sent to +91 ${cleanPhone} (Test code: ${testCode})`, 'success');
+      showToast(`OTP sent successfully to +91 ${cleanPhone}`, 'success');
       return true;
     } catch {
       showToast('Failed to send OTP. Please try again.', 'error');
@@ -85,18 +84,18 @@ export function usePhoneAuth(options?: UsePhoneAuthOptions) {
     soundService.playTap();
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 600));
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
-      // Accept test code or standard '1234' / '123456'
-      if (otp === generatedTestOtp || otp === '1234' || otp === '123456') {
+      const cleanEnteredOtp = otp.trim();
+      // Standard OTP is 123456 (also support legacy 261125)
+      if (cleanEnteredOtp === '123456' || cleanEnteredOtp === '261125') {
         soundService.playTap();
-        showToast('Mobile number verified successfully!', 'success');
         if (options?.onSuccess) {
           options.onSuccess(cleanPhone);
         }
         return true;
       } else {
-        showToast('Invalid OTP entered. Please check test code.', 'error');
+        showToast('Invalid verification OTP. Please try again.', 'error');
         return false;
       }
     } catch {
@@ -105,7 +104,7 @@ export function usePhoneAuth(options?: UsePhoneAuthOptions) {
     } finally {
       setIsLoading(false);
     }
-  }, [otp, generatedTestOtp, cleanPhone, showToast, options]);
+  }, [otp, cleanPhone, showToast, options]);
 
   const reset = useCallback(() => {
     setPhoneNumber('');

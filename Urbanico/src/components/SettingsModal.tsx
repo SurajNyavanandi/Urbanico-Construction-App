@@ -14,9 +14,7 @@ import {
   Languages,
   ChevronRight,
   X,
-  ShieldCheck,
   Moon,
-  LayoutGrid,
   ArrowLeft,
   Check,
 } from 'lucide-react-native';
@@ -150,7 +148,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                             : { borderColor: theme.border, backgroundColor: theme.surface },
                         ]}
                       >
-                        {isSelected && <Check size={14} color="#FFFFFF" strokeWidth={3} />}
+                        {isSelected && <Check size={14} color={theme.primaryText || '#18181B'} strokeWidth={3} />}
                       </View>
                     </TouchableOpacity>
                   );
@@ -210,40 +208,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       const nextMode = val ? 'dark' : 'light';
                       setThemeMode(nextMode);
                     }}
-                    trackColor={{ false: '#E4E4E7', true: '#111111' }}
+                    trackColor={{ false: '#E4E4E7', true: theme.primary || '#FCB026' }}
                     thumbColor="#FFFFFF"
                   />
                 </View>
-
-                {/* Grid Mode Switch */}
-                <View style={styles.switchRow}>
-                  <View style={styles.switchRowLeft}>
-                    <LayoutGrid size={16} color={theme.textPrimary} strokeWidth={2} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.settingTitle, { color: theme.textPrimary }]}>2-Column Grid Layout</Text>
-                      <Text style={[styles.settingSub, { color: theme.textSecondary }]}>
-                        {viewMode === 'grid' ? 'Compact two-column catalog (Default)' : 'Single-column list layout'}
-                      </Text>
-                    </View>
-                  </View>
-                  <Switch
-                    value={viewMode === 'grid'}
-                    onValueChange={(val) => {
-                      const nextMode = val ? 'grid' : 'list';
-                      if (onViewModeChange) onViewModeChange(nextMode);
-                    }}
-                    trackColor={{ false: '#E4E4E7', true: '#111111' }}
-                    thumbColor="#FFFFFF"
-                  />
-                </View>
-              </View>
-
-              {/* Security Badge */}
-              <View style={[styles.securityBanner, { backgroundColor: theme.surfaceSecondary }]}>
-                <ShieldCheck size={16} color="#059669" />
-                <Text style={[styles.securityBannerText, { color: theme.textSecondary }]}>
-                  Urbanico PRO Builder Portal v2.6.4 • Verified 18% GST Compliant
-                </Text>
               </View>
             </ScrollView>
           )}
@@ -253,14 +221,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {activeSubView === 'language' ? (
               <TouchableOpacity
                 onPress={() => setActiveSubView('main')}
-                style={styles.primaryDoneBtn}
+                style={[styles.primaryDoneBtn, { backgroundColor: theme.buttonBg || theme.primary }]}
                 activeOpacity={0.85}
               >
-                <Text style={styles.primaryDoneBtnText}>Back to Settings</Text>
+                <Text style={[styles.primaryDoneBtnText, { color: theme.buttonText || '#18181B' }]}>Back to Settings</Text>
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity onPress={handleModalClose} style={styles.primaryDoneBtn} activeOpacity={0.85}>
-                <Text style={styles.primaryDoneBtnText}>Done</Text>
+              <TouchableOpacity
+                onPress={handleModalClose}
+                style={[styles.primaryDoneBtn, { backgroundColor: theme.buttonBg || theme.primary }]}
+                activeOpacity={0.85}
+              >
+                <Text style={[styles.primaryDoneBtnText, { color: theme.buttonText || '#18181B' }]}>Done</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -407,14 +379,14 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
   },
   primaryDoneBtn: {
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryDoneBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 13.5,
     fontWeight: '700',
   },

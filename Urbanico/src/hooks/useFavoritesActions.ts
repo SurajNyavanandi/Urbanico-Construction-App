@@ -35,9 +35,9 @@ export function useFavoritesActions(props?: UseFavoritesActionsProps) {
 
       if (itemName) {
         if (!currentlyFav) {
-          showToast(`Saved "${itemName}" to Favourites`, 'success');
+          showToast(`Saved "${itemName}" to Favorites`, 'success');
         } else {
-          showToast(`Removed "${itemName}" from Favourites`, 'info');
+          showToast(`Removed "${itemName}" from Favorites`, 'info');
         }
       }
     },

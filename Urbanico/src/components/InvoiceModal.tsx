@@ -56,7 +56,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   onClose,
   delivery,
   user,
-  isLoggedIn = true,
+  isLoggedIn = false,
   onOpenLoginModal,
 }) => {
   const { theme, typography } = useTheme();
@@ -541,7 +541,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               <div class="brand-sub">URBANICO TECHNOLOGIES PRIVATE LIMITED • CIN: U45200TG2022PTC168234</div>
               <div class="brand-sub">Registered Office: Plot 142, HiTech City Phase 2, Madhapur, Hyderabad, Telangana - 500081</div>
               <div class="brand-sub"><b>GSTIN:</b> 36AAACU9812A1Z4 | <b>PAN:</b> AAACU9812A | <b>State:</b> Telangana (Code: 36)</div>
-              <div class="brand-sub"><b>Email:</b> billing@urbanico.in | <b>Billing Desk:</b> +91 1800 200 8829</div>
+              <div class="brand-sub"><b>Email:</b> urbanicoapp@gmail.com | <b>Support Desk:</b> +91 8297474332</div>
             </div>
             <div class="tax-title-box">
               <div class="tax-heading">TAX INVOICE</div>
@@ -693,15 +693,48 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
       </html>
     `;
 
-    if (typeof window !== 'undefined' && window.open) {
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(printContent);
-        printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => {
-          printWindow.print();
-        }, 300);
+    if (typeof window !== 'undefined') {
+      try {
+        const printWindow = window.open ? window.open('', '_blank') : null;
+        if (printWindow) {
+          printWindow.document.write(printContent);
+          printWindow.document.close();
+          printWindow.focus();
+          setTimeout(() => {
+            try {
+              printWindow.print();
+            } catch {}
+          }, 350);
+        } else if (typeof document !== 'undefined') {
+          // Hidden iframe fallback when popups are blocked by sandbox / mobile browser
+          const hiddenIframe = document.createElement('iframe');
+          hiddenIframe.style.position = 'fixed';
+          hiddenIframe.style.right = '0';
+          hiddenIframe.style.bottom = '0';
+          hiddenIframe.style.width = '0';
+          hiddenIframe.style.height = '0';
+          hiddenIframe.style.border = '0';
+          document.body.appendChild(hiddenIframe);
+          const doc = hiddenIframe.contentWindow?.document || hiddenIframe.contentDocument;
+          if (doc) {
+            doc.open();
+            doc.write(printContent);
+            doc.close();
+            setTimeout(() => {
+              try {
+                hiddenIframe.contentWindow?.focus();
+                hiddenIframe.contentWindow?.print();
+              } catch {}
+              setTimeout(() => {
+                if (hiddenIframe.parentNode) {
+                  document.body.removeChild(hiddenIframe);
+                }
+              }, 60000);
+            }, 350);
+          }
+        }
+      } catch {
+        showToast('Printing initialized. You can also view the full invoice on screen.', 'info');
       }
     }
   };
@@ -745,7 +778,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                 activeOpacity={0.8}
                 accessibilityLabel="Download PDF invoice"
               >
-                <Download size={14} color="#FFFFFF" strokeWidth={2.2} />
+                <Download size={14} color="#18181B" strokeWidth={2.2} />
                 <Text style={styles.printActionText}>Download PDF</Text>
               </TouchableOpacity>
 
@@ -1203,7 +1236,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               activeOpacity={0.85}
               accessibilityLabel="Download or print invoice"
             >
-              <Download size={16} color="#FFFFFF" strokeWidth={2.2} />
+              <Download size={16} color="#18181B" strokeWidth={2.2} />
               <Text style={styles.downloadPdfBtnText}>
                 Download PDF
               </Text>
@@ -1296,7 +1329,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 8,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FCB026',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1340,13 +1373,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 8,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FCB026',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
   },
   printActionText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 11.5,
     fontWeight: '700',
   },
@@ -1706,19 +1739,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FCB026',
     paddingHorizontal: 10,
     paddingVertical: 8,
   },
   calcGrandTotalLabel: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: '#18181B',
   },
   calcGrandTotalVal: {
     fontSize: 13,
     fontWeight: '900',
-    color: '#FFFFFF',
+    color: '#18181B',
   },
   signatureFooterRow: {
     flexDirection: 'row',
@@ -1846,7 +1879,7 @@ const styles = StyleSheet.create({
   },
   downloadPdfBtn: {
     flex: 1.5,
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FCB026',
     paddingVertical: 12,
     borderRadius: 10,
     flexDirection: 'row',
@@ -1855,7 +1888,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   downloadPdfBtnText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 13,
     fontWeight: '700',
   },

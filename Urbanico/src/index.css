@@ -1,5 +1,76 @@
 @import "tailwindcss";
 
+:root {
+  /* ========================================================================= */
+  /* 🎨 GLOBAL DESIGN SYSTEM CSS TOKENS (Synced with src/theme)               */
+  /* ========================================================================= */
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-heading: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --color-primary: #FCB026;
+  --color-primary-light: #FFF8EB;
+  --color-primary-dark: #B45309;
+  --color-primary-text: #18181B;
+  --color-accent: #FCB026;
+  --color-bg: #F8F9FA;
+  --color-surface: #FFFFFF;
+  --color-surface-secondary: #F8FAFC;
+  --color-surface-tertiary: #F1F5F9;
+  --color-text-primary: #18181B;
+  --color-text-secondary: #64748B;
+  --color-text-muted: #94A3B8;
+  --color-text-inverse: #FFFFFF;
+  --color-border: #E4E4E7;
+  --color-border-light: #F4F4F5;
+  --color-border-focus: #FCB026;
+  --color-btn-bg: #FCB026;
+  --color-btn-text: #18181B;
+  --color-success: #059669;
+  --color-warning: #FCB026;
+  --color-error: #DC2626;
+  --color-info: #2563EB;
+
+  --font-size-2xs: 10px;
+  --font-size-xs: 11px;
+  --font-size-sm: 12px;
+  --font-size-base: 13.5px;
+  --font-size-md: 14px;
+  --font-size-lg: 15px;
+  --font-size-xl: 17px;
+  --font-size-2xl: 19px;
+  --font-size-3xl: 22px;
+  --font-size-4xl: 26px;
+  --font-size-5xl: 32px;
+
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-extrabold: 800;
+  --font-weight-black: 900;
+
+  --spacing-none: 0px;
+  --spacing-3xs: 2px;
+  --spacing-2xs: 4px;
+  --spacing-xs: 6px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 20px;
+  --spacing-2xl: 24px;
+  --spacing-3xl: 32px;
+
+  --radius-none: 0px;
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-full: 9999px;
+}
+
 @layer base {
   *,
   body,
@@ -16,12 +87,12 @@
   h4,
   h5,
   h6 {
-    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    font-family: var(--font-sans) !important;
   }
 
   body {
-    background-color: #F4F5F7;
-    color: #111111;
+    background-color: var(--color-bg);
+    color: var(--color-text-primary);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -175,6 +246,80 @@
 
 .animate-number-flip {
   animation: numberSlideUp 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ========================================================================= */
+/* ⚡ NEVER-FREEZE 60FPS GPU COMPOSITOR ANIMATIONS                            */
+/* ========================================================================= */
+
+@keyframes urbanico-never-freeze-spin {
+  0% {
+    transform: rotate(0deg) translateZ(0);
+  }
+  100% {
+    transform: rotate(360deg) translateZ(0);
+  }
+}
+
+@keyframes urbanico-breathing-pulse {
+  0%, 100% {
+    transform: scale(1) translateZ(0);
+    opacity: 0.95;
+  }
+  50% {
+    transform: scale(1.08) translateZ(0);
+    opacity: 1;
+  }
+}
+
+@keyframes urbanico-progress-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes urbanico-text-fade-in {
+  0% {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.urbanico-gpu-spinner {
+  animation: urbanico-never-freeze-spin 0.85s linear infinite !important;
+  will-change: transform;
+  transform: translateZ(0);
+  transform-origin: center center;
+}
+
+.urbanico-emblem-pulse {
+  animation: urbanico-breathing-pulse 1.8s ease-in-out infinite !important;
+  will-change: transform, opacity;
+  transform: translateZ(0);
+  transform-origin: center center;
+}
+
+.urbanico-shimmer-bar {
+  background: linear-gradient(
+    90deg,
+    rgba(252, 176, 38, 0.18) 0%,
+    rgba(252, 176, 38, 0.85) 50%,
+    rgba(252, 176, 38, 0.18) 100%
+  );
+  background-size: 200% 100%;
+  animation: urbanico-progress-shimmer 1.4s ease-in-out infinite !important;
+  will-change: background-position;
+}
+
+.urbanico-text-step {
+  animation: urbanico-text-fade-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .animate-fly-cart {

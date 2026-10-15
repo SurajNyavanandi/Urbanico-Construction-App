@@ -286,13 +286,13 @@ const styles = StyleSheet.create({
   },
   categoryTag: {
     alignSelf: 'flex-start',
-    backgroundColor: '#111111',
+    backgroundColor: '#FCB026',
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
   },
   categoryTagText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontSize: 9.5,
     fontWeight: '800',
     textTransform: 'uppercase',

@@ -25,6 +25,24 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('[ErrorBoundary caught error]:', error, errorInfo);
+
+    // If dynamic chunk loading fails (e.g. following dev server restart or new build release),
+    // automatically reload once to fetch the latest assets cleanly.
+    const isChunkError =
+      error?.message?.includes('Failed to fetch dynamically imported module') ||
+      error?.message?.includes('dynamically imported module') ||
+      error?.message?.includes('Importing a module script failed');
+
+    if (isChunkError && typeof window !== 'undefined') {
+      try {
+        const lastReload = sessionStorage.getItem('urbanico_chunk_reload');
+        const now = Date.now();
+        if (!lastReload || now - Number(lastReload) > 10000) {
+          sessionStorage.setItem('urbanico_chunk_reload', String(now));
+          window.location.reload();
+        }
+      } catch {}
+    }
   }
 
   private handleReset = () => {
@@ -56,7 +74,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 onPress={this.handleReset}
                 activeOpacity={0.8}
               >
-                <RefreshCw size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <RefreshCw size={16} color="#18181B" style={{ marginRight: 6 }} />
                 <Text style={styles.retryButtonText}>Try Again</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -138,13 +156,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0F172A',
+    backgroundColor: '#FCB026',
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 10,
   },
   retryButtonText: {
-    color: '#FFFFFF',
+    color: '#18181B',
     fontWeight: '700',
     fontSize: 13,
   },
