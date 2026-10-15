@@ -212,7 +212,7 @@ export function calculateCartTotals(
       ? 0
       : customDeliveryCharge !== undefined
       ? Math.round(customDeliveryCharge)
-      : Math.max(50, Math.round(deliveryDistanceKm * 5));
+      : defaultDelivery;
 
   // Unloading assistance applies strictly to physical heavy materials, isolated from contractor services
   const effectiveUnloading = isServicesOnly || materialItems.length === 0 ? 0 : roundMoney(unloadingCharge || 0);

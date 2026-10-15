@@ -119,7 +119,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   // Multi-tab synchronization: Listen to browser storage events across concurrent windows/tabs
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
 
     const handleStorageEvent = (e: StorageEvent) => {
       try {
@@ -137,9 +137,16 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       } catch {}
     };
 
-    window.addEventListener('storage', handleStorageEvent);
+    try {
+      window.addEventListener('storage', handleStorageEvent);
+    } catch {}
+
     return () => {
-      window.removeEventListener('storage', handleStorageEvent);
+      try {
+        if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
+          window.removeEventListener('storage', handleStorageEvent);
+        }
+      } catch {}
     };
   }, []);
 
@@ -256,15 +263,17 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           const existingItem = prev[existingIdx];
           if (isCartItemService(existingItem) || isService) {
             // Service booking already in cart! Do not add multiple or increment quantity.
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(
-                new CustomEvent('urbanico:service-already-in-cart', {
-                  detail: {
-                    message:
-                      'Service booking already in cart. You can update booking slot or location at checkout.',
-                  },
-                })
-              );
+            if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+              try {
+                window.dispatchEvent(
+                  new CustomEvent('urbanico:service-already-in-cart', {
+                    detail: {
+                      message:
+                        'Service booking already in cart. You can update booking slot or location at checkout.',
+                    },
+                  })
+                );
+              } catch {}
             }
             return prev;
           }
