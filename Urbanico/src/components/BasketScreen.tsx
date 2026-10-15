@@ -400,6 +400,13 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   } | null>(null);
   const [retryAttemptCount, setRetryAttemptCount] = useState(0);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethodType>('online');
+  const [selectedPaymentMode, setSelectedPaymentMode] = useState<'gateway' | 'bnpl'>('gateway');
+
+  const availableCreditLimit = useMemo(() => {
+    const limit = user?.creditLimit !== undefined ? user.creditLimit : 50000;
+    const used = user?.usedCredit || 0;
+    return Math.max(0, limit - used);
+  }, [user]);
 
   const isProfileVerified = Boolean(user?.isVerified);
 
@@ -447,49 +454,121 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   const [savedCards, setSavedCards] = useState<SavedPaymentMethod[]>([]);
   const [selectedCardId, setSelectedCardId] = useState<string>('');
   const [oneTapCvv, setOneTapCvv] = useState<string>('');
+  const [oneTapCvvError, setOneTapCvvError] = useState<string | null>(null);
+  const [activePaymentTab, setActivePaymentTab] = useState<'saved_card' | 'new_card' | 'upi' | 'pod'>('saved_card');
+  const [isTokenizingCard, setIsTokenizingCard] = useState(false);
+  const [cardValidationError, setCardValidationError] = useState<string | null>(null);
 
+  // Load user's tokenized cards for 1-Tap checkout
+  useEffect(() => {
+    const fetchUserCards = async () => {
+      let rawPhone = (user?.phone || '').replace(/\D/g, '');
+      if (!rawPhone) {
+        try {
+          const auth = safeStorage.getItem('urbanico_auth_session');
+          if (auth) {
+            const p = JSON.parse(auth);
+            if (p.phone) rawPhone = p.phone.replace(/\D/g, '');
+          }
+        } catch {}
+      }
+      if (rawPhone.length > 10) rawPhone = rawPhone.slice(-10);
+      const cleanPhone = rawPhone.length === 10 ? rawPhone : '9848012345';
 
+      const local = getSavedPaymentMethods(cleanPhone);
+      let cardList = local.filter((m) => m.type === 'card');
 
+      try {
+        const remoteTokens = await fetchCustomerTokensAPI(cleanPhone);
+        if (remoteTokens && remoteTokens.length > 0) {
+          remoteTokens.forEach((rt: any) => {
+            if (!cardList.some((c) => c.cardLast4 === rt.cardLast4)) {
+              const item: SavedPaymentMethod = {
+                id: rt.id || rt.tokenId,
+                tokenId: rt.tokenId || rt.id,
+                type: 'card',
+                title: `${rt.bankName || 'Bank'} Card`,
+                subtitle: `•••• ${rt.cardLast4} • Expires ${rt.cardExpiry || '12/28'}`,
+                details: `•••• •••• •••• ${rt.cardLast4}`,
+                cardLast4: rt.cardLast4,
+                cardExpiry: rt.cardExpiry,
+                cardHolder: rt.cardHolder,
+                cardBrand: rt.cardBrand || 'visa',
+                bankName: rt.bankName,
+                isVerified: true,
+                isTokenized: true,
+                coftCompliant: true,
+                isDefault: false,
+              };
+              cardList.push(item);
+              addSavedPaymentMethod(item, cleanPhone);
+            }
+          });
+        }
+      } catch {}
 
+      setSavedCards(cardList);
+      if (cardList.length > 0) {
+        const def = cardList.find((c) => c.isDefault) || cardList[0];
+        setSelectedCardId(def.id);
+        setActivePaymentTab('saved_card');
+      } else {
+        setActivePaymentTab('new_card');
+      }
+    };
 
+    fetchUserCards();
+  }, [user?.phone]);
 
+  const handleCardNumberChange = (text: string) => {
+    const raw = text.replace(/\D/g, '').slice(0, 16);
+    const parts = [];
+    for (let i = 0; i < raw.length; i += 4) {
+      parts.push(raw.substring(i, i + 4));
+    }
+    setCardNumber(parts.join(' '));
+    if (cardValidationError) setCardValidationError(null);
+  };
 
+  const handleCardExpiryChange = (text: string) => {
+    const raw = text.replace(/\D/g, '').slice(0, 4);
+    if (raw.length > 2) {
+      setCardExpiry(`${raw.slice(0, 2)}/${raw.slice(2)}`);
+    } else {
+      setCardExpiry(raw);
+    }
+    if (cardValidationError) setCardValidationError(null);
+  };
 
+  const detectedCardBrand = (() => {
+    const clean = cardNumber.replace(/\D/g, '');
+    if (clean.startsWith('4')) return 'visa';
+    if (/^(5[1-5]|2[2-7])/.test(clean)) return 'mastercard';
+    if (/^(60|65|81|82|508)/.test(clean)) return 'rupay';
+    return 'generic';
+  })();
 
+  // B2B GSTIN input for Tax Invoicing & 18% Input Tax Credit
+  const hasProfileGstin = Boolean(user?.gstin && user.gstin.trim().length === 15);
+  const [isB2BOpted, setIsB2BOpted] = useState(hasProfileGstin);
+  const [checkoutGstin, setCheckoutGstin] = useState(user?.gstin || '');
+  const [checkoutBusinessName, setCheckoutBusinessName] = useState(user?.companyName || '');
+  const [checkoutInvoiceEmail, setCheckoutInvoiceEmail] = useState(user?.email || '');
+  const [isEditingCustomGstin, setIsEditingCustomGstin] = useState(false);
+  const [gstinValidation, setGstinValidation] = useState<GstinValidationResult | null>(() => {
+    return user?.gstin ? validateGSTIN(user.gstin) : null;
+  });
+  const [gstinError, setGstinError] = useState<string | null>(null);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+  // Synchronize if user profile updates
+  useEffect(() => {
+    if (user?.gstin && user.gstin.trim().length === 15) {
+      setCheckoutGstin(user.gstin.trim().toUpperCase());
+      setIsB2BOpted(true);
+      setGstinValidation(validateGSTIN(user.gstin.trim()));
+      setGstinError(null);
+    }
+  }, [user?.gstin]);
 
   const handleGstinInputChange = (text: string) => {
     const clean = text.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15);
@@ -1340,6 +1419,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   );
 
   const payableAmount = grandTotal;
+  const isCreditAllowed = isProfileVerified && availableCreditLimit >= grandTotal;
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -1552,10 +1632,32 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       `${cleanPhone}@urbanico.in`
     ).trim();
 
-    // Direct 1-Step Secure Online Gateway Checkout
+    // Check Urbanico Credit (BNPL) limit & company profile verification
+    if (selectedPaymentMode === 'bnpl') {
+      if (!isProfileVerified) {
+        showToast('Urbanico Credit unavailable: Company profile unverified. Verify GSTIN to unlock.', 'error');
+        return;
+      }
+      if (grandTotal > availableCreditLimit) {
+        showToast(`Credit Limit Exceeded: Available ₹${availableCreditLimit.toLocaleString('en-IN')} < ₹${grandTotal.toLocaleString('en-IN')} order total.`, 'error');
+        return;
+      }
+    }
+
+    // Direct 1-Step Checkout / BNPL Settlement
     setIsPlacingOrder(true);
     setPaymentFailure(null);
     setPaymentError(null);
+
+    if (selectedPaymentMode === 'bnpl') {
+      showToast('Order placed using Urbanico Credit (30-Day Pay Later BNPL)', 'success');
+      setIsPlacingOrder(false);
+      handlePaymentSuccess({
+        razorpay_payment_id: `bnpl_credit_${Date.now()}`,
+        method: 'Urbanico Credit (30-Day BNPL)',
+      } as any);
+      return;
+    }
 
     const isLive = getClientKeyMode() === 'LIVE' || getClientRazorpayKey().startsWith('rzp_live_');
     if (!isLive) {
@@ -1783,7 +1885,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
         image: item.image,
       })),
       deliveryCharges: deliveryCharge,
-      unloadingCharges: effectiveUnloadingFee,
+      unloadingCharges: optInLaborAssistance ? unloadingLaborFee : 0,
       couponDiscount: couponDiscount || 0,
       paymentMethod: result.method || (selectedPaymentMethod === 'pod' ? 'Pay on Site (Cash / RTGS)' : 'Razorpay Gateway'),
       paymentStatus: selectedPaymentMethod === 'pod' ? 'pending_site_verification' : 'paid',
@@ -1860,9 +1962,9 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
       totalAmount: typeof finalServerOrder?.totalAmount === 'number' ? finalServerOrder.totalAmount : grandTotal,
       deliveryOtp: finalServerOrder?.deliveryOtp || orderPayload.deliveryOtp,
       ewayBillNumber: finalServerOrder?.eWayBillNo || orderPayload.eWayBillNo,
-      unloadingCharges: typeof finalServerOrder?.unloadingCharges === 'number' ? finalServerOrder.unloadingCharges : effectiveUnloadingFee,
-      laborAssistanceOpted: effectiveUnloadingFee > 0,
-      laborAssistanceDetails: effectiveUnloadingFee > 0 ? unloadingEvaluation.helperLabel : undefined,
+      unloadingCharges: typeof finalServerOrder?.unloadingCharges === 'number' ? finalServerOrder.unloadingCharges : (optInLaborAssistance ? unloadingLaborFee : 0),
+      laborAssistanceOpted: optInLaborAssistance,
+      laborAssistanceDetails: optInLaborAssistance ? smartRecommendation.unloadingAssistance.label : undefined,
       recommendedVehicle: smartRecommendation.vehicle.shortName,
       cartItemsSnapshot: [...cartItems],
       gstin: effectiveGstin,
@@ -2307,14 +2409,127 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                           <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary, marginTop: 1 }}>
                             {smartRecommendation.vehicle.name}
                           </Text>
-                          <Text style={{ fontSize: 11, color: theme.textSecondary }}>
-                            Allocated for {totalWeightTons} MT order tonnage ({smartRecommendation.vehicle.unloadingMechanism})
-                          </Text>
                         </View>
                       </View>
-                    )}
+                      <View style={styles.laborPriceBox}>
+                        <Text
+                          style={[
+                            styles.laborPriceText,
+                            { color: optInLaborAssistance ? '#059669' : theme.textPrimary },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          +₹{smartRecommendation.unloadingAssistance.fee}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.laborStatusTag,
+                            { color: optInLaborAssistance ? '#059669' : theme.textMuted },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {optInLaborAssistance ? 'Included' : 'Tap to Add'}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                )}
 
-                    {/* 1. Items Total */}
+                {/* Delivery Site Address Selection (Inline above GSTIN & Promo Coupon) */}
+                {cartItems.length > 0 && renderAddressSelectionSection()}
+
+                {/* B2B Tax Invoice & GSTIN Section (Only for materials, hidden for single/pure service orders) */}
+                {cartItems.length > 0 && !isServicesOnly && renderB2BGstinCard(false)}
+
+                {/* Apply Contractor Promo Code / Coupon (Positioned directly below GSTIN) */}
+                {cartItems.length > 0 && renderPromoCard(false)}
+
+                {/* Payment Method / BNPL Credit Selector */}
+                {cartItems.length > 0 && (
+                  <View style={{ backgroundColor: theme.surface, borderColor: theme.border, borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 12 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary, marginBottom: 8 }}>
+                      Payment Mode
+                    </Text>
+
+                    <View style={{ gap: 8 }}>
+                      {/* Gateway Payment */}
+                      <TouchableOpacity
+                        onPress={() => setSelectedPaymentMode('gateway')}
+                        style={{
+                          padding: 10,
+                          borderRadius: 8,
+                          backgroundColor: selectedPaymentMode === 'gateway' ? (theme.mode === 'dark' ? '#1E293B' : '#EFF6FF') : theme.surfaceSecondary,
+                          borderWidth: 1,
+                          borderColor: selectedPaymentMode === 'gateway' ? (theme.primary || '#2563EB') : theme.border,
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          <Zap size={16} color={selectedPaymentMode === 'gateway' ? theme.primary : theme.textSecondary} />
+                          <View>
+                            <Text style={{ fontSize: 12.5, fontWeight: '700', color: theme.textPrimary }}>
+                              Online Direct / Razorpay / UPI / Cards / NetBanking
+                            </Text>
+                            <Text style={{ fontSize: 11, color: theme.textSecondary }}>
+                              Instant confirmation & automatic tax invoice generation
+                            </Text>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+
+                      {/* Urbanico Credit (30-Day Pay Later BNPL) */}
+                      <TouchableOpacity
+                        onPress={() => setSelectedPaymentMode('bnpl')}
+                        style={{
+                          padding: 10,
+                          borderRadius: 8,
+                          backgroundColor: selectedPaymentMode === 'bnpl' ? (theme.mode === 'dark' ? '#1E293B' : '#FFFBEB') : theme.surfaceSecondary,
+                          borderWidth: 1,
+                          borderColor: selectedPaymentMode === 'bnpl' ? (isCreditAllowed ? '#D97706' : '#EF4444') : theme.border,
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                            <Lock size={16} color={selectedPaymentMode === 'bnpl' ? '#D97706' : theme.textSecondary} />
+                            <View>
+                              <Text style={{ fontSize: 12.5, fontWeight: '700', color: theme.textPrimary }}>
+                                Urbanico Credit (30-Day Pay Later BNPL)
+                              </Text>
+                              <Text style={{ fontSize: 11, color: theme.textSecondary }}>
+                                Available Limit: ₹{availableCreditLimit.toLocaleString('en-IN')} • 0% Interest for 30 Days
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+
+                        {/* Credit Status Warnings */}
+                        {!isProfileVerified && (
+                          <View style={{ marginTop: 6, padding: 6, borderRadius: 6, backgroundColor: theme.mode === 'dark' ? '#311212' : '#FEF2F2', borderWidth: 1, borderColor: '#FCA5A5' }}>
+                            <Text style={{ fontSize: 11, color: '#B91C1C', fontWeight: '600' }}>
+                              ⚠️ Profile Unverified: Complete GSTIN & company profile verification to activate your credit limit.
+                            </Text>
+                          </View>
+                        )}
+
+                        {isProfileVerified && grandTotal > availableCreditLimit && (
+                          <View style={{ marginTop: 6, padding: 6, borderRadius: 6, backgroundColor: theme.mode === 'dark' ? '#311212' : '#FEF2F2', borderWidth: 1, borderColor: '#FCA5A5' }}>
+                            <Text style={{ fontSize: 11, color: '#B91C1C', fontWeight: '600' }}>
+                              ⚠️ Exceeds Limit: Order total (₹{grandTotal.toLocaleString('en-IN')}) exceeds available credit limit (₹{availableCreditLimit.toLocaleString('en-IN')}).
+                            </Text>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                {/* Price Summary Breakdown */}
+                {cartItems.length > 0 && (
+                  <View style={[styles.summaryCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+                    <Text style={[styles.summaryTitle, { color: theme.textPrimary, borderBottomColor: theme.borderLight }]}>
+                      Order Summary
+                    </Text>
                     <View style={styles.summaryRow}>
                       <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>
                         Items Total ({totalUnitQuantity} {totalUnitQuantity === 1 ? 'item' : 'items'})
@@ -2364,77 +2579,9 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                       </View>
                     )}
 
-                    {/* 3. Site Unloading Labour (Mandatory for >4 bags, ₹0 for small orders) */}
-                    {materialItems.length > 0 && (
-                      <View style={{ marginVertical: 3 }}>
-                        <View style={styles.summaryRow}>
-                          <View style={{ flex: 1, marginRight: 8 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                              <Text style={[styles.summaryLabel, { color: theme.textPrimary, fontWeight: '600' }]}>
-                                Site Unloading Labour
-                              </Text>
-                              <View
-                                style={{
-                                  backgroundColor: unloadingEvaluation.isMandatory ? '#FEF3C7' : '#DCFCE7',
-                                  paddingHorizontal: 6,
-                                  paddingVertical: 1,
-                                  borderRadius: 4,
-                                }}
-                              >
-                                <Text
-                                  style={{
-                                    fontSize: 9.5,
-                                    fontWeight: '700',
-                                    color: unloadingEvaluation.isMandatory ? '#92400E' : '#15803D',
-                                  }}
-                                >
-                                  {unloadingEvaluation.isMandatory ? 'Mandatory' : 'Self-Unload (₹0)'}
-                                </Text>
-                              </View>
-                            </View>
-                            <Text style={{ fontSize: 10.5, color: theme.textSecondary, marginTop: 1 }}>
-                              {unloadingEvaluation.isMandatory
-                                ? `${unloadingEvaluation.helperLabel} dispatched with vehicle`
-                                : effectiveUnloadingFee > 0
-                                ? '1 Delivery helper added'
-                                : 'Small order (1–4 bags / <250 kg): Customer self-unload'}
-                            </Text>
-                          </View>
-                          <Text
-                            style={[
-                              styles.summaryValue,
-                              {
-                                color: effectiveUnloadingFee > 0 ? theme.textPrimary : '#16A34A',
-                                fontWeight: '700',
-                              },
-                            ]}
-                          >
-                            {effectiveUnloadingFee > 0
-                              ? `₹${effectiveUnloadingFee.toLocaleString('en-IN')}`
-                              : 'FREE (₹0)'}
-                          </Text>
-                        </View>
-                      </View>
-                    )}
-
-                    {/* 4. Platform Fee: ₹0 (FREE) */}
-                    <View style={styles.summaryRow}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>
-                          Platform Fee
-                        </Text>
-                      </View>
-                      <Text style={[styles.summaryValue, { color: '#16A34A', fontWeight: '700' }]}>
-                        ₹0 (FREE)
-                      </Text>
-                    </View>
-
-                    {/* Contractor Discount if applied */}
                     {couponDiscount > 0 && (
                       <View style={styles.summaryRow}>
-                        <Text style={[styles.summaryLabel, { color: '#16A34A' }]}>
-                          Contractor Discount ({appliedCoupon})
-                        </Text>
+                        <Text style={[styles.summaryLabel, { color: '#16A34A' }]}>Contractor Discount ({appliedCoupon})</Text>
                         <Text style={[styles.summaryValue, { color: '#16A34A', fontWeight: '700' }]}>
                           -₹{couponDiscount.toLocaleString('en-IN')}
                         </Text>
@@ -2450,17 +2597,11 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                       </View>
                     )}
 
-                    {/* 5. Total Payable */}
-                    <View style={[styles.summaryRow, styles.grandTotalRow, { borderTopColor: theme.borderLight, marginTop: 8, paddingTop: 12 }]}>
-                      <View>
-                        <Text style={[styles.grandTotalLabel, { color: theme.textPrimary }]}>
-                          Total Payable
-                        </Text>
-                        <Text style={{ fontSize: 10.5, color: theme.textSecondary }}>
-                          Inclusive of all taxes & delivery fees
-                        </Text>
-                      </View>
-                      <Text style={[styles.grandTotalValue, { color: theme.textPrimary, fontSize: 18, fontWeight: '800' }]}>
+                    <View style={[styles.summaryRow, styles.grandTotalRow, { borderTopColor: theme.borderLight }]}>
+                      <Text style={[styles.grandTotalLabel, { color: theme.textPrimary }]}>
+                        Total Payable
+                      </Text>
+                      <Text style={[styles.grandTotalValue, { color: theme.textPrimary }]}>
                         ₹{grandTotal.toLocaleString('en-IN')}
                       </Text>
                     </View>
@@ -2518,7 +2659,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
                           <Lock size={15} color={theme.buttonText || '#18181B'} />
                           <Text style={[styles.nikeCheckoutPillText, { fontSize: 15.5, fontWeight: '700', letterSpacing: 0.2, textAlign: 'center', color: theme.buttonText || '#18181B' }]}>
-                            Proceed to Pay • ₹{payableAmount.toLocaleString('en-IN')}
+                            Pay ₹{payableAmount.toLocaleString('en-IN')}
                           </Text>
                           <ArrowRight size={17} color={theme.buttonText || '#18181B'} strokeWidth={2.4} />
                         </View>

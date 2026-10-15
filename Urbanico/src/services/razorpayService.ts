@@ -1972,28 +1972,20 @@ export async function reconcilePendingPaymentsAndOrders(): Promise<{ reconciled:
 }
 
 // Auto-wire network reconnection and app resume event listeners
-if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
-  try {
-    window.addEventListener('online', () => {
-      console.log('[Payment Reconciliation] Online event triggered. Running reconciliation...');
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    console.log('[Payment Reconciliation] Online event triggered. Running reconciliation...');
+    reconcilePendingPaymentsAndOrders().catch(() => {});
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      console.log('[Payment Reconciliation] Visibility resumed. Running reconciliation...');
       reconcilePendingPaymentsAndOrders().catch(() => {});
-    });
-  } catch {}
-}
+    }
+  });
 
-if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
-  try {
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        console.log('[Payment Reconciliation] Visibility resumed. Running reconciliation...');
-        reconcilePendingPaymentsAndOrders().catch(() => {});
-      }
-    });
-  } catch {}
-}
-
-// Run initial pass after slight warmup
-if (typeof setTimeout === 'function') {
+  // Run initial pass after slight warmup
   setTimeout(() => {
     reconcilePendingPaymentsAndOrders().catch(() => {});
   }, 2500);

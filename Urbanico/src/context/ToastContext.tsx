@@ -143,7 +143,7 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
 
   // Listen to central 429 rate limit events and duplicate service warnings
   React.useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
+    if (typeof window === 'undefined') return;
     const rateLimitHandler = (e: any) => {
       const detail = e.detail || {};
       const retryAfter = detail.retryAfter || 60;
@@ -169,18 +169,11 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       });
     };
 
-    try {
-      window.addEventListener('urbanico:rate-limited', rateLimitHandler);
-      window.addEventListener('urbanico:service-already-in-cart', serviceAlreadyHandler);
-    } catch {}
-
+    window.addEventListener('urbanico:rate-limited', rateLimitHandler);
+    window.addEventListener('urbanico:service-already-in-cart', serviceAlreadyHandler);
     return () => {
-      try {
-        if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
-          window.removeEventListener('urbanico:rate-limited', rateLimitHandler);
-          window.removeEventListener('urbanico:service-already-in-cart', serviceAlreadyHandler);
-        }
-      } catch {}
+      window.removeEventListener('urbanico:rate-limited', rateLimitHandler);
+      window.removeEventListener('urbanico:service-already-in-cart', serviceAlreadyHandler);
     };
   }, []);
 
