@@ -50,6 +50,7 @@ import { formatSiteAddress } from '../utils/addressHelper';
 import { safeStorage } from '../utils/safeStorage';
 import { resolveMaterialImage } from '../utils/materialImageResolver';
 import { formatINR, useClipboard } from '../hooks';
+import { StatusBadge } from './common/StatusBadge';
 
 export type OrderStatusFilter = 'all' | 'active' | 'delivered' | 'cancelled';
 export type OrderSortOption = 'newest' | 'oldest' | 'highest_amount';
@@ -994,12 +995,7 @@ export const OrderHistory: React.FC<OrderHistoryProps> = ({
                     </Text>
                   </View>
 
-                  <View style={[styles.statusPill, { backgroundColor: statusCfg.bgColor }]}>
-                    <View style={[styles.statusDot, { backgroundColor: statusCfg.dotColor }]} />
-                    <Text style={[styles.statusPillText, { color: statusCfg.textColor }]}>
-                      {statusCfg.label}
-                    </Text>
-                  </View>
+                  <StatusBadge status={order.orderStatus} label={statusCfg.label} size="sm" />
                 </View>
 
                 {/* 2. Core Summary: Compact Thumbnail + Material Name & Qty + Total Amount */}

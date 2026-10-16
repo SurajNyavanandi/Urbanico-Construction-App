@@ -1,137 +1,102 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
-import { CheckCircle2, Clock, Truck, Package, XCircle } from 'lucide-react-native';
-import { AppText } from './AppText';
+import { View, Text, StyleSheet } from 'react-native';
+import { CheckCircle2, Clock, Truck, AlertCircle, Check, XCircle, ShieldCheck } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 
-export type DeliveryStatusType =
-  | 'Placed'
-  | 'Confirmed'
-  | 'Dispatched'
-  | 'En Route'
-  | 'In Transit'
-  | 'Delivered'
-  | 'Cancelled'
-  | 'Pending';
+export type BadgeStatus =
+  | 'paid'
+  | 'pending'
+  | 'confirmed'
+  | 'processing'
+  | 'dispatched'
+  | 'in_transit'
+  | 'reached_site'
+  | 'delivered'
+  | 'cancelled'
+  | 'failed'
+  | 'authorized'
+  | string;
 
-export interface StatusBadgeProps {
-  status: DeliveryStatusType | string;
-  size?: 'sm' | 'md' | 'lg';
-  showIcon?: boolean;
-  containerStyle?: ViewStyle;
+interface StatusBadgeProps {
+  status: BadgeStatus;
+  label?: string;
+  size?: 'sm' | 'md';
 }
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({
   status,
+  label,
   size = 'md',
-  showIcon = true,
-  containerStyle,
 }) => {
-  const { theme, themeMode } = useTheme();
-  const isDark = themeMode === 'dark';
+  const { theme } = useTheme();
+  const normalized = (status || '').toLowerCase().replace(/[\s-]/g, '_');
 
-  const getStatusConfig = (st: string) => {
-    const s = (st || '').toLowerCase();
-    if (s.includes('deliver')) {
-      return {
-        bg: '#DCFCE7',
-        text: '#15803D',
-        border: '#86EFAC',
-        Icon: CheckCircle2,
-      };
-    }
-    if (s.includes('route') || s.includes('transit') || s.includes('dispatch')) {
-      return {
-        bg: '#FEF3C7',
-        text: '#B45309',
-        border: '#FDE68A',
-        Icon: Truck,
-      };
-    }
-    if (s.includes('cancel') || s.includes('failed')) {
-      return {
-        bg: '#FEE2E2',
-        text: '#B91C1C',
-        border: '#FCA5A5',
-        Icon: XCircle,
-      };
-    }
-    if (s.includes('place') || s.includes('confirm')) {
-      return {
-        bg: '#E0F2FE',
-        text: '#0369A1',
-        border: '#BAE6FD',
-        Icon: Package,
-      };
-    }
-    return {
-      bg: isDark ? '#27272A' : '#F4F4F5',
-      text: theme.textSecondary || '#71717A',
-      border: theme.border || (isDark ? '#3F3F46' : '#E4E4E7'),
-      Icon: Clock,
-    };
-  };
+  let bg = '#F1F5F9';
+  let text = '#475569';
+  let Icon = Clock;
+  let displayLabel = label || status;
 
-  const config = getStatusConfig(status);
-  const IconComponent = config.Icon;
+  switch (normalized) {
+    case 'paid':
+    case 'delivered':
+    case 'completed':
+    case 'success':
+      bg = '#DCFCE7';
+      text = '#15803D';
+      Icon = CheckCircle2;
+      displayLabel = label || (normalized === 'paid' ? 'Paid' : 'Delivered');
+      break;
 
-  const getFontSize = () => {
-    switch (size) {
-      case 'sm':
-        return 10;
-      case 'lg':
-        return 13;
-      case 'md':
-      default:
-        return 11;
-    }
-  };
+    case 'in_transit':
+    case 'on_the_way':
+    case 'dispatched':
+      bg = '#FEF3C7';
+      text = '#B45309';
+      Icon = Truck;
+      displayLabel = label || (normalized === 'in_transit' ? 'In Transit' : 'Dispatched');
+      break;
 
-  const getIconSize = () => {
-    switch (size) {
-      case 'sm':
-        return 11;
-      case 'lg':
-        return 15;
-      case 'md':
-      default:
-        return 12;
-    }
-  };
+    case 'confirmed':
+    case 'processing':
+    case 'authorized':
+      bg = '#E0E7FF';
+      text = '#4338CA';
+      Icon = ShieldCheck;
+      displayLabel = label || (normalized === 'confirmed' ? 'Confirmed' : 'Processing');
+      break;
 
-  const getPadding = () => {
-    switch (size) {
-      case 'sm':
-        return { paddingHorizontal: 6, paddingVertical: 2 };
-      case 'lg':
-        return { paddingHorizontal: 12, paddingVertical: 5 };
-      case 'md':
-      default:
-        return { paddingHorizontal: 8, paddingVertical: 3 };
-    }
-  };
+    case 'pending':
+    case 'pending_site_verification':
+      bg = '#FFF7ED';
+      text = '#C2410C';
+      Icon = Clock;
+      displayLabel = label || 'Pending';
+      break;
+
+    case 'cancelled':
+    case 'failed':
+      bg = '#FEE2E2';
+      text = '#B91C1C';
+      Icon = XCircle;
+      displayLabel = label || 'Cancelled';
+      break;
+
+    default:
+      bg = theme.mode === 'dark' ? '#334155' : '#F1F5F9';
+      text = theme.mode === 'dark' ? '#94A3B8' : '#64748B';
+      Icon = AlertCircle;
+      break;
+  }
+
+  const isSmall = size === 'sm';
+  const iconSize = isSmall ? 11 : 13;
 
   return (
-    <View
-      style={[
-        styles.badge,
-        {
-          backgroundColor: config.bg,
-          borderColor: config.border,
-          ...getPadding(),
-        },
-        containerStyle,
-      ]}
-    >
-      {showIcon && (
-        <IconComponent size={getIconSize()} color={config.text} style={styles.icon} />
-      )}
-      <AppText
-        style={[styles.text, { color: config.text, fontSize: getFontSize() }]}
-        weight="bold"
-      >
-        {status}
-      </AppText>
+    <View style={[styles.badge, { backgroundColor: bg }, isSmall && styles.badgeSm]}>
+      <Icon size={iconSize} color={text} strokeWidth={2.5} />
+      <Text style={[styles.label, { color: text }, isSmall && styles.labelSm]}>
+        {displayLabel}
+      </Text>
     </View>
   );
 };
@@ -140,15 +105,27 @@ const styles = StyleSheet.create({
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 9999,
-    borderWidth: 1,
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
     alignSelf: 'flex-start',
   },
-  icon: {
-    marginRight: 4,
+  badgeSm: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    gap: 3,
   },
-  text: {
-    letterSpacing: 0.2,
-    textTransform: 'capitalize',
+  label: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+  },
+  labelSm: {
+    fontSize: 10,
+    fontWeight: '700',
   },
 });
+
+export default StatusBadge;

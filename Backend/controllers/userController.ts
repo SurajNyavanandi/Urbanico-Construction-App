@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { UserService } from '../services/userService';
-import { validateBackendProfile } from '../utils/sanitizer';
+import { validateBackendProfile, sanitizePhone } from '../utils/sanitizer';
 import { asyncHandler, sendSuccess, sendError } from '../utils/apiResponse';
 import { generateAuthToken, AuthenticatedRequest, getPermissionsForRole } from '../middleware/auth';
 import { sendMail } from '../lib/mailer';
@@ -16,7 +16,7 @@ export class UserController {
     if (!phone) {
       return sendError(res, 'Mobile number is required to send OTP', 400);
     }
-    const cleanDigits = String(phone).replace(/\D/g, '').slice(-10);
+    const cleanDigits = sanitizePhone(phone);
     if (cleanDigits.length !== 10 || !/^[6-9]\d{9}$/.test(cleanDigits) || /^(\d)\1{9}$/.test(cleanDigits)) {
       return sendError(res, 'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9', 400);
     }
@@ -44,7 +44,7 @@ export class UserController {
     if (!phone) {
       return sendError(res, 'Mobile number is required', 400);
     }
-    const cleanDigits = String(phone).replace(/\D/g, '').slice(-10);
+    const cleanDigits = sanitizePhone(phone);
     if (cleanDigits.length !== 10 || !/^[6-9]\d{9}$/.test(cleanDigits) || /^(\d)\1{9}$/.test(cleanDigits)) {
       return sendError(res, 'Please enter a valid 10-digit Indian mobile number starting with 6, 7, 8, or 9', 400);
     }

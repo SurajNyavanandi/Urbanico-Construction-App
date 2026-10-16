@@ -1,150 +1,80 @@
 import React from 'react';
-import { View, TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
-import { Plus, Minus } from 'lucide-react-native';
-import { AppText } from './AppText';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Plus, Minus, Trash2 } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { soundService } from '../../utils/soundHelper';
 
-export interface QuantityStepperProps {
-  quantity: number;
+interface QuantityStepperProps {
+  value: number;
   onIncrement: () => void;
   onDecrement: () => void;
   min?: number;
   max?: number;
-  size?: 'sm' | 'md' | 'lg';
-  variant?: 'filled' | 'outlined' | 'subtle';
-  containerStyle?: ViewStyle;
-  disabled?: boolean;
+  size?: 'sm' | 'md';
+  allowDeleteAtMin?: boolean;
 }
 
 export const QuantityStepper: React.FC<QuantityStepperProps> = ({
-  quantity,
+  value,
   onIncrement,
   onDecrement,
   min = 1,
   max = 9999,
   size = 'md',
-  variant = 'outlined',
-  containerStyle,
-  disabled = false,
+  allowDeleteAtMin = false,
 }) => {
-  const { theme, themeMode } = useTheme();
-  const isDark = themeMode === 'dark';
+  const { theme } = useTheme();
 
-  const handleDec = () => {
-    if (disabled || quantity <= min) return;
+  const handleDecrement = () => {
     soundService.playTap();
     onDecrement();
   };
 
-  const handleInc = () => {
-    if (disabled || quantity >= max) return;
+  const handleIncrement = () => {
     soundService.playTap();
     onIncrement();
   };
 
-  const getDimensions = () => {
-    switch (size) {
-      case 'sm':
-        return { btnSize: 26, iconSize: 12, fontSize: 13, gap: 6, paddingH: 4 };
-      case 'lg':
-        return { btnSize: 38, iconSize: 18, fontSize: 16, gap: 14, paddingH: 10 };
-      case 'md':
-      default:
-        return { btnSize: 32, iconSize: 15, fontSize: 14, gap: 10, paddingH: 6 };
-    }
-  };
-
-  const dim = getDimensions();
-
-  const canDec = !disabled && quantity > min;
-  const canInc = !disabled && quantity < max;
-
-  const getContainerStyle = () => {
-    switch (variant) {
-      case 'filled':
-        return {
-          backgroundColor: isDark ? '#27272A' : '#F4F4F5',
-          borderColor: 'transparent',
-        };
-      case 'subtle':
-        return {
-          backgroundColor: 'transparent',
-          borderColor: 'transparent',
-        };
-      case 'outlined':
-      default:
-        return {
-          backgroundColor: theme.surface || '#FFFFFF',
-          borderColor: theme.border || (isDark ? '#3F3F46' : '#E4E4E7'),
-          borderWidth: 1,
-        };
-    }
-  };
+  const isSmall = size === 'sm';
+  const showTrash = allowDeleteAtMin && value <= min;
 
   return (
-    <View
-      style={[
-        styles.container,
-        getContainerStyle(),
-        {
-          paddingHorizontal: dim.paddingH,
-          gap: dim.gap,
-          opacity: disabled ? 0.6 : 1,
-        },
-        containerStyle,
-      ]}
-    >
+    <View style={[styles.container, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
       <TouchableOpacity
-        onPress={handleDec}
-        disabled={!canDec}
-        activeOpacity={0.7}
+        onPress={handleDecrement}
+        disabled={!allowDeleteAtMin && value <= min}
+        style={[styles.button, isSmall && styles.buttonSm]}
+        accessibilityRole="button"
+        accessibilityLabel="Decrease quantity"
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        style={[
-          styles.button,
-          {
-            width: dim.btnSize,
-            height: dim.btnSize,
-            borderRadius: dim.btnSize / 2,
-            backgroundColor: canDec
-              ? isDark
-                ? '#3F3F46'
-                : '#E4E4E7'
-              : 'transparent',
-          },
-        ]}
       >
-        <Minus
-          size={dim.iconSize}
-          color={canDec ? theme.textPrimary || '#18181B' : theme.textMuted || '#A1A1AA'}
-        />
+        {showTrash ? (
+          <Trash2 size={isSmall ? 12 : 14} color="#EF4444" strokeWidth={2} />
+        ) : (
+          <Minus
+            size={isSmall ? 12 : 14}
+            color={!allowDeleteAtMin && value <= min ? theme.textTertiary : theme.textPrimary}
+            strokeWidth={2.5}
+          />
+        )}
       </TouchableOpacity>
 
-      <AppText
-        style={[styles.valueText, { fontSize: dim.fontSize, color: theme.textPrimary || '#18181B' }]}
-        weight="bold"
-      >
-        {quantity}
-      </AppText>
+      <Text style={[styles.value, { color: theme.textPrimary }, isSmall && styles.valueSm]}>
+        {value}
+      </Text>
 
       <TouchableOpacity
-        onPress={handleInc}
-        disabled={!canInc}
-        activeOpacity={0.7}
+        onPress={handleIncrement}
+        disabled={value >= max}
+        style={[styles.button, isSmall && styles.buttonSm]}
+        accessibilityRole="button"
+        accessibilityLabel="Increase quantity"
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        style={[
-          styles.button,
-          {
-            width: dim.btnSize,
-            height: dim.btnSize,
-            borderRadius: dim.btnSize / 2,
-            backgroundColor: canInc ? theme.primary : '#E4E4E7',
-          },
-        ]}
       >
         <Plus
-          size={dim.iconSize}
-          color={canInc ? '#18181B' : theme.textMuted || '#A1A1AA'}
+          size={isSmall ? 12 : 14}
+          color={value >= max ? theme.textTertiary : theme.textPrimary}
+          strokeWidth={2.5}
         />
       </TouchableOpacity>
     </View>
@@ -155,16 +85,36 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 9999,
-    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 3,
+    paddingVertical: 2,
+    alignSelf: 'flex-start',
   },
   button: {
+    width: 28,
+    height: 28,
     alignItems: 'center',
     justifyContent: 'center',
+    borderRadius: 6,
   },
-  valueText: {
-    minWidth: 20,
+  buttonSm: {
+    width: 22,
+    height: 22,
+  },
+  value: {
+    minWidth: 26,
     textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '700',
+    paddingHorizontal: 4,
+  },
+  valueSm: {
+    minWidth: 20,
+    fontSize: 11,
+    fontWeight: '700',
+    paddingHorizontal: 2,
   },
 });
+
+export default QuantityStepper;

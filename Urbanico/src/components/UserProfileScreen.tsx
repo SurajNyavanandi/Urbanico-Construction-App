@@ -59,10 +59,13 @@ import { useLocation } from '../context/LocationContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useToast } from '../context/ToastContext';
 import { ShimmerImage } from './common/ShimmerImage';
-import { useAsyncModal } from '../hooks/useAsyncModal';
 import { MODAL_PRELOADERS } from './modals/AppModalsContainer';
 import { SettingsModal } from './SettingsModal';
 import { OrderHistoryModal } from './OrderHistoryModal';
+import { ReferEarnModal } from './profile/ReferEarnModal';
+import { HelpSupportModal } from './profile/HelpSupportModal';
+import { SavedAddressesModal } from './profile/SavedAddressesModal';
+import { EditProfileModal } from './profile/EditProfileModal';
 import {
   INDIAN_STATES,
   ADDRESS_TYPE_OPTIONS,
@@ -143,8 +146,15 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(initialOpenSettingsModal);
-  const [isOrdersModalOpen, setIsOrdersModalOpen] = useState(initialOpenOrdersModal);
-  const { isModalLoading, triggerAsyncModal } = useAsyncModal();
+  const [loadingModalKey, setLoadingModalKey] = useState<string | null>(null);
+  const isModalLoading = (key: string) => loadingModalKey === key;
+  const triggerAsyncModal = (key: string, preloader: any, onReady: () => void) => {
+    setLoadingModalKey(key);
+    Promise.resolve(preloader?.()).finally(() => {
+      setLoadingModalKey(null);
+      onReady();
+    });
+  };
 
   const openSingleModal = (modalName: 'addresses' | 'refer' | 'help' | 'edit_profile' | 'settings' | 'orders') => {
     if (modalName === 'settings') {
@@ -188,22 +198,40 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     setIsOrdersModalOpen(false);
   };
 
-  // Indian E-Commerce Standard Address input state
-  const [addressFullName, setAddressFullName] = useState(user.name || '');
-  const [addressMobile, setAddressMobile] = useState(user.phone?.replace(/\D/g, '').slice(-10) || '');
-  const [addressAltPhone, setAddressAltPhone] = useState('');
-  const [addressPincode, setAddressPincode] = useState('');
-  const [addressFlatBuilding, setAddressFlatBuilding] = useState('');
-  const [addressAreaStreet, setAddressAreaStreet] = useState('');
-  const [addressLandmark, setAddressLandmark] = useState('');
-  const [addressCity, setAddressCity] = useState('');
-  const [addressState, setAddressState] = useState('');
-  const [addressType, setAddressType] = useState<'Site' | 'Home' | 'Office' | 'Warehouse'>('Site');
-  const [addressInstructions, setAddressInstructions] = useState('');
-  const [addressIsDefault, setAddressIsDefault] = useState(true);
-  const [addressErrors, setAddressErrors] = useState<Record<string, string>>({});
-  const [showAddressStateDropdown, setShowAddressStateDropdown] = useState(false);
-  const [isDetectingGps, setIsDetectingGps] = useState(false);
+  // Address Modal form state
+  const [newSiteName, setNewSiteName] = useState('');
+  const [newStreet, setNewStreet] = useState('');
+  const [newPincode, setNewPincode] = useState('');
+  const [newCity, setNewCity] = useState('Hyderabad');
+  const [newState, setNewState] = useState('Telangana');
+  const [newAddrContact, setNewAddrContact] = useState(user.name || '');
+  const [newAddrPhone, setNewAddrPhone] = useState(user.phone || '');
+  const [newAddressType, setNewAddressType] = useState<'site' | 'warehouse' | 'office' | 'home'>('site');
+  const [addrFormErrors, setAddrFormErrors] = useState<Record<string, string>>({});
+  const [isAddingNewAddress, setIsAddingNewAddress] = useState(false);
+
+  const handlePincodeChange = (pin: string) => {
+    setNewPincode(pin);
+    if (pin.length === 6) {
+      const lookup = lookupCityStateFromPincode(pin);
+      if (lookup.city) setNewCity(lookup.city);
+      if (lookup.state) setNewState(lookup.state);
+    }
+  };
+
+  const handleAddNewAddress = () => {
+    if (!newSiteName.trim() || !newStreet.trim() || !newPincode.trim()) {
+      showToast('Please fill in Site Name, Street, and Pincode', 'error');
+      return;
+    }
+    const formatted = `${newSiteName.trim()}, ${newStreet.trim()}, ${newCity.trim()}, ${newState.trim()} - ${newPincode.trim()}`;
+    addLocation(formatted);
+    setSelectedLocation(formatted);
+    setNewSiteName('');
+    setNewStreet('');
+    setNewPincode('');
+    showToast('New site delivery address saved successfully', 'success');
+  };
 
   const handlePincodeChangeInProfile = (text: string) => {
     const clean = text.replace(/[^0-9]/g, '').slice(0, 6);
@@ -425,51 +453,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     setIsEditProfileModalOpen(false);
   };
 
-  const handleAddNewAddress = () => {
-    const cleanMobile = addressMobile.replace(/\D/g, '').slice(-10);
-    const cleanAltPhone = addressAltPhone ? addressAltPhone.replace(/\D/g, '').slice(-10) : '';
 
-    const validation = validateAndSanitizeAddressForm({
-      fullName: addressFullName,
-      mobileNumber: cleanMobile,
-      alternatePhone: cleanAltPhone,
-      pincode: addressPincode,
-      flatBuilding: addressFlatBuilding,
-      areaStreet: addressAreaStreet,
-      landmark: addressLandmark,
-      city: addressCity,
-      state: addressState,
-      addressType: addressType,
-      deliveryInstructions: addressInstructions,
-    });
-
-    if (!validation.isValid) {
-      setAddressErrors(validation.errors);
-      const firstError = Object.values(validation.errors)[0] || 'Please fill all mandatory address fields correctly';
-      showToast(firstError, 'error');
-      return;
-    }
-
-    // Enforce Telangana delivery corridor (500xxx - 509xxx) matching BasketScreen
-    const pinPrefix = parseInt(addressPincode.trim().slice(0, 3), 10);
-    if (isNaN(pinPrefix) || pinPrefix < 500 || pinPrefix > 509) {
-      setAddressErrors((prev) => ({
-        ...prev,
-        pincode: 'Currently delivering exclusively across Hyderabad & Telangana (PIN: 500xxx - 509xxx). Out-of-zone addresses cannot be serviced.',
-      }));
-      showToast('Delivery available only across Hyderabad & Telangana (500xxx - 509xxx)', 'error');
-      return;
-    }
-
-    setAddressErrors({});
-    const fullAddress = formatIndianAddressSummary(validation.sanitized);
-    addLocation(fullAddress);
-    setAddressFlatBuilding('');
-    setAddressAreaStreet('');
-    setAddressLandmark('');
-    setAddressAltPhone('');
-    showToast('New delivery address saved successfully', 'success');
-  };
 
   const activeOrdersCount = deliveries.length;
   const savedAddressCount = isLoggedIn ? savedLocations.length : 0;
@@ -837,933 +821,81 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       {/* ======================================================== */}
       {/* POPUP MODAL 3: SAVED ADDRESSES                           */}
       {/* ======================================================== */}
-      <Modal visible={isAddressesModalOpen} transparent animationType="fade" onRequestClose={() => setIsAddressesModalOpen(false)}>
-        <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setIsAddressesModalOpen(false)} />
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={styles.keyboardAvoidingModalWrapper}
-          >
-            <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
-              <View style={styles.modalHeader}>
-                <View style={styles.modalHeaderTitleRow}>
-                  <MapPin size={18} color="#111111" />
-                  <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Saved Addresses</Text>
-                </View>
-                <TouchableOpacity onPress={() => setIsAddressesModalOpen(false)} style={styles.closeBtn}>
-                  <X size={18} color={theme.textSecondary} />
-                </TouchableOpacity>
-              </View>
+      <SavedAddressesModal
+        visible={isAddressesModalOpen}
+        onClose={() => setIsAddressesModalOpen(false)}
+        isLoggedIn={isLoggedIn}
+        savedLocations={savedLocations}
+        selectedLocation={selectedLocation}
+        onSelectLocation={setSelectedLocation}
+        onDeleteLocation={deleteLocation}
+        newSiteName={newSiteName}
+        setNewSiteName={setNewSiteName}
+        newStreet={newStreet}
+        setNewStreet={setNewStreet}
+        newPincode={newPincode}
+        setNewPincode={setNewPincode}
+        newCity={newCity}
+        setNewCity={setNewCity}
+        newState={newState}
+        setNewState={setNewState}
+        newAddrContact={newAddrContact}
+        setNewAddrContact={setNewAddrContact}
+        newAddrPhone={newAddrPhone}
+        setNewAddrPhone={setNewAddrPhone}
+        newAddressType={newAddressType}
+        setNewAddressType={setNewAddressType}
+        addrFormErrors={addrFormErrors}
+        setAddrFormErrors={setAddrFormErrors}
+        handlePincodeChange={handlePincodeChange}
+        handleAddNewAddress={handleAddNewAddress}
+        isAddingNewAddress={isAddingNewAddress}
+        setIsAddingNewAddress={setIsAddingNewAddress}
+      />
 
-              <ScrollView
-                style={styles.modalBody}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                automaticallyAdjustKeyboardInsets={true}
-                contentContainerStyle={{ paddingBottom: 24 }}
-              >
-              {savedLocations.length === 0 ? (
-                <View style={[styles.emptyAddressBox, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-                  <View style={[styles.emptyIconCircle, { backgroundColor: theme.surface }]}>
-                    <MapPin size={22} color={theme.textMuted} />
-                  </View>
-                  <Text style={[styles.emptyBoxTitle, { color: theme.textPrimary }]}>
-                    {isLoggedIn ? 'No Saved Site Addresses' : 'No Saved Addresses'}
-                  </Text>
-                  <Text style={[styles.emptyBoxSub, { color: theme.textSecondary }]}>
-                    {isLoggedIn
-                      ? "You haven't saved any construction site or commercial addresses yet. Add your first address below."
-                      : "Sign in to securely save and access your project delivery locations across devices."}
-                  </Text>
-                  {!isLoggedIn && (
-                    <TouchableOpacity
-                      onPress={() => {
-                        setIsAddressesModalOpen(false);
-                        if (onOpenLoginModal) onOpenLoginModal();
-                      }}
-                      style={[styles.emptyBoxActionBtn, { backgroundColor: theme.primary }]}
-                      activeOpacity={0.85}
-                    >
-                      <Text style={styles.emptyBoxActionBtnText}>Sign In / Register</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ) : (
-                savedLocations.map((loc, locIdx) => {
-                  const locStr = formatSiteAddress(loc);
-                  const isSelected = selectedLocation === locStr || selectedLocation === loc;
-                  return (
-                    <TouchableOpacity
-                      key={typeof loc === 'string' ? loc : `loc_${locIdx}`}
-                      onPress={() => {
-                        setSelectedLocation(locStr);
-                      }}
-                      style={[
-                        styles.addressItem,
-                        {
-                          backgroundColor: isSelected ? theme.surfaceSecondary : 'transparent',
-                          borderColor: isSelected ? theme.primary : theme.border,
-                        },
-                      ]}
-                      activeOpacity={0.75}
-                    >
-                      <View style={styles.addressItemLeft}>
-                        <MapPin size={16} color={isSelected ? theme.primary : theme.textSecondary} />
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.addressText, { color: theme.textPrimary, fontWeight: isSelected ? '700' : '400' }]}>
-                            {locStr}
-                          </Text>
-                          <Text style={[styles.addressSub, { color: theme.textSecondary }]}>
-                            {isSelected ? 'Default Delivery Site' : 'Tap to select as delivery destination'}
-                          </Text>
-                        </View>
-                      </View>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        {isSelected && (
-                          <View style={styles.activePill}>
-                            <Text style={styles.activePillText}>DEFAULT</Text>
-                          </View>
-                        )}
-                        {savedLocations.length > 1 && (
-                          <TouchableOpacity
-                            onPress={(e) => {
-                              e.stopPropagation();
-                              deleteLocation(loc);
-                            }}
-                            style={{ padding: 4 }}
-                            activeOpacity={0.7}
-                          >
-                            <Trash2 size={14} color="#EF4444" />
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })
-              )}
-
-              {/* Indian E-Commerce Standard Add New Address Form */}
-              <View style={[styles.addAddressBox, { borderColor: theme.border, marginTop: 16, paddingTop: 14 }]}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <Text style={[styles.cleanFormHeading, { color: theme.textPrimary, fontSize: 13, fontWeight: '800' }]}>
-                    Add New Delivery Address
-                  </Text>
-                  <TouchableOpacity
-                    onPress={handleDetectGpsForForm}
-                    disabled={isDetectingGps}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      gap: 4,
-                      backgroundColor: '#EFF6FF',
-                      borderColor: '#BFDBFE',
-                      borderWidth: 1,
-                      paddingHorizontal: 8,
-                      paddingVertical: 5,
-                      borderRadius: 8,
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Navigation size={11} color="#0066FF" strokeWidth={2.5} />
-                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#0066FF' }}>
-                      {isDetectingGps ? 'Detecting...' : 'Detect GPS'}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
-                {/* 1. Recipient / Site Supervisor Name */}
-                <View style={{ marginBottom: 10 }}>
-                  <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
-                    Contact / Supervisor Name <Text style={{ color: '#EF4444' }}>*</Text>
-                  </Text>
-                  <TextInput
-                    value={addressFullName}
-                    onChangeText={(t) => {
-                      setAddressFullName(t);
-                      if (addressErrors.fullName) setAddressErrors((prev) => ({ ...prev, fullName: '' }));
-                    }}
-                    style={[
-                      styles.cleanInput,
-                      {
-                        backgroundColor: theme.surfaceSecondary,
-                        color: theme.textPrimary,
-                        borderColor: addressErrors.fullName ? '#EF4444' : theme.border,
-                      },
-                    ]}
-                    placeholder="e.g. Site Incharge / Contact Person"
-                    placeholderTextColor={theme.textMuted}
-                  />
-                  {addressErrors.fullName ? (
-                    <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>⚠️ {addressErrors.fullName}</Text>
-                  ) : null}
-                </View>
-
-                {/* 2. Contact Phone Numbers (Mobile & Alt) */}
-                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
-                      Primary Mobile <Text style={{ color: '#EF4444' }}>*</Text>
-                    </Text>
-                    <TextInput
-                      value={addressMobile}
-                      onChangeText={(t) => {
-                        setAddressMobile(t);
-                        if (addressErrors.mobileNumber) setAddressErrors((prev) => ({ ...prev, mobileNumber: '' }));
-                      }}
-                      keyboardType="phone-pad"
-                      maxLength={14}
-                      style={[
-                        styles.cleanInput,
-                        {
-                          backgroundColor: theme.surfaceSecondary,
-                          color: theme.textPrimary,
-                          borderColor: addressErrors.mobileNumber ? '#EF4444' : theme.border,
-                        },
-                      ]}
-                      placeholder="10-digit mobile"
-                      placeholderTextColor={theme.textMuted}
-                    />
-                    {addressErrors.mobileNumber ? (
-                      <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>⚠️ {addressErrors.mobileNumber}</Text>
-                    ) : null}
-                  </View>
-
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
-                      Alt. Phone <Text style={{ color: theme.textMuted, fontWeight: '400' }}>(Optional)</Text>
-                    </Text>
-                    <TextInput
-                      value={addressAltPhone}
-                      onChangeText={(t) => {
-                        setAddressAltPhone(t);
-                        if (addressErrors.alternatePhone) setAddressErrors((prev) => ({ ...prev, alternatePhone: '' }));
-                      }}
-                      keyboardType="phone-pad"
-                      maxLength={14}
-                      style={[
-                        styles.cleanInput,
-                        {
-                          backgroundColor: theme.surfaceSecondary,
-                          color: theme.textPrimary,
-                          borderColor: addressErrors.alternatePhone ? '#EF4444' : theme.border,
-                        },
-                      ]}
-                      placeholder="Secondary number"
-                      placeholderTextColor={theme.textMuted}
-                    />
-                    {addressErrors.alternatePhone ? (
-                      <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>⚠️ {addressErrors.alternatePhone}</Text>
-                    ) : null}
-                  </View>
-                </View>
-
-                {/* 3. Address Type Selector */}
-                <View style={{ marginBottom: 10 }}>
-                  <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
-                    Address Type / Tag
-                  </Text>
-                  <View style={{ flexDirection: 'row', gap: 6 }}>
-                    {(['Site', 'Home', 'Office', 'Warehouse'] as const).map((type) => (
-                      <TouchableOpacity
-                        key={type}
-                        onPress={() => setAddressType(type)}
-                        style={{
-                          flex: 1,
-                          paddingVertical: 7,
-                          borderRadius: 8,
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          borderWidth: 1,
-                          borderColor: addressType === type ? '#0066FF' : theme.border,
-                          backgroundColor: addressType === type ? '#EFF6FF' : theme.surfaceSecondary,
-                        }}
-                        activeOpacity={0.8}
-                      >
-                        <Text
-                          style={{
-                            fontSize: 11,
-                            fontWeight: addressType === type ? '700' : '500',
-                            color: addressType === type ? '#0066FF' : theme.textPrimary,
-                          }}
-                        >
-                          {type}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-
-                {/* 4. Pincode (6 digits - Mandatory) */}
-                <View style={{ marginBottom: 10 }}>
-                  <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
-                    Pincode (6 Digits) <Text style={{ color: '#EF4444' }}>*</Text>
-                  </Text>
-                  <TextInput
-                    value={addressPincode}
-                    onChangeText={handlePincodeChangeInProfile}
-                    keyboardType="numeric"
-                    maxLength={6}
-                    style={[
-                      styles.cleanInput,
-                      {
-                        backgroundColor: theme.surfaceSecondary,
-                        color: theme.textPrimary,
-                        borderColor: addressErrors.pincode ? '#EF4444' : theme.border,
-                      },
-                    ]}
-                    placeholder="e.g. 500081 (Auto-lookup City/State)"
-                    placeholderTextColor={theme.textMuted}
-                  />
-                  {addressErrors.pincode ? (
-                    <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>⚠️ {addressErrors.pincode}</Text>
-                  ) : null}
-                </View>
-
-                {/* 5. Flat / Building / Site Name (Mandatory) */}
-                <View style={{ marginBottom: 10 }}>
-                  <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
-                    Flat, House No., Building, Site / Plot Name <Text style={{ color: '#EF4444' }}>*</Text>
-                  </Text>
-                  <TextInput
-                    value={addressFlatBuilding}
-                    onChangeText={(t) => {
-                      setAddressFlatBuilding(t);
-                      if (addressErrors.flatBuilding) setAddressErrors((prev) => ({ ...prev, flatBuilding: '' }));
-                    }}
-                    style={[
-                      styles.cleanInput,
-                      {
-                        backgroundColor: theme.surfaceSecondary,
-                        color: theme.textPrimary,
-                        borderColor: addressErrors.flatBuilding ? '#EF4444' : theme.border,
-                      },
-                    ]}
-                    placeholder="e.g. Plot No. 42, Skyview Tower / Block C"
-                    placeholderTextColor={theme.textMuted}
-                  />
-                  {addressErrors.flatBuilding ? (
-                    <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>⚠️ {addressErrors.flatBuilding}</Text>
-                  ) : null}
-                </View>
-
-                {/* 6. Area, Street, Village (Mandatory) */}
-                <View style={{ marginBottom: 10 }}>
-                  <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
-                    Area, Street, Village <Text style={{ color: '#EF4444' }}>*</Text>
-                  </Text>
-                  <TextInput
-                    value={addressAreaStreet}
-                    onChangeText={(t) => {
-                      setAddressAreaStreet(t);
-                      if (addressErrors.areaStreet) setAddressErrors((prev) => ({ ...prev, areaStreet: '' }));
-                    }}
-                    style={[
-                      styles.cleanInput,
-                      {
-                        backgroundColor: theme.surfaceSecondary,
-                        color: theme.textPrimary,
-                        borderColor: addressErrors.areaStreet ? '#EF4444' : theme.border,
-                      },
-                    ]}
-                    placeholder="e.g. HITEC City Main Rd, Madhapur"
-                    placeholderTextColor={theme.textMuted}
-                  />
-                  {addressErrors.areaStreet ? (
-                    <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>⚠️ {addressErrors.areaStreet}</Text>
-                  ) : null}
-                </View>
-
-                {/* 7. Landmark (Optional) */}
-                <View style={{ marginBottom: 10 }}>
-                  <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
-                    Landmark <Text style={{ color: '#94A3B8', fontWeight: '400' }}>(Optional)</Text>
-                  </Text>
-                  <TextInput
-                    value={addressLandmark}
-                    onChangeText={(t) => {
-                      setAddressLandmark(t);
-                      if (addressErrors.landmark) setAddressErrors((prev) => ({ ...prev, landmark: '' }));
-                    }}
-                    style={[
-                      styles.cleanInput,
-                      {
-                        backgroundColor: theme.surfaceSecondary,
-                        color: theme.textPrimary,
-                        borderColor: addressErrors.landmark ? '#EF4444' : theme.border,
-                      },
-                    ]}
-                    placeholder="e.g. Near Cyber Towers / Metro Pillar 42"
-                    placeholderTextColor={theme.textMuted}
-                  />
-                  {addressErrors.landmark ? (
-                    <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>⚠️ {addressErrors.landmark}</Text>
-                  ) : null}
-                </View>
-
-                {/* 8. City & State (Mandatory) */}
-                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 10 }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
-                      Town / City <Text style={{ color: '#EF4444' }}>*</Text>
-                    </Text>
-                    <TextInput
-                      value={addressCity}
-                      onChangeText={(t) => {
-                        setAddressCity(t);
-                        if (addressErrors.city) setAddressErrors((prev) => ({ ...prev, city: '' }));
-                      }}
-                      style={[
-                        styles.cleanInput,
-                        {
-                          backgroundColor: theme.surfaceSecondary,
-                          color: theme.textPrimary,
-                          borderColor: addressErrors.city ? '#EF4444' : theme.border,
-                        },
-                      ]}
-                      placeholder="e.g. Hyderabad"
-                      placeholderTextColor={theme.textMuted}
-                    />
-                    {addressErrors.city ? (
-                      <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>⚠️ {addressErrors.city}</Text>
-                    ) : null}
-                  </View>
-
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
-                      State <Text style={{ color: '#EF4444' }}>*</Text>
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => setShowAddressStateDropdown(!showAddressStateDropdown)}
-                      style={[
-                        styles.cleanInput,
-                        {
-                          backgroundColor: theme.surfaceSecondary,
-                          borderColor: addressErrors.state ? '#EF4444' : theme.border,
-                          justifyContent: 'center',
-                        },
-                      ]}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textPrimary }} numberOfLines={1}>
-                        {addressState || 'Select State'}
-                      </Text>
-                    </TouchableOpacity>
-                    {addressErrors.state ? (
-                      <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>⚠️ {addressErrors.state}</Text>
-                    ) : null}
-                  </View>
-                </View>
-
-                {/* State Dropdown Picker */}
-                {showAddressStateDropdown && (
-                  <View
-                    style={{
-                      maxHeight: 140,
-                      borderWidth: 1,
-                      borderColor: theme.border,
-                      borderRadius: 10,
-                      backgroundColor: theme.surface,
-                      marginBottom: 10,
-                      padding: 6,
-                    }}
-                  >
-                    <ScrollView nestedScrollEnabled>
-                      {INDIAN_STATES.map((st) => (
-                        <TouchableOpacity
-                          key={st}
-                          onPress={() => {
-                            setAddressState(st);
-                            setShowAddressStateDropdown(false);
-                            if (addressErrors.state) setAddressErrors((prev) => ({ ...prev, state: '' }));
-                          }}
-                          style={{
-                            paddingVertical: 6,
-                            paddingHorizontal: 8,
-                            backgroundColor: addressState === st ? '#EFF6FF' : 'transparent',
-                            borderRadius: 6,
-                          }}
-                        >
-                          <Text
-                            style={{
-                              fontSize: 12,
-                              color: addressState === st ? '#0066FF' : theme.textPrimary,
-                              fontWeight: addressState === st ? '700' : '400',
-                            }}
-                          >
-                            {st}
-                          </Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-                  </View>
-                )}
-
-                {/* 9. Site Delivery & Truck Access Instructions (Optional) */}
-                <View style={{ marginBottom: 10 }}>
-                  <Text style={{ fontSize: 11, fontWeight: '600', color: theme.textSecondary, marginBottom: 4 }}>
-                    Site Access / Delivery Notes <Text style={{ color: theme.textMuted, fontWeight: '400' }}>(Optional)</Text>
-                  </Text>
-                  <TextInput
-                    value={addressInstructions}
-                    onChangeText={(t) => {
-                      setAddressInstructions(t);
-                      if (addressErrors.deliveryInstructions) setAddressErrors((prev) => ({ ...prev, deliveryInstructions: '' }));
-                    }}
-                    style={[
-                      styles.cleanInput,
-                      {
-                        backgroundColor: theme.surfaceSecondary,
-                        color: theme.textPrimary,
-                        borderColor: addressErrors.deliveryInstructions ? '#EF4444' : theme.border,
-                      },
-                    ]}
-                    placeholder="e.g. Wide Gate, 10-Wheel Dumpers OK, Call on arrival"
-                    placeholderTextColor={theme.textMuted}
-                  />
-                  {addressErrors.deliveryInstructions ? (
-                    <Text style={{ color: '#EF4444', fontSize: 10, marginTop: 2 }}>⚠️ {addressErrors.deliveryInstructions}</Text>
-                  ) : null}
-                </View>
-
-                {/* Save Address Button */}
-                <TouchableOpacity
-                  onPress={handleAddNewAddress}
-                  style={[styles.cleanSaveBtn, { backgroundColor: theme.buttonBg || '#FCB026', marginTop: 4 }]}
-                  activeOpacity={0.85}
-                >
-                  <Text style={[styles.cleanSaveBtnText, { color: theme.buttonText || '#18181B' }]}>+ Save Delivery Address</Text>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
-          </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
-
-      {/* ======================================================== */}
       {/* POPUP MODAL 4: REFER & EARN                              */}
       {/* ======================================================== */}
-      <Modal visible={isReferModalOpen} transparent animationType="fade" onRequestClose={() => setIsReferModalOpen(false)}>
-        <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setIsReferModalOpen(false)} />
-          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
-            <View style={styles.modalHeader}>
-              <View style={styles.modalHeaderTitleRow}>
-                <Gift size={18} color="#111111" />
-                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Refer & Earn</Text>
-              </View>
-              <TouchableOpacity onPress={() => setIsReferModalOpen(false)} style={styles.closeBtn}>
-                <X size={18} color={theme.textSecondary} />
-              </TouchableOpacity>
-            </View>
+      <ReferEarnModal
+        visible={isReferModalOpen}
+        onClose={() => setIsReferModalOpen(false)}
+        referralCode={referralCode}
+        onCopyReferralCode={handleCopyReferralCode}
+        onShareReferral={handleShareReferral}
+      />
 
-            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-              <View style={styles.referHeroSection}>
-                <View style={styles.giftCircle}>
-                  <Gift size={32} color="#111111" />
-                </View>
-                <Text style={[styles.referHeroTitle, { color: theme.textPrimary }]}>Earn ₹100 for every builder you invite</Text>
-                <Text style={[styles.referHeroSubtitle, { color: theme.textSecondary }]}>
-                  Share your referral link with contractor friends. When they place their first construction materials order, both of you receive ₹100 in Urbanico Wallet.
-                </Text>
-              </View>
-
-              <View style={[styles.referCodeCard, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-                <Text style={[styles.referCodeLabel, { color: theme.textMuted }]}>YOUR REFERRAL CODE</Text>
-                <Text style={[styles.referCodeText, { color: theme.textPrimary }]}>{referralCode}</Text>
-                <View style={styles.referActionButtons}>
-                  <TouchableOpacity onPress={handleCopyReferralCode} style={styles.referCopyBtn} activeOpacity={0.75}>
-                    <Copy size={14} color="#111111" />
-                    <Text style={styles.referCopyBtnText}>Copy Code</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={handleShareReferral} style={styles.referShareBtn} activeOpacity={0.8}>
-                    <Share2 size={14} color="#FFFFFF" />
-                    <Text style={styles.referShareBtnText}>Share on WhatsApp</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ======================================================== */}
-      {/* POPUP MODAL 6: HELP & SUPPORT                            */}
-      {/* ======================================================== */}
-      <Modal visible={isHelpModalOpen} transparent animationType="fade" onRequestClose={() => setIsHelpModalOpen(false)}>
-        <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setIsHelpModalOpen(false)} />
-          <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
-            <View style={styles.modalHeader}>
-              <View style={styles.modalHeaderTitleRow}>
-                <HelpCircle size={18} color="#111111" />
-                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Help & Support</Text>
-              </View>
-              <TouchableOpacity onPress={() => setIsHelpModalOpen(false)} style={styles.closeBtn}>
-                <X size={18} color={theme.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
-              <TouchableOpacity
-                onPress={() => {
-                  if (typeof window !== 'undefined') {
-                    window.open('tel:+918297474332', '_self');
-                  }
-                }}
-                style={[styles.helpItemRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
-                activeOpacity={0.75}
-              >
-                <View style={styles.helpItemLeft}>
-                  <Phone size={18} color="#111111" />
-                  <View>
-                    <Text style={[styles.helpItemTitle, { color: theme.textPrimary }]}>Customer Support</Text>
-                    <Text style={[styles.helpItemSub, { color: theme.textSecondary }]}>Direct helpline: +91 8297474332</Text>
-                  </View>
-                </View>
-                <ChevronRight size={16} color={theme.textSecondary} />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => {
-                  if (typeof window !== 'undefined') {
-                    window.open('mailto:urbanicoapp@gmail.com', '_self');
-                  }
-                }}
-                style={[styles.helpItemRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, marginTop: 8 }]}
-                activeOpacity={0.75}
-              >
-                <View style={styles.helpItemLeft}>
-                  <Mail size={18} color="#111111" />
-                  <View>
-                    <Text style={[styles.helpItemTitle, { color: theme.textPrimary }]}>Commercial Invoicing & Support</Text>
-                    <Text style={[styles.helpItemSub, { color: theme.textSecondary }]}>urbanicoapp@gmail.com</Text>
-                  </View>
-                </View>
-                <ChevronRight size={16} color={theme.textSecondary} />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                onPress={() => {
-                  if (typeof window !== 'undefined') {
-                    window.open('https://wa.me/918297474332', '_blank');
-                  }
-                }}
-                style={[styles.helpItemRow, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border, marginTop: 8 }]}
-                activeOpacity={0.75}
-              >
-                <View style={styles.helpItemLeft}>
-                  <MessageSquare size={18} color="#111111" />
-                  <View>
-                    <Text style={[styles.helpItemTitle, { color: theme.textPrimary }]}>WhatsApp Dispatch Desk</Text>
-                    <Text style={[styles.helpItemSub, { color: theme.textSecondary }]}>+91 8297474332 (Direct WhatsApp support)</Text>
-                  </View>
-                </View>
-                <ChevronRight size={16} color={theme.textSecondary} />
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      {/* POPUP MODAL 6: HELP & SUPPORT */}
+      <HelpSupportModal
+        visible={isHelpModalOpen}
+        onClose={() => setIsHelpModalOpen(false)}
+      />
 
       {/* ======================================================== */}
       {/* POPUP MODAL 7: EDIT CONTRACTOR PROFILE                   */}
       {/* ======================================================== */}
-      <Modal visible={isEditProfileModalOpen} transparent animationType="fade" onRequestClose={() => setIsEditProfileModalOpen(false)}>
-        <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setIsEditProfileModalOpen(false)} />
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={styles.keyboardAvoidingModalWrapper}
-          >
-            <View style={[styles.modalContent, { backgroundColor: theme.surface }]}>
-              <View style={styles.modalHeader}>
-                <Text style={[styles.modalTitle, { color: theme.textPrimary }]}>Edit Contractor Details</Text>
-                <TouchableOpacity onPress={() => setIsEditProfileModalOpen(false)} style={styles.closeBtn}>
-                  <X size={18} color={theme.textSecondary} />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView
-                style={styles.modalBody}
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                automaticallyAdjustKeyboardInsets={true}
-                contentContainerStyle={{ paddingBottom: 24 }}
-              >
-              {/* Profile Photo Display */}
-              <View style={styles.editModalAvatarRow}>
-                <View style={styles.editModalAvatarWrapper}>
-                  <Image
-                    source={{ uri: user.avatarUrl || CLOUDINARY_PROFILE_PIC }}
-                    style={styles.editModalAvatarImg}
-                    resizeMode="cover"
-                  />
-                  <View style={styles.editModalAvatarBadge}>
-                    <Check size={11} color="#FFFFFF" strokeWidth={3} />
-                  </View>
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.avatarRoleTag, { color: theme.textPrimary }]}>Contractor Profile</Text>
-                  <Text style={[styles.avatarSubtext, { color: theme.textSecondary }]}>Account details & GST</Text>
-                </View>
-              </View>
-
-              <Text style={[styles.inputLabel, { color: theme.textSecondary }]}>
-                Full Name <Text style={{ color: '#EF4444' }}>*</Text>
-              </Text>
-              <TextInput
-                value={editName}
-                onChangeText={(t) => {
-                  setEditName(t);
-                  if (profileErrors.name) setProfileErrors((prev) => ({ ...prev, name: '' }));
-                }}
-                style={[
-                  styles.modalInput,
-                  {
-                    backgroundColor: theme.surfaceSecondary,
-                    color: theme.textPrimary,
-                    borderColor: profileErrors.name ? '#EF4444' : theme.border,
-                  },
-                ]}
-                placeholder="Contractor full name"
-                placeholderTextColor={theme.textMuted}
-              />
-              {profileErrors.name ? (
-                <Text style={{ color: '#EF4444', fontSize: 11, marginTop: 3, marginBottom: 8, fontWeight: '500' }}>
-                  ⚠️ {profileErrors.name}
-                </Text>
-              ) : null}
-
-              <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: profileErrors.name ? 0 : 8 }]}>
-                Phone Number <Text style={{ color: '#EF4444' }}>*</Text>
-              </Text>
-              <TextInput
-                value={editPhone}
-                onChangeText={(t) => {
-                  setEditPhone(t);
-                  if (profileErrors.phone) setProfileErrors((prev) => ({ ...prev, phone: '' }));
-                }}
-                keyboardType="phone-pad"
-                style={[
-                  styles.modalInput,
-                  {
-                    backgroundColor: theme.surfaceSecondary,
-                    color: theme.textPrimary,
-                    borderColor: profileErrors.phone ? '#EF4444' : theme.border,
-                  },
-                ]}
-                placeholder="10-digit mobile number"
-                placeholderTextColor={theme.textMuted}
-              />
-              {profileErrors.phone ? (
-                <Text style={{ color: '#EF4444', fontSize: 11, marginTop: 3, marginBottom: 8, fontWeight: '500' }}>
-                  ⚠️ {profileErrors.phone}
-                </Text>
-              ) : null}
-
-              <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: profileErrors.phone ? 0 : 8 }]}>
-                Company / Firm Name
-              </Text>
-              <TextInput
-                value={editCompany}
-                onChangeText={(t) => {
-                  setEditCompany(t);
-                  if (profileErrors.companyName) setProfileErrors((prev) => ({ ...prev, companyName: '' }));
-                }}
-                style={[
-                  styles.modalInput,
-                  {
-                    backgroundColor: theme.surfaceSecondary,
-                    color: theme.textPrimary,
-                    borderColor: profileErrors.companyName ? '#EF4444' : theme.border,
-                  },
-                ]}
-                placeholder="e.g. ABC Constructions / Independent Developer"
-                placeholderTextColor={theme.textMuted}
-              />
-              {profileErrors.companyName ? (
-                <Text style={{ color: '#EF4444', fontSize: 11, marginTop: 3, marginBottom: 8, fontWeight: '500' }}>
-                  ⚠️ {profileErrors.companyName}
-                </Text>
-              ) : null}
-
-              {/* GSTIN Input with strict validation & optional support */}
-              <View style={[styles.inputLabelRow, { marginTop: profileErrors.companyName ? 0 : 8 }]}>
-                <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 0 }]}>
-                  GSTIN (18% Flat ITC) <Text style={{ fontSize: 10, color: theme.textMuted, fontWeight: '500' }}>(Optional)</Text>
-                </Text>
-                {editGstin.trim().length === 15 && isValidGSTIN(editGstin) ? (
-                  <View style={styles.gstVerifiedBadge}>
-                    <BadgeCheck size={13} color="#FFFFFF" fill="#059669" strokeWidth={2.4} />
-                    <Text style={styles.gstVerifiedBadgeText}>Verified</Text>
-                  </View>
-                ) : editGstin.trim().length > 0 ? (
-                  <View style={styles.emailUnverifiedBadge}>
-                    <Text style={styles.emailUnverifiedBadgeText}>Pending</Text>
-                  </View>
-                ) : null}
-              </View>
-              <View style={styles.emailInputWrapper}>
-                <TextInput
-                  value={editGstin}
-                  onChangeText={handleGstChange}
-                  autoCapitalize="characters"
-                  maxLength={15}
-                  style={[
-                    styles.modalInput,
-                    editGstin.trim().length === 15 && isValidGSTIN(editGstin) ? styles.emailTextInput : null,
-                    {
-                      backgroundColor: theme.surfaceSecondary,
-                      color: theme.textPrimary,
-                      borderColor: (gstError || profileErrors.gstin) ? '#EF4444' : editGstin.trim().length === 15 && isValidGSTIN(editGstin) ? '#10B981' : theme.border,
-                      fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-                    },
-                  ]}
-                  placeholder="e.g. 36AAACU9812A1Z4 (Optional)"
-                  placeholderTextColor={theme.textMuted}
-                />
-                {editGstin.trim().length === 15 && isValidGSTIN(editGstin) ? (
-                  <View style={styles.emailInputRightAction}>
-                    <View style={[styles.verifiedIconCircle, { backgroundColor: '#ECFDF5' }]}>
-                      <BadgeCheck size={18} color="#FFFFFF" fill="#059669" strokeWidth={2.2} />
-                    </View>
-                  </View>
-                ) : null}
-              </View>
-              {(gstError || profileErrors.gstin) ? (
-                <Text style={styles.gstErrorText}>⚠️ {gstError || profileErrors.gstin}</Text>
-              ) : editGstin.trim().length === 15 && isValidGSTIN(editGstin) ? (
-                <Text style={styles.gstSuccessText}>✓ 18% Input Tax Credit enabled on all tax invoices</Text>
-              ) : (
-                <Text style={[styles.gstHintText, { color: theme.textMuted }]}>
-                  Enter 15-digit GSTIN for company invoices or leave blank for retail billing.
-                </Text>
-              )}
-
-              {/* Email Address with Verify Button & OTP Verification */}
-              <View style={[styles.inputLabelRow, { marginTop: 14 }]}>
-                <Text style={[styles.inputLabel, { color: theme.textSecondary, marginTop: 0 }]}>Email Address</Text>
-                {isEmailVerified ? (
-                  <View style={styles.emailVerifiedBadge}>
-                    <BadgeCheck size={14} color="#FFFFFF" fill="#0284C7" strokeWidth={2.2} />
-                    <Text style={styles.emailVerifiedBadgeText}>Verified</Text>
-                  </View>
-                ) : editEmail.trim() ? (
-                  <View style={styles.emailUnverifiedBadge}>
-                    <Text style={styles.emailUnverifiedBadgeText}>Not Verified</Text>
-                  </View>
-                ) : null}
-              </View>
-
-              <View style={styles.emailInputWrapper}>
-                <TextInput
-                  value={editEmail}
-                  onChangeText={handleEmailChange}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  style={[
-                    styles.modalInput,
-                    styles.emailTextInput,
-                    {
-                      backgroundColor: theme.surfaceSecondary,
-                      color: theme.textPrimary,
-                      borderColor: profileErrors.email ? '#EF4444' : isEmailVerified ? '#0284C7' : theme.border,
-                    },
-                  ]}
-                  placeholder="contractor@urbanico.in"
-                  placeholderTextColor={theme.textMuted}
-                />
-                {isEmailVerified ? (
-                  <View style={styles.emailInputRightAction}>
-                    <View style={styles.verifiedIconCircle}>
-                      <BadgeCheck size={18} color="#FFFFFF" fill="#0284C7" strokeWidth={2.2} />
-                    </View>
-                  </View>
-                ) : editEmail.trim() ? (
-                  <TouchableOpacity
-                    onPress={handleSendEmailOtp}
-                    style={[styles.verifyEmailInlineBtn, isSendingOtp && { opacity: 0.7 }]}
-                    activeOpacity={0.8}
-                    disabled={isSendingOtp}
-                  >
-                    <Sparkles size={12} color="#FFFFFF" strokeWidth={2} />
-                    <Text style={styles.verifyEmailInlineBtnText}>
-                      {isSendingOtp ? 'Sending...' : 'Verify'}
-                    </Text>
-                  </TouchableOpacity>
-                ) : null}
-              </View>
-              {profileErrors.email ? (
-                <Text style={{ color: '#EF4444', fontSize: 11, marginTop: 3, marginBottom: 8, fontWeight: '500' }}>
-                  ⚠️ {profileErrors.email}
-                </Text>
-              ) : null}
-
-              {/* Inline OTP Verification Container */}
-              {Boolean(showEmailOtpBox) && (
-                <View style={[styles.emailOtpBox, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
-                  <View style={styles.otpHeaderRow}>
-                    <Mail size={15} color="#059669" />
-                    <Text style={[styles.otpHeaderTitle, { color: theme.textPrimary }]}>
-                      Enter 4-Digit Code
-                    </Text>
-                  </View>
-                  <Text style={[styles.otpSubText, { color: theme.textSecondary }]}>
-                    Verification code sent to <Text style={{ fontWeight: '700', color: theme.textPrimary }}>{editEmail.trim()}</Text>. Check your email inbox.
-                  </Text>
-
-                  <View style={styles.otpInputRow}>
-                    <TextInput
-                      value={emailOtp}
-                      onChangeText={(val) => setEmailOtp(val.replace(/[^0-9]/g, '').slice(0, 4))}
-                      keyboardType="number-pad"
-                      maxLength={4}
-                      placeholder="• • • •"
-                      placeholderTextColor={theme.textMuted}
-                      style={[styles.otpInput, { backgroundColor: theme.surface, color: theme.textPrimary, borderColor: theme.border }]}
-                      autoFocus
-                    />
-                    <TouchableOpacity
-                      onPress={handleVerifyEmailOtp}
-                      style={styles.otpConfirmBtn}
-                      activeOpacity={0.85}
-                    >
-                      <Check size={14} color="#FFFFFF" strokeWidth={2.5} />
-                      <Text style={styles.otpConfirmBtnText}>Verify OTP</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  <View style={styles.otpFooterRow}>
-                    {otpTimer > 0 ? (
-                      <Text style={[styles.otpTimerText, { color: theme.textMuted }]}>
-                        Resend code in {otpTimer}s
-                      </Text>
-                    ) : (
-                      <TouchableOpacity onPress={handleSendEmailOtp} activeOpacity={0.7}>
-                        <Text style={styles.otpResendLink}>Resend OTP</Text>
-                      </TouchableOpacity>
-                    )}
-                    <TouchableOpacity onPress={() => setShowEmailOtpBox(false)} activeOpacity={0.7}>
-                      <Text style={[styles.otpCancelLink, { color: theme.textSecondary }]}>Dismiss</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              )}
-            </ScrollView>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity onPress={() => setIsEditProfileModalOpen(false)} style={styles.cancelBtn}>
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleSaveProfile} style={styles.modalPrimaryBtn}>
-                <Text style={styles.modalPrimaryBtnText}>Save Changes</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
+      <EditProfileModal
+        visible={isEditProfileModalOpen}
+        onClose={() => setIsEditProfileModalOpen(false)}
+        user={user}
+        editName={editName}
+        setEditName={setEditName}
+        editCompany={editCompany}
+        setEditCompany={setEditCompany}
+        editGstin={editGstin}
+        setEditGstin={setEditGstin}
+        editEmail={editEmail}
+        setEditEmail={setEditEmail}
+        profileErrors={profileErrors}
+        setProfileErrors={setProfileErrors}
+        isSavingProfile={isSavingProfile}
+        isSendingEmailOtp={isSendingEmailOtp}
+        isVerifyingEmailOtp={isVerifyingEmailOtp}
+        showEmailOtpBox={showEmailOtpBox}
+        emailOtp={emailOtp}
+        setEmailOtp={setEmailOtp}
+        handleSendEmailOtp={handleSendEmailOtp}
+        handleVerifyEmailOtp={handleVerifyEmailOtp}
+        handleSaveProfile={handleSaveProfile}
+      />
 
       {/* ======================================================== */}
       {/* POPUP MODAL: PAST MATERIAL ORDER HISTORY                 */}

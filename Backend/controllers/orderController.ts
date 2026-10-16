@@ -5,6 +5,7 @@ import { sendInvoiceMail, InvoiceItem } from '../lib/mailer';
 import { validateOrderPayload } from '../utils/requestValidator';
 import { idempotencyStore, extractIdempotencyKey } from '../utils/idempotency';
 import { AuditService } from '../services/auditService';
+import { sanitizePhone } from '../utils/sanitizer';
 
 export class OrderController {
   public static createOrder = asyncHandler(async (req: Request, res: Response) => {
@@ -89,8 +90,8 @@ export class OrderController {
     }
 
     if (authUser && authUser.role !== 'admin' && authUser.role !== 'supervisor') {
-      const userPhoneDigits = (authUser.phone || '').replace(/\D/g, '').slice(-10);
-      const orderPhoneDigits = (order.customerPhone || '').replace(/\D/g, '').slice(-10);
+      const userPhoneDigits = sanitizePhone(authUser.phone);
+      const orderPhoneDigits = sanitizePhone(order.customerPhone);
       if (userPhoneDigits && orderPhoneDigits && userPhoneDigits !== orderPhoneDigits) {
         return sendError(res, 'Access denied: You do not own this order record.', 403);
       }
@@ -108,8 +109,8 @@ export class OrderController {
     }
 
     if (authUser && authUser.role !== 'admin' && authUser.role !== 'supervisor') {
-      const userPhoneDigits = (authUser.phone || '').replace(/\D/g, '').slice(-10);
-      const orderPhoneDigits = (order.customerPhone || '').replace(/\D/g, '').slice(-10);
+      const userPhoneDigits = sanitizePhone(authUser.phone);
+      const orderPhoneDigits = sanitizePhone(order.customerPhone);
       if (userPhoneDigits && orderPhoneDigits && userPhoneDigits !== orderPhoneDigits) {
         return sendError(res, 'Access denied: You do not own this order record.', 403);
       }
@@ -129,8 +130,8 @@ export class OrderController {
     }
 
     const isAdminOrStaff = authUser && (authUser.role === 'admin' || authUser.role === 'supervisor' || authUser.role === 'driver');
-    const userPhoneDigits = (authUser?.phone || '').replace(/\D/g, '').slice(-10);
-    const orderPhoneDigits = (existingOrder.customerPhone || '').replace(/\D/g, '').slice(-10);
+    const userPhoneDigits = sanitizePhone(authUser?.phone);
+    const orderPhoneDigits = sanitizePhone(existingOrder.customerPhone);
     const isOwner = Boolean(userPhoneDigits && orderPhoneDigits && userPhoneDigits === orderPhoneDigits);
 
     if (status === 'cancelled') {

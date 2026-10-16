@@ -9,6 +9,7 @@ export * from './freightCalculator';
 export * from './gstinValidator';
 export * from './imageOptimization';
 export * from './invoiceHelper';
+export * from './invoiceGenerators';
 export * from './locationHelper';
 export * from './paymentMethodsHelper';
 export * from './priceHelper';

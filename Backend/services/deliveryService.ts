@@ -1,7 +1,8 @@
 import { Delivery, IDelivery } from '../models/Delivery';
+import { MASTER_SAMPLE_DELIVERIES } from '../data/seedData';
 import mongoose from 'mongoose';
 
-const inMemoryDeliveries: any[] = [];
+const inMemoryDeliveries: any[] = [...MASTER_SAMPLE_DELIVERIES];
 
 export class DeliveryService {
   public static async getDeliveryByOrderId(orderId: string) {

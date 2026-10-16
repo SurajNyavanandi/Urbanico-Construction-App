@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { Quote } from '../models/Quote';
 import { asyncHandler, sendSuccess, sendError } from '../utils/apiResponse';
+import { sanitizePhone } from '../utils/sanitizer';
 
 export class QuoteController {
   public static createQuote = asyncHandler(async (req: Request, res: Response) => {
@@ -13,7 +14,7 @@ export class QuoteController {
     const newQuote = new Quote({
       quoteId: `QT-${Date.now().toString().slice(-6)}-${Math.floor(100 + Math.random() * 900)}`,
       customerName: customerName || 'B2B Client',
-      customerPhone: String(customerPhone).replace(/\D/g, '').slice(-10),
+      customerPhone: sanitizePhone(customerPhone),
       customerEmail: customerEmail || '',
       siteLocation: {
         siteName: siteLocation.siteName || 'Construction Site',
@@ -38,7 +39,7 @@ export class QuoteController {
     const filter: Record<string, any> = {};
 
     if (phone) {
-      filter.customerPhone = { $regex: String(phone).replace(/\D/g, '').slice(-10) };
+      filter.customerPhone = { $regex: sanitizePhone(phone) };
     }
     if (status && status !== 'all') {
       filter.status = String(status);

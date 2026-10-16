@@ -35,6 +35,7 @@ import { ShimmerImage } from './common/ShimmerImage';
 import { isServiceablePincode } from '../utils/freightCalculator';
 import { soundService } from '../utils/soundHelper';
 import { isCartItemService } from '../utils/cartCalculations';
+import { QuantityStepper } from './common/QuantityStepper';
 
 interface ItemQuantityModalProps {
   item: MaterialItem | null;
@@ -587,42 +588,12 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
                   </Text>
                 </View>
 
-                <View style={[styles.stepperBox, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary }]}>
-                  <TouchableOpacity
-                    onPress={() => handleStepQuantity(-1)}
-                    style={[
-                      styles.stepBtn,
-                      {
-                        backgroundColor: theme.surface,
-                        borderColor: theme.border,
-                        opacity: quantity <= 1 ? 0.5 : 1,
-                      },
-                    ]}
-                    activeOpacity={0.7}
-                    disabled={quantity <= 1}
-                  >
-                    <Minus size={14} color={theme.textPrimary} strokeWidth={2.5} />
-                  </TouchableOpacity>
-                  <TextInput
-                    keyboardType="number-pad"
-                    value={quantityInputStr}
-                    onChangeText={handleQuantityInputChange}
-                    onBlur={handleQuantityBlur}
-                    style={[
-                      styles.nativeQuantityInput,
-                      {
-                        color: theme.textPrimary,
-                      },
-                    ]}
-                  />
-                  <TouchableOpacity
-                    onPress={() => handleStepQuantity(1)}
-                    style={[styles.stepBtn, { backgroundColor: theme.surface, borderColor: theme.border }]}
-                    activeOpacity={0.7}
-                  >
-                    <Plus size={14} color={theme.textPrimary} strokeWidth={2.5} />
-                  </TouchableOpacity>
-                </View>
+                <QuantityStepper
+                  value={quantity}
+                  onIncrement={() => handleStepQuantity(1)}
+                  onDecrement={() => handleStepQuantity(-1)}
+                  min={1}
+                />
               </View>
 
               {/* Bulk Tier Discount Savings Breakdown */}

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { DeliveryService } from '../services/deliveryService';
 import { asyncHandler, sendSuccess, sendError } from '../utils/apiResponse';
+import { sanitizePhone } from '../utils/sanitizer';
 
 export class DeliveryController {
   public static getDeliveries = asyncHandler(async (req: Request, res: Response) => {
@@ -14,9 +15,9 @@ export class DeliveryController {
 
     // Standard users only see deliveries corresponding to their registered phone number
     if (authUser && authUser.role !== 'admin' && authUser.role !== 'supervisor' && authUser.role !== 'driver') {
-      const userPhoneDigits = (authUser.phone || '').replace(/\D/g, '').slice(-10);
+      const userPhoneDigits = sanitizePhone(authUser.phone);
       const filtered = result.deliveries.filter((d: any) => {
-        const custDigits = (d.customerPhone || d.siteSupervisorPhone || '').replace(/\D/g, '').slice(-10);
+        const custDigits = sanitizePhone(d.customerPhone || d.siteSupervisorPhone);
         return custDigits && custDigits === userPhoneDigits;
       });
       return sendSuccess(res, {
@@ -48,8 +49,8 @@ export class DeliveryController {
     }
 
     if (authUser && authUser.role !== 'admin' && authUser.role !== 'supervisor' && authUser.role !== 'driver') {
-      const userPhoneDigits = (authUser.phone || '').replace(/\D/g, '').slice(-10);
-      const custDigits = ((delivery as any).customerPhone || (delivery as any).siteSupervisorPhone || '').replace(/\D/g, '').slice(-10);
+      const userPhoneDigits = sanitizePhone(authUser.phone);
+      const custDigits = sanitizePhone((delivery as any).customerPhone || (delivery as any).siteSupervisorPhone);
       if (userPhoneDigits && custDigits && userPhoneDigits !== custDigits) {
         return sendError(res, 'Access denied: You are not authorized to track this consignment.', 403);
       }

@@ -131,19 +131,15 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'x-admin-secret', 'x-razorpay-signature', 'idempotency-key']
 }));
 
-// Route mappings
+// Canonical API route mappings
 app.use('/api', apiRouter);
-app.use('/razorpay', paymentRouter);
+app.use('/api/payments', paymentRouter);
 app.use('/payments', paymentRouter);
+app.use('/razorpay', paymentRouter);
 
-// Flat aliases for backwards compatibility with existing frontend calls
-app.get('/api/razorpay/config', PaymentController.getConfig);
-app.get('/razorpay/config', PaymentController.getConfig);
-app.get('/api/payments/config', PaymentController.getConfig);
+// Legacy flat endpoint compatibility
 app.post('/create-order', PaymentController.createOrder);
 app.post('/verify-payment', PaymentController.verifyPayment);
-app.post('/api/payments/webhook', PaymentController.handleWebhook);
-app.post('/payments/webhook', PaymentController.handleWebhook);
 app.post('/send-invoice', (req, res, next) => { req.url = '/send-invoice'; apiRouter(req, res, next); });
 app.post('/otp/send', (req, res, next) => { req.url = '/otp/send'; apiRouter(req, res, next); });
 app.post('/otp/verify', (req, res, next) => { req.url = '/otp/verify'; apiRouter(req, res, next); });

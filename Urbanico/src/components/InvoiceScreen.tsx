@@ -11,24 +11,8 @@ export interface InvoiceScreenProps {
   onOpenLoginModal?: () => void;
 }
 
-export const InvoiceScreen: React.FC<InvoiceScreenProps> = ({
-  delivery,
-  user,
-  isOpen = true,
-  onClose,
-  isLoggedIn = false,
-  onOpenLoginModal,
-}) => {
-  return (
-    <InvoiceModal
-      isOpen={isOpen}
-      onClose={onClose}
-      delivery={delivery}
-      user={user}
-      isLoggedIn={isLoggedIn}
-      onOpenLoginModal={onOpenLoginModal}
-    />
-  );
+export const InvoiceScreen: React.FC<InvoiceScreenProps> = (props) => {
+  return <InvoiceModal isOpen={props.isOpen ?? true} {...props} />;
 };
 
 export default InvoiceScreen;

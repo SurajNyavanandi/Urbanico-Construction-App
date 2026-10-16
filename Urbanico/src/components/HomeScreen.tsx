@@ -36,6 +36,7 @@ import { BRAND_LOGO_URL } from '../constants';
 import { soundService } from '../utils/soundHelper';
 import { HomeSkeleton } from './common/SkeletonLoader';
 import { useImagePrefetch } from '../hooks/useImagePrefetch';
+import { SectionHeader } from './common/SectionHeader';
 
 interface HomeScreenProps {
   headerComponent?: React.ReactNode;
@@ -405,22 +406,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         {/* 4. BUILDING MATERIALS SECTION (Unchanged Cards & Functionality) */}
         {/* ========================================================================= */}
         <View style={styles.sectionContainer}>
-          {/* Section Header */}
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionHeaderLeft}>
-              <Text style={[styles.sectionHeading, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>Building Materials</Text>
-              <Text style={[styles.sectionSubtitle, { color: theme.textSecondary, fontFamily: typography.fontFamily }]}>
-                Materials & supplies
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={onNavigateAllMaterials}
-              style={styles.viewAllButton}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.viewAllText, { color: theme.primary, fontFamily: typography.fontFamily }]}>View All</Text>
-            </TouchableOpacity>
-          </View>
+          <SectionHeader
+            title="Building Materials"
+            subtitle="Materials & supplies"
+            onAction={onNavigateAllMaterials}
+          />
 
           {/* Materials Horizontal Scroll Row with Shop Card Layout */}
           <View style={styles.horizontalScrollWrapper}>
@@ -457,25 +447,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         {/* 6. TRADE SERVICES SECTION (Steve Jobs Minimalist UI)                      */}
         {/* ========================================================================= */}
         <View style={styles.sectionContainer}>
-          {/* Section Header */}
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionHeaderLeft}>
-              <Text style={[styles.sectionHeading, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>Trade Services</Text>
-              <Text style={[styles.sectionSubtitle, { color: theme.textSecondary, fontFamily: typography.fontFamily }]}>
-                Trade & equipment assistance
-              </Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => {
-                if (onNavigateAllServices) onNavigateAllServices();
-                else onSelectCategory('services-catalog');
-              }}
-              style={styles.viewAllButton}
-              activeOpacity={0.7}
-            >
-              <Text style={[styles.viewAllText, { color: theme.primary, fontFamily: typography.fontFamily }]}>View All</Text>
-            </TouchableOpacity>
-          </View>
+          <SectionHeader
+            title="Trade Services"
+            subtitle="Trade & equipment assistance"
+            onAction={() => {
+              if (onNavigateAllServices) onNavigateAllServices();
+              else onSelectCategory('services-catalog');
+            }}
+          />
 
           {/* Services Horizontal Scroll Row with Shop Card Layout */}
           <View style={styles.horizontalScrollWrapper}>
