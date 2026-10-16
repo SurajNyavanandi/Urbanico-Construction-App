@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Modal, StyleSheet, Pressable } from 'react-native';
-import { TrendingUp, TrendingDown, Minus, Clock, BarChart3, X, ShieldAlert, Sparkles } from 'lucide-react-native';
+import { TrendingUp, TrendingDown, Minus, Clock, BarChart3, X, Sparkles } from 'lucide-react-native';
 import { COMMODITY_SPOT_RATES, CommodityRate } from '../../utils/commodityTicker';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -142,7 +142,7 @@ export const CommodityTickerBar: React.FC = () => {
                       const heightPercent = 30 + ((price - min) / range) * 55;
                       const isLatest = idx === selectedRate.sevenDayTrend.length - 1;
                       return (
-                        <View key={idx} style={styles.sparkCol}>
+                        <View key={`${selectedRate.id}-trend-${idx}-${price}`} style={styles.sparkCol}>
                           <View style={styles.sparkBarTrack}>
                             <View
                               style={[

@@ -11,6 +11,8 @@ import {
   TextInput,
   ActivityIndicator,
   Image,
+  Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import {
   ShoppingCart,
@@ -129,7 +131,7 @@ import { validateGSTIN, GstinValidationResult } from '../utils/gstinValidator';
 import { buildTaxInvoiceData, sendTaxInvoiceEmail } from '../utils/invoiceHelper';
 import { openProformaQuotationPrint } from '../utils/proformaQuotationHelper';
 import { useCart } from '../context/CartContext';
-import { useClipboard } from '../hooks';
+import { useClipboard } from '../hooks/useClipboard';
 import { OrderSummaryBreakdown } from './basket/OrderSummaryBreakdown';
 
 export const CART_ORDER_LIFECYCLE_STAGES = [
@@ -1979,8 +1981,14 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   }, [activeDeliveries, selectedActiveOrderId]);
 
   return (
-    <View style={{ flex: 1 }}>
-      <ScrollView
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
+      style={{ flex: 1 }}
+    >
+      <View style={{ flex: 1 }}>
+        <ScrollView
+
         ref={scrollViewRef}
         style={[styles.container, { backgroundColor: theme.background }]}
         contentContainerStyle={styles.scrollContent}
@@ -2220,13 +2228,29 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                               <TouchableOpacity
                                 onPress={() => {
                                   soundService.playTap();
-                                  onUpdateQuantity(item.id, item.quantity - 1);
+                                  if (item.quantity <= 1) {
+                                    if (typeof navigator !== 'undefined' && (navigator as any).vibrate) {
+                                      try {
+                                        (navigator as any).vibrate(15);
+                                      } catch {}
+                                    }
+                                    onRemoveItem(item.id);
+                                    showToast(`Removed "${item.itemName}" from basket`, 'info');
+                                  } else {
+                                    onUpdateQuantity(item.id, item.quantity - 1);
+                                  }
                                 }}
                                 style={[styles.stepperBtn, { backgroundColor: theme.surface }]}
-                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                hitSlop={{ top: 11, bottom: 11, left: 11, right: 11 }}
                                 activeOpacity={0.7}
+                                accessibilityRole="button"
+                                accessibilityLabel={item.quantity <= 1 ? `Remove ${item.itemName}` : `Decrease ${item.itemName} quantity`}
                               >
-                                <Minus size={13} color={theme.textPrimary} />
+                                {item.quantity <= 1 ? (
+                                  <Trash2 size={13} color="#EF4444" strokeWidth={2.2} />
+                                ) : (
+                                  <Minus size={13} color={theme.textPrimary} strokeWidth={2.4} />
+                                )}
                               </TouchableOpacity>
                               <Text style={[styles.stepperQtyText, { color: theme.textPrimary }]}>{item.quantity}</Text>
                               <TouchableOpacity
@@ -2235,12 +2259,15 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                                   onUpdateQuantity(item.id, item.quantity + 1);
                                 }}
                                 style={[styles.stepperBtn, { backgroundColor: theme.surface }]}
-                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                hitSlop={{ top: 11, bottom: 11, left: 11, right: 11 }}
                                 activeOpacity={0.7}
+                                accessibilityRole="button"
+                                accessibilityLabel={`Increase ${item.itemName} quantity`}
                               >
-                                <Plus size={13} color={theme.textPrimary} />
+                                <Plus size={13} color={theme.textPrimary} strokeWidth={2.4} />
                               </TouchableOpacity>
                             </View>
+
                             <TouchableOpacity
                               onPress={() => {
                                 soundService.playAlert();
@@ -2896,9 +2923,81 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
           </View>
         </Modal>
       </ScrollView>
-    </View>
+
+      {/* Docked Sticky Bottom Checkout Action Bar (Blinkit / Nike Standard) */}
+      {activeTab === 'cart' && cartItems.length > 0 && (
+        <View
+          style={[
+            styles.stickyBottomCheckoutBar,
+            {
+              backgroundColor: theme.surface,
+              borderTopColor: theme.border,
+            },
+          ]}
+        >
+          <View style={styles.stickyPayableCol}>
+            <Text style={[styles.stickyPayableLabel, { color: theme.textSecondary }]}>TOTAL PAYABLE</Text>
+            <Text style={[styles.stickyPayableAmount, { color: theme.textPrimary }]}>
+              ₹{payableAmount.toLocaleString('en-IN')}
+            </Text>
+            <Text style={[styles.stickyPayableTaxHint, { color: theme.textMuted }]}>
+              Incl. 18% GST & Delivery
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            onPress={() => {
+              soundService.playTap();
+              if (!isUserLoggedInWithMobile) {
+                if (onOpenLoginModal) onOpenLoginModal();
+                return;
+              }
+              handleStartCheckout();
+            }}
+            disabled={isPlacingOrder}
+            activeOpacity={0.88}
+            style={[
+              styles.stickyPayBtn,
+              {
+                backgroundColor: theme.buttonBg || theme.primary,
+              },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel={!isUserLoggedInWithMobile ? "Login to Place Order" : `Proceed to Pay ₹${payableAmount.toLocaleString('en-IN')}`}
+          >
+            {isPlacingOrder ? (
+              <View style={styles.stickyBtnRow}>
+                <ActivityIndicator size="small" color={theme.buttonText || '#18181B'} />
+                <Text style={[styles.stickyPayBtnText, { color: theme.buttonText || '#18181B' }]}>
+                  Processing...
+                </Text>
+              </View>
+            ) : !isUserLoggedInWithMobile ? (
+              <View style={styles.stickyBtnRow}>
+                <Lock size={15} color={theme.buttonText || '#18181B'} />
+                <Text style={[styles.stickyPayBtnText, { color: theme.buttonText || '#18181B' }]}>
+                  Login to Pay
+                </Text>
+                <ArrowRight size={16} color={theme.buttonText || '#18181B'} strokeWidth={2.5} />
+              </View>
+            ) : (
+              <View style={styles.stickyBtnRow}>
+                <Lock size={15} color={theme.buttonText || '#18181B'} />
+                <Text style={[styles.stickyPayBtnText, { color: theme.buttonText || '#18181B' }]}>
+                  Proceed to Pay
+                </Text>
+                <ArrowRight size={16} color={theme.buttonText || '#18181B'} strokeWidth={2.5} />
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+      </View>
+    </KeyboardAvoidingView>
   );
 };
+
+
 
 const styles = StyleSheet.create({
   container: {
@@ -2910,6 +3009,62 @@ const styles = StyleSheet.create({
     paddingBottom: 112,
     gap: 14,
   },
+  stickyBottomCheckoutBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    zIndex: 90,
+    ...Platform.select({
+      web: {
+        boxShadow: '0 -4px 16px rgba(0, 0, 0, 0.08)',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: -3 },
+        shadowOpacity: 0.1,
+        shadowRadius: 6,
+        elevation: 8,
+      },
+    }),
+  },
+  stickyPayableCol: {
+    justifyContent: 'center',
+  },
+  stickyPayableLabel: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  stickyPayableAmount: {
+    fontSize: 18,
+    fontWeight: '800',
+    marginTop: 1,
+  },
+  stickyPayableTaxHint: {
+    fontSize: 10,
+    marginTop: 1,
+  },
+  stickyPayBtn: {
+    height: 46,
+    borderRadius: 14,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stickyPayBtnText: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  stickyBtnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+
   tabContainer: {
     flexDirection: 'row',
     padding: 3,

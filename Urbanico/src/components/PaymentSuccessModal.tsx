@@ -23,7 +23,8 @@ import { RazorpayPaymentResult } from './common/RazorpayModal';
 import { soundService } from '../utils/soundHelper';
 import { ActivityDelivery } from '../types';
 import { buildTaxInvoiceData, openTaxInvoicePrint } from '../utils/invoiceHelper';
-import { useClipboard, formatINR } from '../hooks';
+import { useClipboard } from '../hooks/useClipboard';
+import { formatInr as formatINR } from '../utils/priceHelper';
 
 interface PaymentSuccessModalProps {
   visible: boolean;

@@ -170,8 +170,10 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     };
 
     try {
-      window.addEventListener('urbanico:rate-limited', rateLimitHandler);
-      window.addEventListener('urbanico:service-already-in-cart', serviceAlreadyHandler);
+      if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+        window.addEventListener('urbanico:rate-limited', rateLimitHandler);
+        window.addEventListener('urbanico:service-already-in-cart', serviceAlreadyHandler);
+      }
     } catch {}
 
     return () => {

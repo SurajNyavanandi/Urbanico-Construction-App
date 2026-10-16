@@ -57,7 +57,7 @@ export const AppScreenCanvas: React.FC<AppScreenCanvasProps> = ({ app }) => {
         headerComponent={
           <Header
             currentScreen={app.currentScreen}
-            title={app.getScreenTitle()}
+            title={app.getScreenTitle(app.currentScreen)}
             selectedLocation={app.selectedLocation}
             onOpenLocationModal={app.handleOpenLocationModal}
             onBack={undefined}

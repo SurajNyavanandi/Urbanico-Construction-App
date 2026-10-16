@@ -49,7 +49,8 @@ import { apiService } from '../services/apiService';
 import { formatSiteAddress } from '../utils/addressHelper';
 import { safeStorage } from '../utils/safeStorage';
 import { resolveMaterialImage } from '../utils/materialImageResolver';
-import { formatINR, useClipboard } from '../hooks';
+import { useClipboard } from '../hooks/useClipboard';
+import { formatInr as formatINR } from '../utils/priceHelper';
 import { StatusBadge } from './common/StatusBadge';
 
 export type OrderStatusFilter = 'all' | 'active' | 'delivered' | 'cancelled';

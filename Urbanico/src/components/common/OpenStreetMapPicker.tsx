@@ -1,4 +1,4 @@
-import React, { useEffect, useState, createElement } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   StyleSheet,
@@ -12,6 +12,7 @@ import {
 import { WebView } from 'react-native-webview';
 import { MapPin, Navigation, Compass, ExternalLink, Layers } from 'lucide-react-native';
 import { LatLng } from './GoogleMapPicker';
+import { useTheme } from '../../context/ThemeContext';
 
 interface OpenStreetMapPickerProps {
   center: LatLng;
@@ -36,7 +37,9 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
   routeOrigin,
   routeDestination,
 }) => {
+  const { theme } = useTheme();
   const selectedPos = markerPosition || center;
+
   const [loading, setLoading] = useState(true);
   const [nativeAddress, setNativeAddress] = useState<string>('');
   const [isResolvingAddress, setIsResolvingAddress] = useState(false);
@@ -59,9 +62,13 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
       }
     };
 
-    window.addEventListener('message', handleMessage);
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      window.addEventListener('message', handleMessage);
+    }
     return () => {
-      window.removeEventListener('message', handleMessage);
+      if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
+        window.removeEventListener('message', handleMessage);
+      }
     };
   }, [onLocationSelect]);
 
@@ -101,8 +108,9 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
     });
   };
 
-  // Build standalone Leaflet HTML for web iframe
-  const leafletHtml = `
+  // Build standalone Leaflet HTML for web iframe (memoized for performance)
+  const leafletHtml = useMemo(() => {
+    return `
     <!DOCTYPE html>
     <html>
     <head>
@@ -285,8 +293,8 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
         });
       </script>
     </body>
-    </html>
-  `;
+    `;
+  }, [selectedPos.lat, selectedPos.lng, zoom, markerTitle, interactive, originLat, originLng, destLat, destLng]);
 
   // Handle message from React Native WebView
   const handleWebViewMessage = (event: any) => {
@@ -307,24 +315,25 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
   };
 
   // On Web: use createElement to avoid React Native JSX NativeRegistry registration
+  // On Web: use standard iframe tag with memoized HTML
   if (Platform.OS === 'web') {
     return (
-      <View style={[styles.container, { height }]}>
-        {createElement('iframe', {
-          title: 'OpenStreetMap Picker',
-          srcDoc: leafletHtml,
-          style: {
+      <View style={[styles.container, { height, backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <iframe
+          title="OpenStreetMap Picker"
+          srcDoc={leafletHtml}
+          style={{
             width: '100%',
             height: '100%',
             border: 'none',
             borderRadius: '16px',
-          },
-          onLoad: () => setLoading(false),
-        })}
+          }}
+          onLoad={() => setLoading(false)}
+        />
         {loading && (
-          <View style={styles.loadingOverlay}>
-            <ActivityIndicator size="small" color="#111111" />
-            <Text style={styles.loadingText}>Loading Map (OpenStreetMap)...</Text>
+          <View style={[styles.loadingOverlay, { backgroundColor: theme.surfaceSecondary }]}>
+            <ActivityIndicator size="small" color={theme.primary} />
+            <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Loading Map (OpenStreetMap)...</Text>
           </View>
         )}
       </View>
@@ -333,11 +342,11 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
 
   // On Native Android & iOS (Expo / React Native): Render Native WebView Map
   return (
-    <View style={[styles.container, { height }]}>
+    <View style={[styles.container, { height, backgroundColor: theme.surface, borderColor: theme.border }]}>
       <WebView
         originWhitelist={['*']}
         source={{ html: leafletHtml }}
-        style={styles.webView}
+        style={[styles.webView, { backgroundColor: theme.surface }]}
         onMessage={handleWebViewMessage}
         onLoadEnd={() => setLoading(false)}
         javaScriptEnabled
@@ -346,34 +355,36 @@ export const OpenStreetMapPicker: React.FC<OpenStreetMapPickerProps> = ({
         scrollEnabled={interactive}
       />
       {loading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="small" color="#FCB026" />
-          <Text style={styles.loadingText}>Loading Map (OpenStreetMap)...</Text>
+        <View style={[styles.loadingOverlay, { backgroundColor: theme.surfaceSecondary }]}>
+          <ActivityIndicator size="small" color={theme.primary} />
+          <Text style={[styles.loadingText, { color: theme.textSecondary }]}>Loading Map (OpenStreetMap)...</Text>
         </View>
       )}
       {/* Bottom Floating Navigate Button */}
-      <View style={styles.nativeBottomBar}>
+      <View style={[styles.nativeBottomBar, { backgroundColor: theme.surface, borderTopColor: theme.border }]}>
         <View style={styles.addressContainer}>
           <View style={styles.addressHeaderRow}>
-            <Compass size={12} color="#18181B" />
-            <Text style={styles.addressHeaderLabel}>Site Location</Text>
+            <Compass size={12} color={theme.textPrimary} />
+            <Text style={[styles.addressHeaderLabel, { color: theme.textSecondary }]}>Site Location</Text>
           </View>
-          <Text style={styles.addressText} numberOfLines={1}>
+          <Text style={[styles.addressText, { color: theme.textPrimary }]} numberOfLines={1}>
             {nativeAddress || `${selectedPos.lat.toFixed(4)}° N, ${selectedPos.lng.toFixed(4)}° E`}
           </Text>
         </View>
         <TouchableOpacity
           onPress={handleOpenExternalMaps}
-          style={styles.openMapsButton}
+          style={[styles.openMapsButton, { backgroundColor: theme.buttonBg || theme.primary }]}
           activeOpacity={0.8}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Navigation size={14} color="#18181B" />
-          <Text style={styles.openMapsButtonText}>Navigate</Text>
-          <ExternalLink size={12} color="#18181B" />
+          <Navigation size={14} color={theme.buttonText || theme.primaryText || '#18181B'} />
+          <Text style={[styles.openMapsButtonText, { color: theme.buttonText || theme.primaryText || '#18181B' }]}>Navigate</Text>
+          <ExternalLink size={12} color={theme.buttonText || theme.primaryText || '#18181B'} />
         </TouchableOpacity>
       </View>
     </View>
   );
+
 };
 
 const styles = StyleSheet.create({

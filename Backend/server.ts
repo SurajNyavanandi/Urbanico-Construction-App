@@ -273,6 +273,14 @@ export async function startServer() {
     console.log(`[Urbanico] Server running on http://0.0.0.0:${PORT} (PID ${process.pid})`);
   });
 
+  server.on('error', (err: any) => {
+    if (err.code === 'EADDRINUSE') {
+      console.warn(`[Urbanico] ⚠️ Port ${PORT} already in use or transitioning during server reload.`);
+    } else {
+      console.error('[Urbanico] Server listen error:', err);
+    }
+  });
+
   // Graceful shutdown handling (SIGTERM & SIGINT)
   const gracefulShutdown = (signal: string) => {
     console.log(`[Urbanico] ${signal} signal received. Closing HTTP server gracefully...`);

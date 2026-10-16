@@ -88,6 +88,15 @@ export const useColorScheme = rnwModule.useColorScheme;
 export const View = rnwModule.View;
 export const Vibration = rnwModule.Vibration;
 
+export type ViewStyle = any;
+export type TextStyle = any;
+export type ImageStyle = any;
+export type StyleProp<T = any> = any;
+export type DimensionValue = any;
+export type TextProps = any;
+export type LayoutChangeEvent = any;
+export type TextInputProps = any;
+
 export default {
   ...rnwModule,
   Animated,
@@ -97,3 +106,4 @@ export default {
   RefreshControl,
   ImageBackground,
 };
+

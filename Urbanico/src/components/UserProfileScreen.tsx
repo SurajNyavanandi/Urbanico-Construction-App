@@ -85,7 +85,7 @@ import {
 } from '../utils/sanitizationHelper';
 import { IndianDeliveryAddress } from '../types';
 import { getCurrentDeviceLocation } from '../utils/locationHelper';
-import { useClipboard } from '../hooks';
+import { useClipboard } from '../hooks/useClipboard';
 
 interface UserProfileScreenProps {
   user: UserProfile;
@@ -146,6 +146,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(initialOpenSettingsModal);
+  const [isOrdersModalOpen, setIsOrdersModalOpen] = useState(initialOpenOrdersModal);
   const [loadingModalKey, setLoadingModalKey] = useState<string | null>(null);
   const isModalLoading = (key: string) => loadingModalKey === key;
   const triggerAsyncModal = (key: string, preloader: any, onReady: () => void) => {
@@ -233,47 +234,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     showToast('New site delivery address saved successfully', 'success');
   };
 
-  const handlePincodeChangeInProfile = (text: string) => {
-    const clean = text.replace(/[^0-9]/g, '').slice(0, 6);
-    setAddressPincode(clean);
-    if (addressErrors.pincode) {
-      setAddressErrors((prev) => ({ ...prev, pincode: '' }));
-    }
-    if (clean.length === 6) {
-      const pinPrefix = parseInt(clean.slice(0, 3), 10);
-      if (isNaN(pinPrefix) || pinPrefix < 500 || pinPrefix > 509) {
-        setAddressErrors((prev) => ({
-          ...prev,
-          pincode: 'Currently delivering exclusively across Hyderabad & Telangana (PIN: 500xxx - 509xxx). Out-of-zone freight unavailable.',
-        }));
-      } else {
-        setAddressErrors((prev) => ({ ...prev, pincode: '' }));
-      }
-      const lookup = lookupCityStateFromPincode(clean);
-      if (lookup.city) setAddressCity(lookup.city);
-      if (lookup.state) setAddressState(lookup.state);
-    }
-  };
-
-  const handleDetectGpsForForm = async () => {
-    setIsDetectingGps(true);
-
-    try {
-      const loc = await getCurrentDeviceLocation();
-      if (loc.pincode) setAddressPincode(loc.pincode.replace(/\D/g, '').slice(0, 6));
-      if (loc.address) setAddressAreaStreet(loc.address);
-      if (!addressFlatBuilding) setAddressFlatBuilding('Current Site Location');
-      if (loc.city) setAddressCity(loc.city);
-      if (loc.state) setAddressState(loc.state);
-
-      setIsDetectingGps(false);
-      showToast('GPS site location detected successfully', 'success');
-    } catch {
-      setIsDetectingGps(false);
-      showToast('GPS location unavailable. Please enter address details manually.', 'info');
-    }
-  };
-
   // Edit profile form state
   const [editName, setEditName] = useState(user.name || '');
   const [editPhone, setEditPhone] = useState(user.phone || '');
@@ -285,8 +245,20 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [showEmailOtpBox, setShowEmailOtpBox] = useState<boolean>(false);
   const [emailOtp, setEmailOtp] = useState<string>('');
   const [otpTimer, setOtpTimer] = useState<number>(0);
-  const [isSendingOtp, setIsSendingOtp] = useState<boolean>(false);
+  const [isSavingProfile, setIsSavingProfile] = useState<boolean>(false);
+  const [isSendingEmailOtp, setIsSendingEmailOtp] = useState<boolean>(false);
+  const [isVerifyingEmailOtp, setIsVerifyingEmailOtp] = useState<boolean>(false);
   const [gstError, setGstError] = useState<string>('');
+
+  const activeEnRouteDelivery = useMemo(() => {
+    if (!deliveries || deliveries.length === 0) return null;
+    return deliveries.find(
+      (d) => d.status === 'En Route' || d.status === 'Placed'
+    ) || deliveries[0] || null;
+  }, [deliveries]);
+
+
+
 
   // GSTIN Validation (Optional, but if provided must follow Indian 15-char standard)
   const isValidGSTIN = (gst: string): boolean => {
@@ -351,15 +323,15 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       showToast('Please enter a valid email address first (e.g. name@domain.com)', 'error');
       return;
     }
-    setIsSendingOtp(true);
+    setIsSendingEmailOtp(true);
     try {
       const res = await apiService.sendEmailOtp(trimmed, user?.phone);
-      setIsSendingOtp(false);
+      setIsSendingEmailOtp(false);
       setShowEmailOtpBox(true);
       setOtpTimer(30);
       showToast(res?.message || `Verification code sent to ${trimmed}`, 'success');
     } catch {
-      setIsSendingOtp(false);
+      setIsSendingEmailOtp(false);
       setShowEmailOtpBox(true);
       setOtpTimer(30);
       showToast(`Verification code sent to ${trimmed}`, 'success');
@@ -373,8 +345,10 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       return;
     }
 
+    setIsVerifyingEmailOtp(true);
     try {
       const res = await apiService.verifyEmailOtp(editEmail.trim(), entered, user?.phone);
+      setIsVerifyingEmailOtp(false);
       if (res.success && res.isEmailVerified) {
         setIsEmailVerified(true);
         setShowEmailOtpBox(false);
@@ -385,9 +359,11 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         showToast(res.message || 'Invalid verification code. Please check and try again.', 'error');
       }
     } catch {
+      setIsVerifyingEmailOtp(false);
       showToast('Invalid verification code. Please check and try again.', 'error');
     }
   };
+
 
   const handleGstChange = (text: string) => {
     const clean = text.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, 15);
@@ -428,6 +404,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   };
 
   const handleSaveProfile = () => {
+    setIsSavingProfile(true);
     const validation = validateAndSanitizeProfileForm({
       name: editName,
       phone: editPhone,
@@ -438,6 +415,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     });
 
     if (!validation.isValid) {
+      setIsSavingProfile(false);
       setProfileErrors(validation.errors);
       if (validation.errors.gstin) {
         setGstError(validation.errors.gstin);
@@ -450,8 +428,10 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     setProfileErrors({});
     setGstError('');
     onUpdateUser(validation.sanitized);
+    setIsSavingProfile(false);
     setIsEditProfileModalOpen(false);
   };
+
 
 
 
@@ -533,8 +513,46 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
               </View>
             </View>
             <View style={[styles.menuDividerFull, { backgroundColor: theme.border }]} />
+
+            {/* Active Shipment Glance Card (Blinkit / Instamart / Amazon Standard) */}
+            {activeEnRouteDelivery && (
+              <TouchableOpacity
+                onPress={() => {
+                  onNavigateScreen('basket');
+                }}
+                activeOpacity={0.88}
+                style={[
+                  styles.activeShipmentCard,
+                  {
+                    backgroundColor: theme.mode === 'dark' ? 'rgba(5, 150, 105, 0.15)' : '#ECFDF5',
+                    borderColor: theme.mode === 'dark' ? 'rgba(5, 150, 105, 0.35)' : '#10B981',
+                  },
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel={`Active Shipment Order #${activeEnRouteDelivery.orderNumber}`}
+              >
+                <View style={styles.shipmentCardLeft}>
+                  <View style={[styles.shipmentPulsingDot, { backgroundColor: '#10B981' }]} />
+                  <View style={{ flex: 1 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={[styles.shipmentTitle, { color: theme.textPrimary }]}>
+                        Order #{activeEnRouteDelivery.orderNumber} En Route
+                      </Text>
+                      <View style={styles.liveTagPill}>
+                        <Text style={styles.liveTagText}>LIVE DISPATCH</Text>
+                      </View>
+                    </View>
+                    <Text style={[styles.shipmentSub, { color: theme.textSecondary }]} numberOfLines={1}>
+                      {activeEnRouteDelivery.materialName} • {activeEnRouteDelivery.estimatedArrival || 'Arriving soon'}
+                    </Text>
+                  </View>
+                </View>
+                <ChevronRight size={16} color="#10B981" />
+              </TouchableOpacity>
+            )}
           </>
         )}
+
 
         {/* 2. Order Management: My Orders & Dispatches */}
         <TouchableOpacity
@@ -1191,7 +1209,48 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#B45309',
   },
+  activeShipmentCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    marginHorizontal: 16,
+    marginVertical: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  shipmentCardLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  shipmentPulsingDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  shipmentTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  shipmentSub: {
+    fontSize: 11.5,
+    marginTop: 2,
+  },
+  liveTagPill: {
+    backgroundColor: '#10B981',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  liveTagText: {
+    color: '#FFFFFF',
+    fontSize: 8.5,
+    fontWeight: '800',
+  },
   modalOverlay: {
+
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.55)',
     justifyContent: 'center',

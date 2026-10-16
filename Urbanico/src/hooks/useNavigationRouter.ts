@@ -13,7 +13,7 @@ export interface PreloadableLazyModule {
 
 export function useNavigationRouter(screenPreloaders?: Record<string, () => Promise<any>>) {
   const [currentScreen, setCurrentScreen] = useState<ScreenType>(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && window.location) {
       try {
         const params = new URLSearchParams(window.location.search);
         const urlScreen = params.get('screen') as ScreenType;
@@ -24,7 +24,7 @@ export function useNavigationRouter(screenPreloaders?: Record<string, () => Prom
   });
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<CategoryId | 'all'>(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && window.location) {
       try {
         const params = new URLSearchParams(window.location.search);
         const urlCat = params.get('category') as CategoryId;
@@ -38,9 +38,15 @@ export function useNavigationRouter(screenPreloaders?: Record<string, () => Prom
   const [openProfileAddresses, setOpenProfileAddresses] = useState(false);
   const [pendingIntent, setPendingIntent] = useState<PendingIntent>(null);
 
-  // Synchronize URL parameters on browser navigation / popstate
+  // Synchronize URL parameters on browser navigation / popstate (Safely guarded for React Native Android / iOS runtimes)
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (
+      typeof window === 'undefined' ||
+      !window.location ||
+      typeof window.addEventListener !== 'function'
+    ) {
+      return;
+    }
     const handlePopState = () => {
       try {
         const params = new URLSearchParams(window.location.search);
@@ -55,7 +61,13 @@ export function useNavigationRouter(screenPreloaders?: Record<string, () => Prom
   }, []);
 
   const updateUrlState = (scr: ScreenType, cat?: CategoryId | 'all') => {
-    if (typeof window === 'undefined' || !window.history?.replaceState) return;
+    if (
+      typeof window === 'undefined' ||
+      !window.location ||
+      !window.history?.replaceState
+    ) {
+      return;
+    }
     try {
       const url = new URL(window.location.href);
       if (scr === 'home') {
@@ -68,103 +80,106 @@ export function useNavigationRouter(screenPreloaders?: Record<string, () => Prom
       } else {
         url.searchParams.delete('category');
       }
-      window.history.replaceState(null, '', url.toString());
+      window.history.replaceState(null, '', url.pathname + url.search);
     } catch {}
   };
 
-  // Scroll position cache across tabs to preserve scroll offset when switching back and forth
-  const scrollPositionsRef = useRef<Record<string, number>>({});
+  const isTransitioningRef = useRef(false);
 
-  const saveScrollPosition = useCallback((screen: ScreenType, position: number) => {
-    scrollPositionsRef.current[screen] = Math.max(0, position);
-  }, []);
+  const navigateTo = useCallback(
+    (screen: ScreenType, categoryId?: CategoryId | 'all') => {
+      if (isTransitioningRef.current) return;
+      isTransitioningRef.current = true;
 
-  const getScrollPosition = useCallback((screen: ScreenType): number => {
-    return scrollPositionsRef.current[screen] || 0;
-  }, []);
+      const newCategory = categoryId || (screen === 'home' ? 'all' : selectedCategoryId);
 
-  // Defer secondary screen prefetching to generous browser idle time (after homepage is interactive)
-  useEffect(() => {
-    if (!screenPreloaders) return;
-
-    const prefetchRoutes = () => {
-      // Only preload core shop/basket in idle, never block homepage
-      try {
-        if (screenPreloaders.shop) screenPreloaders.shop();
-        if (screenPreloaders.basket) screenPreloaders.basket();
-      } catch {}
-    };
-
-    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
-      const idleId = (window as any).requestIdleCallback(prefetchRoutes, { timeout: 4000 });
-      return () => {
-        if ('cancelIdleCallback' in window) {
-          (window as any).cancelIdleCallback(idleId);
-        }
-      };
-    } else {
-      const timer = setTimeout(prefetchRoutes, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [screenPreloaders]);
-
-  const preloadScreen = useCallback(
-    (scr: ScreenType) => {
-      if (!screenPreloaders) return;
-      if (scr === 'basket' && screenPreloaders.basket) screenPreloaders.basket();
-      if (scr === 'favorites' && screenPreloaders.favorites) screenPreloaders.favorites();
-      if ((scr === 'shop' || scr === 'category') && screenPreloaders.shop) {
-        screenPreloaders.shop();
-        screenPreloaders.category?.();
+      if (screenPreloaders && screenPreloaders[screen]) {
+        screenPreloaders[screen]().catch(() => {});
       }
-      if (scr === 'profile' && screenPreloaders.profile) screenPreloaders.profile();
-      if ((scr === 'activity' || scr === 'orders' || scr === 'order_history') && screenPreloaders.orders) screenPreloaders.orders();
-      if (scr === 'activity' && screenPreloaders.activity) screenPreloaders.activity();
+
+      startTransition(() => {
+        setCurrentScreen(screen);
+        setSelectedCategoryId(newCategory);
+        updateUrlState(screen, newCategory);
+        isTransitioningRef.current = false;
+      });
     },
-    [screenPreloaders]
+    [screenPreloaders, selectedCategoryId]
   );
 
-  /**
-   * Fast Screen Navigation wrapped in React.startTransition
-   * Ensures tap feedback and touch inputs stay 60fps responsive without UI thread locking
-   */
-  const navigateScreen = useCallback((scr: ScreenType) => {
-    startTransition(() => {
-      if (scr === 'shop' || scr === 'category') {
-        setSelectedCategoryId('all');
-        updateUrlState(scr, 'all');
-      } else {
-        updateUrlState(scr);
-      }
-      setCurrentScreen(scr);
-    });
-  }, []);
-
-  /**
-   * Category Selection wrapped in React.startTransition
-   */
   const selectCategory = useCallback(
-    (catId: CategoryId | 'all' | 'services' | 'services-catalog') => {
+    (catId: CategoryId | 'all') => {
+      if (isTransitioningRef.current) return;
+      isTransitioningRef.current = true;
+
       startTransition(() => {
-        setSelectedCategoryId(catId as any);
+        setSelectedCategoryId(catId);
         setCurrentScreen('shop');
-        updateUrlState('shop', catId as any);
+        updateUrlState('shop', catId);
+        isTransitioningRef.current = false;
       });
     },
     []
   );
 
-  const getScreenTitle = useCallback((): string => {
-    if (currentScreen === 'shop' || currentScreen === 'category') return 'Shop';
-    if (currentScreen === 'basket') return 'Cart';
-    if (currentScreen === 'favorites') return 'Favourites';
-    if (currentScreen === 'profile') return 'Profile';
-    if (currentScreen === 'activity') return 'Activity Dashboard';
-    if (currentScreen === 'orders' || currentScreen === 'order_history') return 'Order History';
-    if (currentScreen === 'auth_mobile' || currentScreen === 'auth_otp')
-      return 'Account Verification';
-    return 'Home';
-  }, [currentScreen]);
+  const handleFavoriteAction = useCallback(
+    (itemId: string, isLoggedIn: boolean, openLoginModal?: () => void) => {
+      if (!isLoggedIn) {
+        setPendingIntent({ type: 'favorite', itemId });
+        if (openLoginModal) openLoginModal();
+        return false;
+      }
+      return true;
+    },
+    []
+  );
+
+  const handleCheckoutAction = useCallback(
+    (isLoggedIn: boolean, openLoginModal?: () => void) => {
+      if (!isLoggedIn) {
+        setPendingIntent({ type: 'checkout' });
+        if (openLoginModal) openLoginModal();
+        return false;
+      }
+      navigateTo('basket');
+      return true;
+    },
+    [navigateTo]
+  );
+
+  const handleViewInvoiceAction = useCallback(
+    (delivery: ActivityDelivery, isLoggedIn: boolean, openLoginModal?: () => void) => {
+      if (!isLoggedIn) {
+        setPendingIntent({ type: 'view_invoice', delivery });
+        if (openLoginModal) openLoginModal();
+        return;
+      }
+      navigateTo('basket');
+    },
+    [navigateTo]
+  );
+
+  const clearPendingIntent = useCallback(() => {
+    setPendingIntent(null);
+  }, []);
+
+  const preloadScreen = useCallback((screen: ScreenType) => {
+    if (screenPreloaders && screenPreloaders[screen]) {
+      screenPreloaders[screen]().catch(() => {});
+    }
+  }, [screenPreloaders]);
+
+  const getScreenTitle = useCallback((screen: ScreenType): string => {
+    switch (screen) {
+      case 'home': return 'Urbanico Direct Yard';
+      case 'shop': return 'Materials & Services Catalog';
+      case 'basket': return 'Site Delivery & Cart';
+      case 'favorites': return 'Saved Contractor Supplies';
+      case 'activity': return 'Consignment Dispatch Hub';
+      case 'profile': return 'Contractor Business Profile';
+      default: return 'Urbanico';
+    }
+  }, []);
 
   return {
     currentScreen,
@@ -177,11 +192,15 @@ export function useNavigationRouter(screenPreloaders?: Record<string, () => Prom
     setOpenProfileAddresses,
     pendingIntent,
     setPendingIntent,
+    navigateTo,
+    navigateScreen: navigateTo,
     preloadScreen,
-    navigateScreen,
-    selectCategory,
     getScreenTitle,
-    saveScrollPosition,
-    getScrollPosition,
+    selectCategory,
+    handleFavoriteAction,
+    handleCheckoutAction,
+    handleViewInvoiceAction,
+    clearPendingIntent,
   };
 }
+

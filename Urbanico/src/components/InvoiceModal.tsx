@@ -40,7 +40,8 @@ import {
 } from '../utils/invoiceHelper';
 import { INDIAN_GST_STATES, validateGSTIN } from '../utils/gstinValidator';
 import { formatSiteAddress } from '../utils/addressHelper';
-import { useClipboard, formatINR } from '../hooks';
+import { useClipboard } from '../hooks/useClipboard';
+import { formatInr as formatINR } from '../utils/priceHelper';
 import { generateInvoicePrintHtml, executePrintDocument } from '../utils/invoiceGenerators';
 import { StatusBadge } from './common/StatusBadge';
 

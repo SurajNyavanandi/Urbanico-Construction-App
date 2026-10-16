@@ -104,6 +104,7 @@ export const CartItemList: React.FC<CartItemListProps> = ({
                 quantity={item.quantity || 1}
                 onIncrement={() => onIncrement(item.id, item.quantity || 1)}
                 onDecrement={() => onDecrement(item.id, item.quantity || 1)}
+                allowDeleteAtMin={true}
                 size="sm"
               />
             </View>

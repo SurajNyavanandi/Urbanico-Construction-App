@@ -4,8 +4,9 @@ import { Plus, Minus, Trash2 } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { soundService } from '../../utils/soundHelper';
 
-interface QuantityStepperProps {
-  value: number;
+export interface QuantityStepperProps {
+  value?: number;
+  quantity?: number;
   onIncrement: () => void;
   onDecrement: () => void;
   min?: number;
@@ -16,6 +17,7 @@ interface QuantityStepperProps {
 
 export const QuantityStepper: React.FC<QuantityStepperProps> = ({
   value,
+  quantity,
   onIncrement,
   onDecrement,
   min = 1,
@@ -24,6 +26,7 @@ export const QuantityStepper: React.FC<QuantityStepperProps> = ({
   allowDeleteAtMin = false,
 }) => {
   const { theme } = useTheme();
+  const actualValue = value ?? quantity ?? 1;
 
   const handleDecrement = () => {
     soundService.playTap();
@@ -36,44 +39,51 @@ export const QuantityStepper: React.FC<QuantityStepperProps> = ({
   };
 
   const isSmall = size === 'sm';
-  const showTrash = allowDeleteAtMin && value <= min;
+  const showTrash = allowDeleteAtMin && actualValue <= min;
 
   return (
     <View style={[styles.container, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
       <TouchableOpacity
         onPress={handleDecrement}
-        disabled={!allowDeleteAtMin && value <= min}
+        disabled={!allowDeleteAtMin && actualValue <= min}
         style={[styles.button, isSmall && styles.buttonSm]}
         accessibilityRole="button"
         accessibilityLabel="Decrease quantity"
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        hitSlop={{ top: 11, bottom: 11, left: 11, right: 11 }}
       >
         {showTrash ? (
-          <Trash2 size={isSmall ? 12 : 14} color="#EF4444" strokeWidth={2} />
+          <Trash2 size={isSmall ? 13 : 15} color="#EF4444" strokeWidth={2} />
         ) : (
           <Minus
-            size={isSmall ? 12 : 14}
-            color={!allowDeleteAtMin && value <= min ? theme.textTertiary : theme.textPrimary}
+            size={isSmall ? 13 : 15}
+            color={!allowDeleteAtMin && actualValue <= min ? theme.textMuted : theme.textPrimary}
             strokeWidth={2.5}
           />
         )}
       </TouchableOpacity>
 
-      <Text style={[styles.value, { color: theme.textPrimary }, isSmall && styles.valueSm]}>
-        {value}
+      <Text
+        style={[
+          styles.value,
+          { color: theme.textPrimary },
+          isSmall && styles.valueSm,
+        ]}
+        numberOfLines={1}
+      >
+        {actualValue}
       </Text>
 
       <TouchableOpacity
         onPress={handleIncrement}
-        disabled={value >= max}
+        disabled={actualValue >= max}
         style={[styles.button, isSmall && styles.buttonSm]}
         accessibilityRole="button"
         accessibilityLabel="Increase quantity"
-        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        hitSlop={{ top: 11, bottom: 11, left: 11, right: 11 }}
       >
         <Plus
-          size={isSmall ? 12 : 14}
-          color={value >= max ? theme.textTertiary : theme.textPrimary}
+          size={isSmall ? 13 : 15}
+          color={actualValue >= max ? theme.textMuted : theme.textPrimary}
           strokeWidth={2.5}
         />
       </TouchableOpacity>
@@ -87,31 +97,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 10,
     borderWidth: 1,
-    paddingHorizontal: 3,
+    paddingHorizontal: 4,
     paddingVertical: 2,
     alignSelf: 'flex-start',
   },
   button: {
-    width: 28,
-    height: 28,
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 6,
+    borderRadius: 8,
   },
   buttonSm: {
-    width: 22,
-    height: 22,
+    width: 26,
+    height: 26,
+    borderRadius: 6,
   },
   value: {
-    minWidth: 26,
+    minWidth: 28,
     textAlign: 'center',
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '700',
     paddingHorizontal: 4,
   },
   valueSm: {
-    minWidth: 20,
-    fontSize: 11,
+    minWidth: 22,
+    fontSize: 12,
     fontWeight: '700',
     paddingHorizontal: 2,
   },

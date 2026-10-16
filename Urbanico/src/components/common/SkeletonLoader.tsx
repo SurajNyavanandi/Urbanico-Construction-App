@@ -49,7 +49,7 @@ export const ProductCardSkeleton: React.FC<{ viewMode?: 'grid' | 'list'; width?:
   if (viewMode === 'list') {
     return (
       <View style={styles.listSkeleton}>
-        <Skeleton width={84} height={84} borderRadius={14} />
+        <Skeleton width={86} height={86} borderRadius={10} style={{ aspectRatio: 1 }} />
         <View style={{ flex: 1, gap: 8 }}>
           <Skeleton width="70%" height={16} />
           <Skeleton width="40%" height={12} />
@@ -61,7 +61,7 @@ export const ProductCardSkeleton: React.FC<{ viewMode?: 'grid' | 'list'; width?:
 
   return (
     <View style={[styles.gridSkeleton, width ? { width: width as any } : { width: '48%' }]}>
-      <Skeleton width="100%" height={130} borderRadius={14} />
+      <Skeleton width="100%" height={140} borderRadius={12} />
       <Skeleton width="80%" height={14} style={{ marginTop: 8 }} />
       <Skeleton width="50%" height={12} style={{ marginTop: 4 }} />
       <Skeleton width="40%" height={14} style={{ marginTop: 4 }} />
@@ -80,8 +80,9 @@ export const HomeSkeleton: React.FC = () => {
       </View>
       <Skeleton width="100%" height={44} borderRadius={12} style={{ marginTop: 12 }} />
 
-      {/* Banner Skeleton */}
-      <Skeleton width="100%" height={150} borderRadius={16} style={{ marginTop: 20 }} />
+      {/* 16:9 Responsive Banner Skeleton */}
+      <Skeleton width="100%" height={165} borderRadius={16} style={{ marginTop: 20, aspectRatio: 16 / 9 }} />
+
 
       {/* Materials Horizontal Carousel */}
       <View style={{ marginTop: 24 }}>
