@@ -13,15 +13,6 @@ export function errorHandler(
     return res.status(400).json({ success: false, error: 'Malformed JSON payload', message: 'Malformed JSON payload' });
   }
 
-  // Gracefully handle database offline conditions in AI Studio
-  if (err.name === 'MongooseError' || err.name === 'MongoNetworkError' || (err.message && err.message.includes('buffering timed out'))) {
-    console.warn('[AI Studio] Database offline — returning mock empty response for', req.path);
-    if (req.method === 'GET') {
-      return res.json(req.path.endsWith('s') || req.path.endsWith('s/') ? [] : {});
-    }
-    return res.status(503).json({ error: 'Service temporarily unavailable (database offline)' });
-  }
-
   const statusCode = err.statusCode || err.status || 500;
   const isProduction = process.env.NODE_ENV === 'production';
 

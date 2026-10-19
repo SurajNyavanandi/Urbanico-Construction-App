@@ -1,5 +1,5 @@
 // Web Audio API based sound synthesizer for crisp, instant mobile UI sound effects
-// Paired with native tactile haptics (navigator.vibrate) for modern mobile e-commerce UX
+// Works safely across Web and React Native with runtime fallback
 import { safeStorage } from './safeStorage';
 
 class SoundHelper {
@@ -16,14 +16,6 @@ class SoundHelper {
     } catch {
       this.isEnabled = true;
     }
-  }
-
-  private triggerHaptic(pattern: number | number[] = 12) {
-    try {
-      if (typeof window !== 'undefined' && typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-        navigator.vibrate(pattern);
-      }
-    } catch {}
   }
 
   private getAudioContext(): AudioContext | null {
@@ -75,13 +67,12 @@ class SoundHelper {
     return this.isEnabled;
   }
 
-  // 1. Success Payment Chime (Warm ascending chord C5 -> G5 -> C6 + celebratory haptic)
+  // 1. Success Payment Chime (Warm ascending chord C5 -> G5 -> C6)
   public playPaymentSuccess() {
     this.playSuccess();
   }
 
   public playSuccess() {
-    this.triggerHaptic([25, 40, 25, 40, 50]);
     const ctx = this.getAudioContext();
     if (!ctx) return;
 
@@ -109,9 +100,8 @@ class SoundHelper {
     } catch {}
   }
 
-  // 2. Add To Cart Pop / Drop Sound (Clean, satisfying bubble pop + crisp haptic pulse)
+  // 2. Add To Cart Pop / Drop Sound (Clean, satisfying bubble pop)
   public playAddToCart() {
-    this.triggerHaptic(20);
     const ctx = this.getAudioContext();
     if (!ctx) return;
 
@@ -135,9 +125,8 @@ class SoundHelper {
     } catch {}
   }
 
-  // 3. Heart / Favorite Chime (Bright gentle bell + double heartbeat haptic)
+  // 3. Heart / Favorite Chime (Bright gentle bell)
   public playFavorite() {
-    this.triggerHaptic([15, 30, 20]);
     const ctx = this.getAudioContext();
     if (!ctx) return;
 
@@ -161,9 +150,8 @@ class SoundHelper {
     } catch {}
   }
 
-  // 4. Notification Ping (Friendly double tap + paired double vibration)
+  // 4. Notification Ping (Friendly double tap)
   public playNotification() {
-    this.triggerHaptic([15, 35, 15]);
     const ctx = this.getAudioContext();
     if (!ctx) return;
 
@@ -189,9 +177,8 @@ class SoundHelper {
     } catch {}
   }
 
-  // 5. Tactile Tap / Toggle Click (+ subtle micro-vibration)
+  // 5. Tactile Tap / Toggle Click
   public playTap() {
-    this.triggerHaptic(10);
     const ctx = this.getAudioContext();
     if (!ctx) return;
 
@@ -215,9 +202,8 @@ class SoundHelper {
     } catch {}
   }
 
-  // 6. Action / Warning / Remove Alert (+ distinct double warning haptic)
+  // 6. Action / Warning / Remove Alert
   public playAlert() {
-    this.triggerHaptic([20, 25, 20]);
     const ctx = this.getAudioContext();
     if (!ctx) return;
 

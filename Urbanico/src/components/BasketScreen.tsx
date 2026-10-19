@@ -11,8 +11,6 @@ import {
   TextInput,
   ActivityIndicator,
   Image,
-  Platform,
-  KeyboardAvoidingView,
 } from 'react-native';
 import {
   ShoppingCart,
@@ -131,7 +129,7 @@ import { validateGSTIN, GstinValidationResult } from '../utils/gstinValidator';
 import { buildTaxInvoiceData, sendTaxInvoiceEmail } from '../utils/invoiceHelper';
 import { openProformaQuotationPrint } from '../utils/proformaQuotationHelper';
 import { useCart } from '../context/CartContext';
-import { useClipboard } from '../hooks/useClipboard';
+import { useClipboard } from '../hooks';
 import { OrderSummaryBreakdown } from './basket/OrderSummaryBreakdown';
 
 export const CART_ORDER_LIFECYCLE_STAGES = [
@@ -543,17 +541,17 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
           {
             backgroundColor: theme.surface,
             borderColor: theme.border,
-            marginBottom: 10,
-            padding: 12,
-            borderRadius: 12,
+            marginBottom: 12,
+            padding: 14,
+            borderRadius: 14,
             borderWidth: 1,
           },
         ]}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <MapPin size={16} color={theme.primary} />
-            <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary }}>
+            <Text style={{ fontSize: 13.5, fontWeight: '700', color: theme.textPrimary, letterSpacing: -0.2 }}>
               {isServicesOnly || hasServices ? 'Service Location & Site Safety Access' : 'Delivery Destination'}
             </Text>
           </View>
@@ -564,17 +562,17 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
             }}
             activeOpacity={0.7}
             style={{
-              paddingVertical: 3,
-              paddingHorizontal: 9,
-              borderRadius: 6,
-              backgroundColor: isChangingAddress ? theme.primary : theme.surfaceSecondary,
+              paddingVertical: 4,
+              paddingHorizontal: 10,
+              borderRadius: 8,
+              backgroundColor: isChangingAddress ? theme.primary : (theme.mode === 'dark' ? '#334155' : '#F1F5F9'),
             }}
           >
             <Text
               style={{
                 fontSize: 12,
                 fontWeight: '700',
-                color: isChangingAddress ? (theme.primaryText || '#18181B') : theme.primary,
+                color: isChangingAddress ? (theme.primaryText || '#18181B') : theme.textPrimary,
               }}
             >
               {isChangingAddress ? 'Done' : 'Change'}
@@ -588,8 +586,10 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
             styles.addressSelectCard,
             {
               backgroundColor: theme.mode === 'dark' ? '#1E293B' : '#F0F9FF',
-              borderColor: theme.primary,
-              marginBottom: isChangingAddress ? 10 : 0,
+              borderColor: theme.mode === 'dark' ? '#38BDF8' : '#BAE6FD',
+              borderRadius: 14,
+              borderWidth: 1,
+              marginBottom: isChangingAddress ? 12 : 0,
             },
           ]}
         >
@@ -633,7 +633,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
 
               <View style={styles.contactDetailsRow}>
                 <Text style={[styles.contactName, { color: theme.textSecondary }]}>
-                  {isServicesOnly || hasServices ? 'Site Supervisor: ' : 'Recipient: '}<Text style={{ color: theme.textPrimary, fontWeight: '600' }}>{user?.name || 'Site Incharge'}</Text>
+                  {isServicesOnly || hasServices ? 'Site Supervisor: ' : 'Recipient: '}<Text style={{ color: theme.textPrimary, fontWeight: '700' }}>{user?.name || 'Site Incharge'}</Text>
                 </Text>
                 <Text style={[styles.contactDot, { color: theme.textMuted }]}>•</Text>
                 <Text style={[styles.contactPhone, { color: theme.textSecondary }]}>
@@ -1981,14 +1981,8 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
   }, [activeDeliveries, selectedActiveOrderId]);
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
-      style={{ flex: 1 }}
-    >
-      <View style={{ flex: 1 }}>
-        <ScrollView
-
+    <View style={{ flex: 1 }}>
+      <ScrollView
         ref={scrollViewRef}
         style={[styles.container, { backgroundColor: theme.background }]}
         contentContainerStyle={styles.scrollContent}
@@ -2228,29 +2222,13 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                               <TouchableOpacity
                                 onPress={() => {
                                   soundService.playTap();
-                                  if (item.quantity <= 1) {
-                                    if (typeof navigator !== 'undefined' && (navigator as any).vibrate) {
-                                      try {
-                                        (navigator as any).vibrate(15);
-                                      } catch {}
-                                    }
-                                    onRemoveItem(item.id);
-                                    showToast(`Removed "${item.itemName}" from basket`, 'info');
-                                  } else {
-                                    onUpdateQuantity(item.id, item.quantity - 1);
-                                  }
+                                  onUpdateQuantity(item.id, item.quantity - 1);
                                 }}
                                 style={[styles.stepperBtn, { backgroundColor: theme.surface }]}
-                                hitSlop={{ top: 11, bottom: 11, left: 11, right: 11 }}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                                 activeOpacity={0.7}
-                                accessibilityRole="button"
-                                accessibilityLabel={item.quantity <= 1 ? `Remove ${item.itemName}` : `Decrease ${item.itemName} quantity`}
                               >
-                                {item.quantity <= 1 ? (
-                                  <Trash2 size={13} color="#EF4444" strokeWidth={2.2} />
-                                ) : (
-                                  <Minus size={13} color={theme.textPrimary} strokeWidth={2.4} />
-                                )}
+                                <Minus size={13} color={theme.textPrimary} />
                               </TouchableOpacity>
                               <Text style={[styles.stepperQtyText, { color: theme.textPrimary }]}>{item.quantity}</Text>
                               <TouchableOpacity
@@ -2259,15 +2237,12 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                                   onUpdateQuantity(item.id, item.quantity + 1);
                                 }}
                                 style={[styles.stepperBtn, { backgroundColor: theme.surface }]}
-                                hitSlop={{ top: 11, bottom: 11, left: 11, right: 11 }}
+                                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                                 activeOpacity={0.7}
-                                accessibilityRole="button"
-                                accessibilityLabel={`Increase ${item.itemName} quantity`}
                               >
-                                <Plus size={13} color={theme.textPrimary} strokeWidth={2.4} />
+                                <Plus size={13} color={theme.textPrimary} />
                               </TouchableOpacity>
                             </View>
-
                             <TouchableOpacity
                               onPress={() => {
                                 soundService.playAlert();
@@ -2923,81 +2898,9 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
           </View>
         </Modal>
       </ScrollView>
-
-      {/* Docked Sticky Bottom Checkout Action Bar (Blinkit / Nike Standard) */}
-      {activeTab === 'cart' && cartItems.length > 0 && (
-        <View
-          style={[
-            styles.stickyBottomCheckoutBar,
-            {
-              backgroundColor: theme.surface,
-              borderTopColor: theme.border,
-            },
-          ]}
-        >
-          <View style={styles.stickyPayableCol}>
-            <Text style={[styles.stickyPayableLabel, { color: theme.textSecondary }]}>TOTAL PAYABLE</Text>
-            <Text style={[styles.stickyPayableAmount, { color: theme.textPrimary }]}>
-              ₹{payableAmount.toLocaleString('en-IN')}
-            </Text>
-            <Text style={[styles.stickyPayableTaxHint, { color: theme.textMuted }]}>
-              Incl. 18% GST & Delivery
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            onPress={() => {
-              soundService.playTap();
-              if (!isUserLoggedInWithMobile) {
-                if (onOpenLoginModal) onOpenLoginModal();
-                return;
-              }
-              handleStartCheckout();
-            }}
-            disabled={isPlacingOrder}
-            activeOpacity={0.88}
-            style={[
-              styles.stickyPayBtn,
-              {
-                backgroundColor: theme.buttonBg || theme.primary,
-              },
-            ]}
-            accessibilityRole="button"
-            accessibilityLabel={!isUserLoggedInWithMobile ? "Login to Place Order" : `Proceed to Pay ₹${payableAmount.toLocaleString('en-IN')}`}
-          >
-            {isPlacingOrder ? (
-              <View style={styles.stickyBtnRow}>
-                <ActivityIndicator size="small" color={theme.buttonText || '#18181B'} />
-                <Text style={[styles.stickyPayBtnText, { color: theme.buttonText || '#18181B' }]}>
-                  Processing...
-                </Text>
-              </View>
-            ) : !isUserLoggedInWithMobile ? (
-              <View style={styles.stickyBtnRow}>
-                <Lock size={15} color={theme.buttonText || '#18181B'} />
-                <Text style={[styles.stickyPayBtnText, { color: theme.buttonText || '#18181B' }]}>
-                  Login to Pay
-                </Text>
-                <ArrowRight size={16} color={theme.buttonText || '#18181B'} strokeWidth={2.5} />
-              </View>
-            ) : (
-              <View style={styles.stickyBtnRow}>
-                <Lock size={15} color={theme.buttonText || '#18181B'} />
-                <Text style={[styles.stickyPayBtnText, { color: theme.buttonText || '#18181B' }]}>
-                  Proceed to Pay
-                </Text>
-                <ArrowRight size={16} color={theme.buttonText || '#18181B'} strokeWidth={2.5} />
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-      )}
-      </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 };
-
-
 
 const styles = StyleSheet.create({
   container: {
@@ -3009,62 +2912,6 @@ const styles = StyleSheet.create({
     paddingBottom: 112,
     gap: 14,
   },
-  stickyBottomCheckoutBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    zIndex: 90,
-    ...Platform.select({
-      web: {
-        boxShadow: '0 -4px 16px rgba(0, 0, 0, 0.08)',
-      },
-      default: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: -3 },
-        shadowOpacity: 0.1,
-        shadowRadius: 6,
-        elevation: 8,
-      },
-    }),
-  },
-  stickyPayableCol: {
-    justifyContent: 'center',
-  },
-  stickyPayableLabel: {
-    fontSize: 9.5,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  stickyPayableAmount: {
-    fontSize: 18,
-    fontWeight: '800',
-    marginTop: 1,
-  },
-  stickyPayableTaxHint: {
-    fontSize: 10,
-    marginTop: 1,
-  },
-  stickyPayBtn: {
-    height: 46,
-    borderRadius: 14,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stickyPayBtnText: {
-    fontSize: 14.5,
-    fontWeight: '700',
-    letterSpacing: 0.2,
-  },
-  stickyBtnRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-
   tabContainer: {
     flexDirection: 'row',
     padding: 3,
@@ -4179,5 +4026,187 @@ const styles = StyleSheet.create({
     color: '#064E3B',
     fontWeight: '600',
     marginTop: 1,
+  },
+  // Delivery Destination / Address Card Styles
+  addressSelectionCardContainer: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 12,
+  },
+  addressSelectCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+  },
+  addressCardRadioRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  radioCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  radioCircleInner: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+  },
+  addressInfoCol: {
+    flex: 1,
+    gap: 4,
+  },
+  addressNameTagRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  addressPrimaryName: {
+    fontSize: 14,
+    fontWeight: '700',
+    flex: 1,
+  },
+  addressTypeBadge: {
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 5,
+  },
+  addressTypeBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  addressSecondaryText: {
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  contactDetailsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+  contactName: {
+    fontSize: 11.5,
+  },
+  contactDot: {
+    fontSize: 12,
+  },
+  contactPhone: {
+    fontSize: 11.5,
+  },
+  addressesListContainer: {
+    gap: 8,
+    marginTop: 4,
+  },
+  // Add New Delivery Site Address Form Styles
+  addNewAddressToggleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginTop: 8,
+  },
+  addNewAddressToggleLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  addNewAddressToggleText: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  newAddressFormBox: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    marginTop: 10,
+    gap: 12,
+  },
+  formErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: '#FCA5A5',
+    borderRadius: 8,
+    padding: 10,
+  },
+  formErrorText: {
+    color: '#DC2626',
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
+  formRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  formCol: {
+    flex: 1,
+    gap: 4,
+  },
+  formColSingle: {
+    gap: 4,
+  },
+  formLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  formTextInput: {
+    height: 42,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13,
+  },
+  typeChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  typeChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  typeChipText: {
+    fontSize: 12,
+  },
+  saveNewAddressBtn: {
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  saveNewAddressBtnText: {
+    color: '#18181B',
+    fontSize: 14,
+    fontWeight: '700',
+    letterSpacing: -0.2,
   },
 });

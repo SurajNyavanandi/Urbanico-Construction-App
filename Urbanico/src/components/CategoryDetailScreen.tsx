@@ -20,6 +20,7 @@ import {
   Sparkles,
   Filter,
   X,
+  Zap,
   RotateCcw,
 } from 'lucide-react-native';
 import { CATEGORIES, SERVICES, MATERIAL_ITEMS } from '../data/materialsData';
@@ -394,8 +395,23 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.background }}>
-      {/* Sticky Context-Aware Navigation Bar */}
-      <View style={[styles.navBarWrapper, { backgroundColor: theme.surface, borderBottomColor: theme.borderLight, zIndex: 10 }]}>
+      <ScrollView
+        style={[styles.container, { backgroundColor: theme.background }]}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={theme.primary}
+            colors={[theme.primary]}
+          />
+        }
+      >
+      {/* Context-Aware Navigation Bar */}
+      <View style={[styles.navBarWrapper, { backgroundColor: theme.surface, borderBottomColor: theme.borderLight }]}>
         <TouchableOpacity
           onPress={handleSmartBack}
           style={[styles.fixedBackBtn, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}
@@ -467,23 +483,6 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
         </View>
       </View>
 
-      <ScrollView
-        style={[styles.container, { backgroundColor: theme.background }]}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
-        scrollEventThrottle={16}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            tintColor={theme.primary}
-            colors={[theme.primary]}
-          />
-        }
-      >
-
-
       {refreshing ? (
         <CatalogSkeleton />
       ) : (
@@ -513,39 +512,8 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                 </View>
               </View>
 
-              {/* Quick Sort Row: Featured, Price Toggle, Active Filter Badge & Clear All Reset */}
+              {/* Quick Sort Row: Featured & Single Price Toggle (Matching Material Sub-section) */}
               <View style={styles.sortChipsScroll}>
-                {/* Active Filter Counter Badge Indicator */}
-                {((sortBy !== 'default' ? 1 : 0) + (selectedPriceRange !== 'all' ? 1 : 0) + (fastDispatchOnly ? 1 : 0)) > 0 && (
-                  <View style={[styles.activeFilterCountPill, { backgroundColor: theme.primary }]}>
-                    <Filter size={11} color={theme.buttonText || '#18181B'} strokeWidth={2.5} />
-                    <Text style={[styles.activeFilterCountText, { color: theme.buttonText || '#18181B' }]}>
-                      Filters ({(sortBy !== 'default' ? 1 : 0) + (selectedPriceRange !== 'all' ? 1 : 0) + (fastDispatchOnly ? 1 : 0)})
-                    </Text>
-                  </View>
-                )}
-
-                {/* Instant "Clear All" Reset Chip */}
-                {(((sortBy !== 'default' ? 1 : 0) + (selectedPriceRange !== 'all' ? 1 : 0) + (fastDispatchOnly ? 1 : 0)) > 0 || categoryId !== 'all') && (
-                  <TouchableOpacity
-                    onPress={() => {
-                      soundService.playAlert();
-                      setSortBy('default');
-                      setSelectedPriceRange('all');
-                      setFastDispatchOnly(false);
-                      if (onClearSearch) onClearSearch();
-                      onSelectCategoryTab('all');
-                    }}
-                    style={[styles.clearAllChip, { backgroundColor: '#FEE2E2', borderColor: '#FECACA' }]}
-                    activeOpacity={0.7}
-                    accessibilityRole="button"
-                    accessibilityLabel="Clear All Filters"
-                  >
-                    <RotateCcw size={11} color="#DC2626" strokeWidth={2.4} />
-                    <Text style={styles.clearAllText}>Clear All</Text>
-                  </TouchableOpacity>
-                )}
-
                 {/* Sort: Featured */}
                 <TouchableOpacity
                   onPress={() => {
@@ -602,7 +570,6 @@ export const CategoryDetailScreen: React.FC<CategoryDetailScreenProps> = ({
                   </View>
                 </TouchableOpacity>
               </View>
-
 
               {/* When a query is active: Show matched products on top, related category cluster, then remaining items */}
               {query ? (
@@ -1572,37 +1539,9 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     gap: 8,
     flexDirection: 'row',
-    flexWrap: 'wrap',
     marginBottom: 4,
   },
-  activeFilterCountPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-  },
-  activeFilterCountText: {
-    fontSize: 11.5,
-    fontWeight: '800',
-  },
-  clearAllChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  clearAllText: {
-    color: '#DC2626',
-    fontSize: 11.5,
-    fontWeight: '700',
-  },
   sortChip: {
-
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,

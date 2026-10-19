@@ -315,13 +315,9 @@ export function useOrderManager({
       }
     };
 
-    if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
-
     window.addEventListener('urbanico:payment-reconciled', handleReconciledEvent);
     return () => {
-      if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
-        window.removeEventListener('urbanico:payment-reconciled', handleReconciledEvent);
-      }
+      window.removeEventListener('urbanico:payment-reconciled', handleReconciledEvent);
     };
   }, [addOrder, loadOrdersForPhone, onPaymentCancel, onPaymentFailure, onPaymentSuccess, selectedLocation, user]);
 

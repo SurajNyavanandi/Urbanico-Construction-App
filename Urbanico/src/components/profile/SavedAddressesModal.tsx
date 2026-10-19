@@ -123,6 +123,10 @@ export const SavedAddressesModal: React.FC<SavedAddressesModalProps> = ({
                 <View style={styles.addressListContainer}>
                   {savedLocations.map((loc, idx) => {
                     const isSelected = selectedLocation === loc;
+                    const parts = loc.split(',');
+                    const primaryLine = parts[0]?.trim() || `Site Address #${idx + 1}`;
+                    const secondaryLine = parts.slice(1).join(',').trim();
+
                     return (
                       <TouchableOpacity
                         key={idx}
@@ -130,9 +134,13 @@ export const SavedAddressesModal: React.FC<SavedAddressesModalProps> = ({
                         style={[
                           styles.addressCard,
                           {
-                            backgroundColor: theme.surfaceSecondary,
-                            borderColor: isSelected ? theme.primary : theme.border,
-                            borderWidth: isSelected ? 2 : 1,
+                            backgroundColor: isSelected
+                              ? (theme.mode === 'dark' ? '#1E293B' : '#F0F9FF')
+                              : theme.surfaceSecondary,
+                            borderColor: isSelected ? (theme.mode === 'dark' ? '#38BDF8' : '#BAE6FD') : theme.border,
+                            borderWidth: 1,
+                            borderRadius: 14,
+                            padding: 14,
                           },
                         ]}
                         activeOpacity={0.8}
@@ -143,22 +151,40 @@ export const SavedAddressesModal: React.FC<SavedAddressesModalProps> = ({
                             <Text
                               style={[
                                 styles.addressCardTitle,
-                                { color: theme.textPrimary, fontWeight: isSelected ? '800' : '600' },
+                                { color: theme.textPrimary, fontWeight: isSelected ? '700' : '600' },
                               ]}
                               numberOfLines={1}
                             >
-                              {loc.split(',')[0] || `Address #${idx + 1}`}
+                              {primaryLine}
                             </Text>
                           </View>
-                          {isSelected && (
-                            <View style={[styles.activePill, { backgroundColor: theme.primary }]}>
-                              <Text style={styles.activePillText}>DEFAULT</Text>
-                            </View>
-                          )}
+                          <View
+                            style={[
+                              styles.activePill,
+                              {
+                                backgroundColor: isSelected
+                                  ? theme.primary
+                                  : (theme.mode === 'dark' ? '#334155' : '#E2E8F0'),
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.activePillText,
+                                {
+                                  color: isSelected ? (theme.primaryText || '#18181B') : theme.textSecondary,
+                                },
+                              ]}
+                            >
+                              {isSelected ? 'DELIVERY SITE' : 'SAVED SITE'}
+                            </Text>
+                          </View>
                         </View>
-                        <Text style={[styles.addressCardBody, { color: theme.textSecondary }]} numberOfLines={2}>
-                          {loc}
-                        </Text>
+                        {secondaryLine ? (
+                          <Text style={[styles.addressCardBody, { color: theme.textSecondary }]} numberOfLines={2}>
+                            {secondaryLine}
+                          </Text>
+                        ) : null}
                         <View style={styles.addressCardActions}>
                           <TouchableOpacity
                             onPress={() => onDeleteLocation(loc)}

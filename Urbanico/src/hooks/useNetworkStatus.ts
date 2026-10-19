@@ -17,7 +17,7 @@ export function useNetworkStatus(): NetworkStatus {
   const [wasOffline, setWasOffline] = useState<boolean>(false);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') return;
+    if (typeof window === 'undefined') return;
 
     const handleOnline = () => {
       setIsOnline(true);
@@ -32,10 +32,8 @@ export function useNetworkStatus(): NetworkStatus {
     window.addEventListener('offline', handleOffline);
 
     return () => {
-      if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
-        window.removeEventListener('online', handleOnline);
-        window.removeEventListener('offline', handleOffline);
-      }
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
   }, []);
 

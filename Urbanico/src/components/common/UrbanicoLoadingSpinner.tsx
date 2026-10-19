@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ViewStyle, Platform, ActivityIndicator, Animated } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ViewStyle, Platform } from 'react-native';
 import { useTheme } from '../../theme';
-import { Layers } from 'lucide-react-native';
+import { Layers, ShieldCheck, Sparkles } from 'lucide-react-native';
 
 export interface UrbanicoLoadingSpinnerProps {
   size?: 'small' | 'medium' | 'large' | 'fullscreen';
@@ -31,7 +31,6 @@ export const UrbanicoLoadingSpinner: React.FC<UrbanicoLoadingSpinnerProps> = ({
   const isDark = themeMode === 'dark';
 
   const [activeStepIndex, setActiveStepIndex] = useState(0);
-  const spinAnim = useRef(new Animated.Value(0)).current;
 
   // Cycle micro-copy smoothly every 1.8 seconds to build anticipation
   useEffect(() => {
@@ -43,22 +42,6 @@ export const UrbanicoLoadingSpinner: React.FC<UrbanicoLoadingSpinnerProps> = ({
 
     return () => clearInterval(interval);
   }, [subMessage, dynamicSteps]);
-
-  // Native rotation animation for non-web platforms
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-
-    const animation = Animated.loop(
-      Animated.timing(spinAnim, {
-        toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      })
-    );
-    animation.start();
-
-    return () => animation.stop();
-  }, [spinAnim]);
 
   const activeSubMessage = subMessage || dynamicSteps[activeStepIndex] || dynamicSteps[0];
 
@@ -92,11 +75,6 @@ export const UrbanicoLoadingSpinner: React.FC<UrbanicoLoadingSpinnerProps> = ({
     }
   `;
 
-  const spinInterpolate = spinAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
-
   return (
     <View
       style={[
@@ -124,67 +102,60 @@ export const UrbanicoLoadingSpinner: React.FC<UrbanicoLoadingSpinnerProps> = ({
           ]}
         />
 
-        {Platform.OS === 'web' ? (
-          /* Web 60FPS Never-Freeze GPU Spinner */
-          <div
-            className="urbanico-gpu-spinner"
-            style={{
-              width: spinnerDimensions,
-              height: spinnerDimensions,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              animation: 'urbanico-never-freeze-spin 0.85s linear infinite',
-              willChange: 'transform',
-              transform: 'translateZ(0)',
-            }}
+        {/* 60FPS Never-Freeze Circular Spinner (Runs purely on GPU compositor thread) */}
+        <div
+          className="urbanico-gpu-spinner"
+          style={{
+            width: spinnerDimensions,
+            height: spinnerDimensions,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            animation: 'urbanico-never-freeze-spin 0.85s linear infinite',
+            willChange: 'transform',
+            transform: 'translateZ(0)',
+          }}
+        >
+          <svg
+            width={spinnerDimensions}
+            height={spinnerDimensions}
+            viewBox={`0 0 ${spinnerDimensions} ${spinnerDimensions}`}
+            style={{ display: 'block' }}
           >
-            <svg
-              width={spinnerDimensions}
-              height={spinnerDimensions}
-              viewBox={`0 0 ${spinnerDimensions} ${spinnerDimensions}`}
-              style={{ display: 'block' }}
-            >
-              <defs>
-                <linearGradient id="urbanicoAccentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#FCB026" stopOpacity="0.3" />
-                  <stop offset="70%" stopColor="#FCB026" stopOpacity="0.9" />
-                  <stop offset="100%" stopColor="#EAB308" stopOpacity="1" />
-                </linearGradient>
-              </defs>
+            <defs>
+              <linearGradient id="urbanicoAccentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#FCB026" stopOpacity="0.3" />
+                <stop offset="70%" stopColor="#FCB026" stopOpacity="0.9" />
+                <stop offset="100%" stopColor="#EAB308" stopOpacity="1" />
+              </linearGradient>
+            </defs>
 
-              {/* Static background track */}
-              <circle
-                cx={spinnerDimensions / 2}
-                cy={spinnerDimensions / 2}
-                r={radius}
-                stroke={isDark ? '#27272A' : '#F1F5F9'}
-                strokeWidth={strokeWidth}
-                fill="none"
-              />
+            {/* Static background track */}
+            <circle
+              cx={spinnerDimensions / 2}
+              cy={spinnerDimensions / 2}
+              r={radius}
+              stroke={isDark ? '#27272A' : '#F1F5F9'}
+              strokeWidth={strokeWidth}
+              fill="none"
+            />
 
-              {/* Glowing active arc */}
-              <circle
-                cx={spinnerDimensions / 2}
-                cy={spinnerDimensions / 2}
-                r={radius}
-                stroke="url(#urbanicoAccentGrad)"
-                strokeWidth={strokeWidth}
-                strokeDasharray={`${circumference * 0.36} ${circumference * 0.64}`}
-                strokeLinecap="round"
-                fill="none"
-              />
-            </svg>
-          </div>
-        ) : (
-          /* Native Android / iOS React Native Spinner */
-          <View style={{ width: spinnerDimensions, height: spinnerDimensions, justifyContent: 'center', alignItems: 'center' }}>
-            <ActivityIndicator size={isSmall ? 'small' : 'large'} color="#FCB026" />
-          </View>
-        )}
+            {/* Glowing active arc - continuously rotating without JS interruption */}
+            <circle
+              cx={spinnerDimensions / 2}
+              cy={spinnerDimensions / 2}
+              r={radius}
+              stroke="url(#urbanicoAccentGrad)"
+              strokeWidth={strokeWidth}
+              strokeDasharray={`${circumference * 0.36} ${circumference * 0.64}`}
+              strokeLinecap="round"
+              fill="none"
+            />
+          </svg>
+        </div>
 
-        {/* Center Brand Emblem */}
-        {showLogo && Platform.OS === 'web' ? (
+        {/* Center Brand Emblem with Hardware-Accelerated Breathing Pulse */}
+        {showLogo && (
           <div
             className="urbanico-emblem-pulse"
             style={{
@@ -213,26 +184,7 @@ export const UrbanicoLoadingSpinner: React.FC<UrbanicoLoadingSpinnerProps> = ({
               strokeWidth={2.4}
             />
           </div>
-        ) : showLogo ? (
-          <View
-            style={[
-              styles.nativeEmblem,
-              {
-                width: spinnerDimensions * 0.58,
-                height: spinnerDimensions * 0.58,
-                borderRadius: (spinnerDimensions * 0.58) / 2,
-                backgroundColor: isDark ? '#1C1917' : '#FFFDF5',
-                borderColor: isDark ? '#292524' : '#FEF3C7',
-              },
-            ]}
-          >
-            <Layers
-              size={isSmall ? 13 : isLarge ? 24 : 17}
-              color="#FCB026"
-              strokeWidth={2.4}
-            />
-          </View>
-        ) : null}
+        )}
       </View>
 
       {/* Typography & Dynamic Micro-Copy Container */}
@@ -243,65 +195,36 @@ export const UrbanicoLoadingSpinner: React.FC<UrbanicoLoadingSpinnerProps> = ({
           </Text>
 
           {/* Dynamic Fading Milestone Copy */}
-          {Platform.OS === 'web' ? (
-            <div
-              key={activeSubMessage}
-              style={{
-                animation: 'urbanico-step-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-                {activeSubMessage}
-              </Text>
-            </div>
-          ) : (
+          <div
+            key={activeSubMessage}
+            style={{
+              animation: 'urbanico-step-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
             <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
               {activeSubMessage}
             </Text>
-          )}
+          </div>
 
-          {/* Minimalist Shimmer Progress Indicator */}
-          {Platform.OS === 'web' ? (
-            <div
-              className="urbanico-shimmer-bar"
-              style={{
-                marginTop: 10,
-                width: 120,
-                height: 3,
-                borderRadius: 2,
-                backgroundColor: isDark ? '#27272A' : '#E2E8F0',
-                overflow: 'hidden',
-                position: 'relative',
-              }}
-            >
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  backgroundImage: `linear-gradient(90deg, transparent 0%, ${
-                    isDark ? '#FCB026' : '#FCB026'
-                  } 50%, transparent 100%)`,
-                  backgroundSize: '200% 100%',
-                  animation: 'urbanico-progress-shimmer 1.5s ease-in-out infinite',
-                }}
-              />
-            </div>
-          ) : (
-            <View
-              style={[
-                styles.nativeShimmerBar,
-                { backgroundColor: isDark ? '#27272A' : '#E2E8F0' },
-              ]}
-            >
-              <View style={[styles.nativeShimmerCore, { backgroundColor: '#FCB026' }]} />
-            </View>
-          )}
+          {/* Minimalist Shimmer Progress Indicator to build anticipation */}
+          <div
+            className="urbanico-shimmer-bar"
+            style={{
+              marginTop: 10,
+              width: 120,
+              height: 3,
+              borderRadius: 2,
+              backgroundColor: isDark ? '#27272A' : '#E2E8F0',
+              overflow: 'hidden',
+              background: `linear-gradient(90deg, ${isDark ? '#27272A' : '#F1F5F9'} 0%, #FCB026 50%, ${isDark ? '#27272A' : '#F1F5F9'} 100%)`,
+              backgroundSize: '200% 100%',
+              animation: 'urbanico-progress-shimmer 1.4s ease-in-out infinite',
+              willChange: 'background-position',
+            }}
+          />
         </View>
       )}
     </View>
@@ -312,12 +235,18 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
+    padding: 24,
   },
   fullscreen: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 9999,
-    justifyContent: 'center',
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 999,
   },
   spinnerWrapper: {
     position: 'relative',
@@ -326,42 +255,28 @@ const styles = StyleSheet.create({
   },
   ambientGlow: {
     position: 'absolute',
-  },
-  nativeEmblem: {
-    position: 'absolute',
-    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
+    filter: 'blur(10px)',
   },
   textContainer: {
-    marginTop: 16,
+    marginTop: 18,
     alignItems: 'center',
-    paddingHorizontal: 20,
-    maxWidth: 320,
+    gap: 5,
   },
   title: {
-    fontSize: 14.5,
-    fontWeight: '800',
+    fontSize: 15.5,
+    fontWeight: '700',
     letterSpacing: -0.2,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 12,
+    fontSize: 12.5,
     fontWeight: '500',
-    marginTop: 4,
+    letterSpacing: 0.1,
     textAlign: 'center',
-    lineHeight: 16,
-  },
-  nativeShimmerBar: {
-    marginTop: 10,
-    width: 120,
-    height: 3,
-    borderRadius: 2,
-    overflow: 'hidden',
-  },
-  nativeShimmerCore: {
-    width: '60%',
-    height: '100%',
-    borderRadius: 2,
+    minHeight: 18,
   },
 });
+
+export default UrbanicoLoadingSpinner;

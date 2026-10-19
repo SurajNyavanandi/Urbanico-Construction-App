@@ -12,9 +12,7 @@ import { CartProvider } from './context/CartContext';
 
 // Navigation, Canvas & Modals
 import { BottomNav } from './components/BottomNav';
-import { FloatingMiniCart } from './components/common/FloatingMiniCart';
 import { AppScreenCanvas } from './components/navigation/AppScreenCanvas';
-
 import { AppModalsContainer } from './components/modals/AppModalsContainer';
 import { ScreenSuspense } from './components/common/ScreenSuspense';
 import { UrbanicoLoadingSpinner } from './components/common/UrbanicoLoadingSpinner';
@@ -78,12 +76,6 @@ function MainAppContent() {
         onCloseLocationModal={() => app.setIsLocationModalOpen(false)}
       />
 
-      {/* Persistent Floating Bottom Cart Bar (Blinkit / Zepto Standard) */}
-      <FloatingMiniCart
-        currentScreen={app.currentScreen}
-        onNavigateBasket={() => app.navigateScreen('basket')}
-      />
-
       {/* Fixed Bottom Navigation Bar */}
       {app.currentScreen !== 'auth_mobile' && app.currentScreen !== 'auth_otp' && (
         <BottomNav
@@ -96,7 +88,6 @@ function MainAppContent() {
           cartCount={app.totalCartCount}
         />
       )}
-
     </SafeAreaView>
   );
 }

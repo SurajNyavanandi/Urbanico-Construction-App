@@ -22,8 +22,8 @@ export interface OrderSummaryBreakdownProps {
   appliedCoupon?: string | null;
   gstinValidation?: {
     isValid: boolean;
-    stateCode?: string;
-    stateName?: string;
+    stateCode: string;
+    stateName: string;
   } | null;
   grandTotal: number;
   smartRecommendation?: {
@@ -33,7 +33,7 @@ export interface OrderSummaryBreakdownProps {
       unloadingMechanism: string;
     };
   } | null;
-  totalWeightTons?: string | number;
+  totalWeightTons?: string;
 }
 
 export const OrderSummaryBreakdown: React.FC<OrderSummaryBreakdownProps> = ({

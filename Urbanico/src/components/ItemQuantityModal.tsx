@@ -10,9 +10,7 @@ import {
   Animated,
   Platform,
   TextInput,
-  KeyboardAvoidingView,
 } from 'react-native';
-import { PanResponder } from '../shims/reactNativeWeb';
 import {
   X,
   Minus,
@@ -33,7 +31,6 @@ import {
 } from 'lucide-react-native';
 import { MaterialItem, UnitOption } from '../types';
 import { useTheme } from '../context/ThemeContext';
-import { useLocation } from '../context/LocationContext';
 import { ShimmerImage } from './common/ShimmerImage';
 import { isServiceablePincode } from '../utils/freightCalculator';
 import { soundService } from '../utils/soundHelper';
@@ -68,7 +65,6 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
   onToggleFavorite,
 }) => {
   const { theme, typography } = useTheme();
-  const { selectedLocation } = useLocation();
 
   // State
   const [selectedOptionId, setSelectedOptionId] = useState<string>('');
@@ -78,18 +74,6 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
   const [pincodeInput, setPincodeInput] = useState<string>('500081');
   const [pincodeChecked, setPincodeChecked] = useState<boolean>(true);
   const [showImageLightbox, setShowImageLightbox] = useState<boolean>(false);
-
-  // Auto-bind pincode check to active site location from LocationContext
-  useEffect(() => {
-    const locStr = selectedLocation || '';
-    const match = locStr.match(/\b[1-9][0-9]{5}\b/);
-    if (match && match[0]) {
-      setPincodeInput(match[0]);
-      setPincodeChecked(isServiceablePincode(match[0]));
-    }
-  }, [selectedLocation]);
-
-
 
   // Contractor Service Booking Configuration States
   const [headcount, setHeadcount] = useState<number>(1);
@@ -127,7 +111,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
         useNativeDriver: Platform.OS !== 'web',
       }),
       Animated.timing(slideAnim, {
-        toValue: 320,
+        toValue: 300,
         duration: 160,
         useNativeDriver: Platform.OS !== 'web',
       }),
@@ -135,32 +119,6 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
       onClose();
     });
   };
-
-  // Pan responder for native mobile swipe-down gesture dismissal
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_, gestureState) => gestureState.dy > 5,
-      onPanResponderMove: (_, gestureState) => {
-        if (gestureState.dy > 0) {
-          slideAnim.setValue(gestureState.dy);
-        }
-      },
-      onPanResponderRelease: (_, gestureState) => {
-        if (gestureState.dy > 90 || gestureState.vy > 0.6) {
-          handleAnimatedClose();
-        } else {
-          Animated.spring(slideAnim, {
-            toValue: 0,
-            friction: 7,
-            tension: 80,
-            useNativeDriver: Platform.OS !== 'web',
-          }).start();
-        }
-      },
-    })
-  ).current;
-
 
   // Sync state whenever the selected item changes
   useEffect(() => {
@@ -355,19 +313,8 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
           },
         ]}
       >
-        {/* Swipe-down Gesture Pull Handle */}
-        <View {...panResponder.panHandlers} style={styles.pullHandleArea}>
-          <View style={[styles.pullHandleBar, { backgroundColor: theme.mode === 'dark' ? '#475569' : '#CBD5E1' }]} />
-        </View>
-
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 64 : 0}
-          style={styles.keyboardAvoidContainer}
-        >
-          {/* Header Summary Row */}
-          <View style={[styles.modalHeader, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
-
+        {/* Header Summary Row */}
+        <View style={[styles.modalHeader, { backgroundColor: theme.surface, borderBottomColor: theme.border }]}>
           <TouchableOpacity
             onPress={() => setShowImageLightbox(true)}
             activeOpacity={0.8}
@@ -714,9 +661,7 @@ export const ItemQuantityModal: React.FC<ItemQuantityModalProps> = ({
             </Text>
           </TouchableOpacity>
         </View>
-        </KeyboardAvoidingView>
       </AnimatedView>
-
 
       {/* FULLSCREEN IMAGE LIGHTBOX */}
       <Modal
@@ -781,22 +726,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     overflow: 'hidden',
   },
-  pullHandleArea: {
-    width: '100%',
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pullHandleBar: {
-    width: 44,
-    height: 5,
-    borderRadius: 3,
-  },
-  keyboardAvoidContainer: {
-    flex: 1,
-  },
   modalHeader: {
-
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,

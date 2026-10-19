@@ -16,7 +16,7 @@ import { parseSanitizedPrice, formatInr } from '../../utils/priceHelper';
 import { soundService } from '../../utils/soundHelper';
 import { preloadImage } from '../../utils/imageOptimization';
 import { getHighlightedSegments } from '../../services/searchService';
-import { useClipboard } from '../../hooks/useClipboard';
+import { useClipboard } from '../../hooks';
 import { useCartActions } from '../../hooks/useCartActions';
 import { useCart } from '../../context/CartContext';
 import { useToast } from '../../context/ToastContext';
@@ -504,7 +504,7 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
                   style={styles.stepperBtn}
                   activeOpacity={0.7}
                   accessibilityLabel="Decrease Quantity"
-                  hitSlop={{ top: 11, bottom: 11, left: 11, right: 11 }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
                 >
                   <Minus size={13} color={theme.buttonText || '#18181B'} strokeWidth={2.8} />
                 </TouchableOpacity>
@@ -523,11 +523,10 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
                   style={styles.stepperBtn}
                   activeOpacity={0.7}
                   accessibilityLabel="Increase Quantity"
-                  hitSlop={{ top: 11, bottom: 11, left: 11, right: 11 }}
+                  hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
                 >
                   <Plus size={13} color={theme.buttonText || '#18181B'} strokeWidth={2.8} />
                 </TouchableOpacity>
-
               </AnimatedView>
             ) : hasMultipleVariants ? (
               <TouchableOpacity
@@ -599,16 +598,15 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
               {Boolean(onToggleFavorite) && (
                 <TouchableOpacity
                   onPress={handleFavoritePress}
-                  style={[styles.gridMiniBtn, { backgroundColor: theme.surface, borderColor: theme.borderLight, borderWidth: 1 }]}
+                  style={[styles.gridMiniBtn, { backgroundColor: theme.surface }]}
                   activeOpacity={0.7}
-                  hitSlop={{ top: 11, bottom: 11, left: 11, right: 11 }}
                   accessibilityLabel="Toggle Favorite"
                 >
                   <AnimatedView style={{ transform: [{ scale: favScaleAnim }] }}>
                     <Heart
-                      size={15}
-                      color={isFavorite ? '#DC2626' : theme.textSecondary}
-                      fill={isFavorite ? '#DC2626' : 'transparent'}
+                      size={14}
+                      color={isFavorite ? theme.primary : theme.textMuted}
+                      fill={isFavorite ? theme.primary : 'transparent'}
                     />
                   </AnimatedView>
                 </TouchableOpacity>
@@ -639,25 +637,16 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
             )}
           </View>
           {renderHighlightedTitle([styles.productTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }], 2)}
-          <Text
-            style={[styles.productSubtitle, { color: theme.textSecondary, fontFamily: typography.fontFamily }]}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-          >
+          <Text style={[styles.productSubtitle, { color: theme.textSecondary, fontFamily: typography.fontFamily }]} numberOfLines={1}>
             {displaySubtitle}
           </Text>
 
           <View style={[styles.cardFooter, { borderTopColor: theme.borderLight }]}>
             <View style={styles.priceContainer}>
-              <Text
-                style={[styles.productPrice, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
-              >
+              <Text style={[styles.productPrice, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]} numberOfLines={1}>
                 {displayPrice}
               </Text>
             </View>
-
             {isCategory ? (
               <TouchableOpacity
                 onPress={() => handleSafeAction(onPress)}
@@ -715,7 +704,7 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
                     style={styles.stepperBtn}
                     activeOpacity={0.7}
                     accessibilityLabel="Decrease Quantity"
-                    hitSlop={{ top: 11, bottom: 11, left: 11, right: 11 }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
                   >
                     <Minus size={13} color={theme.buttonText || '#18181B'} strokeWidth={2.8} />
                   </TouchableOpacity>
@@ -734,11 +723,10 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
                     style={styles.stepperBtn}
                     activeOpacity={0.7}
                     accessibilityLabel="Increase Quantity"
-                    hitSlop={{ top: 11, bottom: 11, left: 11, right: 11 }}
+                    hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
                   >
                     <Plus size={13} color={theme.buttonText || '#18181B'} strokeWidth={2.8} />
                   </TouchableOpacity>
-
                 </AnimatedView>
               ) : hasMultipleVariants ? (
                 <TouchableOpacity
@@ -835,15 +823,15 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   gridMiniBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   productInfo: {
     padding: 10,
-    gap: 3,
+    gap: 2,
   },
   productTag: {
     fontSize: 9.5,
@@ -852,12 +840,11 @@ const styles = StyleSheet.create({
   },
   productTitle: {
     fontSize: 13,
-    fontWeight: '700',
-    lineHeight: 18,
+    fontWeight: '600',
+    lineHeight: 17,
   },
   productSubtitle: {
-    fontSize: 11.5,
-    lineHeight: 15,
+    fontSize: 11,
   },
   cardFooter: {
     flexDirection: 'row',
@@ -874,31 +861,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   productPrice: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 13.5,
+    fontWeight: '700',
   },
   productPriceList: {
-    fontSize: 14.5,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '700',
     marginTop: 3,
   },
   addPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
     gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 999,
-    minHeight: 34,
     flexShrink: 0,
   },
   addPillText: {
     color: '#18181B',
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '700',
   },
-
   productCardList: {
     flexDirection: 'row',
     borderRadius: 14,
@@ -983,27 +967,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 5,
+    paddingHorizontal: 4,
     paddingVertical: 2,
     borderRadius: 999,
-    minWidth: 86,
-    height: 34,
+    minWidth: 78,
+    height: 28,
   },
   stepperBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepperQtyText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
-    paddingHorizontal: 4,
-    minWidth: 20,
+    paddingHorizontal: 3,
+    minWidth: 16,
     textAlign: 'center',
   },
-
   explorePill: {
     flexDirection: 'row',
     alignItems: 'center',

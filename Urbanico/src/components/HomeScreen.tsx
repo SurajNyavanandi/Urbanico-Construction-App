@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  Dimensions,
   useWindowDimensions,
   RefreshControl,
   ImageBackground,
@@ -15,14 +16,16 @@ import {
 import {
   ArrowRight,
   ShieldCheck,
+  Zap,
   Tag,
   CheckCircle2,
+  Clock,
   Sparkles,
   ChevronRight,
+  TrendingUp,
 } from 'lucide-react-native';
 import { CATEGORIES, SERVICES, MATERIAL_ITEMS, ServiceItem } from '../data/materialsData';
 import { CategoryId, MaterialItem } from '../types';
-
 import { useTheme, useTypography, useSpacing, useRadius } from '../theme';
 import { ProductCard } from './common/ProductCard';
 import { ShimmerImage } from './common/ShimmerImage';
@@ -367,7 +370,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           </View>
 
           <View style={styles.urbanGridRow}>
-            {URBAN_COMPANY_CATEGORY_GRID.slice(0, 8).map((item) => {
+            {URBAN_COMPANY_CATEGORY_GRID.map((item) => {
               const matchingItem = item.type === 'service'
                 ? activeMaterials.find((m) => m.id === `service-${item.id}`)
                 : undefined;
@@ -525,7 +528,7 @@ const styles = StyleSheet.create({
   },
   heroCardContainer: {
     width: '100%',
-    aspectRatio: 16 / 9,
+    aspectRatio: 4 / 3,
     borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#FFFFFF',

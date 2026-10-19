@@ -286,6 +286,40 @@ export const LocationModal: React.FC<LocationModalProps> = ({
             </View>
           )}
 
+          {/* Current Delivery Destination Card */}
+          {Boolean(selectedLocation) && (
+            <View
+              style={[
+                styles.currentLocationCard,
+                {
+                  backgroundColor: theme.mode === 'dark' ? '#1E293B' : '#F0F9FF',
+                  borderColor: theme.mode === 'dark' ? '#38BDF8' : '#BAE6FD',
+                  borderWidth: 1,
+                  borderRadius: 14,
+                  padding: 14,
+                  marginBottom: 12,
+                },
+              ]}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1, marginRight: 8 }}>
+                  <MapPin size={15} color={theme.primary} />
+                  <Text style={{ fontSize: 13.5, fontWeight: '700', color: theme.textPrimary }} numberOfLines={1}>
+                    {selectedLocation.split(',')[0]?.trim() || 'Current Delivery Site'}
+                  </Text>
+                </View>
+                <View style={{ backgroundColor: theme.primary, paddingHorizontal: 7, paddingVertical: 2, borderRadius: 5 }}>
+                  <Text style={{ fontSize: 9.5, fontWeight: '800', color: theme.primaryText || '#18181B' }}>
+                    ACTIVE DESTINATION
+                  </Text>
+                </View>
+              </View>
+              <Text style={{ fontSize: 12, color: theme.textSecondary, lineHeight: 17 }} numberOfLines={2}>
+                {selectedLocation.split(',').slice(1).join(',').trim() || selectedLocation}
+              </Text>
+            </View>
+          )}
+
           {/* Quick GPS Auto-Detect Button */}
           <TouchableOpacity
             onPress={handleUseCurrentLocation}
@@ -780,5 +814,11 @@ const styles = StyleSheet.create({
     color: '#18181B',
     fontSize: 14,
     fontWeight: '700',
+  },
+  currentLocationCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    marginBottom: 12,
   },
 });
