@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { UserService } from '../services/userService';
 import { OrderService } from '../services/orderService';
 import { MaterialService } from '../services/materialService';
+import { ServiceService } from '../services/serviceService';
 import { DeliveryService } from '../services/deliveryService';
 import { generateRandomOtp } from '../utils/otpHelper';
 import { asyncHandler, sendSuccess, sendError } from '../utils/apiResponse';
@@ -9,6 +10,7 @@ import { AuditService } from '../services/auditService';
 import { Order } from '../models/Order';
 import { User } from '../models/User';
 import { Material } from '../models/Material';
+import { Service } from '../models/Service';
 import mongoose from 'mongoose';
 
 export class AdminController {
@@ -216,6 +218,7 @@ export class AdminController {
   // ==========================================
   public static createMaterial = asyncHandler(async (req: Request, res: Response) => {
     const { name, category, categoryId, defaultPrice, unit, stockQuantity } = req.body;
+    const authUser = (req as any).user;
 
     if (!name || (!defaultPrice && defaultPrice !== 0)) {
       return sendError(res, 'Material name and defaultPrice are required', 400);
@@ -233,6 +236,23 @@ export class AdminController {
       ...req.body,
     });
 
+    await AuditService.log({
+      action: 'admin.material_create',
+      actorType: 'admin',
+      actorId: authUser?.email || authUser?.id || authUser?.phone || 'admin',
+      targetType: 'material',
+      targetId: String((newMaterial as any)?._id || (newMaterial as any)?.id || name),
+      details: {
+        name,
+        category: category || 'Materials',
+        price: Number(defaultPrice),
+        unit: unit || 'Unit',
+        stock: stockQuantity ? Number(stockQuantity) : 1000,
+      },
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     return sendSuccess(
       res,
       {
@@ -246,10 +266,35 @@ export class AdminController {
 
   public static updateMaterial = asyncHandler(async (req: Request, res: Response) => {
     const id = String(req.params.id);
-    const updated = await MaterialService.updateMaterial(id, req.body);
+    const authUser = (req as any).user;
+
+    // Capture previous state for audit trail (old price vs new price)
+    const existing = await MaterialService.getMaterialById(id);
+    const oldPrice = existing ? (existing.defaultPrice ?? existing.basePrice ?? (existing as any).price) : undefined;
+
+    const updated: any = await MaterialService.updateMaterial(id, req.body);
     if (!updated) {
       return sendError(res, 'Material not found', 404);
     }
+
+    const newPrice = updated.defaultPrice ?? updated.basePrice ?? updated.price;
+
+    await AuditService.log({
+      action: 'admin.material_update',
+      actorType: 'admin',
+      actorId: authUser?.email || authUser?.id || authUser?.phone || 'admin',
+      targetType: 'material',
+      targetId: id,
+      details: {
+        materialName: updated.name,
+        oldPrice,
+        newPrice,
+        priceChanged: oldPrice !== undefined && newPrice !== undefined && oldPrice !== newPrice,
+        modifiedFields: Object.keys(req.body),
+      },
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
 
     return sendSuccess(res, {
       message: 'Material updated successfully in catalog',
@@ -259,15 +304,106 @@ export class AdminController {
 
   public static deleteMaterial = asyncHandler(async (req: Request, res: Response) => {
     const id = String(req.params.id);
+    const authUser = (req as any).user;
     const deleted = await MaterialService.deleteMaterial(id);
     if (!deleted) {
       return sendError(res, 'Material not found or already deleted', 404);
     }
 
+    await AuditService.log({
+      action: 'admin.material_delete',
+      actorType: 'admin',
+      actorId: authUser?.email || authUser?.id || authUser?.phone || 'admin',
+      targetType: 'material',
+      targetId: id,
+      details: { deletedItem: (deleted as any)?.name || id },
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
     return sendSuccess(res, {
       message: 'Material removed from catalog',
       deleted,
     });
+  });
+
+  // ==========================================
+  // 4. TRADE SERVICE MANAGEMENT
+  // ==========================================
+  public static createService = asyncHandler(async (req: Request, res: Response) => {
+    const authUser = (req as any).user;
+    const service = await ServiceService.createService(req.body);
+
+    await AuditService.log({
+      action: 'admin.service_create',
+      actorType: 'admin',
+      actorId: authUser?.email || authUser?.id || authUser?.phone || 'admin',
+      targetType: 'service',
+      targetId: String((service as any)?._id || (service as any)?.id || req.body.name),
+      details: {
+        name: req.body.name,
+        rate: req.body.rate,
+        category: req.body.category,
+      },
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    return sendSuccess(res, { service }, 'Trade service created successfully', 201);
+  });
+
+  public static updateService = asyncHandler(async (req: Request, res: Response) => {
+    const id = String(req.params.id);
+    const authUser = (req as any).user;
+
+    const existing: any = await ServiceService.getServiceById(id);
+    const oldRate = existing?.rate;
+
+    const updated: any = await ServiceService.updateService(id, req.body);
+    if (!updated) {
+      return sendError(res, 'Service not found', 404);
+    }
+
+    await AuditService.log({
+      action: 'admin.service_update',
+      actorType: 'admin',
+      actorId: authUser?.email || authUser?.id || authUser?.phone || 'admin',
+      targetType: 'service',
+      targetId: id,
+      details: {
+        serviceName: updated.name,
+        oldRate,
+        newRate: updated.rate,
+        rateChanged: oldRate !== updated.rate,
+        modifiedFields: Object.keys(req.body),
+      },
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    return sendSuccess(res, { service: updated }, 'Trade service updated successfully');
+  });
+
+  public static deleteService = asyncHandler(async (req: Request, res: Response) => {
+    const id = String(req.params.id);
+    const authUser = (req as any).user;
+    const deleted = await ServiceService.deleteService(id);
+    if (!deleted) {
+      return sendError(res, 'Service not found or already deleted', 404);
+    }
+
+    await AuditService.log({
+      action: 'admin.service_delete',
+      actorType: 'admin',
+      actorId: authUser?.email || authUser?.id || authUser?.phone || 'admin',
+      targetType: 'service',
+      targetId: id,
+      details: { deletedItem: (deleted as any)?.name || id },
+      ip: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    return sendSuccess(res, { service: deleted }, 'Trade service deleted successfully');
   });
 
   // ==========================================

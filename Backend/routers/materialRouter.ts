@@ -1,27 +1,28 @@
 import { Router } from 'express';
 import { MaterialController } from '../controllers/materialController';
-import { authenticateToken, requireAdminOrSecret } from '../middleware/auth';
+import { authenticateToken, requireAdmin } from '../middleware/auth';
+import { adminMutationRateLimiter } from '../middleware/rateLimiter';
 
 const router = Router();
 
-// Public Read Operations
+// Public Read Operations (Customers, Contractors, Guests)
 router.get('/categories', MaterialController.getCategories);
 router.get('/bundles', MaterialController.getProjectBundles);
 router.get('/', MaterialController.getMaterials);
 router.get('/:id', MaterialController.getMaterialById);
 
-// Protected Mutation Operations (Authorized Admin / Operations only)
-router.post('/categories', authenticateToken, requireAdminOrSecret, MaterialController.createCategory);
-router.put('/categories/:id', authenticateToken, requireAdminOrSecret, MaterialController.updateCategory);
-router.delete('/categories/:id', authenticateToken, requireAdminOrSecret, MaterialController.deleteCategory);
+// Protected Mutation Operations (Authorized Admin only, RBAC enforced)
+router.post('/categories', authenticateToken, requireAdmin, adminMutationRateLimiter, MaterialController.createCategory);
+router.put('/categories/:id', authenticateToken, requireAdmin, adminMutationRateLimiter, MaterialController.updateCategory);
+router.delete('/categories/:id', authenticateToken, requireAdmin, adminMutationRateLimiter, MaterialController.deleteCategory);
 
-router.post('/bundles', authenticateToken, requireAdminOrSecret, MaterialController.createProjectBundle);
-router.put('/bundles/:id', authenticateToken, requireAdminOrSecret, MaterialController.updateProjectBundle);
-router.delete('/bundles/:id', authenticateToken, requireAdminOrSecret, MaterialController.deleteProjectBundle);
+router.post('/bundles', authenticateToken, requireAdmin, adminMutationRateLimiter, MaterialController.createProjectBundle);
+router.put('/bundles/:id', authenticateToken, requireAdmin, adminMutationRateLimiter, MaterialController.updateProjectBundle);
+router.delete('/bundles/:id', authenticateToken, requireAdmin, adminMutationRateLimiter, MaterialController.deleteProjectBundle);
 
-router.post('/', authenticateToken, requireAdminOrSecret, MaterialController.createMaterial);
-router.put('/:id', authenticateToken, requireAdminOrSecret, MaterialController.updateMaterial);
-router.delete('/:id', authenticateToken, requireAdminOrSecret, MaterialController.deleteMaterial);
+router.post('/', authenticateToken, requireAdmin, adminMutationRateLimiter, MaterialController.createMaterial);
+router.put('/:id', authenticateToken, requireAdmin, adminMutationRateLimiter, MaterialController.updateMaterial);
+router.delete('/:id', authenticateToken, requireAdmin, adminMutationRateLimiter, MaterialController.deleteMaterial);
 
 export const materialRouter = router;
 export default materialRouter;

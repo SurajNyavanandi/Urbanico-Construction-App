@@ -146,3 +146,18 @@ export function requestTimeout(timeoutMs = 15000) {
   };
 }
 
+/**
+ * 6. Admin Mutation Rate Limiter: max 30 mutations per minute per Admin IP/User
+ * Protects admin CRUD endpoints against brute force, fuzzing, and automated tampering.
+ */
+export const adminMutationRateLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  maxRequests: 30,
+  keyGenerator: (req) => {
+    const user = (req as any).user;
+    const ip = req.ip || req.socket.remoteAddress || 'ip';
+    return `admin_mut_${user?.email || user?.id || ip}`;
+  },
+  message: 'Admin rate limit exceeded. Please wait 1 minute before submitting more modifications.',
+});
+

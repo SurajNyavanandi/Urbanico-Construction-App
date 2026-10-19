@@ -16,6 +16,7 @@ export interface AuthUserPayload {
   id: string;
   phone: string;
   name?: string;
+  email?: string;
   role: 'contractor' | 'engineer' | 'supervisor' | 'client' | 'admin';
   permissions: string[];
   avatarUrl?: string;
@@ -57,6 +58,7 @@ export function generateAuthToken(user: {
   id?: string;
   phone: string;
   name?: string;
+  email?: string;
   role?: string;
   avatarUrl?: string;
 }): string {
@@ -72,6 +74,7 @@ export function generateAuthToken(user: {
     id: String(user._id || user.id || `usr_${Date.now()}`),
     phone: user.phone,
     name: user.name || 'Site Incharge',
+    email: user.email,
     role,
     permissions,
     avatarUrl: user.avatarUrl || 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg',
@@ -330,4 +333,76 @@ export function requireAdminOrSecret(req: AuthenticatedRequest, res: Response, n
     message: 'Forbidden: Requires admin privileges or valid admin secret.',
   });
 }
+
+/**
+ * Hardened Express Middleware: Require Verified Admin
+ * 1. Validates cryptographically signed JWT token (req.user).
+ * 2. Compares user.email against the ADMIN_EMAILS allowlist from process.env.
+ * 3. Or validates constant-time ADMIN_API_SECRET header (x-admin-secret).
+ * 4. Never trusts client-supplied body flags (e.g., isAdmin: true).
+ * 5. Returns explicit 401 Unauthorized if unauthenticated, 403 Forbidden if not in allowlist.
+ */
+export async function requireAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  // 1. Timing-safe comparison for ADMIN_API_SECRET header
+  const secretHeader = req.headers['x-admin-secret'] as string;
+  const configuredSecret = process.env.ADMIN_API_SECRET?.trim();
+  if (configuredSecret && secretHeader) {
+    const secretBuf = Buffer.from(secretHeader);
+    const confBuf = Buffer.from(configuredSecret);
+    if (secretBuf.length === confBuf.length && crypto.timingSafeEqual(secretBuf, confBuf)) {
+      return next();
+    }
+  }
+
+  // 2. Verified JWT Bearer token check
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      error: 'Unauthorized: Authentication required. Please provide a valid Bearer token.',
+      message: 'Unauthorized: Authentication required.',
+    });
+  }
+
+  // 3. Environment-based Admin Allowlist check
+  const adminEmailsRaw = (process.env.ADMIN_EMAILS || 'admin@urbanico.in,kanukulashekhar15@gmail.com').trim();
+  const allowedAdminEmails = adminEmailsRaw
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+
+  let userEmail = req.user.email?.trim().toLowerCase();
+
+  // If email is not in the JWT payload, look up user in DB
+  if (!userEmail && (req.user.id || req.user.phone)) {
+    try {
+      const { User } = await import('../models/User');
+      const dbUser = await User.findOne({
+        $or: [{ _id: req.user.id }, { phone: req.user.phone }],
+      }).select('email role');
+      if (dbUser?.email) {
+        userEmail = dbUser.email.trim().toLowerCase();
+        req.user.email = userEmail;
+      }
+      if (dbUser?.role === 'admin') {
+        req.user.role = 'admin';
+      }
+    } catch (e) {
+      console.warn('[requireAdmin] DB user lookup fallback error:', e);
+    }
+  }
+
+  const isEmailAllowed = Boolean(userEmail && allowedAdminEmails.includes(userEmail));
+  const isRoleAdmin = req.user.role === 'admin';
+
+  if (!isEmailAllowed && !isRoleAdmin) {
+    return res.status(403).json({
+      success: false,
+      error: 'Forbidden: Administrative privileges required. Your account is not authorized.',
+      message: 'Forbidden: Administrative privileges required.',
+    });
+  }
+
+  return next();
+}
+
 

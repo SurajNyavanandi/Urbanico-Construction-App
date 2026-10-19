@@ -11,6 +11,7 @@ export interface AppConfig {
   RAZORPAY_KEY_ID: string;
   RAZORPAY_KEY_SECRET: string;
   ADMIN_API_SECRET: string;
+  ADMIN_EMAILS: string[];
   CORS_ORIGIN: string;
   RESEND_API_KEY: string;
   MSG91_AUTH_KEY: string;
@@ -33,6 +34,11 @@ export function validateEnvironment(): AppConfig {
   const corsOrigin = (process.env.CORS_ORIGIN || '').trim();
   const resendApiKey = (process.env.RESEND_API_KEY || '').trim();
   const msg91AuthKey = (process.env.MSG91_AUTH_KEY || '').trim();
+  const adminEmailsRaw = (process.env.ADMIN_EMAILS || 'admin@urbanico.in,kanukulashekhar15@gmail.com').trim();
+  const adminEmails = adminEmailsRaw
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
 
   const missingProductionSecrets: string[] = [];
   if (isProduction) {
@@ -51,6 +57,7 @@ export function validateEnvironment(): AppConfig {
     NODE_ENV: nodeEnv,
     MONGODB_URI: mongodbUri,
     JWT_SECRET: jwtSecret || 'dev_ephemeral_jwt_secret_token_urbanico_construction_2026',
+    ADMIN_EMAILS: adminEmails,
     RAZORPAY_KEY_ID: razorpayKeyId,
     RAZORPAY_KEY_SECRET: razorpayKeySecret,
     ADMIN_API_SECRET: adminSecret,
