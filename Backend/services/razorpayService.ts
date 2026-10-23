@@ -5,7 +5,7 @@
 
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
-import { razorpayClient, detectKeyMode, verifyRazorpaySignature } from '../lib/razorpay';
+import { razorpayClient } from '../lib/razorpay';
 
 export class RazorpayBackendService {
   public static getKeyId(): string {

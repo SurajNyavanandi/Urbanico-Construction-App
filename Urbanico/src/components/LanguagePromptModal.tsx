@@ -7,7 +7,7 @@ import {
   StyleSheet,
   Pressable,
 } from 'react-native';
-import { Globe, Check, Sparkles, Languages, X } from 'lucide-react-native';
+import { Check, Languages, X } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { useLanguage, LanguageCode } from '../context/LanguageContext';
 import { LoadingButton } from './common/LoadingButton';

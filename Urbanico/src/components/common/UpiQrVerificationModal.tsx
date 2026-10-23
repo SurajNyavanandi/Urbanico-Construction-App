@@ -17,12 +17,8 @@ import {
   ShieldCheck,
   CheckCircle2,
   RefreshCw,
-  QrCode,
   Smartphone,
-  ExternalLink,
-  ChevronRight,
   AlertCircle,
-  Copy,
   Check,
 } from 'lucide-react-native';
 import {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Modal, Pressable, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
-import { Send, PhoneCall, Bot, User, CheckCheck, X, Truck, ShieldAlert, Sparkles, MapPin } from 'lucide-react-native';
+import { Send, PhoneCall, CheckCheck, X, Truck } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 
 interface Message {

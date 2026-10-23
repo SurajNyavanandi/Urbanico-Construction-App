@@ -10,15 +10,12 @@ import {
   ActivityIndicator,
   Modal,
   Linking,
-  Platform,
   Image,
 } from 'react-native';
 import {
   Package,
-  Clock,
   MapPin,
   Truck,
-  CheckCircle2,
   AlertCircle,
   FileText,
   RotateCcw,
@@ -30,15 +27,10 @@ import {
   ArrowLeft,
   ShieldCheck,
   Send,
-  CreditCard,
-  Layers,
   ArrowRight,
   Phone,
   X,
   Navigation,
-  KeyRound,
-  Building2,
-  Calendar,
   Wrench,
 } from 'lucide-react-native';
 import { ActivityDelivery, CartItem, UserProfile } from '../types';

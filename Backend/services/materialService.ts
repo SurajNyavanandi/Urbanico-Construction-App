@@ -1,13 +1,11 @@
 import { Material, IMaterial } from '../models/Material';
-import { Category, ICategory } from '../models/Category';
+import { Category } from '../models/Category';
 import mongoose from 'mongoose';
 import {
   MASTER_CATEGORIES,
-  MASTER_SERVICES,
   MASTER_MATERIAL_ITEMS,
   MASTER_PROJECT_BUNDLES,
   MasterCategory,
-  MasterMaterialItem,
   MasterProjectBundle,
 } from '../data/seedData';
 import { materialCache, categoryCache, bundleCache } from '../utils/memoryCache';

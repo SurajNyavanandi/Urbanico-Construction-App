@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Modal, StyleSheet, Pressable } from 'react-native';
-import { TrendingUp, TrendingDown, Minus, Clock, BarChart3, X, ShieldAlert, Sparkles } from 'lucide-react-native';
+import { TrendingUp, TrendingDown, Minus, Clock, BarChart3, X, Sparkles } from 'lucide-react-native';
 import { COMMODITY_SPOT_RATES, CommodityRate } from '../../utils/commodityTicker';
 import { useTheme } from '../../context/ThemeContext';
 

@@ -52,8 +52,8 @@ app.use((_req, res, next) => {
 
 // 2. Structured Request Logger & 15-Second Request Timeout
 app.use(requestLogger);
-app.use(requestTimeout(envConfig.REQUEST_TIMEOUT_MS));
-app.use(apiRateLimiter);
+app.use('/api', requestTimeout(envConfig.REQUEST_TIMEOUT_MS));
+app.use('/api', apiRateLimiter);
 
 // 3. Raw body preservation for cryptographically strict Razorpay webhook verification
 app.use(
@@ -210,16 +210,18 @@ export async function startServer() {
     try {
       const { createServer: createViteServer } = await import('vite');
       const vite = await createViteServer({
+        configFile: path.resolve(process.cwd(), 'vite.config.ts'),
         server: {
           middlewareMode: true,
           hmr: false,
+          ws: false,
         },
-        appType: 'spa',
+        appType: 'custom',
       });
       app.use(vite.middlewares);
 
       // SPA fallback for dev server
-      app.use('*', async (req, res, next) => {
+      app.use(async (req, res, next) => {
         const url = req.originalUrl;
         if (
           url.startsWith('/api') ||

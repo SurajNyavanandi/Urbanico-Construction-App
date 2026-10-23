@@ -26,11 +26,6 @@ import {
   TypographyTokens,
   resolveTypographyTokens,
   GLOBAL_TYPOGRAPHY_TOKENS,
-  GLOBAL_FONT_FAMILIES,
-  GLOBAL_FONT_SIZES,
-  GLOBAL_FONT_WEIGHTS,
-  GLOBAL_LINE_HEIGHTS,
-  GLOBAL_LETTER_SPACINGS,
 } from './typography';
 import {
   SpacingTokens,

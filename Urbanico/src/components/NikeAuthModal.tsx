@@ -15,11 +15,11 @@ import {
   ScrollView,
   useWindowDimensions,
 } from 'react-native';
-import { X, ChevronLeft, ShieldCheck, CheckCircle2, Sparkles, Phone, Lock, ArrowRight } from 'lucide-react-native';
+import { X, ChevronLeft, ShieldCheck, CheckCircle2, ArrowRight } from 'lucide-react-native';
 import { BRAND_LOGO_URL } from '../constants';
 import { ShimmerImage } from './common/ShimmerImage';
 import { apiService } from '../services/apiService';
-import { sendOtp as sendMsg91Otp, verifyOtp as verifyMsg91Otp } from '../services/otpService';
+import { verifyOtp as verifyMsg91Otp } from '../services/otpService';
 import { useTheme } from '../context/ThemeContext';
 
 const DEFAULT_DEV_MOBILE = '';

@@ -3,7 +3,7 @@
  * Compliant with Rule 46 of CGST Rules, 2017
  */
 
-import { CartItem, ActivityDelivery, UserProfile } from '../types';
+import { ActivityDelivery, UserProfile } from '../types';
 import { INDIAN_GST_STATES } from './gstinValidator';
 import { formatSiteAddress } from './addressHelper';
 import { sendInvoiceEmail } from '../services/resendService';

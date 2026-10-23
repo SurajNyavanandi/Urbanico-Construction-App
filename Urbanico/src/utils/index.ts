@@ -4,7 +4,6 @@
 export * from './addressHelper';
 export * from './cartCalculations';
 export * from './commodityTicker';
-export * from './dataStructures';
 export * from './freightCalculator';
 export * from './gstinValidator';
 export * from './imageOptimization';

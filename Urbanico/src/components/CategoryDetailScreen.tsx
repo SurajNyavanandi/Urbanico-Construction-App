@@ -9,18 +9,13 @@ import {
   Platform,
 } from 'react-native';
 import {
-  Heart,
-  ShoppingCart,
-  ChevronRight,
   ArrowLeft,
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
-  ShieldCheck,
   Sparkles,
   Filter,
   X,
-  Zap,
   RotateCcw,
 } from 'lucide-react-native';
 import { CATEGORIES, SERVICES, MATERIAL_ITEMS } from '../data/materialsData';

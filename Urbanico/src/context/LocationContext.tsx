@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { SAVED_LOCATIONS } from '../data/materialsData';
 import { safeStorage } from '../utils/safeStorage';
 import { apiService } from '../services/apiService';
 

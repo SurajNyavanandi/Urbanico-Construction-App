@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ViewStyle, Platform } from 'react-native';
 import { useTheme } from '../../theme';
-import { Layers, ShieldCheck, Sparkles } from 'lucide-react-native';
+import { Layers } from 'lucide-react-native';
 
 export interface UrbanicoLoadingSpinnerProps {
   size?: 'small' | 'medium' | 'large' | 'fullscreen';

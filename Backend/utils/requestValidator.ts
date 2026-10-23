@@ -1,4 +1,4 @@
-import { sanitizePhone, sanitizeText, sanitizeGstin } from './sanitizer';
+import { sanitizePhone, sanitizeGstin } from './sanitizer';
 
 export interface ValidationResult<T = any> {
   isValid: boolean;

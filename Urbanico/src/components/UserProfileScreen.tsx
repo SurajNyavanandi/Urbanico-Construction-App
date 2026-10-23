@@ -3,12 +3,9 @@ import {
   View,
   Text,
   TouchableOpacity,
-  Pressable,
   ScrollView,
   StyleSheet,
   Modal,
-  TextInput,
-  KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
   Image,
@@ -16,42 +13,19 @@ import {
 
 const CLOUDINARY_PROFILE_PIC = 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg';
 import {
-  Truck,
   MapPin,
-  CreditCard,
   Gift,
   Settings as SettingsIcon,
   HelpCircle,
   ChevronRight,
-  X,
-  Plus,
-  Trash2,
-  Copy,
-  Share2,
-  Check,
-  Phone,
-  Mail,
-  Building,
   Edit2,
   LogOut,
-  ShieldCheck,
-  CreditCard as CardIcon,
-  Smartphone,
-  Landmark,
-  MessageSquare,
   Heart,
-  UserCheck,
   LogIn,
-  Navigation,
-  CheckCircle2,
   BadgeCheck,
-  Sparkles,
-  Lock,
-  Bookmark,
-  ShoppingCart,
-  ArrowRight,
+  Truck,
 } from 'lucide-react-native';
-import { UserProfile, ScreenType, ActivityDelivery, CartItem } from '../types';
+import { UserProfile, ScreenType, ActivityDelivery } from '../types';
 import { INITIAL_DELIVERIES } from '../data/materialsData';
 import { apiService } from '../services/apiService';
 import { useTheme } from '../context/ThemeContext';
@@ -66,25 +40,8 @@ import { ReferEarnModal } from './profile/ReferEarnModal';
 import { HelpSupportModal } from './profile/HelpSupportModal';
 import { SavedAddressesModal } from './profile/SavedAddressesModal';
 import { EditProfileModal } from './profile/EditProfileModal';
-import {
-  INDIAN_STATES,
-  ADDRESS_TYPE_OPTIONS,
-  lookupCityStateFromPincode,
-  validateIndianAddress,
-  formatIndianAddressSummary,
-  formatSiteAddress,
-} from '../utils/addressHelper';
-import {
-  validateAndSanitizeAddressForm,
-  validateAndSanitizeProfileForm,
-  sanitizePhone,
-  sanitizeGstin,
-  sanitizeEmail,
-  sanitizeName,
-  sanitizeAddressField,
-} from '../utils/sanitizationHelper';
-import { IndianDeliveryAddress } from '../types';
-import { getCurrentDeviceLocation } from '../utils/locationHelper';
+import { lookupCityStateFromPincode } from '../utils/addressHelper';
+import { validateAndSanitizeProfileForm } from '../utils/sanitizationHelper';
 import { useClipboard } from '../hooks';
 
 interface UserProfileScreenProps {
@@ -232,47 +189,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     setNewStreet('');
     setNewPincode('');
     showToast('New site delivery address saved successfully', 'success');
-  };
-
-  const handlePincodeChangeInProfile = (text: string) => {
-    const clean = text.replace(/[^0-9]/g, '').slice(0, 6);
-    setAddressPincode(clean);
-    if (addressErrors.pincode) {
-      setAddressErrors((prev) => ({ ...prev, pincode: '' }));
-    }
-    if (clean.length === 6) {
-      const pinPrefix = parseInt(clean.slice(0, 3), 10);
-      if (isNaN(pinPrefix) || pinPrefix < 500 || pinPrefix > 509) {
-        setAddressErrors((prev) => ({
-          ...prev,
-          pincode: 'Currently delivering exclusively across Hyderabad & Telangana (PIN: 500xxx - 509xxx). Out-of-zone freight unavailable.',
-        }));
-      } else {
-        setAddressErrors((prev) => ({ ...prev, pincode: '' }));
-      }
-      const lookup = lookupCityStateFromPincode(clean);
-      if (lookup.city) setAddressCity(lookup.city);
-      if (lookup.state) setAddressState(lookup.state);
-    }
-  };
-
-  const handleDetectGpsForForm = async () => {
-    setIsDetectingGps(true);
-
-    try {
-      const loc = await getCurrentDeviceLocation();
-      if (loc.pincode) setAddressPincode(loc.pincode.replace(/\D/g, '').slice(0, 6));
-      if (loc.address) setAddressAreaStreet(loc.address);
-      if (!addressFlatBuilding) setAddressFlatBuilding('Current Site Location');
-      if (loc.city) setAddressCity(loc.city);
-      if (loc.state) setAddressState(loc.state);
-
-      setIsDetectingGps(false);
-      showToast('GPS site location detected successfully', 'success');
-    } catch {
-      setIsDetectingGps(false);
-      showToast('GPS location unavailable. Please enter address details manually.', 'info');
-    }
   };
 
   // Edit profile form state

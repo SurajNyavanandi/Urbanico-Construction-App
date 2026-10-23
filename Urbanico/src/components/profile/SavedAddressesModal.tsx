@@ -11,9 +11,8 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { MapPin, X, Plus, Trash2, Check, AlertCircle, Building2, Home } from 'lucide-react-native';
+import { MapPin, X, Trash2 } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
-import { INDIAN_STATES, ADDRESS_TYPE_OPTIONS } from '../../utils/addressHelper';
 
 export interface SavedAddressesModalProps {
   visible: boolean;

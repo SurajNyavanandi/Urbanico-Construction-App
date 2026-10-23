@@ -22,18 +22,12 @@ export interface OrderSummaryBreakdownProps {
   appliedCoupon?: string | null;
   gstinValidation?: {
     isValid: boolean;
-    stateCode: string;
-    stateName: string;
-  } | null;
+    stateCode?: string;
+    stateName?: string;
+  } | any;
   grandTotal: number;
-  smartRecommendation?: {
-    badge: string;
-    vehicle: {
-      name: string;
-      unloadingMechanism: string;
-    };
-  } | null;
-  totalWeightTons?: string;
+  smartRecommendation?: any;
+  totalWeightTons?: number | string;
 }
 
 export const OrderSummaryBreakdown: React.FC<OrderSummaryBreakdownProps> = ({

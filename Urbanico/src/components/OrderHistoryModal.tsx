@@ -1,6 +1,5 @@
 import React from 'react';
-import { Modal, View, StyleSheet, TouchableOpacity, Text, SafeAreaView } from 'react-native';
-import { X } from 'lucide-react-native';
+import { Modal, StyleSheet, SafeAreaView } from 'react-native';
 import { OrderHistory, OrderHistoryProps } from './OrderHistory';
 import { useTheme } from '../context/ThemeContext';
 

@@ -13,7 +13,7 @@ import {
   Platform,
   ActivityIndicator,
 } from 'react-native';
-import { X, Check, Mail, Building2, User } from 'lucide-react-native';
+import { X, Check, Mail } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { UserProfile } from '../../types';
 

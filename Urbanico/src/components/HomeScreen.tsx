@@ -5,34 +5,20 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  Dimensions,
   useWindowDimensions,
   RefreshControl,
-  ImageBackground,
   Platform,
   Pressable,
   Animated,
 } from 'react-native';
-import {
-  ArrowRight,
-  ShieldCheck,
-  Zap,
-  Tag,
-  CheckCircle2,
-  Clock,
-  Sparkles,
-  ChevronRight,
-  TrendingUp,
-} from 'lucide-react-native';
 import { CATEGORIES, SERVICES, MATERIAL_ITEMS, ServiceItem } from '../data/materialsData';
 import { CategoryId, MaterialItem } from '../types';
-import { useTheme, useTypography, useSpacing, useRadius } from '../theme';
+import { useTheme } from '../theme';
 import { ProductCard } from './common/ProductCard';
 import { ShimmerImage } from './common/ShimmerImage';
 import { AmbujaVideoAd } from './common/AmbujaVideoAd';
 import { ProjectShowcaseCarousel } from './common/ProjectShowcaseCarousel';
 import { preloadImages } from '../utils/imageOptimization';
-import { BRAND_LOGO_URL } from '../constants';
 import { soundService } from '../utils/soundHelper';
 import { HomeSkeleton } from './common/SkeletonLoader';
 import { useImagePrefetch } from '../hooks/useImagePrefetch';

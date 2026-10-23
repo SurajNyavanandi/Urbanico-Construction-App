@@ -13,18 +13,10 @@ import {
 } from 'react-native';
 import {
   X,
-  Minus,
-  Plus,
   ShoppingCart,
   Zap,
   Check,
   Heart,
-  ShieldCheck,
-  AlertTriangle,
-  MapPin,
-  Smartphone,
-  Lock,
-  Info,
   Calendar,
   Truck,
   Maximize2,

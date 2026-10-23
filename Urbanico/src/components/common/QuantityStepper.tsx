@@ -5,7 +5,8 @@ import { useTheme } from '../../context/ThemeContext';
 import { soundService } from '../../utils/soundHelper';
 
 interface QuantityStepperProps {
-  value: number;
+  value?: number;
+  quantity?: number;
   onIncrement: () => void;
   onDecrement: () => void;
   min?: number;
@@ -15,7 +16,8 @@ interface QuantityStepperProps {
 }
 
 export const QuantityStepper: React.FC<QuantityStepperProps> = ({
-  value,
+  value: rawValue,
+  quantity,
   onIncrement,
   onDecrement,
   min = 1,
@@ -23,6 +25,7 @@ export const QuantityStepper: React.FC<QuantityStepperProps> = ({
   size = 'md',
   allowDeleteAtMin = false,
 }) => {
+  const value = rawValue !== undefined ? rawValue : (quantity !== undefined ? quantity : 1);
   const { theme } = useTheme();
 
   const handleDecrement = () => {
@@ -53,7 +56,7 @@ export const QuantityStepper: React.FC<QuantityStepperProps> = ({
         ) : (
           <Minus
             size={isSmall ? 12 : 14}
-            color={!allowDeleteAtMin && value <= min ? theme.textTertiary : theme.textPrimary}
+            color={!allowDeleteAtMin && value <= min ? theme.textMuted : theme.textPrimary}
             strokeWidth={2.5}
           />
         )}
@@ -73,7 +76,7 @@ export const QuantityStepper: React.FC<QuantityStepperProps> = ({
       >
         <Plus
           size={isSmall ? 12 : 14}
-          color={value >= max ? theme.textTertiary : theme.textPrimary}
+          color={value >= max ? theme.textMuted : theme.textPrimary}
           strokeWidth={2.5}
         />
       </TouchableOpacity>

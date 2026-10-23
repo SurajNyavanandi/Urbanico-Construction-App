@@ -9,14 +9,12 @@ import {
   ScrollView,
   Modal,
   Image,
-  Pressable,
   KeyboardAvoidingView,
 } from 'react-native';
 import {
   MapPin,
   Search,
   ChevronDown,
-  ArrowLeft,
   X,
   History,
   Package,

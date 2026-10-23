@@ -1,5 +1,5 @@
 import React, { Suspense, useEffect, useRef } from 'react';
-import { View, Animated, StyleSheet, ViewStyle, Platform } from 'react-native';
+import { Animated, ViewStyle, Platform } from 'react-native';
 import { ScreenSkeletonLoader, ScreenSkeletonType } from './ScreenSkeletonLoader';
 
 export interface ScreenSuspenseProps {

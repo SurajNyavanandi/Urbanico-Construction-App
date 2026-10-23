@@ -8,7 +8,7 @@ import {
   Animated,
   Platform,
 } from 'react-native';
-import { Heart, Plus, Minus, ChevronRight, Share2 } from 'lucide-react-native';
+import { Heart, Plus, Minus, ChevronRight } from 'lucide-react-native';
 import { MaterialItem } from '../../types';
 import { ShimmerImage } from './ShimmerImage';
 import { useTheme, useTypography } from '../../theme';

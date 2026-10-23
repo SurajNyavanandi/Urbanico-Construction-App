@@ -13,17 +13,13 @@ import {
 import {
   ArrowLeft,
   Lock,
-  Check,
   ShieldCheck,
   Truck,
-  ExternalLink,
   ChevronRight,
   AlertCircle,
-  Zap,
 } from 'lucide-react-native';
 import {
   createRazorpayOrder,
-  getClientKeyMode,
   getClientRazorpayKey,
   openRazorpayStandardCheckout,
   fetchRazorpayConfig,
@@ -33,7 +29,6 @@ import {
   PhonePeIcon,
   PaytmIcon,
   CredIcon,
-  BhimIcon,
   VisaIcon,
   MastercardIcon,
   RupayIcon,

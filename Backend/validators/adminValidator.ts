@@ -85,7 +85,7 @@ export function validateAdminBody(schema: z.ZodSchema) {
     const result = schema.safeParse(req.body);
     if (!result.success) {
       const formattedErrors: Record<string, string> = {};
-      result.error.errors.forEach((err) => {
+      (result.error.issues || (result.error as any).errors || []).forEach((err: any) => {
         const field = err.path.join('.') || 'body';
         formattedErrors[field] = err.message;
       });

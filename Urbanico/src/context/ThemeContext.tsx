@@ -4,12 +4,10 @@ import {
   ThemeColorTokens,
   ThemePresetKey,
   resolveThemeColors,
-  ACTIVE_THEME_PRESET,
 } from '../theme/colors';
 import {
   TypographyTokens,
   resolveTypographyTokens,
-  GLOBAL_TYPOGRAPHY_TOKENS,
 } from '../theme/typography';
 import {
   SpacingTokens,

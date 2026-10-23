@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { WifiOff, RefreshCw, CheckCircle2 } from 'lucide-react-native';
+import { WifiOff, RefreshCw } from 'lucide-react-native';
 import { syncManager } from '../../utils/syncManager';
 
 export const OfflineStatusBanner: React.FC = () => {

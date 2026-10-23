@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Modal, StyleSheet, Pressable, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
-import { UserCheck, Phone, ShieldCheck, X, Check, Users } from 'lucide-react-native';
+import { ShieldCheck, X, Check, Users } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 import { useToast } from '../../context/ToastContext';
 

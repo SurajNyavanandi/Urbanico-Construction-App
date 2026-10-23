@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { UserProfile, ActivityDelivery } from '../types';
+import { UserProfile } from '../types';
 import { useToast } from '../context/ToastContext';
 import { soundService } from '../utils/soundHelper';
 

@@ -1,5 +1,5 @@
 import { Order, IOrder } from '../models/Order';
-import { Delivery, IDelivery } from '../models/Delivery';
+import { Delivery } from '../models/Delivery';
 import { DeliveryService } from './deliveryService';
 import { generateRandomOtp } from '../utils/otpHelper';
 import { sanitizeText, sanitizeName, sanitizeAddressField, sanitizePhone } from '../utils/sanitizer';

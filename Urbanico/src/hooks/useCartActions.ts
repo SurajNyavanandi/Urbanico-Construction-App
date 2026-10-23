@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { MaterialItem, UnitOption, CartItem } from '../types';
+import { MaterialItem, UnitOption } from '../types';
 import { useCart } from '../context/CartContext';
 import { useToast } from '../context/ToastContext';
 import { soundService } from '../utils/soundHelper';

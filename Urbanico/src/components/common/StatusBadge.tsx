@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { CheckCircle2, Clock, Truck, AlertCircle, Check, XCircle, ShieldCheck } from 'lucide-react-native';
+import { CheckCircle2, Clock, Truck, AlertCircle, XCircle, ShieldCheck } from 'lucide-react-native';
 import { useTheme } from '../../context/ThemeContext';
 
 export type BadgeStatus =

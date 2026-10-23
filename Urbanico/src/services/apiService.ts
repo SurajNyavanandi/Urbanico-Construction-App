@@ -7,7 +7,7 @@
  * 401 session expiry handling, and 429 rate limit backoff.
  */
 
-import { ActivityDelivery, UserProfile, MaterialItem } from '../types';
+import { UserProfile, MaterialItem } from '../types';
 import { Platform, NativeModules } from 'react-native';
 import { safeStorage } from '../utils/safeStorage';
 

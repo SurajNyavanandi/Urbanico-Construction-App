@@ -20,7 +20,6 @@ import {
   Minus,
   MapPin,
   ArrowRight,
-  ArrowLeft,
   Truck,
   Package,
   Check,
@@ -28,57 +27,18 @@ import {
   Clock,
   Tag,
   ShieldCheck,
-  Bookmark,
-  BookmarkCheck,
   AlertTriangle,
-  Sparkles,
   ChevronRight,
   ChevronDown,
   ChevronUp,
   X,
   FileCheck2,
-  PhoneCall,
-  MessageSquare,
-  Camera,
-  ShoppingBag,
-  Building2,
   Home,
-  Briefcase,
-  FileSpreadsheet,
-  Download,
   Users,
-  Mail,
-  CheckCircle2,
-  FileText,
   Lock,
-  Smartphone,
-  ExternalLink,
-  CreditCard,
   Building,
-  Wallet,
-  Percent,
-  RotateCcw,
-  RefreshCw,
-  AlertCircle,
-  HelpCircle,
-  Zap,
 } from 'lucide-react-native';
-import {
-  GooglePayIcon,
-  PhonePeIcon,
-  PaytmIcon,
-  CredIcon,
-  BhimIcon,
-  VisaIcon,
-  MastercardIcon,
-  RupayIcon,
-  AmazonPayIcon,
-  MobikwikIcon,
-  AirtelIcon,
-  FreechargeIcon,
-  BankPillIcon,
-} from './common/PaymentBrandIcons';
-import { CartItem, ScreenType, ActivityDelivery } from '../types';
+import { CartItem, ScreenType, ActivityDelivery, SavedPaymentMethod } from '../types';
 import { INITIAL_DELIVERIES } from '../data/materialsData';
 import { useTheme } from '../context/ThemeContext';
 import { useLocation } from '../context/LocationContext';
@@ -88,22 +48,11 @@ import { validateName, validatePhone } from '../utils/sanitizationHelper';
 import { RazorpayPaymentResult } from './common/RazorpayModal';
 import {
   openRazorpayStandardCheckout,
-  openRazorpayOneTapPayment,
-  fetchCustomerTokensAPI,
-  tokenizeCardAPI,
   getClientKeyMode,
   getClientRazorpayKey,
   savePendingPaymentHandshake,
   clearPendingPaymentHandshake,
 } from '../services/razorpayService';
-import {
-  getSavedPaymentMethods,
-  addSavedPaymentMethod,
-  deleteSavedPaymentMethod,
-  validateCard,
-  detectCardBrand,
-} from '../utils/paymentMethodsHelper';
-import { SavedPaymentMethod } from '../types';
 import { PaymentSuccessModal } from './PaymentSuccessModal';
 import { LiveDispatcherChatModal } from './common/LiveDispatcherChatModal';
 import { SupervisorHandoffModal } from './common/SupervisorHandoffModal';
@@ -119,16 +68,13 @@ import { apiService } from '../services/apiService';
 import {
   estimateTotalWeightTons,
   calculateDynamicFreight,
-  recommendVehicle,
   evaluateSmartVehicleRecommendation,
   calculateDeliveryFee5KmRule,
   evaluateUnloadingAssistance,
-  PINCODE_REGISTRY,
 } from '../utils/freightCalculator';
 import { validateGSTIN, GstinValidationResult } from '../utils/gstinValidator';
 import { buildTaxInvoiceData, sendTaxInvoiceEmail } from '../utils/invoiceHelper';
 import { openProformaQuotationPrint } from '../utils/proformaQuotationHelper';
-import { useCart } from '../context/CartContext';
 import { useClipboard } from '../hooks';
 import { OrderSummaryBreakdown } from './basket/OrderSummaryBreakdown';
 

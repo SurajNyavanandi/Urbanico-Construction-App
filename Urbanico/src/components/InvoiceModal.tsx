@@ -11,22 +11,12 @@ import {
 } from 'react-native';
 import {
   X,
-  Printer,
   Download,
   FileText,
   ShieldCheck,
   Copy,
   Check,
-  Truck,
-  Building2,
-  QrCode,
-  Share2,
-  Info,
   CreditCard,
-  MapPin,
-  ExternalLink,
-  Mail,
-  Send,
 } from 'lucide-react-native';
 import { UserProfile, ActivityDelivery } from '../types';
 import { useTheme } from '../context/ThemeContext';
@@ -38,9 +28,9 @@ import {
   buildTaxInvoiceData,
   sendTaxInvoiceEmail,
 } from '../utils/invoiceHelper';
-import { INDIAN_GST_STATES, validateGSTIN } from '../utils/gstinValidator';
+import { validateGSTIN } from '../utils/gstinValidator';
 import { formatSiteAddress } from '../utils/addressHelper';
-import { useClipboard, formatINR } from '../hooks';
+import { useClipboard } from '../hooks';
 import { generateInvoicePrintHtml, executePrintDocument } from '../utils/invoiceGenerators';
 import { StatusBadge } from './common/StatusBadge';
 

@@ -1,4 +1,4 @@
-import { CartItem, MaterialItem, UnitOption } from '../types';
+import { CartItem } from '../types';
 import { formatINR } from '../hooks/useFormatters';
 
 /**

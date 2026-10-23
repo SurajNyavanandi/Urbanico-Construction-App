@@ -2,7 +2,7 @@ import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { CartProvider, useCart } from '../context/CartContext';
-import { calculateCartTotals, isCartItemService } from '../utils/cartCalculations';
+import { calculateCartTotals } from '../utils/cartCalculations';
 import { apiService } from '../services/apiService';
 import { MaterialItem, UnitOption } from '../types';
 
