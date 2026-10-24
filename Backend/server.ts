@@ -82,6 +82,7 @@ function isOriginAllowed(origin: string): boolean {
   return false;
 }
 
+// This middleware also answers browser preflight (OPTIONS) requests for all routes.
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || isOriginAllowed(origin)) {
@@ -93,9 +94,6 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'x-admin-secret', 'x-razorpay-signature', 'idempotency-key']
 }));
-
-// Handle preflight OPTIONS explicitly for all routes
-app.options('*', cors());
 
 // 3. Structured Request Logger & Request Timeout
 app.use(requestLogger);
@@ -240,7 +238,7 @@ export async function startServer() {
     const distPath = path.join(process.cwd(), 'dist');
     const indexPath = path.join(distPath, 'index.html');
     app.use(express.static(distPath));
-    
+
     app.use((req, res, next) => {
       if (req.method !== 'GET') return next();
       if (req.path.startsWith('/api') || req.path.startsWith('/razorpay') || req.path.startsWith('/payments')) {
