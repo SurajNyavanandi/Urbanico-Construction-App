@@ -5,7 +5,9 @@ import { asyncHandler, sendSuccess, sendError } from '../utils/apiResponse';
 import { generateAuthToken, AuthenticatedRequest, getPermissionsForRole } from '../middleware/auth';
 import { sendMail } from '../lib/mailer';
 
-const CLOUDINARY_PROFILE_PIC = 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg';
+import { DEFAULT_AVATAR_URL } from '../config/constants';
+
+const CLOUDINARY_PROFILE_PIC = DEFAULT_AVATAR_URL;
 
 const emailOtpStore = new Map<string, { code: string; expiresAt: number; phone?: string }>();
 const phoneOtpStore = new Map<string, { code: string; expiresAt: number; attempts: number }>();

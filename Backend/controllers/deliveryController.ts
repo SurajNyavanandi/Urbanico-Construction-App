@@ -1,15 +1,12 @@
 import { Request, Response } from 'express';
 import { DeliveryService } from '../services/deliveryService';
-import { asyncHandler, sendSuccess, sendError } from '../utils/apiResponse';
+import { asyncHandler, sendSuccess, sendError, parsePagination } from '../utils/apiResponse';
 import { sanitizePhone } from '../utils/sanitizer';
 
 export class DeliveryController {
   public static getDeliveries = asyncHandler(async (req: Request, res: Response) => {
     const authUser = (req as any).user;
-    const rawLimit = Number(req.query.limit);
-    const rawPage = Number(req.query.page);
-    const limit = Math.min(100, Math.max(1, isNaN(rawLimit) ? 50 : rawLimit));
-    const page = Math.max(1, isNaN(rawPage) ? 1 : rawPage);
+    const { limit, page } = parsePagination(req.query);
 
     const result = await DeliveryService.getAllDeliveries({ limit, page });
 
@@ -26,7 +23,7 @@ export class DeliveryController {
         count: filtered.length,
         limit,
         page,
-        totalPages: Math.ceil(filtered.length / limit),
+        totalPages: Math.max(1, Math.ceil(filtered.length / limit)),
       });
     }
 
@@ -79,7 +76,11 @@ export class DeliveryController {
     const lng = Number(longitude);
 
     if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      return sendError(res, 'Valid coordinates (latitude between -90 and 90, longitude between -180 and 180) are required', 400);
+      return sendError(
+        res,
+        'Valid coordinates (latitude between -90 and 90, longitude between -180 and 180) are required',
+        400
+      );
     }
 
     const delivery = await DeliveryService.updateDeliveryLocation(String(id), {
@@ -93,4 +94,3 @@ export class DeliveryController {
     return sendSuccess(res, { delivery }, 'Delivery vehicle GPS location updated');
   });
 }
-

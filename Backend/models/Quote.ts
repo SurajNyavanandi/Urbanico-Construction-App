@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
+import { QUOTE_STATUSES, QuoteStatus } from '../config/constants';
 
 export interface IQuoteBid {
   bidId: string;
@@ -30,7 +31,7 @@ export interface IQuote extends Document {
     unit?: string;
     specifications?: string;
   }>;
-  status: 'pending' | 'bidding' | 'accepted' | 'rejected' | 'closed';
+  status: QuoteStatus;
   bids: IQuoteBid[];
   notes?: string;
   createdAt: Date;
@@ -81,7 +82,7 @@ const QuoteSchema = new Schema<IQuote>(
     ],
     status: {
       type: String,
-      enum: ['pending', 'bidding', 'accepted', 'rejected', 'closed'],
+      enum: QUOTE_STATUSES,
       default: 'pending',
       index: true,
     },

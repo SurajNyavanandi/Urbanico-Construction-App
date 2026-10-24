@@ -5,12 +5,12 @@ import { MaterialService } from '../services/materialService';
 import { ServiceService } from '../services/serviceService';
 import { DeliveryService } from '../services/deliveryService';
 import { generateRandomOtp } from '../utils/otpHelper';
-import { asyncHandler, sendSuccess, sendError } from '../utils/apiResponse';
+import { asyncHandler, sendSuccess, sendError, parsePagination } from '../utils/apiResponse';
 import { AuditService } from '../services/auditService';
 import { Order } from '../models/Order';
 import { User } from '../models/User';
 import { Material } from '../models/Material';
-import { Service } from '../models/Service';
+import { USER_ROLES, ORDER_STATUSES } from '../config/constants';
 import mongoose from 'mongoose';
 
 export class AdminController {
@@ -18,11 +18,8 @@ export class AdminController {
   // 1. USER MANAGEMENT
   // ==========================================
   public static getUsers = asyncHandler(async (req: Request, res: Response) => {
-    const { role, search, limit: qLimit, page: qPage } = req.query;
-    const rawLimit = Number(qLimit);
-    const rawPage = Number(qPage);
-    const limit = Math.min(100, Math.max(1, isNaN(rawLimit) ? 50 : rawLimit));
-    const page = Math.max(1, isNaN(rawPage) ? 1 : rawPage);
+    const { role, search } = req.query;
+    const { limit, page } = parsePagination(req.query);
 
     const filter: Record<string, any> = {};
 
@@ -56,12 +53,11 @@ export class AdminController {
     const authUser = (req as any).user;
 
     if (!role) {
-      return sendError(res, 'Role is required (contractor, engineer, supervisor, client, user, admin)', 400);
+      return sendError(res, `Role is required (${USER_ROLES.join(', ')})`, 400);
     }
 
-    const validRoles = ['contractor', 'engineer', 'supervisor', 'client', 'user', 'admin'];
-    if (!validRoles.includes(role)) {
-      return sendError(res, `Invalid role. Allowed values: ${validRoles.join(', ')}`, 400);
+    if (!USER_ROLES.includes(role)) {
+      return sendError(res, `Invalid role. Allowed values: ${USER_ROLES.join(', ')}`, 400);
     }
 
     const updatedUser = await UserService.updateUser(id, { role: role as any });
@@ -114,11 +110,8 @@ export class AdminController {
   // 2. ORDER MANAGEMENT
   // ==========================================
   public static getOrders = asyncHandler(async (req: Request, res: Response) => {
-    const { status, search, phone, limit: qLimit, page: qPage } = req.query;
-    const rawLimit = Number(qLimit);
-    const rawPage = Number(qPage);
-    const limit = Math.min(100, Math.max(1, isNaN(rawLimit) ? 50 : rawLimit));
-    const page = Math.max(1, isNaN(rawPage) ? 1 : rawPage);
+    const { status, search, phone } = req.query;
+    const { limit, page } = parsePagination(req.query);
 
     const orders = await OrderService.getAllOrders({
       status: status as string,
@@ -146,9 +139,8 @@ export class AdminController {
       return sendError(res, 'Order status is required', 400);
     }
 
-    const validStatuses = ['received', 'confirmed', 'processing', 'dispatched', 'in_transit', 'delivered', 'cancelled'];
-    if (!validStatuses.includes(status)) {
-      return sendError(res, `Invalid status. Allowed values: ${validStatuses.join(', ')}`, 400);
+    if (!ORDER_STATUSES.includes(status)) {
+      return sendError(res, `Invalid status. Allowed values: ${ORDER_STATUSES.join(', ')}`, 400);
     }
 
     const extraFields: Record<string, any> = {};
@@ -268,7 +260,6 @@ export class AdminController {
     const id = String(req.params.id);
     const authUser = (req as any).user;
 
-    // Capture previous state for audit trail (old price vs new price)
     const existing = await MaterialService.getMaterialById(id);
     const oldPrice = existing ? (existing.defaultPrice ?? existing.basePrice ?? (existing as any).price) : undefined;
 
@@ -407,9 +398,9 @@ export class AdminController {
   });
 
   // ==========================================
-  // 4. METRICS & ANALYTICS DASHBOARD
+  // 5. METRICS & ANALYTICS DASHBOARD
   // ==========================================
-  public static getMetrics = asyncHandler(async (req: Request, res: Response) => {
+  public static getMetrics = asyncHandler(async (_req: Request, res: Response) => {
     let totalUsers = 0;
     let totalOrders = 0;
     let totalRevenue = 0;

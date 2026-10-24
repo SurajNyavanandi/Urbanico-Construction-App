@@ -23,10 +23,8 @@ import {
   Heart,
   LogIn,
   BadgeCheck,
-  Truck,
 } from 'lucide-react-native';
 import { UserProfile, ScreenType, ActivityDelivery } from '../types';
-import { INITIAL_DELIVERIES } from '../data/materialsData';
 import { apiService } from '../services/apiService';
 import { useTheme } from '../context/ThemeContext';
 import { useLocation } from '../context/LocationContext';
@@ -35,7 +33,6 @@ import { useToast } from '../context/ToastContext';
 import { ShimmerImage } from './common/ShimmerImage';
 import { MODAL_PRELOADERS } from './modals/AppModalsContainer';
 import { SettingsModal } from './SettingsModal';
-import { OrderHistoryModal } from './OrderHistoryModal';
 import { ReferEarnModal } from './profile/ReferEarnModal';
 import { HelpSupportModal } from './profile/HelpSupportModal';
 import { SavedAddressesModal } from './profile/SavedAddressesModal';
@@ -74,7 +71,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   onNavigateScreen,
   isLoggedIn,
   onLogout,
-  deliveries = INITIAL_DELIVERIES,
+  deliveries = [],
   onViewInvoice,
   initialOpenAddressesModal = false,
   initialOpenOrdersModal = false,
@@ -103,7 +100,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
   const [isEditProfileModalOpen, setIsEditProfileModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(initialOpenSettingsModal);
-  const [isOrdersModalOpen, setIsOrdersModalOpen] = useState(false);
   const [loadingModalKey, setLoadingModalKey] = useState<string | null>(null);
   const isModalLoading = (key: string) => loadingModalKey === key;
   const triggerAsyncModal = (key: string, preloader: any, onReady: () => void) => {
@@ -114,7 +110,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     });
   };
 
-  const openSingleModal = (modalName: 'addresses' | 'refer' | 'help' | 'edit_profile' | 'settings' | 'orders') => {
+  const openSingleModal = (modalName: 'addresses' | 'refer' | 'help' | 'edit_profile' | 'settings') => {
     if (modalName === 'settings') {
       triggerAsyncModal('settings', MODAL_PRELOADERS.settings, () => {
         setIsAddressesModalOpen(false);
@@ -122,19 +118,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         setIsHelpModalOpen(false);
         setIsEditProfileModalOpen(false);
         setIsSettingsModalOpen(true);
-        setIsOrdersModalOpen(false);
-      });
-      return;
-    }
-
-    if (modalName === 'orders') {
-      triggerAsyncModal('orders', MODAL_PRELOADERS.orders, () => {
-        setIsAddressesModalOpen(false);
-        setIsReferModalOpen(false);
-        setIsHelpModalOpen(false);
-        setIsEditProfileModalOpen(false);
-        setIsSettingsModalOpen(false);
-        setIsOrdersModalOpen(true);
       });
       return;
     }
@@ -144,7 +127,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     setIsHelpModalOpen(modalName === 'help');
     setIsEditProfileModalOpen(modalName === 'edit_profile');
     setIsSettingsModalOpen(false);
-    setIsOrdersModalOpen(false);
   };
 
   const closeAllSubModals = () => {
@@ -153,7 +135,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
     setIsHelpModalOpen(false);
     setIsEditProfileModalOpen(false);
     setIsSettingsModalOpen(false);
-    setIsOrdersModalOpen(false);
   };
 
   // Address Modal form state
@@ -380,7 +361,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
 
 
-  const activeOrdersCount = deliveries.length;
   const savedAddressCount = isLoggedIn ? savedLocations.length : 0;
   const shortAddress = selectedLocation && !selectedLocation.includes('Miyapur Site')
     ? selectedLocation.split(',')[0]
@@ -461,52 +441,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           </>
         )}
 
-        {/* 2. Order Management: My Orders & Dispatches */}
-        <TouchableOpacity
-          onPress={() => {
-            if (!isLoggedIn) {
-              if (onOpenLoginModal) onOpenLoginModal();
-              return;
-            }
-            openSingleModal('orders');
-          }}
-          style={styles.menuRow}
-          activeOpacity={0.7}
-        >
-          <View style={styles.menuRowLeft}>
-            <View style={[styles.iconCircle, { backgroundColor: theme.surfaceSecondary }]}>
-              <Truck size={18} color={theme.textPrimary} strokeWidth={2} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.menuRowLabel, { color: theme.textPrimary }]}>
-                My Orders & Dispatches
-              </Text>
-              <Text style={[styles.menuRowSubLabel, { color: theme.textSecondary }]}>
-                Live GPS truck tracking & E-Way bills
-              </Text>
-            </View>
-          </View>
-          <View style={styles.menuRowRight}>
-            {isModalLoading('orders') ? (
-              <ActivityIndicator size="small" color={theme.primary} />
-            ) : (
-              <>
-                <View style={[styles.countBadge, { backgroundColor: activeOrdersCount > 0 ? (theme.buttonBg || theme.primary) : theme.surfaceSecondary }]}>
-                  <Text style={[styles.countBadgeText, { color: activeOrdersCount > 0 ? (theme.buttonText || '#18181B') : theme.textPrimary }]}>
-                    {activeOrdersCount}
-                  </Text>
-                </View>
-                <ChevronRight size={18} color={theme.textMuted} />
-              </>
-            )}
-          </View>
-        </TouchableOpacity>
-
-        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
-
-        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
-
-        {/* 3. Favorites */}
+        {/* 2. Favorites */}
         <TouchableOpacity
           onPress={() => {
             closeAllSubModals();
@@ -820,31 +755,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
         handleSendEmailOtp={handleSendEmailOtp}
         handleVerifyEmailOtp={handleVerifyEmailOtp}
         handleSaveProfile={handleSaveProfile}
-      />
-
-      {/* ======================================================== */}
-      {/* POPUP MODAL: PAST MATERIAL ORDER HISTORY                 */}
-      {/* ======================================================== */}
-      <OrderHistoryModal
-        visible={isOrdersModalOpen}
-        onClose={() => setIsOrdersModalOpen(false)}
-        user={user}
-        isLoggedIn={isLoggedIn}
-        deliveries={deliveries}
-        onViewInvoice={onViewInvoice}
-        onTrackOrder={(del) => {
-          setIsOrdersModalOpen(false);
-          onNavigateScreen('activity');
-        }}
-        onExploreCatalog={() => {
-          setIsOrdersModalOpen(false);
-          if (onExploreCatalog) onExploreCatalog();
-        }}
-        onOpenLoginModal={() => {
-          setIsOrdersModalOpen(false);
-          if (onOpenLoginModal) onOpenLoginModal();
-        }}
-        onReorderMaterial={onReorderMaterial}
       />
     </ScrollView>
   );

@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import { Quote } from '../models/Quote';
 import { asyncHandler, sendSuccess, sendError } from '../utils/apiResponse';
 import { sanitizePhone } from '../utils/sanitizer';
@@ -45,13 +46,16 @@ export class QuoteController {
       filter.status = String(status);
     }
 
-    const quotes = await Quote.find(filter).sort({ createdAt: -1 }).exec();
+    const quotes = await Quote.find(filter).sort({ createdAt: -1 }).lean().exec();
     return sendSuccess(res, { quotes, count: quotes.length });
   });
 
   public static getQuoteById = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
-    const quote = await Quote.findOne({ $or: [{ _id: id }, { quoteId: id }] }).exec();
+    const isObjectId = mongoose.Types.ObjectId.isValid(id);
+    const quote = await Quote.findOne(
+      isObjectId ? { $or: [{ _id: id }, { quoteId: id }] } : { quoteId: id }
+    ).lean().exec();
     if (!quote) {
       return sendError(res, 'Quote RFQ record not found', 404);
     }

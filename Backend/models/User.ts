@@ -1,10 +1,11 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
+import { USER_ROLES, UserRole, DEFAULT_AVATAR_URL } from '../config/constants';
 
 export interface IUser extends Document {
   name: string;
   phone: string;
   email?: string;
-  role: 'contractor' | 'engineer' | 'supervisor' | 'client' | 'admin' | 'user';
+  role: UserRole;
   gstin?: string;
   companyName?: string;
   avatarUrl?: string;
@@ -60,7 +61,7 @@ const UserSchema = new Schema<IUser>(
     email: { type: String, trim: true, lowercase: true },
     role: {
       type: String,
-      enum: ['contractor', 'engineer', 'supervisor', 'client', 'admin', 'user'],
+      enum: USER_ROLES,
       default: 'contractor',
     },
     gstin: { type: String, trim: true, uppercase: true },
@@ -68,11 +69,11 @@ const UserSchema = new Schema<IUser>(
     isVerified: { type: Boolean, default: false },
     avatarUrl: {
       type: String,
-      default: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg',
+      default: DEFAULT_AVATAR_URL,
     },
     profilePicture: {
       type: String,
-      default: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg',
+      default: DEFAULT_AVATAR_URL,
     },
     permissions: [{ type: String }],
     billingAddress: {

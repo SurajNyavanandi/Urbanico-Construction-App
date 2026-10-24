@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
+import { DELIVERY_STATUSES, DeliveryStatus } from '../config/constants';
 
 export interface IDelivery extends Document {
   deliveryNumber: string;
@@ -26,7 +27,7 @@ export interface IDelivery extends Document {
     lastUpdated: Date;
   };
   estimatedArrivalTime?: Date;
-  status: 'loading' | 'dispatched' | 'in_transit' | 'reached_site' | 'unloading' | 'delivered';
+  status: DeliveryStatus;
   eWayBillUrl?: string;
   otp: string;
   isOtpVerified: boolean;
@@ -68,7 +69,7 @@ const DeliverySchema = new Schema<IDelivery>(
     estimatedArrivalTime: { type: Date },
     status: {
       type: String,
-      enum: ['loading', 'dispatched', 'in_transit', 'reached_site', 'unloading', 'delivered'],
+      enum: DELIVERY_STATUSES,
       default: 'loading',
     },
     eWayBillUrl: { type: String },

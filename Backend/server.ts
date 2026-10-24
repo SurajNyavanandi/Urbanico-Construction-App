@@ -20,6 +20,7 @@ import { paymentRouter } from './routers/paymentRouter';
 import { PaymentController } from './controllers/paymentController';
 import {
   errorHandler,
+  notFoundHandler,
   requestLogger,
   apiRateLimiter,
   requestTimeout,
@@ -161,6 +162,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+app.use('/api', notFoundHandler);
 app.use(errorHandler);
 
 // Global process-level safety handlers to prevent unhandled node process death

@@ -1,14 +1,11 @@
 import { Request, Response } from 'express';
 import { ServiceService } from '../services/serviceService';
-import { asyncHandler, sendSuccess, sendError } from '../utils/apiResponse';
+import { asyncHandler, sendSuccess, sendError, parsePagination } from '../utils/apiResponse';
 import { validateServicePayload } from '../utils/requestValidator';
 
 export class ServiceController {
   public static getServices = asyncHandler(async (req: Request, res: Response) => {
-    const rawLimit = Number(req.query.limit);
-    const rawPage = Number(req.query.page);
-    const limit = Math.min(100, Math.max(1, isNaN(rawLimit) ? 50 : rawLimit));
-    const page = Math.max(1, isNaN(rawPage) ? 1 : rawPage);
+    const { limit, page } = parsePagination(req.query);
 
     const result = await ServiceService.getAllServices({ limit, page });
     return sendSuccess(res, {
@@ -57,9 +54,9 @@ export class ServiceController {
     return sendSuccess(res, { service: deleted }, 'Service deleted successfully');
   });
 
-  public static seedServices = asyncHandler(async (req: Request, res: Response) => {
+  public static seedServices = asyncHandler(async (_req: Request, res: Response) => {
     await ServiceService.seedDefaultServices();
     const services = await ServiceService.getAllServices();
-    return sendSuccess(res, { servicesCount: services.length }, 'Urbanico services catalog seeded successfully');
+    return sendSuccess(res, { servicesCount: services.services.length }, 'Urbanico services catalog seeded successfully');
   });
 }

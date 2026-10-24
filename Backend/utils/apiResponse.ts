@@ -1,9 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
+import { PAGINATION } from '../config/constants';
 
 /**
  * Standard API Response and Error utilities for Urbanico Backend.
  * Eliminates repetitive try-catch blocks and ensures consistent JSON responses across all controllers.
- * Designed to be clean and simple for beginners to understand.
  */
 
 export interface ApiResponseOptions<T = any> {
@@ -16,10 +16,22 @@ export interface ApiResponseOptions<T = any> {
 }
 
 /**
+ * Reusable helper to safely extract and bound pagination parameters from request queries
+ */
+export function parsePagination(query: any = {}) {
+  const rawLimit = Number(query.limit);
+  const rawPage = Number(query.page);
+  const limit = Math.min(
+    PAGINATION.MAX_LIMIT,
+    Math.max(1, isNaN(rawLimit) ? PAGINATION.DEFAULT_LIMIT : rawLimit)
+  );
+  const page = Math.max(1, isNaN(rawPage) ? PAGINATION.DEFAULT_PAGE : rawPage);
+  const skip = (page - 1) * limit;
+  return { limit, page, skip };
+}
+
+/**
  * Sends a successful JSON response with uniform shape.
- * 
- * @example
- * sendSuccess(res, { order }, 'Order placed successfully', 201);
  */
 export function sendSuccess<T = any>(
   res: Response,
@@ -34,7 +46,6 @@ export function sendSuccess<T = any>(
     ...(extraMeta || {}),
   };
 
-  // If data is an object, merge or assign cleanly
   if (data !== undefined) {
     if (typeof data === 'object' && data !== null && !Array.isArray(data)) {
       Object.assign(payload, data);
@@ -48,9 +59,6 @@ export function sendSuccess<T = any>(
 
 /**
  * Sends an error JSON response with uniform shape.
- * 
- * @example
- * sendError(res, 'Material not found', 404);
  */
 export function sendError(
   res: Response,
@@ -71,23 +79,12 @@ export function sendError(
 
 /**
  * Higher-order controller wrapper that eliminates try-catch boilerplate in Express route handlers.
- * Any unhandled promise rejection or error is automatically caught and forwarded to sendError.
- * 
- * @example
- * export const getMaterials = asyncHandler(async (req, res) => {
- *   const materials = await MaterialService.getAllMaterials(req.query);
- *   return sendSuccess(res, { materials, count: materials.length });
- * });
+ * Any unhandled promise rejection or error is automatically caught and forwarded to the central error handler or sendError.
  */
 export function asyncHandler(
   fn: (req: Request, res: Response, next: NextFunction) => Promise<any>
 ) {
   return (req: Request, res: Response, next: NextFunction) => {
-    Promise.resolve(fn(req, res, next)).catch((err: any) => {
-      console.error(`[API Error] ${req.method} ${req.originalUrl}:`, err);
-      const statusCode = err.statusCode || err.status || 500;
-      const message = err.message || 'An unexpected error occurred';
-      return sendError(res, message, statusCode, err.errors || undefined);
-    });
+    Promise.resolve(fn(req, res, next)).catch(next);
   };
 }

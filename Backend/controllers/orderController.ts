@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { OrderService } from '../services/orderService';
-import { asyncHandler, sendSuccess, sendError } from '../utils/apiResponse';
+import { asyncHandler, sendSuccess, sendError, parsePagination } from '../utils/apiResponse';
 import { sendInvoiceMail, InvoiceItem } from '../lib/mailer';
 import { validateOrderPayload } from '../utils/requestValidator';
 import { idempotencyStore, extractIdempotencyKey } from '../utils/idempotency';
@@ -59,12 +59,8 @@ export class OrderController {
 
   public static getOrders = asyncHandler(async (req: Request, res: Response) => {
     const authUser = (req as any).user;
-    const { status, search, phone, email, limit: qLimit, page: qPage } = req.query;
-
-    const rawLimit = Number(qLimit);
-    const rawPage = Number(qPage);
-    const limit = Math.min(100, Math.max(1, isNaN(rawLimit) ? 50 : rawLimit));
-    const page = Math.max(1, isNaN(rawPage) ? 1 : rawPage);
+    const { status, search, phone, email } = req.query;
+    const { limit, page } = parsePagination(req.query);
 
     const filterPhone = authUser && authUser.role === 'admin'
       ? (phone as string)

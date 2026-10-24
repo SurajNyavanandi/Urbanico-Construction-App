@@ -1,15 +1,12 @@
 import { Request, Response } from 'express';
 import { MaterialService } from '../services/materialService';
-import { asyncHandler, sendSuccess, sendError } from '../utils/apiResponse';
+import { asyncHandler, sendSuccess, sendError, parsePagination } from '../utils/apiResponse';
 import { validateMaterialPayload } from '../utils/requestValidator';
 
 export class MaterialController {
   public static getMaterials = asyncHandler(async (req: Request, res: Response) => {
-    const { category, search, limit: qLimit, page: qPage } = req.query;
-    const rawLimit = Number(qLimit);
-    const rawPage = Number(qPage);
-    const limit = Math.min(100, Math.max(1, isNaN(rawLimit) ? 50 : rawLimit));
-    const page = Math.max(1, isNaN(rawPage) ? 1 : rawPage);
+    const { limit, page } = parsePagination(req.query);
+    const { category, search } = req.query;
 
     const result = await MaterialService.getAllMaterials({
       category: category as string,
@@ -17,6 +14,7 @@ export class MaterialController {
       limit,
       page,
     });
+
     return sendSuccess(res, {
       materials: result.materials,
       total: result.total,
@@ -28,7 +26,7 @@ export class MaterialController {
   });
 
   // --- CATEGORIES ---
-  public static getCategories = asyncHandler(async (req: Request, res: Response) => {
+  public static getCategories = asyncHandler(async (_req: Request, res: Response) => {
     const categories = await MaterialService.getCategories();
     return sendSuccess(res, { categories, count: categories.length });
   });
@@ -57,7 +55,7 @@ export class MaterialController {
   });
 
   // --- BUNDLES ---
-  public static getProjectBundles = asyncHandler(async (req: Request, res: Response) => {
+  public static getProjectBundles = asyncHandler(async (_req: Request, res: Response) => {
     const bundles = MaterialService.getProjectBundles();
     return sendSuccess(res, { bundles, count: bundles.length });
   });
@@ -105,7 +103,7 @@ export class MaterialController {
   });
 
   public static updateMaterial = asyncHandler(async (req: Request, res: Response) => {
-    const id = (req.params.id as string) || '';
+    const id = String(req.params.id || '');
     const updated = await MaterialService.updateMaterial(id, req.body);
     if (!updated) {
       return sendError(res, 'Material not found to update', 404);
@@ -114,13 +112,11 @@ export class MaterialController {
   });
 
   public static deleteMaterial = asyncHandler(async (req: Request, res: Response) => {
-    const id = (req.params.id as string) || '';
+    const id = String(req.params.id || '');
     const deleted = await MaterialService.deleteMaterial(id);
     if (!deleted) {
       return sendError(res, 'Material not found to delete', 404);
     }
     return sendSuccess(res, { material: deleted }, 'Material deleted successfully');
   });
-
-  // --- SEED CATALOG ---
 }

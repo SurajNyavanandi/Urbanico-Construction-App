@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
+import { PAYMENT_STATUSES, PaymentStatus, ORDER_STATUSES, OrderStatus } from '../config/constants';
 
 export interface IOrderItem {
   materialId?: mongoose.Types.ObjectId | string;
@@ -38,7 +39,7 @@ export interface IOrder extends Document {
   unloadingCharges: number;
   couponDiscount?: number;
   totalAmount: number;
-  paymentStatus: 'pending' | 'authorized' | 'paid' | 'failed' | 'refunded' | 'credit';
+  paymentStatus: PaymentStatus;
   paymentMethod: string;
   paymentDetails?: {
     razorpay_order_id?: string;
@@ -52,7 +53,7 @@ export interface IOrder extends Document {
     paymentMethod?: string;
     timestamp?: string;
   };
-  orderStatus: 'received' | 'confirmed' | 'processing' | 'dispatched' | 'in_transit' | 'delivered' | 'cancelled';
+  orderStatus: OrderStatus;
   eWayBillNo?: string;
   deliveryDate?: Date;
   vehicleNumber?: string;
@@ -138,7 +139,7 @@ const OrderSchema = new Schema<IOrder>(
     totalAmount: { type: Number, required: true, min: 0 },
     paymentStatus: {
       type: String,
-      enum: ['pending', 'authorized', 'paid', 'failed', 'refunded', 'credit'],
+      enum: PAYMENT_STATUSES,
       default: 'pending',
       index: true,
     },
@@ -160,7 +161,7 @@ const OrderSchema = new Schema<IOrder>(
     },
     orderStatus: {
       type: String,
-      enum: ['received', 'confirmed', 'processing', 'dispatched', 'in_transit', 'delivered', 'cancelled'],
+      enum: ORDER_STATUSES,
       default: 'received',
       index: true,
     },

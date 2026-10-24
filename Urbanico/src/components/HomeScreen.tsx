@@ -41,7 +41,7 @@ interface HomeScreenProps {
   bundles?: any[];
 }
 
-const HERO_CARD_IMAGE_URL = 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1790577407/herocard0.1_kms4vj.jpg';
+const HERO_CARD_IMAGE_URL = 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1792819572/heroc_vemnbq.jpg';
 
 interface CategoryGridItem {
   id: string;

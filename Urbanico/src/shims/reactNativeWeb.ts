@@ -37,8 +37,9 @@ export const useWindowDimensions = () => {
   return dimensions;
 };
 
-const rnwModule: any = (RNW as any).default || RNW;
-const rawAnimated = rnwModule?.Animated || {};
+const rnwAny: any = RNW;
+const rnwModule: any = (rnwAny && rnwAny.default) ? rnwAny.default : (rnwAny || {});
+const rawAnimated = rnwModule?.Animated || rnwAny?.Animated || {};
 
 export const Animated = {
   ...rawAnimated,
@@ -50,45 +51,46 @@ export const Animated = {
     rawAnimated.decay?.(value, config ? { ...config, useNativeDriver: false } : config),
 };
 
-export const ActivityIndicator = rnwModule.ActivityIndicator;
-export const Alert = rnwModule.Alert;
-export const AppState = rnwModule.AppState;
-export const BackHandler = rnwModule.BackHandler;
-export const Button = rnwModule.Button;
-export const Dimensions = rnwModule.Dimensions;
-export const Easing = rnwModule.Easing;
-export const FlatList = rnwModule.FlatList;
-export const Image = rnwModule.Image;
-export const ImageBackground = rnwModule.ImageBackground || rnwModule.Image;
-export const Keyboard = rnwModule.Keyboard;
-export const KeyboardAvoidingView = rnwModule.KeyboardAvoidingView;
-export const LayoutAnimation = rnwModule.LayoutAnimation;
-export const Linking = rnwModule.Linking;
-export const Modal = rnwModule.Modal;
-export const NativeModules = rnwModule.NativeModules || {};
-export const PanResponder = rnwModule.PanResponder;
-export const PixelRatio = rnwModule.PixelRatio;
-export const Platform = rnwModule.Platform;
-export const Pressable = rnwModule.Pressable;
-export const ProgressBarAndroid = rnwModule.ProgressBarAndroid;
-export const RefreshControl = rnwModule.RefreshControl || ((props: any) => props.children || null);
-export const SafeAreaView = rnwModule.SafeAreaView;
-export const ScrollView = rnwModule.ScrollView;
-export const SectionList = rnwModule.SectionList;
-export const StatusBar = rnwModule.StatusBar;
-export const StyleSheet = rnwModule.StyleSheet;
-export const Switch = rnwModule.Switch;
-export const Text = rnwModule.Text;
-export const TextInput = rnwModule.TextInput;
-export const ToastAndroid = rnwModule.ToastAndroid;
-export const TouchableOpacity = rnwModule.TouchableOpacity;
-export const TouchableHighlight = rnwModule.TouchableHighlight;
-export const TouchableWithoutFeedback = rnwModule.TouchableWithoutFeedback;
-export const useColorScheme = rnwModule.useColorScheme;
-export const View = rnwModule.View;
-export const Vibration = rnwModule.Vibration;
+export const ActivityIndicator = rnwModule.ActivityIndicator || rnwAny.ActivityIndicator;
+export const Alert = rnwModule.Alert || rnwAny.Alert || { alert: (title: string, msg?: string) => console.log(title, msg) };
+export const AppState = rnwModule.AppState || rnwAny.AppState || { addEventListener: () => ({ remove: () => {} }) };
+export const BackHandler = rnwModule.BackHandler || rnwAny.BackHandler || { addEventListener: () => ({ remove: () => {} }) };
+export const Button = rnwModule.Button || rnwAny.Button;
+export const Dimensions = rnwModule.Dimensions || rnwAny.Dimensions;
+export const Easing = rnwModule.Easing || rnwAny.Easing;
+export const FlatList = rnwModule.FlatList || rnwAny.FlatList;
+export const Image = rnwModule.Image || rnwAny.Image;
+export const ImageBackground = rnwModule.ImageBackground || rnwAny.ImageBackground || rnwModule.Image || rnwAny.Image;
+export const Keyboard = rnwModule.Keyboard || rnwAny.Keyboard || { dismiss: () => {} };
+export const KeyboardAvoidingView = rnwModule.KeyboardAvoidingView || rnwAny.KeyboardAvoidingView || rnwModule.View;
+export const LayoutAnimation = rnwModule.LayoutAnimation || rnwAny.LayoutAnimation || { configureNext: () => {} };
+export const Linking = rnwModule.Linking || rnwAny.Linking;
+export const Modal = rnwModule.Modal || rnwAny.Modal;
+export const NativeModules = rnwModule.NativeModules || rnwAny.NativeModules || {};
+export const PanResponder = rnwModule.PanResponder || rnwAny.PanResponder;
+export const PixelRatio = rnwModule.PixelRatio || rnwAny.PixelRatio;
+export const Platform = rnwModule.Platform || rnwAny.Platform || { OS: 'web', select: (obj: any) => obj?.web || obj?.default };
+export const Pressable = rnwModule.Pressable || rnwAny.Pressable;
+export const ProgressBarAndroid = rnwModule.ProgressBarAndroid || rnwAny.ProgressBarAndroid;
+export const RefreshControl = rnwModule.RefreshControl || rnwAny.RefreshControl || ((props: any) => props.children || null);
+export const SafeAreaView = rnwModule.SafeAreaView || rnwAny.SafeAreaView || rnwModule.View;
+export const ScrollView = rnwModule.ScrollView || rnwAny.ScrollView;
+export const SectionList = rnwModule.SectionList || rnwAny.SectionList;
+export const StatusBar = rnwModule.StatusBar || rnwAny.StatusBar;
+export const StyleSheet = rnwModule.StyleSheet || rnwAny.StyleSheet;
+export const Switch = rnwModule.Switch || rnwAny.Switch;
+export const Text = rnwModule.Text || rnwAny.Text;
+export const TextInput = rnwModule.TextInput || rnwAny.TextInput;
+export const ToastAndroid = rnwModule.ToastAndroid || rnwAny.ToastAndroid;
+export const TouchableOpacity = rnwModule.TouchableOpacity || rnwAny.TouchableOpacity;
+export const TouchableHighlight = rnwModule.TouchableHighlight || rnwAny.TouchableHighlight;
+export const TouchableWithoutFeedback = rnwModule.TouchableWithoutFeedback || rnwAny.TouchableWithoutFeedback;
+export const useColorScheme = rnwModule.useColorScheme || rnwAny.useColorScheme || (() => 'light');
+export const View = rnwModule.View || rnwAny.View;
+export const Vibration = rnwModule.Vibration || rnwAny.Vibration || { vibrate: () => {} };
 
 export default {
+  ...rnwAny,
   ...rnwModule,
   Animated,
   TurboModuleRegistry,
