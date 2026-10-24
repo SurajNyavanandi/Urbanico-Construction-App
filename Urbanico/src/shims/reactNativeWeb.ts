@@ -7,6 +7,31 @@ export const TurboModuleRegistry = {
   getEnforcing: (_name: string) => null,
 };
 
+export class NativeEventEmitter {
+  private listeners = new Map<string, Set<Function>>();
+  constructor(_nativeModule?: any) {}
+  addListener(event: string, fn: Function) {
+    if (!this.listeners.has(event)) this.listeners.set(event, new Set());
+    this.listeners.get(event)!.add(fn);
+    return { remove: () => this.removeListener(event, fn) };
+  }
+  removeListener(event: string, fn: Function) {
+    if (this.listeners.has(event)) this.listeners.get(event)!.delete(fn);
+  }
+  emit(event: string, ...args: any[]) {
+    if (this.listeners.has(event)) {
+      this.listeners.get(event)!.forEach((fn) => fn(...args));
+    }
+  }
+  removeAllListeners(event?: string) {
+    if (event) {
+      this.listeners.delete(event);
+    } else {
+      this.listeners.clear();
+    }
+  }
+}
+
 export const LogBox = {
   ignoreLogs: (_logs: string[]) => {},
   ignoreAllLogs: (_ignore?: boolean) => {},
@@ -51,6 +76,20 @@ export const Animated = {
     rawAnimated.decay?.(value, config ? { ...config, useNativeDriver: false } : config),
 };
 
+export const AppRegistry = rnwModule.AppRegistry || rnwAny.AppRegistry || {
+  registerComponent: () => {},
+  runApplication: () => {},
+  registerHeadlessTask: () => {},
+};
+
+export const DeviceEventEmitter = rnwModule.DeviceEventEmitter || rnwAny.DeviceEventEmitter || new NativeEventEmitter();
+export const I18nManager = rnwModule.I18nManager || rnwAny.I18nManager || { isRTL: false, allowRTL: () => {}, forceRTL: () => {} };
+
+export const unstable_createElement = rnwModule.unstable_createElement || rnwAny.unstable_createElement || React.createElement;
+export const findNodeHandle = rnwModule.findNodeHandle || rnwAny.findNodeHandle || ((_component: any) => null);
+export const processColor = rnwModule.processColor || rnwAny.processColor || ((color: any) => color);
+export const requireNativeComponent = rnwModule.requireNativeComponent || rnwAny.requireNativeComponent || ((_name: string) => rnwModule.View || rnwAny.View);
+
 export const ActivityIndicator = rnwModule.ActivityIndicator || rnwAny.ActivityIndicator;
 export const Alert = rnwModule.Alert || rnwAny.Alert || { alert: (title: string, msg?: string) => console.log(title, msg) };
 export const AppState = rnwModule.AppState || rnwAny.AppState || { addEventListener: () => ({ remove: () => {} }) };
@@ -93,9 +132,17 @@ export default {
   ...rnwAny,
   ...rnwModule,
   Animated,
+  AppRegistry,
+  DeviceEventEmitter,
+  I18nManager,
+  NativeEventEmitter,
   TurboModuleRegistry,
   LogBox,
   useWindowDimensions,
   RefreshControl,
   ImageBackground,
+  unstable_createElement,
+  findNodeHandle,
+  processColor,
+  requireNativeComponent,
 };

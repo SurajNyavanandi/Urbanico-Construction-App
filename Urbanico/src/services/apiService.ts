@@ -10,6 +10,7 @@
 import { UserProfile, MaterialItem } from '../types';
 import { Platform, NativeModules } from 'react-native';
 import { safeStorage } from '../utils/safeStorage';
+import { MATERIAL_ITEMS, CATEGORIES, SERVICES, BUNDLES } from '../data/materialsData';
 
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -467,11 +468,20 @@ class ApiService {
       const qs = queryParams.toString();
       const res = await this.request<any>(`/api/materials${qs ? `?${qs}` : ''}`);
       const unwrapped = unwrapApiResponse<any[]>(res, 'materials');
-      return Array.isArray(unwrapped) ? unwrapped : [];
+      if (Array.isArray(unwrapped) && unwrapped.length > 0) return unwrapped;
     } catch (err) {
       console.warn('[ApiService] getMaterials note:', (err as any)?.message || err);
-      return [];
     }
+
+    let items = MATERIAL_ITEMS;
+    if (params.category && params.category !== 'all') {
+      items = items.filter((i) => i.categoryId === params.category || (i as any).category?.toLowerCase() === params.category?.toLowerCase());
+    }
+    if (params.search) {
+      const q = params.search.toLowerCase();
+      items = items.filter((i) => i.name.toLowerCase().includes(q) || i.subtitle?.toLowerCase().includes(q));
+    }
+    return items;
   }
 
   /**
@@ -480,15 +490,36 @@ class ApiService {
   public async getMaterialsPaginated(
     params: { category?: string; search?: string; page?: number; limit?: number } = {}
   ): Promise<PaginatedResponse<MaterialItem>> {
-    const queryParams = new URLSearchParams();
-    if (params.category && params.category !== 'all') queryParams.append('category', params.category);
-    if (params.search) queryParams.append('search', params.search);
-    if (params.page) queryParams.append('page', String(params.page));
-    if (params.limit) queryParams.append('limit', String(params.limit));
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.category && params.category !== 'all') queryParams.append('category', params.category);
+      if (params.search) queryParams.append('search', params.search);
+      if (params.page) queryParams.append('page', String(params.page));
+      if (params.limit) queryParams.append('limit', String(params.limit));
 
-    const qs = queryParams.toString();
-    const res = await this.request<any>(`/api/materials${qs ? `?${qs}` : ''}`);
-    return unwrapPaginatedResponse<MaterialItem>(res, 'materials');
+      const qs = queryParams.toString();
+      const res = await this.request<any>(`/api/materials${qs ? `?${qs}` : ''}`);
+      const unwrapped = unwrapPaginatedResponse<MaterialItem>(res, 'materials');
+      if (unwrapped.items && unwrapped.items.length > 0) return unwrapped;
+    } catch {}
+
+    let items = MATERIAL_ITEMS;
+    if (params.category && params.category !== 'all') {
+      items = items.filter((i) => i.categoryId === params.category || (i as any).category?.toLowerCase() === params.category?.toLowerCase());
+    }
+    if (params.search) {
+      const q = params.search.toLowerCase();
+      items = items.filter((i) => i.name.toLowerCase().includes(q) || i.subtitle?.toLowerCase().includes(q));
+    }
+    return {
+      items,
+      total: items.length,
+      page: 1,
+      limit: items.length || 50,
+      totalPages: 1,
+      hasMore: false,
+      count: items.length,
+    };
   }
 
   /**
@@ -498,10 +529,11 @@ class ApiService {
     try {
       const res = await this.request<any>('/api/materials/categories');
       const unwrapped = unwrapApiResponse<any[]>(res, 'categories');
-      return Array.isArray(unwrapped) ? unwrapped : [];
+      if (Array.isArray(unwrapped) && unwrapped.length > 0) return unwrapped;
     } catch {
-      return [];
+      // Fallback
     }
+    return CATEGORIES;
   }
 
   /**
@@ -516,10 +548,11 @@ class ApiService {
 
       const res = await this.request<any>(`/api/services${qs ? `?${qs}` : ''}`);
       const unwrapped = unwrapApiResponse<any[]>(res, 'services');
-      return Array.isArray(unwrapped) ? unwrapped : [];
+      if (Array.isArray(unwrapped) && unwrapped.length > 0) return unwrapped;
     } catch {
-      return [];
+      // Fallback
     }
+    return SERVICES;
   }
 
   /**
@@ -528,13 +561,26 @@ class ApiService {
   public async getServicesPaginated(
     params: { page?: number; limit?: number } = {}
   ): Promise<PaginatedResponse<any>> {
-    const queryParams = new URLSearchParams();
-    if (params.page) queryParams.append('page', String(params.page));
-    if (params.limit) queryParams.append('limit', String(params.limit));
-    const qs = queryParams.toString();
+    try {
+      const queryParams = new URLSearchParams();
+      if (params.page) queryParams.append('page', String(params.page));
+      if (params.limit) queryParams.append('limit', String(params.limit));
+      const qs = queryParams.toString();
 
-    const res = await this.request<any>(`/api/services${qs ? `?${qs}` : ''}`);
-    return unwrapPaginatedResponse<any>(res, 'services');
+      const res = await this.request<any>(`/api/services${qs ? `?${qs}` : ''}`);
+      const unwrapped = unwrapPaginatedResponse<any>(res, 'services');
+      if (unwrapped.items && unwrapped.items.length > 0) return unwrapped;
+    } catch {}
+
+    return {
+      items: SERVICES,
+      total: SERVICES.length,
+      page: 1,
+      limit: SERVICES.length || 50,
+      totalPages: 1,
+      hasMore: false,
+      count: SERVICES.length,
+    };
   }
 
   /**
@@ -544,10 +590,11 @@ class ApiService {
     try {
       const res = await this.request<any>('/api/materials/bundles');
       const unwrapped = unwrapApiResponse<any[]>(res, 'bundles');
-      return Array.isArray(unwrapped) ? unwrapped : [];
+      if (Array.isArray(unwrapped) && unwrapped.length > 0) return unwrapped;
     } catch {
-      return [];
+      // Fallback
     }
+    return BUNDLES;
   }
 
   // ==================== AUTH & OTP ====================

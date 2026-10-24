@@ -179,15 +179,19 @@ export function setCachedRazorpayKey(key: string, mode?: 'LIVE' | 'TEST' | 'UNCO
 export function getClientRazorpayKey(): string {
   if (cachedRazorpayKey) return cachedRazorpayKey;
   
-  // Check build-time or runtime environment variables
-  const envKey = (process.env.RAZORPAY_KEY_ID || '') as string;
+  let envKey = '';
+  try {
+    if (typeof import.meta !== 'undefined' && (import.meta as any)?.env?.VITE_RAZORPAY_KEY_ID) {
+      envKey = (import.meta as any).env.VITE_RAZORPAY_KEY_ID;
+    }
+  } catch {}
+
   if (envKey && typeof envKey === 'string' && envKey.trim()) {
     const cleaned = envKey.trim().replace(/^["']|["']$/g, '');
     setCachedRazorpayKey(cleaned);
     return cleaned;
   }
 
-  // Check safe storage fallback
   try {
     const stored = safeStorage.getItem('razorpay_key_id');
     if (stored && typeof stored === 'string' && stored.trim()) {
@@ -195,11 +199,9 @@ export function getClientRazorpayKey(): string {
       setCachedRazorpayKey(cleaned);
       return cleaned;
     }
-  } catch {
-    // Ignore storage read errors
-  }
+  } catch {}
 
-  return (process.env.RAZORPAY_KEY_ID || '') as string;
+  return envKey || '';
 }
 
 export function getClientKeyMode(): 'LIVE' | 'TEST' {
@@ -853,7 +855,7 @@ export async function openRazorpayStandardCheckout(options: RazorpayCheckoutOpti
       }
     }
 
-    const keyId = orderKeyId || getClientRazorpayKey() || (process.env.RAZORPAY_KEY_ID || '');
+    const keyId = orderKeyId || getClientRazorpayKey();
     const isLive = Boolean(keyId && (keyId.startsWith('rzp_live_') || getClientKeyMode() === 'LIVE'));
 
     // 2. Automatic Test Mode vs Live Key Handling:
