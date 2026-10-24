@@ -51,10 +51,10 @@ export class QuoteController {
   });
 
   public static getQuoteById = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params;
-    const isObjectId = mongoose.Types.ObjectId.isValid(id);
+    const idStr = Array.isArray(req.params.id) ? req.params.id[0] : String(req.params.id || '');
+    const isObjectId = mongoose.Types.ObjectId.isValid(idStr);
     const quote = await Quote.findOne(
-      isObjectId ? { $or: [{ _id: id }, { quoteId: id }] } : { quoteId: id }
+      isObjectId ? { $or: [{ _id: idStr }, { quoteId: idStr }] } : { quoteId: idStr }
     ).lean().exec();
     if (!quote) {
       return sendError(res, 'Quote RFQ record not found', 404);

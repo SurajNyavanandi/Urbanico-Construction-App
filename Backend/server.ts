@@ -51,12 +51,58 @@ app.use((_req, res, next) => {
   next();
 });
 
-// 2. Structured Request Logger & 15-Second Request Timeout
+// 2. CORS middleware configured strictly from environment variables (process.env.CORS_ORIGIN or ALLOWED_ORIGINS)
+const rawOrigins = process.env.CORS_ORIGIN || process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000';
+
+const allowedOrigins = rawOrigins
+  .split(',')
+  .map((o) => o.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
+
+function isOriginAllowed(origin: string): boolean {
+  // Allow non-browser requests (native mobile apps, server-to-server, curl)
+  if (!origin) return true;
+
+  const normalizedOrigin = origin.trim().replace(/\/+$/, '');
+
+  if (allowedOrigins.includes('*') || allowedOrigins.includes(normalizedOrigin)) {
+    return true;
+  }
+
+  // Wildcard pattern matching (e.g., https://*.vercel.app or exp://*)
+  for (const pattern of allowedOrigins) {
+    if (pattern.includes('*')) {
+      const regexStr = '^' + pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace('\\*', '.*') + '$';
+      if (new RegExp(regexStr).test(normalizedOrigin)) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || isOriginAllowed(origin)) {
+      return callback(null, true);
+    }
+    return callback(null, false);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'x-admin-secret', 'x-razorpay-signature', 'idempotency-key']
+}));
+
+// Handle preflight OPTIONS explicitly for all routes
+app.options('*', cors());
+
+// 3. Structured Request Logger & Request Timeout
 app.use(requestLogger);
 app.use('/api', requestTimeout(envConfig.REQUEST_TIMEOUT_MS));
 app.use('/api', apiRateLimiter);
 
-// 3. Raw body preservation for cryptographically strict Razorpay webhook verification
+// 4. Raw body preservation for cryptographically strict Razorpay webhook verification
 app.use(
   express.json({
     limit: envConfig.BODY_LIMIT,
@@ -67,70 +113,8 @@ app.use(
 );
 app.use(express.urlencoded({ extended: true, limit: envConfig.BODY_LIMIT }));
 
-// 4. NoSQL injection & prototype pollution defense middleware
+// 5. NoSQL injection & prototype pollution defense middleware
 app.use(mongoSanitizeMiddleware);
-
-
-// CORS middleware configured strictly from process.env.CORS_ORIGIN
-const configuredCorsOrigin = process.env.CORS_ORIGIN?.trim();
-const allowedOrigins = configuredCorsOrigin
-  ? configuredCorsOrigin.split(',').map((o) => o.trim()).filter(Boolean)
-  : [];
-
-function isOriginAllowed(origin: string): boolean {
-  const isProduction = process.env.NODE_ENV === 'production';
-
-  // Allow non-browser requests (native mobile apps, server-to-server, curl)
-  if (!origin) return true;
-
-  // In production, wildcard '*' with credentials is strictly disallowed by browser standards
-  if (configuredCorsOrigin === '*' || allowedOrigins.includes('*')) {
-    if (!isProduction) return true;
-    console.warn('[CORS] Wildcard origin (*) is disallowed in production mode with credentials.');
-    return false;
-  }
-
-  // Exact origin match
-  if (allowedOrigins.includes(origin)) {
-    return true;
-  }
-
-  // Wildcard pattern matching (e.g., https://*.run.app or *.run.app)
-  for (const pattern of allowedOrigins) {
-    if (pattern.includes('*')) {
-      const regexStr = '^' + pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace('\\*', '.*') + '$';
-      if (new RegExp(regexStr).test(origin)) {
-        return true;
-      }
-    }
-  }
-
-  // Non-production & preview environments (e.g. Cloud Run preview, localhost, 127.0.0.1)
-  if (!isProduction) {
-    if (origin.endsWith('.run.app') || origin.includes('localhost') || origin.includes('127.0.0.1')) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-app.use(cors({
-  origin: function (origin, callback) {
-    // Allow non-browser requests (mobile native, server-to-server, curl)
-    if (!origin) return callback(null, true);
-
-    if (isOriginAllowed(origin)) {
-      return callback(null, true);
-    }
-
-    // Disallow CORS headers cleanly without throwing 500 internal server error
-    return callback(null, false);
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'x-admin-secret', 'x-razorpay-signature', 'idempotency-key']
-}));
 
 // Canonical API route mappings
 app.use('/api', apiRouter);
