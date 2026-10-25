@@ -177,7 +177,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
         totalGst,
         cgstAmount,
         sgstAmount,
-        isMultiItem,
+        isMultiItem: Boolean(isMultiItem),
       });
       executePrintDocument(printHtml);
     } catch {

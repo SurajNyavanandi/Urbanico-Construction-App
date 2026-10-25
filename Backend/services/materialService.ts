@@ -230,7 +230,7 @@ export class MaterialService {
         const updated = await Category.findOneAndUpdate(
           { $or: [{ id: id.toLowerCase() }, { _id: mongoose.Types.ObjectId.isValid(id) ? id : undefined }] },
           { $set: data },
-          { new: true }
+          { returnDocument: 'after' }
         ).lean().exec();
 
         if (updated) {
@@ -411,7 +411,7 @@ export class MaterialService {
         const updated = await Material.findOneAndUpdate(
           { $or: [{ id }, { _id: mongoose.Types.ObjectId.isValid(id) ? id : undefined }] },
           { $set: data },
-          { new: true }
+          { returnDocument: 'after' }
         ).lean().exec();
         if (updated) return updated;
       }
@@ -461,17 +461,17 @@ export class MaterialService {
             updated = await Material.findOneAndUpdate(
               { _id: item.materialId, stockQuantity: { $gte: qty } },
               { $inc: { stockQuantity: -qty } },
-              { new: true }
+              { returnDocument: 'after' }
             ).exec();
           } else if (item.name) {
             updated = await Material.findOneAndUpdate(
               { name: item.name, stockQuantity: { $gte: qty } },
               { $inc: { stockQuantity: -qty } },
-              { new: true }
+              { returnDocument: 'after' }
             ).exec();
           }
 
-          if (updated && updated.stockQuantity <= 0) {
+          if (updated && (updated.stockQuantity ?? 0) <= 0) {
             await Material.findByIdAndUpdate(updated._id, { inStock: false }).exec();
           }
         }

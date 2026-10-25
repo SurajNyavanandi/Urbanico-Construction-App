@@ -1,14 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
+import { diagnoseError } from '../utils/errorDiagnostics';
 
 /**
  * Standardized Central Error Handling Middleware
- * Handles:
- * - SyntaxError (Malformed JSON payloads)
- * - Mongoose ValidationErrors
- * - Mongoose CastErrors (Invalid ObjectIds)
- * - Mongo Duplicate Key Errors (Code 11000)
- * - JWT Verification and Expiry Errors
- * - General and Custom Application Errors
+ * - Preserves exact API response envelope shapes.
+ * - Enriches res.locals with error diagnosis and stack for the central logger.
  */
 export function errorHandler(
   err: any,
@@ -64,14 +60,14 @@ export function errorHandler(
     message = 'Authentication token expired. Please sign in again.';
   }
 
-  // In production, suppress raw 500 internal stack traces / replica-set addresses
+  // Attach error metadata for requestLogger on finish
+  res.locals.recordedError = err;
+  res.locals.errorMessage = message;
+
+  // In production, suppress raw 500 internal stack traces from client response
   const safeMessage = isProduction && statusCode === 500
     ? 'An unexpected internal error occurred. Please try again later.'
     : message;
-
-  if (statusCode >= 500) {
-    console.error(`[Server Error 500] ${req.method} ${req.originalUrl || req.path}:`, err.message);
-  }
 
   return res.status(statusCode).json({
     success: false,
@@ -87,10 +83,13 @@ export function errorHandler(
  * Shared 404 handler for unknown routes
  */
 export function notFoundHandler(req: Request, res: Response) {
+  const message = `Endpoint not found: ${req.method} ${req.originalUrl || req.path}`;
+  res.locals.errorMessage = message;
+
   return res.status(404).json({
     success: false,
-    error: `Endpoint not found: ${req.method} ${req.originalUrl || req.path}`,
-    message: `Endpoint not found: ${req.method} ${req.originalUrl || req.path}`,
+    error: message,
+    message,
     statusCode: 404,
   });
 }

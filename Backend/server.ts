@@ -17,6 +17,8 @@ import { apiRouter } from './routers';
 import { DatabaseSeeder } from './services/databaseSeeder';
 import { envConfig } from './config/env';
 import { paymentRouter } from './routers/paymentRouter';
+import { materialRouter } from './routers/materialRouter';
+import { serviceRouter } from './routers/serviceRouter';
 import { PaymentController } from './controllers/paymentController';
 import {
   errorHandler,
@@ -26,6 +28,7 @@ import {
   requestTimeout,
   mongoSanitizeMiddleware,
 } from './middleware';
+import { diagnoseError, extractErrorLocation } from './utils/errorDiagnostics';
 
 const app = express();
 const PORT = envConfig.PORT;
@@ -51,8 +54,12 @@ app.use((_req, res, next) => {
   next();
 });
 
-// 2. CORS middleware configured strictly from environment variables (process.env.CORS_ORIGIN or ALLOWED_ORIGINS)
-const rawOrigins = process.env.CORS_ORIGIN || process.env.ALLOWED_ORIGINS || 'http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000';
+// 2. CORS middleware configured from environment variables (process.env.CORS_ORIGIN or ALLOWED_ORIGINS)
+// Automatically includes localhost, Render domains (*.onrender.com), Vercel domains (urbanico.vercel.app, *.vercel.app), and custom origins.
+const rawOrigins =
+  process.env.CORS_ORIGIN ||
+  process.env.ALLOWED_ORIGINS ||
+  'http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173,http://127.0.0.1:3000,https://urbanico.vercel.app,https://*.vercel.app,https://*.onrender.com';
 
 const allowedOrigins = rawOrigins
   .split(',')
@@ -65,11 +72,31 @@ function isOriginAllowed(origin: string): boolean {
 
   const normalizedOrigin = origin.trim().replace(/\/+$/, '');
 
+  // Automatically allow urbanico.vercel.app and any Vercel domain (*.vercel.app)
+  if (/^https?:\/\/[a-zA-Z0-9-.]+\.vercel\.app$/.test(normalizedOrigin)) {
+    return true;
+  }
+
+  // Automatically allow any Render domain (*.onrender.com)
+  if (/^https?:\/\/[a-zA-Z0-9-.]+\.onrender\.com$/.test(normalizedOrigin)) {
+    return true;
+  }
+
+  // Automatically allow any AI Studio / Cloud Run preview domain
+  if (/^https?:\/\/ais-(dev|pre)-[a-zA-Z0-9-]+\.[a-zA-Z0-9-]+\.run\.app$/.test(normalizedOrigin)) {
+    return true;
+  }
+
+  // Local development localhost / 127.0.0.1 with any port
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalizedOrigin)) {
+    return true;
+  }
+
   if (allowedOrigins.includes('*') || allowedOrigins.includes(normalizedOrigin)) {
     return true;
   }
 
-  // Wildcard pattern matching (e.g., https://*.vercel.app or exp://*)
+  // Wildcard pattern matching (e.g., https://*.onrender.com, https://*.vercel.app, exp://*)
   for (const pattern of allowedOrigins) {
     if (pattern.includes('*')) {
       const regexStr = '^' + pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace('\\*', '.*') + '$';
@@ -82,8 +109,7 @@ function isOriginAllowed(origin: string): boolean {
   return false;
 }
 
-// This middleware also answers browser preflight (OPTIONS) requests for all routes.
-app.use(cors({
+const corsOptions: cors.CorsOptions = {
   origin: function (origin, callback) {
     if (!origin || isOriginAllowed(origin)) {
       return callback(null, true);
@@ -92,8 +118,23 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'x-admin-secret', 'x-razorpay-signature', 'idempotency-key']
-}));
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Requested-With',
+    'Accept',
+    'x-admin-secret',
+    'x-razorpay-signature',
+    'idempotency-key',
+    'Idempotency-Key',
+  ],
+  exposedHeaders: ['Retry-After', 'Idempotency-Key'],
+  maxAge: 86400,
+};
+
+// Enable CORS for all routes and explicitly answer all browser preflight (OPTIONS) requests
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // 3. Structured Request Logger & Request Timeout
 app.use(requestLogger);
@@ -119,6 +160,16 @@ app.use('/api', apiRouter);
 app.use('/api/payments', paymentRouter);
 app.use('/payments', paymentRouter);
 app.use('/razorpay', paymentRouter);
+app.use('/materials', materialRouter);
+app.use('/services', serviceRouter);
+app.use('/categories', (req, res, next) => {
+  req.url = '/categories' + (req.url === '/' ? '' : req.url);
+  materialRouter(req, res, next);
+});
+app.use('/bundles', (req, res, next) => {
+  req.url = '/bundles' + (req.url === '/' ? '' : req.url);
+  materialRouter(req, res, next);
+});
 
 // Legacy flat endpoint compatibility
 app.post('/create-order', PaymentController.createOrder);
@@ -147,13 +198,47 @@ app.get('/api/health', (req, res) => {
 app.use('/api', notFoundHandler);
 app.use(errorHandler);
 
-// Global process-level safety handlers to prevent unhandled node process death
-process.on('unhandledRejection', (reason: any, promise) => {
-  console.error('[Process Safety] Unhandled Promise Rejection:', reason?.message || reason);
+// Centralized process-level error handlers with structured root cause and file line diagnostic output
+process.on('unhandledRejection', (reason: any) => {
+  const diagnosis = diagnoseError(reason);
+  const location = extractErrorLocation(reason?.stack);
+  console.error(
+    `\n🚨 [FATAL UNHANDLED REJECTION]\n` +
+    `   Root Cause: ${diagnosis.rootCause}\n` +
+    (location ? `   Location:   ${location}\n` : '') +
+    JSON.stringify({
+      level: 'FATAL',
+      tag: 'UNHANDLED_REJECTION',
+      timestamp: new Date().toISOString(),
+      name: reason?.name || 'UnhandledPromiseRejection',
+      message: reason?.message || String(reason),
+      rootCause: diagnosis.rootCause,
+      remedy: diagnosis.remedy,
+      fileLocation: location,
+      stack: reason?.stack,
+    }) + '\n'
+  );
 });
 
 process.on('uncaughtException', (err: Error) => {
-  console.error('[Process Safety] Uncaught Exception:', err.message, err.stack);
+  const diagnosis = diagnoseError(err);
+  const location = extractErrorLocation(err?.stack);
+  console.error(
+    `\n🚨 [FATAL UNCAUGHT EXCEPTION]\n` +
+    `   Root Cause: ${diagnosis.rootCause}\n` +
+    (location ? `   Location:   ${location}\n` : '') +
+    JSON.stringify({
+      level: 'FATAL',
+      tag: 'UNCAUGHT_EXCEPTION',
+      timestamp: new Date().toISOString(),
+      name: err.name,
+      message: err.message,
+      rootCause: diagnosis.rootCause,
+      remedy: diagnosis.remedy,
+      fileLocation: location,
+      stack: err.stack,
+    }) + '\n'
+  );
 });
 
 export async function startServer() {

@@ -568,7 +568,7 @@ export const Header: React.FC<HeaderProps> = ({
                               <Text style={styles.stockBadgeText}>In Stock</Text>
                             </View>
                           </View>
-                          {Boolean(item.defaultPrice) && (
+                          {typeof item.defaultPrice === 'number' && item.defaultPrice > 0 && (
                             <View style={styles.productPriceCol}>
                               <Text style={[styles.productPriceText, { color: theme.textPrimary }]}>
                                 ₹{item.defaultPrice.toLocaleString('en-IN')}
@@ -621,7 +621,7 @@ export const Header: React.FC<HeaderProps> = ({
                               <Text style={styles.stockBadgeText}>In Stock • Ready for Delivery</Text>
                             </View>
                           </View>
-                          {Boolean(item.defaultPrice) && (
+                          {typeof item.defaultPrice === 'number' && item.defaultPrice > 0 && (
                             <View style={styles.productPriceCol}>
                               <Text style={[styles.productPriceText, { color: theme.textPrimary }]}>
                                 ₹{item.defaultPrice.toLocaleString('en-IN')}
@@ -730,7 +730,7 @@ export const Header: React.FC<HeaderProps> = ({
                     <Text style={[styles.searchZeroSub, { color: theme.textSecondary }]}>
                       Check your spelling or try popular construction keywords
                     </Text>
-                    {Boolean(didYouMean) && (
+                    {Boolean(didYouMean) && didYouMean && (
                       <TouchableOpacity
                         onPress={() => {
                           setSearchInputText(didYouMean);

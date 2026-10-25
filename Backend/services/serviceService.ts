@@ -114,7 +114,7 @@ export class ServiceService {
         const updated = await Service.findOneAndUpdate(
           { $or: [{ id }, { _id: mongoose.Types.ObjectId.isValid(id) ? id : undefined }] },
           { $set: data },
-          { new: true }
+          { returnDocument: 'after' }
         ).lean().exec();
 
         if (updated) {
@@ -175,7 +175,7 @@ export class ServiceService {
           await Service.findOneAndUpdate(
             { id: s.id },
             { $set: s },
-            { upsert: true, new: true }
+            { upsert: true, returnDocument: 'after' }
           ).exec();
         }
         console.log(`🌱 Seeded ${MASTER_SERVICES.length} Urbanico services successfully.`);

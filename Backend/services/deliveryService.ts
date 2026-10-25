@@ -75,7 +75,7 @@ export class DeliveryService {
               },
             },
           },
-          { new: true }
+          { returnDocument: 'after' }
         ).exec();
         if (dbDelivery) return dbDelivery;
       }
@@ -119,7 +119,7 @@ export class DeliveryService {
         await Delivery.findOneAndUpdate(
           { orderNumber },
           { $set: { ...updateData, updatedAt: new Date() } },
-          { new: true, upsert: false }
+          { returnDocument: 'after', upsert: false }
         ).exec();
       }
     } catch (err) {

@@ -11,6 +11,7 @@ import { UserProfile, MaterialItem } from '../types';
 import { Platform, NativeModules } from 'react-native';
 import { safeStorage } from '../utils/safeStorage';
 import { MATERIAL_ITEMS, CATEGORIES, SERVICES, BUNDLES } from '../data/materialsData';
+import { reportClientError } from '../utils/frontendLogger';
 
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -138,30 +139,46 @@ export function getBaseApiUrls(): string[] {
     urls.push(sharedActiveApiBase);
   }
 
+  // 1. Read backend URL from environment variables: VITE_API_URL (preferred) or VITE_BACKEND_URI / VITE_BACKEND_URL
   let envBackendUrl = '';
   try {
-    if (typeof import.meta !== 'undefined' && (import.meta as any)?.env?.VITE_BACKEND_URI) {
-      envBackendUrl = (import.meta as any).env.VITE_BACKEND_URI;
+    if (typeof import.meta !== 'undefined' && (import.meta as any)?.env) {
+      envBackendUrl =
+        (import.meta as any).env.VITE_API_URL ||
+        (import.meta as any).env.VITE_BACKEND_URI ||
+        (import.meta as any).env.VITE_BACKEND_URL ||
+        '';
     }
   } catch {}
-  if (!envBackendUrl && typeof process !== 'undefined') {
+  if (!envBackendUrl && typeof process !== 'undefined' && (process as any)?.env) {
     envBackendUrl =
-      ((process.env as any)?.BACKEND_URI || (process.env as any)?.VITE_BACKEND_URI) || '';
+      (process.env as any).VITE_API_URL ||
+      (process.env as any).VITE_BACKEND_URI ||
+      (process.env as any).VITE_BACKEND_URL ||
+      (process.env as any).BACKEND_URI ||
+      '';
   }
+
   if (envBackendUrl && typeof envBackendUrl === 'string' && envBackendUrl.trim().length > 0) {
     const clean = envBackendUrl.trim().replace(/\/+$/, '');
     urls.push(clean.endsWith('/api') ? clean : `${clean}/api`);
   }
 
   const isWeb = Platform.OS === 'web' && typeof window !== 'undefined' && window.location;
+  const isLocalWeb =
+    isWeb &&
+    (window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1' ||
+      window.location.hostname.includes('run.app'));
+
   const isMetroDev =
     isWeb &&
     (window.location.port === '8081' ||
       window.location.port === '19006' ||
       window.location.port === '8082');
 
-  // Primary API endpoint in web runtime: relative /api is always preferred on any web host
-  if (isWeb && !isMetroDev) {
+  // If running locally or on single-service preview, relative /api is valid
+  if (isLocalWeb && !isMetroDev) {
     urls.push('/api');
   }
 
@@ -175,7 +192,9 @@ export function getBaseApiUrls(): string[] {
     isWeb &&
     window.location.hostname &&
     !window.location.hostname.includes('localhost') &&
-    !window.location.hostname.includes('127.0.0.1')
+    !window.location.hostname.includes('127.0.0.1') &&
+    !window.location.hostname.endsWith('.onrender.com') &&
+    !window.location.hostname.endsWith('.vercel.app')
   ) {
     if (
       window.location.hostname.startsWith('192.168.') ||
@@ -203,8 +222,14 @@ export function getBaseApiUrls(): string[] {
     urls.push('http://localhost:3000/api');
   }
 
-  // Live production cloud backend fallback (Render)
+  // Live production cloud backend fallbacks on Render
+  urls.push('https://urbanico-construction-app.onrender.com/api');
   urls.push('https://urbanico.onrender.com/api');
+
+  // Relative /api fallback if not already added
+  if (isWeb && !urls.includes('/api')) {
+    urls.push('/api');
+  }
 
   return Array.from(new Set(urls.filter(Boolean).map((u) => u.trim().replace(/\/+$/, ''))));
 }
@@ -317,7 +342,6 @@ class ApiService {
         }
 
         // 2. HTTP 401 Unauthorized (Expired or invalid token)
-        // Stop candidate looping immediately: server is reachable and rejecting credentials.
         if (response.status === 401) {
           const errorJson = await response.json().catch(() => null);
           const message =
@@ -325,12 +349,19 @@ class ApiService {
             errorJson?.error ||
             errorJson?.message ||
             'Session expired. Please sign in again.';
+          reportClientError({
+            message,
+            endpoint: cleanEndpoint,
+            statusCode: 401,
+            url: finalUrl,
+            component: 'ApiService',
+            rootCause: 'Authentication token expired or rejected by backend.',
+          });
           this.notifyAuthExpired();
           throw new ApiError(message, 401, 'UNAUTHORIZED', errorJson?.error?.details || errorJson?.details);
         }
 
         // 3. HTTP 429 Too Many Requests (Rate limit exceeded)
-        // Stop candidate looping: prevent secondary candidate flooding.
         if (response.status === 429) {
           const rawRetry = response.headers.get('Retry-After');
           const errorJson = await response.json().catch(() => null);
@@ -344,18 +375,23 @@ class ApiService {
             errorJson?.message ||
             `Rate limit exceeded. Please wait ${retryAfter}s before retrying.`;
 
+          reportClientError({
+            message,
+            endpoint: cleanEndpoint,
+            statusCode: 429,
+            url: finalUrl,
+            component: 'ApiService',
+            rootCause: `Client has hit the API rate limiter. Wait ${retryAfter} seconds.`,
+          });
           this.notifyRateLimited({ retryAfter, endpoint: cleanEndpoint, message });
           throw new ApiError(message, 429, 'RATE_LIMITED', errorJson, retryAfter);
         }
 
         // 4. HTTP 400 Bad Request / 403 Forbidden / 404 Not Found / 422 Unprocessable Entity
-        // Client validation error: stop candidate looping since the request payload itself is invalid.
         if (response.status >= 400 && response.status < 500) {
           const contentType = response.headers.get('content-type') || '';
           const isHtml = contentType.toLowerCase().includes('text/html');
 
-          // If a static web server returns a 404 HTML page (e.g. Vite SPA fallback or CDN 404 "The page could not be found"),
-          // this means this candidate host does NOT serve the API. Allow failover to the next candidate (e.g. Render).
           if (response.status === 404 && (isHtml || !contentType.toLowerCase().includes('application/json'))) {
             const rawBody = await response.text().catch(() => '');
             if (
@@ -383,6 +419,15 @@ class ApiService {
           const code = errorJson?.error?.code || (response.status === 403 ? 'FORBIDDEN' : 'VALIDATION_ERROR');
           const details = errorJson?.error?.details || errorJson?.details || errorJson?.errors;
 
+          reportClientError({
+            message,
+            endpoint: cleanEndpoint,
+            statusCode: response.status,
+            url: finalUrl,
+            component: 'ApiService',
+            rootCause: errorJson?.error?.message || (response.status === 404 ? `Endpoint ${cleanEndpoint} not found on backend` : `Client request rejected with ${code}`),
+          });
+
           throw new ApiError(message, response.status, code, details);
         }
 
@@ -393,7 +438,6 @@ class ApiService {
           response.status
         );
       } catch (err: any) {
-        // If it's already an authoritative ApiError (401, 429, 4xx), rethrow immediately
         if (err instanceof ApiError && err.statusCode < 500) {
           throw err;
         }
@@ -401,7 +445,20 @@ class ApiService {
       }
     }
 
-    throw lastError || new ApiError(`Network request failed for ${endpoint}`, 0);
+    const finalErr = lastError || new ApiError(`Network request failed for ${cleanEndpoint}`, 0);
+    reportClientError({
+      message: finalErr.message,
+      endpoint: cleanEndpoint,
+      statusCode: finalErr.statusCode || 'NETWORK_ERROR / CORS_FAILED',
+      url: cleanEndpoint,
+      component: 'ApiService',
+      rootCause: finalErr.statusCode === 0
+        ? 'Network request failed or CORS preflight was rejected by the server.'
+        : finalErr.message,
+      stack: finalErr.stack,
+    });
+
+    throw finalErr;
   }
 
   // ==================== MATERIALS ====================

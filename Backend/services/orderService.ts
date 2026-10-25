@@ -445,13 +445,13 @@ export class OrderService {
           dbOrder = await Order.findByIdAndUpdate(
             id,
             { $set: { orderStatus: status, ...mergedFields, updatedAt: new Date() } },
-            { new: true }
+            { returnDocument: 'after' }
           ).exec();
         } else {
           dbOrder = await Order.findOneAndUpdate(
             { orderNumber: id },
             { $set: { orderStatus: status, ...mergedFields, updatedAt: new Date() } },
-            { new: true }
+            { returnDocument: 'after' }
           ).exec();
         }
         if (dbOrder) {
@@ -505,7 +505,7 @@ export class OrderService {
               updatedAt: new Date(),
             },
           },
-          { new: true }
+          { returnDocument: 'after' }
         ).exec();
         if (dbOrder) {
           const idx = inMemoryOrders.findIndex(
@@ -641,7 +641,7 @@ export class OrderService {
               createdAt: ord.createdAt || new Date(),
             },
           },
-          { upsert: true, new: true }
+          { upsert: true, returnDocument: 'after' }
         ).exec();
       }
 

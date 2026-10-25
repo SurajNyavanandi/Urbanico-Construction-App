@@ -248,7 +248,7 @@ export const LocationModal: React.FC<LocationModalProps> = ({
             contentContainerStyle={styles.scrollContent}
           >
           {/* Status Message Banner */}
-          {Boolean(statusMessage) && (
+          {statusMessage && (
             <View
               style={[
                 styles.statusBanner,

@@ -160,7 +160,7 @@ export function addSavedPaymentMethod(method: SavedPaymentMethod, userPhone?: st
   
   // Prevent duplicates by VPA / Details
   const isDuplicate = current.some(
-    (m) => m.details.toLowerCase().trim() === method.details.toLowerCase().trim()
+    (m) => (m.details || '').toLowerCase().trim() === (method.details || '').toLowerCase().trim()
   );
   if (isDuplicate) {
     throw new Error('This payment method is already saved in your account.');

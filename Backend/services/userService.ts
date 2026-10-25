@@ -104,9 +104,9 @@ export class UserService {
       if (mongoose.connection.readyState === 1) {
         let user = null;
         if (mongoose.Types.ObjectId.isValid(idOrPhone)) {
-          user = await User.findByIdAndUpdate(idOrPhone, { $set: updateData }, { new: true }).exec();
+          user = await User.findByIdAndUpdate(idOrPhone, { $set: updateData }, { returnDocument: 'after' }).exec();
         } else {
-          user = await User.findOneAndUpdate({ phone: idOrPhone }, { $set: updateData }, { new: true }).exec();
+          user = await User.findOneAndUpdate({ phone: idOrPhone }, { $set: updateData }, { returnDocument: 'after' }).exec();
         }
         if (user) {
           const idx = inMemoryUsers.findIndex((u) => u._id === idOrPhone || u.phone === idOrPhone);
@@ -230,7 +230,7 @@ export class UserService {
               createdAt: u.createdAt || new Date(),
             },
           },
-          { upsert: true, new: true }
+          { upsert: true, returnDocument: 'after' }
         );
       }
 

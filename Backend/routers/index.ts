@@ -19,6 +19,14 @@ apiRouter.use('/payments', paymentRouter);
 apiRouter.use('/orders', orderRouter);
 apiRouter.use('/materials', materialRouter);
 apiRouter.use('/products', materialRouter);
+apiRouter.use('/categories', (req, res, next) => {
+  req.url = '/categories' + (req.url === '/' ? '' : req.url);
+  materialRouter(req, res, next);
+});
+apiRouter.use('/bundles', (req, res, next) => {
+  req.url = '/bundles' + (req.url === '/' ? '' : req.url);
+  materialRouter(req, res, next);
+});
 apiRouter.use('/services', serviceRouter);
 apiRouter.use('/users', userRouter);
 apiRouter.use('/user', userRouter);
@@ -75,6 +83,36 @@ apiRouter.post('/refund', PaymentController.processRefund);
 apiRouter.get('/order-status/:order_id', PaymentController.getOrderStatus);
 apiRouter.get('/order-status', PaymentController.getOrderStatus);
 apiRouter.post('/check-status', PaymentController.getOrderStatus);
+
+// Client Runtime Error Reporter (Logs critical frontend browser crashes & CORS issues directly to Render backend console)
+apiRouter.post('/client-errors', (req, res) => {
+  const { message, stack, endpoint, statusCode, url, origin, component, rootCause, timestamp } = req.body || {};
+  const clientOrigin = req.headers['origin'] || origin || 'unknown';
+  const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
+
+  console.error(
+    `\n🚨 [FRONTEND RUNTIME ERROR] ${endpoint || url || 'Browser Runtime'}\n` +
+    `   Root Cause: ${rootCause || message || 'Unknown client error'}\n` +
+    `   Origin:     ${clientOrigin} | IP: ${clientIp}\n` +
+    JSON.stringify({
+      level: 'ERROR',
+      tag: 'FRONTEND_CLIENT_ERROR',
+      timestamp: timestamp || new Date().toISOString(),
+      origin: clientOrigin,
+      ip: clientIp,
+      clientError: {
+        message: message || 'Unknown frontend error',
+        component: component || undefined,
+        endpoint: endpoint || undefined,
+        statusCode: statusCode || undefined,
+        url: url || undefined,
+        rootCause: rootCause || undefined,
+        stack: stack || undefined,
+      },
+    }) + '\n'
+  );
+  return res.status(200).json({ success: true, recorded: true });
+});
 
 // Resend Invoice Dispatch API (/api/send-invoice)
 const sendInvoiceHandler = async (req: any, res: any) => {
@@ -139,7 +177,7 @@ apiRouter.post('/otp/send', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Phone number is required' });
     }
     const result = await OtpBackendService.sendOtp(phone);
-    return res.json({ success: true, ...result });
+    return res.json({ ...result });
   } catch (err: any) {
     return res.status(400).json({
       success: false,
@@ -163,14 +201,13 @@ apiRouter.post('/otp/verify', async (req, res) => {
       const user = await UserService.findOrCreateUser(result.phone);
       const token = generateAuthToken(user);
       return res.json({
-        success: true,
         ...result,
         token,
         user,
       });
     }
 
-    return res.status(401).json({ success: false, ...result });
+    return res.status(401).json({ ...result });
   } catch (err: any) {
     return res.status(400).json({
       success: false,

@@ -214,7 +214,7 @@ export const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
                 <TouchableOpacity
                   onPress={() => {
                     onClose();
-                    onContinueShopping();
+                    onContinueShopping?.();
                   }}
                   style={styles.secondaryActionButton}
                   activeOpacity={0.85}
