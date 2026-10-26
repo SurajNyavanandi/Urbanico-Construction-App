@@ -6,6 +6,7 @@ import { formatINR } from '../../utils/priceHelper';
 export interface OrderSummaryBreakdownProps {
   totalUnitQuantity: number;
   subtotal: number;
+  gstTax?: number;
   isServicesOnly?: boolean;
   materialItemsCount: number;
   deliveryFeeDetails: {
@@ -33,6 +34,7 @@ export interface OrderSummaryBreakdownProps {
 export const OrderSummaryBreakdown: React.FC<OrderSummaryBreakdownProps> = ({
   totalUnitQuantity,
   subtotal,
+  gstTax,
   isServicesOnly = false,
   materialItemsCount,
   deliveryFeeDetails,
@@ -187,6 +189,23 @@ export const OrderSummaryBreakdown: React.FC<OrderSummaryBreakdownProps> = ({
           </Text>
         </View>
       )}
+
+      {/* Estimated GST Component */}
+      <View style={styles.summaryRow}>
+        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>
+            Estimated GST (18% ITC)
+          </Text>
+          <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 6, paddingVertical: 1, borderRadius: 4 }}>
+            <Text style={{ fontSize: 9.5, fontWeight: '700', color: '#15803D' }}>
+              ITC Eligible
+            </Text>
+          </View>
+        </View>
+        <Text style={[styles.summaryValue, { color: theme.textSecondary }]}>
+          {formatINR(gstTax !== undefined ? gstTax : Math.round(subtotal * 0.18))}
+        </Text>
+      </View>
 
       {/* Inter-State Tax Notice */}
       {Boolean(gstinValidation?.isValid && gstinValidation.stateCode !== '36') && (

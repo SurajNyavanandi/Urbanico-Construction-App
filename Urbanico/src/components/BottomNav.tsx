@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Animated, Platform, Image, Pressable } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Home, Search, Heart, ShoppingCart } from 'lucide-react-native';
+import { Home, Search, Heart, ShoppingCart, User } from 'lucide-react-native';
 import { ScreenType } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { soundService } from '../utils/soundHelper';
@@ -11,6 +11,7 @@ interface BottomNavProps {
   onSelectTab: (screen: ScreenType) => void;
   onPreloadTab?: (screen: ScreenType) => void;
   cartCount: number;
+  userAvatarUrl?: string;
 }
 
 interface NavTabItemProps {
@@ -97,6 +98,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   onSelectTab,
   onPreloadTab,
   cartCount,
+  userAvatarUrl,
 }) => {
   const { theme, isAppleDesign } = useTheme();
   const insets = useSafeAreaInsets();
@@ -107,7 +109,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   const isCartActive = activeScreen === 'basket';
   const isProfileActive =
     activeScreen === 'profile' ||
-    activeScreen === 'activity';
+    activeScreen === 'activity' ||
+    activeScreen === 'orders' ||
+    activeScreen === 'order_history';
 
   const activeColor = isAppleDesign ? '#007AFF' : theme.textPrimary;
   const inactiveColor = isAppleDesign ? '#86868B' : (theme.textMuted || '#707072');
@@ -249,17 +253,25 @@ export const BottomNav: React.FC<BottomNavProps> = ({
             onPress={onSelectTab}
             onPreload={onPreloadTab}
           >
-            <Image
-              source={{ uri: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg' }}
-              style={{
-                width: 22,
-                height: 22,
-                borderRadius: 11,
-                borderWidth: isProfileActive ? 2 : 1,
-                borderColor: isProfileActive ? activeColor : (theme.border || '#9CA3AF'),
-              }}
-              resizeMode="cover"
-            />
+            {userAvatarUrl ? (
+              <Image
+                source={{ uri: userAvatarUrl }}
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 11,
+                  borderWidth: isProfileActive ? 2 : 1,
+                  borderColor: isProfileActive ? activeColor : (theme.border || '#9CA3AF'),
+                }}
+                resizeMode="cover"
+              />
+            ) : (
+              <User
+                size={20}
+                color={isProfileActive ? activeColor : inactiveColor}
+                strokeWidth={isProfileActive ? 2.3 : 1.9}
+              />
+            )}
           </NavTabItem>
         </View>
       </View>

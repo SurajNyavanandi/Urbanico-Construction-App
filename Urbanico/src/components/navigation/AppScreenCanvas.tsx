@@ -60,7 +60,7 @@ export const AppScreenCanvas: React.FC<AppScreenCanvasProps> = ({ app }) => {
             title={app.getScreenTitle()}
             selectedLocation={app.selectedLocation}
             onOpenLocationModal={app.handleOpenLocationModal}
-            onBack={undefined}
+            onBack={app.currentScreen !== 'home' ? () => app.navigateScreen('home') : undefined}
             searchQuery={app.searchQuery}
             onSearchChange={app.setSearchQuery}
             recentSearches={app.recentSearches}
@@ -72,6 +72,8 @@ export const AppScreenCanvas: React.FC<AppScreenCanvasProps> = ({ app }) => {
             materials={app.materials}
             categories={app.categories}
             services={app.services}
+            user={app.user}
+            isLoggedIn={app.isLoggedIn}
           />
         }
       />

@@ -255,26 +255,25 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const safeQuantity = isService ? 1 : Math.max(1, quantity || 1);
 
       setCartItems((prev) => {
-        const existingIdx = prev.findIndex(
-          (ci) => ci.itemId === item.id || (isService && isCartItemService(ci))
-        );
+        const existingIdx = prev.findIndex((ci) => ci.itemId === item.id);
 
         if (existingIdx >= 0) {
           const existingItem = prev[existingIdx];
           if (isCartItemService(existingItem) || isService) {
-            // Service booking already in cart! Do not add multiple or increment quantity.
-            if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
-              try {
-                window.dispatchEvent(
-                  new CustomEvent('urbanico:service-already-in-cart', {
-                    detail: {
-                      message:
-                        'Service booking already in cart. You can update booking slot or location at checkout.',
-                    },
-                  })
-                );
-              } catch {}
-            }
+            // This specific service booking is already in cart; quantity is locked to 1 inspection visit
+            setTimeout(() => {
+              if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
+                try {
+                  window.dispatchEvent(
+                    new CustomEvent('urbanico:service-already-in-cart', {
+                      detail: {
+                        message: `"${item.name}" booking is already in cart. Quantity is set to 1 visit.`,
+                      },
+                    })
+                  );
+                } catch {}
+              }
+            }, 0);
             return prev;
           }
 

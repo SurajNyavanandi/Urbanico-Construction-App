@@ -1303,6 +1303,48 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
 
   const payableAmount = grandTotal;
 
+  // Real-time coupon adjustment whenever subtotal or cartItems change
+  useEffect(() => {
+    if (!appliedCoupon) return;
+
+    if (cartItems.length === 0 || subtotal <= 0 || isServicesOnly) {
+      setAppliedCoupon(null);
+      setCouponDiscount(0);
+      setCouponError(null);
+      return;
+    }
+
+    const clean = appliedCoupon.toUpperCase().trim();
+    if (clean === 'URBAN10' || clean === 'SAVE10' || clean === 'DISCOUNT10') {
+      const rawDisc = Math.round(subtotal * 0.1);
+      const disc = Math.min(2500, Math.min(Math.max(1, subtotal - 1), Math.max(50, rawDisc)));
+      setCouponDiscount(disc);
+    } else if (clean === 'URBAN500' || clean === 'SUPER500' || clean === 'SITE500') {
+      if (subtotal < 2000) {
+        setAppliedCoupon(null);
+        setCouponDiscount(0);
+        showToast('Coupon removed: Minimum order of ₹2,000 required', 'info');
+      } else {
+        setCouponDiscount(500);
+      }
+    } else if (clean === 'URBAN50' || clean === 'SAVE50') {
+      if (subtotal < 1000) {
+        setAppliedCoupon(null);
+        setCouponDiscount(0);
+        showToast('Coupon removed: Minimum order of ₹1,000 required', 'info');
+      } else {
+        const disc = Math.min(250, subtotal);
+        setCouponDiscount(disc);
+      }
+    } else if (clean === 'MEGA2026' || clean === 'OFFER12') {
+      const disc = Math.min(5000, Math.max(1, Math.round(subtotal * 0.12)));
+      setCouponDiscount(disc);
+    } else if (clean === 'URBANICO' || clean === 'WELCOME') {
+      const disc = Math.min(1000, Math.min(Math.max(1, subtotal - 1), Math.max(150, Math.round(subtotal * 0.1))));
+      setCouponDiscount(disc);
+    }
+  }, [subtotal, cartItems.length, appliedCoupon, isServicesOnly, showToast]);
+
   const handleRefresh = () => {
     setRefreshing(true);
     setTimeout(() => {
@@ -2041,15 +2083,60 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                 </View>
                 <Text style={[styles.nikeEmptyBagTitle, { color: theme.textPrimary }]}>Your cart is empty.</Text>
                 <Text style={[styles.nikeEmptyBagSub, { color: theme.textSecondary }]}>
-                  Explore direct quarry aggregates, TMT rebars, and cement.
+                  Explore direct wholesale materials, TMT steel, cement & trade bookings.
                 </Text>
                 <TouchableOpacity
                   onPress={() => onNavigateScreen('shop')}
                   style={[styles.nikeShopNowPill, { backgroundColor: theme.primary }]}
                   activeOpacity={0.85}
                 >
-                  <Text style={styles.nikeShopNowPillText}>Explore Materials</Text>
+                  <Text style={styles.nikeShopNowPillText}>Explore All Materials</Text>
                 </TouchableOpacity>
+
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 14 }}>
+                  <TouchableOpacity
+                    onPress={() => onNavigateScreen('home')}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 7,
+                      borderRadius: 20,
+                      borderWidth: 1,
+                      borderColor: theme.border,
+                      backgroundColor: theme.surfaceSecondary,
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textPrimary }}>🏠 Home</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => onNavigateScreen('shop')}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 7,
+                      borderRadius: 20,
+                      borderWidth: 1,
+                      borderColor: theme.border,
+                      backgroundColor: theme.surfaceSecondary,
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textPrimary }}>🧱 Cement & Sand</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => onNavigateScreen('shop')}
+                    style={{
+                      paddingHorizontal: 12,
+                      paddingVertical: 7,
+                      borderRadius: 20,
+                      borderWidth: 1,
+                      borderColor: theme.border,
+                      backgroundColor: theme.surfaceSecondary,
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textPrimary }}>🔧 Trade Services</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ) : (
               <View style={styles.cartSection}>
@@ -2147,13 +2234,14 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                             <View style={[styles.serviceFixedPill, { backgroundColor: theme.surfaceSecondary, borderColor: theme.border }]}>
                               <ShieldCheck size={13} color="#059669" strokeWidth={2.4} />
                               <Text style={[styles.serviceFixedPillText, { color: theme.textPrimary }]}>
-                                1 Visit / Site Inspection
+                                1 Visit / Inspection
                               </Text>
                             </View>
                             <TouchableOpacity
                               onPress={() => {
                                 soundService.playAlert();
                                 onRemoveItem(item.id);
+                                showToast(`Removed "${item.itemName}" from Cart`, 'info');
                               }}
                               style={styles.deleteBtn}
                               activeOpacity={0.7}
@@ -2167,14 +2255,25 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                             <View style={[styles.stepperContainer, { borderColor: theme.border, backgroundColor: theme.surfaceSecondary }]}>
                               <TouchableOpacity
                                 onPress={() => {
-                                  soundService.playTap();
-                                  onUpdateQuantity(item.id, item.quantity - 1);
+                                  if (item.quantity <= 1) {
+                                    soundService.playAlert();
+                                    onRemoveItem(item.id);
+                                    showToast(`Removed "${item.itemName}" from Cart`, 'info');
+                                  } else {
+                                    soundService.playTap();
+                                    onUpdateQuantity(item.id, item.quantity - 1);
+                                  }
                                 }}
                                 style={[styles.stepperBtn, { backgroundColor: theme.surface }]}
                                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                                 activeOpacity={0.7}
+                                accessibilityLabel={item.quantity <= 1 ? `Remove ${item.itemName} from cart` : `Decrease quantity of ${item.itemName}`}
                               >
-                                <Minus size={13} color={theme.textPrimary} />
+                                {item.quantity <= 1 ? (
+                                  <Trash2 size={13} color="#DC2626" />
+                                ) : (
+                                  <Minus size={13} color={theme.textPrimary} />
+                                )}
                               </TouchableOpacity>
                               <Text style={[styles.stepperQtyText, { color: theme.textPrimary }]}>{item.quantity}</Text>
                               <TouchableOpacity
@@ -2185,6 +2284,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                                 style={[styles.stepperBtn, { backgroundColor: theme.surface }]}
                                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                                 activeOpacity={0.7}
+                                accessibilityLabel={`Increase quantity of ${item.itemName}`}
                               >
                                 <Plus size={13} color={theme.textPrimary} />
                               </TouchableOpacity>
@@ -2193,9 +2293,11 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                               onPress={() => {
                                 soundService.playAlert();
                                 onRemoveItem(item.id);
+                                showToast(`Removed "${item.itemName}" from Cart`, 'info');
                               }}
                               style={styles.deleteBtn}
                               activeOpacity={0.7}
+                              accessibilityLabel={`Remove ${item.itemName} from cart`}
                             >
                               <Trash2 size={15} color={theme.textSecondary} />
                             </TouchableOpacity>
@@ -2221,6 +2323,7 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                   <OrderSummaryBreakdown
                     totalUnitQuantity={totalUnitQuantity}
                     subtotal={subtotal}
+                    gstTax={gstTax}
                     isServicesOnly={isServicesOnly}
                     materialItemsCount={materialItems.length}
                     deliveryFeeDetails={deliveryFeeDetails}

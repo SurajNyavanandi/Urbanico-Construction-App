@@ -132,9 +132,8 @@ const corsOptions: cors.CorsOptions = {
   maxAge: 86400,
 };
 
-// Enable CORS for all routes and explicitly answer all browser preflight (OPTIONS) requests
+// Enable CORS for all routes (automatically handles all OPTIONS preflights)
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
 
 // 3. Structured Request Logger & Request Timeout
 app.use(requestLogger);

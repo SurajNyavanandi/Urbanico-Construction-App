@@ -112,15 +112,17 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         return;
       }
 
-      setToast({
-        visible: true,
-        message,
-        type,
-        duration,
-        title,
-        actionLabel,
-        onAction,
-      });
+      setTimeout(() => {
+        setToast({
+          visible: true,
+          message,
+          type,
+          duration,
+          title,
+          actionLabel,
+          onAction,
+        });
+      }, 0);
     },
     []
   );
@@ -130,11 +132,13 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, []);
 
   const showAddToCartToast = useCallback((payload: CartToastPayload, duration = 3800) => {
-    setCartToast({
-      visible: true,
-      item: payload,
-      duration,
-    });
+    setTimeout(() => {
+      setCartToast({
+        visible: true,
+        item: payload,
+        duration,
+      });
+    }, 0);
   }, []);
 
   const hideAddToCartToast = useCallback(() => {
@@ -147,26 +151,30 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     const rateLimitHandler = (e: any) => {
       const detail = e.detail || {};
       const retryAfter = detail.retryAfter || 60;
-      setToast({
-        visible: true,
-        message: detail.message || `Too many requests. Please wait ${retryAfter}s before retrying.`,
-        title: 'Rate Limit Active',
-        type: 'error',
-        duration: Math.min(retryAfter * 1000, 6000),
-      });
+      setTimeout(() => {
+        setToast({
+          visible: true,
+          message: detail.message || `Too many requests. Please wait ${retryAfter}s before retrying.`,
+          title: 'Rate Limit Active',
+          type: 'error',
+          duration: Math.min(retryAfter * 1000, 6000),
+        });
+      }, 0);
     };
 
     const serviceAlreadyHandler = (e: any) => {
       const detail = e.detail || {};
-      setToast({
-        visible: true,
-        message:
-          detail.message ||
-          'Service booking already in cart. You can update booking slot or location at checkout.',
-        title: 'Booking In Cart',
-        type: 'info',
-        duration: 4000,
-      });
+      setTimeout(() => {
+        setToast({
+          visible: true,
+          message:
+            detail.message ||
+            'Service booking already in cart. You can update booking slot or location at checkout.',
+          title: 'Booking In Cart',
+          type: 'info',
+          duration: 4000,
+        });
+      }, 0);
     };
 
     try {

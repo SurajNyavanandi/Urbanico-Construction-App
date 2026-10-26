@@ -21,7 +21,22 @@ export interface ClientErrorPayload {
 
 let isReporting = false;
 
+function isIgnorableError(msg: string = '', stack: string = ''): boolean {
+  const combined = `${msg} ${stack}`.toLowerCase();
+  return (
+    combined.includes('websocket') ||
+    combined.includes('vite-hmr') ||
+    combined.includes('ws://') ||
+    combined.includes('wss://') ||
+    combined.includes('@vite/client')
+  );
+}
+
 export function reportClientError(error: ClientErrorPayload): void {
+  if (isIgnorableError(error.message, error.stack) || isIgnorableError(error.rootCause)) {
+    return;
+  }
+
   // Output a high-visibility, structured console error
   console.error('🚨 [Urbanico Frontend Error]', {
     timestamp: new Date().toISOString(),
@@ -74,8 +89,12 @@ export function initGlobalFrontendErrorListeners(): void {
 
   // 1. Uncaught runtime JavaScript errors
   window.onerror = (message, source, lineno, colno, error) => {
+    const msg = typeof message === 'string' ? message : error?.message || 'Uncaught window error';
+    if (isIgnorableError(msg, error?.stack)) {
+      return true;
+    }
     reportClientError({
-      message: typeof message === 'string' ? message : error?.message || 'Uncaught window error',
+      message: msg,
       source: typeof source === 'string' ? source : undefined,
       lineno,
       colno,
@@ -90,6 +109,10 @@ export function initGlobalFrontendErrorListeners(): void {
   window.onunhandledrejection = (event: PromiseRejectionEvent) => {
     const reason = event.reason;
     const msg = reason?.message || String(reason || 'Unhandled promise rejection');
+    if (isIgnorableError(msg, reason?.stack)) {
+      event.preventDefault();
+      return;
+    }
     reportClientError({
       message: msg,
       stack: reason?.stack,

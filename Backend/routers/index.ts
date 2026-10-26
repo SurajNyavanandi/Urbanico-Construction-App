@@ -87,6 +87,19 @@ apiRouter.post('/check-status', PaymentController.getOrderStatus);
 // Client Runtime Error Reporter (Logs critical frontend browser crashes & CORS issues directly to Render backend console)
 apiRouter.post('/client-errors', (req, res) => {
   const { message, stack, endpoint, statusCode, url, origin, component, rootCause, timestamp } = req.body || {};
+  const errorText = `${message || ''} ${rootCause || ''} ${stack || ''}`.toLowerCase();
+
+  // Ignore benign WebSocket/HMR errors in iframe/preview environments
+  if (
+    errorText.includes('websocket') ||
+    errorText.includes('vite-hmr') ||
+    errorText.includes('ws://') ||
+    errorText.includes('wss://') ||
+    errorText.includes('@vite/client')
+  ) {
+    return res.status(200).json({ success: true, recorded: false });
+  }
+
   const clientOrigin = req.headers['origin'] || origin || 'unknown';
   const clientIp = req.ip || req.socket.remoteAddress || 'unknown';
 

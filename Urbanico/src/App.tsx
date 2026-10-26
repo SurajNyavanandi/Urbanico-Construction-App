@@ -86,6 +86,7 @@ function MainAppContent() {
           }}
           onPreloadTab={app.preloadScreen}
           cartCount={app.totalCartCount}
+          userAvatarUrl={app.user?.avatarUrl}
         />
       )}
     </SafeAreaView>
@@ -98,11 +99,11 @@ export default function App() {
       <ThemeProvider>
         <LanguageProvider>
           <LocationProvider>
-            <CartProvider>
-              <ToastProvider>
+            <ToastProvider>
+              <CartProvider>
                 <MainAppContent />
-              </ToastProvider>
-            </CartProvider>
+              </CartProvider>
+            </ToastProvider>
           </LocationProvider>
         </LanguageProvider>
       </ThemeProvider>

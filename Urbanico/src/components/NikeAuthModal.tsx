@@ -24,8 +24,6 @@ import { useTheme } from '../context/ThemeContext';
 
 const DEFAULT_DEV_MOBILE = '';
 const DEFAULT_DEV_OTP = '123456';
-const CLOUDINARY_PROFILE_PIC =
-  'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg';
 
 interface NikeAuthModalProps {
   isOpen: boolean;
@@ -198,8 +196,9 @@ export const NikeAuthModal: React.FC<NikeAuthModalProps> = ({
     if (timer > 0) return;
     timerTargetRef.current = Date.now() + 30000;
     setTimer(30);
-    setOtpDigits(DEFAULT_DEV_OTP.split(''));
+    setOtpDigits(['', '', '', '', '', '']);
     setErrorMessage(null);
+    inputRefs[0]?.current?.focus();
     try {
       await apiService.sendAuthOtp(cleanPhone);
     } catch {}
@@ -275,10 +274,20 @@ export const NikeAuthModal: React.FC<NikeAuthModalProps> = ({
                 {/* Contractor Profile / Account Header Card */}
                 <View style={styles.contractorCard}>
                   <View style={styles.avatarWrapper}>
-                    <Image
-                      source={{ uri: CLOUDINARY_PROFILE_PIC }}
-                      style={styles.contractorAvatar}
-                    />
+                    <View
+                      style={[
+                        styles.contractorAvatar,
+                        {
+                          backgroundColor: '#ECFDF5',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderWidth: 1.5,
+                          borderColor: '#10B981',
+                        },
+                      ]}
+                    >
+                      <ShieldCheck size={26} color="#059669" strokeWidth={2.4} />
+                    </View>
                     <View style={styles.avatarOnlineDot} />
                   </View>
                   <View style={styles.contractorMeta}>
@@ -406,10 +415,20 @@ export const NikeAuthModal: React.FC<NikeAuthModalProps> = ({
               <View style={styles.contentBodyCenter}>
                 {/* Profile Header */}
                 <View style={styles.otpAvatarHeader}>
-                  <Image
-                    source={{ uri: CLOUDINARY_PROFILE_PIC }}
-                    style={styles.otpAvatar}
-                  />
+                  <View
+                    style={[
+                      styles.otpAvatar,
+                      {
+                        backgroundColor: '#ECFDF5',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderWidth: 1.5,
+                        borderColor: '#10B981',
+                      },
+                    ]}
+                  >
+                    <ShieldCheck size={28} color="#059669" strokeWidth={2.4} />
+                  </View>
                   <View style={styles.otpAvatarBadge}>
                     <CheckCircle2 size={14} color="#059669" />
                   </View>

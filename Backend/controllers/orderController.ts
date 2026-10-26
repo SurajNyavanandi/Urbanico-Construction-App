@@ -62,15 +62,26 @@ export class OrderController {
     const { status, search, phone, email } = req.query;
     const { limit, page } = parsePagination(req.query);
 
-    const filterPhone = authUser && authUser.role === 'admin'
+    const isAdminOrSupervisor = authUser && (authUser.role === 'admin' || authUser.role === 'supervisor');
+
+    // Security Hardening: Ensure callers cannot enumerate orders across the database without admin rights or user identity
+    if (!isAdminOrSupervisor && !authUser?.phone && !authUser?.email && !phone && !email) {
+      return sendError(res, 'Customer phone number or authentication is required to fetch orders.', 400);
+    }
+
+    const filterPhone = isAdminOrSupervisor
       ? (phone as string)
-      : authUser?.phone || (phone as string);
+      : (authUser?.phone || (phone as string));
+
+    const filterEmail = isAdminOrSupervisor
+      ? (email as string)
+      : (authUser?.email || (email as string));
 
     const orders = await OrderService.getAllOrders({
       status: status as string,
       search: search as string,
       phone: filterPhone,
-      email: authUser && authUser.role === 'admin' ? (email as string) : authUser?.email,
+      email: filterEmail,
       limit,
       page,
     });

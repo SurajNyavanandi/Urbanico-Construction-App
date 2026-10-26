@@ -206,10 +206,10 @@ export function useUrbanicoApp() {
         selectedOptionLabel: option?.label,
       });
 
-      const alreadyHasService = isService && cartItems.some((ci) => isCartItemService(ci));
-      if (alreadyHasService) {
+      const alreadyHasThisService = isService && cartItems.some((ci) => ci.itemId === item.id);
+      if (alreadyHasThisService) {
         showToast(
-          'Service booking already in cart. You can update booking slot or location at checkout.',
+          `"${item.name}" booking is already in your cart (1 Visit).`,
           'info'
         );
         return;
@@ -222,7 +222,7 @@ export function useUrbanicoApp() {
 
       showAddToCartToast({
         name: item.name,
-        optionLabel: option?.label || '1 Visit / Site Inspection',
+        optionLabel: option?.label || (isService ? '1 Visit / Site Inspection' : 'Standard Unit'),
         price: isService ? 99 : (totalPrice || unitPrice * safeQty),
         image: item.image,
         quantity: safeQty,
@@ -233,7 +233,7 @@ export function useUrbanicoApp() {
   );
 
   const handleBuyNowFromModal = useCallback(
-    (item: MaterialItem, option: UnitOption, quantity: number) => {
+    (item: MaterialItem, option: UnitOption, quantity: number, _totalPrice?: number) => {
       const isService = isCartItemService({
         categoryName: item.categoryId,
         categoryId: item.categoryId,
@@ -244,12 +244,12 @@ export function useUrbanicoApp() {
         selectedOptionLabel: option?.label,
       });
 
-      const alreadyHasService = isService && cartItems.some((ci) => isCartItemService(ci));
-      if (alreadyHasService) {
+      const alreadyHasThisService = isService && cartItems.some((ci) => ci.itemId === item.id);
+      if (alreadyHasThisService) {
         setSelectedItemForModal(null);
         setCurrentScreen('basket');
         showToast(
-          'Service booking already in cart. You can update booking slot or location at checkout.',
+          `"${item.name}" booking is already in your cart. Ready for checkout below.`,
           'info'
         );
         return;
@@ -261,6 +261,12 @@ export function useUrbanicoApp() {
       addToCart(item, option, safeQty, unitPrice);
       setSelectedItemForModal(null);
       setCurrentScreen('basket');
+      showToast(
+        isService
+          ? `Added ${item.name} booking! Proceed to checkout below.`
+          : `Added ${item.name} to Cart! Proceed to checkout below.`,
+        'success'
+      );
     },
     [addToCart, setCurrentScreen, cartItems, showToast]
   );

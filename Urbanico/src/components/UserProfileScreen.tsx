@@ -11,7 +11,6 @@ import {
   Image,
 } from 'react-native';
 
-const CLOUDINARY_PROFILE_PIC = 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg';
 import {
   MapPin,
   Gift,
@@ -23,6 +22,7 @@ import {
   Heart,
   LogIn,
   BadgeCheck,
+  User,
 } from 'lucide-react-native';
 import { UserProfile, ScreenType, ActivityDelivery } from '../types';
 import { apiService } from '../services/apiService';
@@ -378,17 +378,23 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
       {/* ======================================================== */}
       <View style={[styles.consolidatedMenuCard, { backgroundColor: theme.surface, borderColor: theme.border }]}>
         
-        {/* 1. Integrated Account / Member Header (Only when Logged In) */}
-        {isLoggedIn && (
+        {/* 1. Integrated Account / Member Header */}
+        {isLoggedIn ? (
           <>
             <View style={styles.loggedInHeaderSection}>
               <View style={styles.loggedInHeaderRow}>
                 <View style={styles.userAvatar}>
-                  <Image
-                    source={{ uri: user.avatarUrl || CLOUDINARY_PROFILE_PIC }}
-                    style={styles.userAvatarImg}
-                    resizeMode="cover"
-                  />
+                  {user.avatarUrl ? (
+                    <Image
+                      source={{ uri: user.avatarUrl }}
+                      style={styles.userAvatarImg}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={[styles.userAvatarImg, { backgroundColor: '#ECFDF5', alignItems: 'center', justifyContent: 'center' }]}>
+                      <User size={24} color="#059669" strokeWidth={2.2} />
+                    </View>
+                  )}
                   <View style={styles.avatarOnlineDot} />
                 </View>
                 <View style={{ flex: 1 }}>
@@ -436,6 +442,38 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
                   <Edit2 size={15} color={theme.textPrimary} />
                 </TouchableOpacity>
               </View>
+            </View>
+            <View style={[styles.menuDividerFull, { backgroundColor: theme.border }]} />
+          </>
+        ) : (
+          <>
+            <View style={[styles.guestProfileTopCard, { backgroundColor: theme.mode === 'dark' ? '#1E293B' : '#F0FDF4', borderColor: theme.mode === 'dark' ? '#334155' : '#BBF7D0' }]}>
+              <View style={styles.guestProfileCardContent}>
+                <View style={[styles.guestAvatarCircle, { backgroundColor: theme.mode === 'dark' ? '#0F172A' : '#DCFCE7' }]}>
+                  <User size={26} color="#059669" strokeWidth={2.2} />
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={[styles.guestCardTitle, { color: theme.textPrimary }]}>Welcome to Urbanico</Text>
+                  <Text style={[styles.guestCardSub, { color: theme.textSecondary }]}>
+                    Log in to view site orders, download GST invoices, and track live dispatches
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => {
+                  closeAllSubModals();
+                  if (onOpenLoginModal) {
+                    onOpenLoginModal();
+                  } else {
+                    onNavigateScreen('auth_mobile');
+                  }
+                }}
+                style={[styles.guestCardPrimaryBtn, { backgroundColor: theme.primary || '#059669' }]}
+                activeOpacity={0.85}
+              >
+                <LogIn size={16} color="#FFFFFF" strokeWidth={2.2} />
+                <Text style={styles.guestCardPrimaryBtnText}>Log In or Sign Up</Text>
+              </TouchableOpacity>
             </View>
             <View style={[styles.menuDividerFull, { backgroundColor: theme.border }]} />
           </>
@@ -546,11 +584,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
         <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
 
-        {
-
-        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
-
-        /* 8. Settings (Consistent Popup Modal) */}
+        {/* 8. Settings (Consistent Popup Modal) */}
         <TouchableOpacity
           onPress={() => openSingleModal('settings')}
           style={styles.menuRow}
@@ -585,11 +619,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
 
         <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
 
-        {
-
-        <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
-
-        /* 9. Help & Support (Popup Modal) */}
+        {/* 9. Help & Support (Popup Modal) */}
         <TouchableOpacity
           onPress={() => openSingleModal('help')}
           style={styles.menuRow}
@@ -613,9 +643,7 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           </View>
         </TouchableOpacity>
 
-        {
-
-        /* 10. Sign Out (When Logged In) */}
+        {/* 10. Sign Out (When Logged In) */}
         {isLoggedIn && (
           <>
             <View style={[styles.menuDivider, { backgroundColor: theme.border }]} />
@@ -642,27 +670,6 @@ export const UserProfileScreen: React.FC<UserProfileScreenProps> = ({
           </>
         )}
       </View>
-
-      {/* 10. Login or Sign Up Action Button (Positioned Below the Menu for Guest Users) */}
-      {!isLoggedIn && (
-        <View style={styles.bottomAuthContainer}>
-          <TouchableOpacity
-            onPress={() => {
-              closeAllSubModals();
-              if (onOpenLoginModal) {
-                onOpenLoginModal();
-              } else {
-                onNavigateScreen('auth_mobile');
-              }
-            }}
-            style={[styles.mainAuthBtn, { backgroundColor: theme.buttonBg || theme.primary }]}
-            activeOpacity={0.85}
-          >
-            <LogIn size={18} color={theme.buttonText || '#FFFFFF'} strokeWidth={2.2} />
-            <Text style={[styles.mainAuthBtnText, { color: theme.buttonText || '#FFFFFF' }]}>Log In or Sign Up</Text>
-          </TouchableOpacity>
-        </View>
-      )}
 
       {/* ======================================================== */}
       {/* POPUP MODAL 2: APP SETTINGS                              */}
@@ -927,29 +934,45 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontWeight: '600',
   },
-  bottomAuthContainer: {
-    marginTop: 16,
-    paddingHorizontal: 4,
+  guestProfileTopCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    margin: 12,
   },
-  mainAuthBtn: {
-    backgroundColor: '#FCB026',
-    borderRadius: 14,
-    paddingVertical: 14,
+  guestProfileCardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  guestAvatarCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guestCardTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+    marginBottom: 2,
+  },
+  guestCardSub: {
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  guestCardPrimaryBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
+    paddingVertical: 11,
+    borderRadius: 10,
   },
-  mainAuthBtnText: {
-    color: '#18181B',
-    fontSize: 15,
+  guestCardPrimaryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
     fontWeight: '700',
-    letterSpacing: -0.2,
   },
   editIconBtn: {
     width: 34,

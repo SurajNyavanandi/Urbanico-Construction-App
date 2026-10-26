@@ -71,8 +71,7 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'x-admin-secret', 'x-razorpay-signature', 'idempotency-key']
 }));
 
-// Handle preflight OPTIONS explicitly for all routes
-app.options('*', cors());
+// Handle preflight OPTIONS explicitly for all routes handled by cors()
 
 // 3. Structured Request Logger & Request Timeout
 app.use(requestLogger);

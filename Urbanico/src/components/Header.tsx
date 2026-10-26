@@ -26,8 +26,10 @@ import {
   CheckCircle2,
   Bell,
   Sparkles,
+  ArrowLeft,
+  User,
 } from 'lucide-react-native';
-import { ScreenType, MaterialItem } from '../types';
+import { ScreenType, MaterialItem, UserProfile } from '../types';
 import { MATERIAL_ITEMS, SERVICES, CATEGORIES } from '../data/materialsData';
 import { useTheme } from '../context/ThemeContext';
 import { useLocation } from '../context/LocationContext';
@@ -61,6 +63,8 @@ interface HeaderProps {
   materials?: MaterialItem[];
   categories?: any[];
   services?: any[];
+  user?: UserProfile | null;
+  isLoggedIn?: boolean;
 }
 
 const POPULAR_SEARCH_PILLS = [
@@ -93,6 +97,8 @@ export const Header: React.FC<HeaderProps> = ({
   materials,
   categories,
   services,
+  user,
+  isLoggedIn,
 }) => {
   const { theme, typography } = useTheme();
   const { t } = useLanguage();
@@ -230,6 +236,27 @@ export const Header: React.FC<HeaderProps> = ({
       {/* 1. Brand Identity & Delivery Location Top Bar */}
       <View style={styles.topRow}>
         <View style={styles.brandLocationGroup}>
+          {onBack && (
+            <TouchableOpacity
+              onPress={() => {
+                soundService.playTap();
+                onBack();
+              }}
+              activeOpacity={0.7}
+              style={[
+                styles.backButtonTouch,
+                {
+                  backgroundColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.06)' : '#F1F5F9',
+                  borderColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.1)' : '#E2E8F0',
+                },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Go back"
+            >
+              <ArrowLeft color={theme.textPrimary} size={18} strokeWidth={2.4} />
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity
             onPress={() => {
               soundService.playTap();
@@ -295,15 +322,20 @@ export const Header: React.FC<HeaderProps> = ({
               styles.headerAvatarTouch,
               {
                 borderColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.15)' : '#059669',
+                backgroundColor: theme.mode === 'dark' ? '#1E293B' : '#ECFDF5',
               },
             ]}
             accessibilityLabel="User Profile"
           >
-            <Image
-              source={{ uri: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1789970335/profilepic_epl2nu.jpg' }}
-              style={styles.headerAvatarImg}
-              resizeMode="cover"
-            />
+            {user?.avatarUrl ? (
+              <Image
+                source={{ uri: user.avatarUrl }}
+                style={styles.headerAvatarImg}
+                resizeMode="cover"
+              />
+            ) : (
+              <User color={theme.primary || '#059669'} size={18} strokeWidth={2.2} />
+            )}
           </TouchableOpacity>
         </View>
       </View>
@@ -803,6 +835,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  backButtonTouch: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   locationInfoGroup: {
     flex: 1,
     justifyContent: 'center',
@@ -836,7 +876,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    flexShrink: 1,
+    flexShrink: 0,
     justifyContent: 'flex-end',
   },
   notificationButton: {
