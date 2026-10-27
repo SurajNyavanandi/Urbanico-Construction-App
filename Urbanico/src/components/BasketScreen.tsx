@@ -37,6 +37,9 @@ import {
   Users,
   Lock,
   Building,
+  Layers,
+  Boxes,
+  Wrench,
 } from 'lucide-react-native';
 import { CartItem, ScreenType, ActivityDelivery, SavedPaymentMethod } from '../types';
 import { INITIAL_DELIVERIES } from '../data/materialsData';
@@ -2093,48 +2096,60 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                   <Text style={styles.nikeShopNowPillText}>Explore All Materials</Text>
                 </TouchableOpacity>
 
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 14 }}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14, justifyContent: 'center', marginTop: 22 }}>
                   <TouchableOpacity
                     onPress={() => onNavigateScreen('home')}
-                    style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 7,
-                      borderRadius: 20,
-                      borderWidth: 1,
-                      borderColor: theme.border,
-                      backgroundColor: theme.surfaceSecondary,
-                    }}
-                    activeOpacity={0.7}
+                    style={{ alignItems: 'center', gap: 6, minWidth: 52 }}
+                    activeOpacity={0.8}
                   >
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textPrimary }}>🏠 Home</Text>
+                    <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: theme.mode === 'dark' ? '#064E3B' : '#DCFCE7', borderColor: theme.mode === 'dark' ? '#059669' : '#BBF7D0', borderWidth: 1, alignItems: 'center', justifyContent: 'center' }}>
+                      <Home size={22} color={theme.mode === 'dark' ? '#34D399' : '#059669'} strokeWidth={2.2} />
+                    </View>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textPrimary }}>Home</Text>
                   </TouchableOpacity>
+
                   <TouchableOpacity
                     onPress={() => onNavigateScreen('shop')}
-                    style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 7,
-                      borderRadius: 20,
-                      borderWidth: 1,
-                      borderColor: theme.border,
-                      backgroundColor: theme.surfaceSecondary,
-                    }}
-                    activeOpacity={0.7}
+                    style={{ alignItems: 'center', gap: 6, minWidth: 52 }}
+                    activeOpacity={0.8}
                   >
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textPrimary }}>🧱 Cement & Sand</Text>
+                    <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: theme.mode === 'dark' ? '#78350F' : '#FEF3C7', borderColor: theme.mode === 'dark' ? '#D97706' : '#FDE68A', borderWidth: 1, alignItems: 'center', justifyContent: 'center' }}>
+                      <Package size={22} color={theme.mode === 'dark' ? '#FBBF24' : '#D97706'} strokeWidth={2.2} />
+                    </View>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textPrimary }}>Cement</Text>
                   </TouchableOpacity>
+
                   <TouchableOpacity
                     onPress={() => onNavigateScreen('shop')}
-                    style={{
-                      paddingHorizontal: 12,
-                      paddingVertical: 7,
-                      borderRadius: 20,
-                      borderWidth: 1,
-                      borderColor: theme.border,
-                      backgroundColor: theme.surfaceSecondary,
-                    }}
-                    activeOpacity={0.7}
+                    style={{ alignItems: 'center', gap: 6, minWidth: 52 }}
+                    activeOpacity={0.8}
                   >
-                    <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textPrimary }}>🔧 Trade Services</Text>
+                    <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: theme.mode === 'dark' ? '#1E3A8A' : '#EFF6FF', borderColor: theme.mode === 'dark' ? '#2563EB' : '#BFDBFE', borderWidth: 1, alignItems: 'center', justifyContent: 'center' }}>
+                      <Layers size={22} color={theme.mode === 'dark' ? '#60A5FA' : '#2563EB'} strokeWidth={2.2} />
+                    </View>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textPrimary }}>Sand</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => onNavigateScreen('shop')}
+                    style={{ alignItems: 'center', gap: 6, minWidth: 52 }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: theme.mode === 'dark' ? '#581C87' : '#F3E8FF', borderColor: theme.mode === 'dark' ? '#7C3AED' : '#E9D5FF', borderWidth: 1, alignItems: 'center', justifyContent: 'center' }}>
+                      <Boxes size={22} color={theme.mode === 'dark' ? '#A78BFA' : '#7C3AED'} strokeWidth={2.2} />
+                    </View>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textPrimary }}>Bricks</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    onPress={() => onNavigateScreen('shop')}
+                    style={{ alignItems: 'center', gap: 6, minWidth: 52 }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: theme.mode === 'dark' ? '#831843' : '#FCE7F3', borderColor: theme.mode === 'dark' ? '#DB2777' : '#FBCFE8', borderWidth: 1, alignItems: 'center', justifyContent: 'center' }}>
+                      <Wrench size={22} color={theme.mode === 'dark' ? '#F472B6' : '#DB2777'} strokeWidth={2.2} />
+                    </View>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textPrimary }}>Services</Text>
                   </TouchableOpacity>
                 </View>
               </View>

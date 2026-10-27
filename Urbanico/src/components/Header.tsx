@@ -29,7 +29,7 @@ import {
   ArrowLeft,
   User,
 } from 'lucide-react-native';
-import { ScreenType, MaterialItem, UserProfile } from '../types';
+import { ScreenType, MaterialItem, UserProfile, ActivityDelivery } from '../types';
 import { MATERIAL_ITEMS, SERVICES, CATEGORIES } from '../data/materialsData';
 import { useTheme } from '../context/ThemeContext';
 import { useLocation } from '../context/LocationContext';
@@ -65,6 +65,7 @@ interface HeaderProps {
   services?: any[];
   user?: UserProfile | null;
   isLoggedIn?: boolean;
+  deliveries?: ActivityDelivery[];
 }
 
 const POPULAR_SEARCH_PILLS = [
@@ -99,6 +100,7 @@ export const Header: React.FC<HeaderProps> = ({
   services,
   user,
   isLoggedIn,
+  deliveries = [],
 }) => {
   const { theme, typography } = useTheme();
   const { t } = useLanguage();
@@ -309,7 +311,9 @@ export const Header: React.FC<HeaderProps> = ({
             ]}
           >
             <Bell color={theme.textPrimary} size={18} strokeWidth={1.9} />
-            <View style={[styles.notificationDot, { borderColor: theme.surface }]} />
+            {deliveries && deliveries.some((d) => d.status !== 'Delivered' && d.status !== 'Cancelled') && (
+              <View style={[styles.notificationDot, { borderColor: theme.surface }]} />
+            )}
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -803,6 +807,7 @@ export const Header: React.FC<HeaderProps> = ({
           visible={isNotificationsOpen}
           onClose={() => setIsNotificationsOpen(false)}
           onNavigateScreen={onNavigateScreen}
+          deliveries={deliveries}
         />
       )}
     </View>

@@ -74,6 +74,7 @@ export const AppScreenCanvas: React.FC<AppScreenCanvasProps> = ({ app }) => {
             services={app.services}
             user={app.user}
             isLoggedIn={app.isLoggedIn}
+            deliveries={app.deliveries}
           />
         }
       />

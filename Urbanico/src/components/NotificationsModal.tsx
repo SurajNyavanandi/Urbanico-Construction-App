@@ -20,6 +20,7 @@ import {
 } from 'lucide-react-native';
 import { useTheme } from '../context/ThemeContext';
 import { soundService } from '../utils/soundHelper';
+import { ActivityDelivery } from '../types';
 
 export interface SiteNotification {
   id: string;
@@ -32,38 +33,40 @@ export interface SiteNotification {
   onAction?: () => void;
 }
 
-const INITIAL_NOTIFICATIONS: SiteNotification[] = [
-  {
-    id: 'notif-1',
-    type: 'rate',
-    title: 'Transparent Per-KM Freight Active',
-    message: 'Logistics fleet auto-calibrates from micro cargo tempos to multi-axle tippers. Fair rates scaled to exact order weight.',
-    time: 'Today',
-    isUnread: true,
-  },
-  {
-    id: 'notif-2',
-    type: 'combo',
-    title: 'Quarry-Direct Material Rates',
-    message: 'Explore factory-sealed cement, certified aggregates, and verified trade services with instant tax invoicing.',
-    time: 'Today',
-    isUnread: false,
-  },
-];
-
 interface NotificationsModalProps {
   visible: boolean;
   onClose: () => void;
   onNavigateScreen?: (screen: any) => void;
+  deliveries?: ActivityDelivery[];
 }
 
 export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   visible,
   onClose,
   onNavigateScreen,
+  deliveries = [],
 }) => {
   const { theme, typography } = useTheme();
-  const [notifications, setNotifications] = useState<SiteNotification[]>(INITIAL_NOTIFICATIONS);
+
+  const buildDynamicNotifications = (items: ActivityDelivery[]): SiteNotification[] => {
+    if (!items || items.length === 0) return [];
+    return items.map((d) => ({
+      id: `notif-${d.id}`,
+      type: d.status === 'Dispatched' || d.status === 'En Route' ? 'dispatch' : 'delivery',
+      title: `Order #${d.orderNumber} - ${d.status}`,
+      message: `${d.materialName} (${d.quantity})${d.driverName ? ` • Driver: ${d.driverName} (${d.vehicleNumber})` : ''}${d.deliveryOtp ? ` • Gate OTP: ${d.deliveryOtp}` : ''}`,
+      time: d.timestamp || 'Recently',
+      isUnread: d.status !== 'Delivered' && d.status !== 'Cancelled',
+    }));
+  };
+
+  const [notifications, setNotifications] = useState<SiteNotification[]>(() =>
+    buildDynamicNotifications(deliveries)
+  );
+
+  useEffect(() => {
+    setNotifications(buildDynamicNotifications(deliveries));
+  }, [deliveries]);
 
   const unreadCount = notifications.filter((n) => n.isUnread).length;
   const [pushStatus, setPushStatus] = useState<'default' | 'granted' | 'denied' | 'unsupported'>('default');
@@ -225,13 +228,13 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
             {notifications.length === 0 ? (
               <View style={styles.emptyState}>
                 <View style={[styles.emptyIconCircle, { backgroundColor: theme.surfaceSecondary }]}>
-                  <CheckCircle2 size={32} color="#059669" strokeWidth={2} />
+                  <Bell size={28} color={theme.textSecondary} strokeWidth={2} />
                 </View>
                 <Text style={[styles.emptyTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }]}>
                   No New Notifications
                 </Text>
                 <Text style={[styles.emptySubtitle, { color: theme.textSecondary }]}>
-                  You'll receive live alerts here when your materials are dispatched or out for delivery.
+                  No new notifications. We'll alert you here about your order updates and site dispatches.
                 </Text>
               </View>
             ) : (

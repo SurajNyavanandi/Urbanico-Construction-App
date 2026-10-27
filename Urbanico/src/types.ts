@@ -14,7 +14,6 @@ export type ScreenType =
 
 export type CategoryId =
   | 'materials'
-  | 'tiles'
   | 'sand'
   | 'bricks'
   | 'cement'
