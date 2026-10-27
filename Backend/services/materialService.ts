@@ -456,7 +456,7 @@ export class MaterialService {
         if (isService) continue;
 
         if (mongoose.connection.readyState === 1) {
-          let updated = null;
+          let updated: any = null;
           if (item.materialId && mongoose.Types.ObjectId.isValid(String(item.materialId))) {
             updated = await Material.findOneAndUpdate(
               { _id: item.materialId, stockQuantity: { $gte: qty } },

@@ -15,7 +15,7 @@ export interface UseIntersectionObserverProps {
  */
 export function useIntersectionObserver<T extends HTMLElement = any>(
   options: UseIntersectionObserverProps = {}
-): [RefObject<T>, boolean] {
+): [RefObject<T | null>, boolean] {
   const { threshold = 0.01, rootMargin = '180px 0px', triggerOnce = true, enabled = true } = options;
   const elementRef = useRef<T>(null);
   const [isVisible, setIsVisible] = useState<boolean>(!enabled);

@@ -440,7 +440,7 @@ export class OrderService {
 
     try {
       if (mongoose.connection.readyState === 1) {
-        let dbOrder = null;
+        let dbOrder: any = null;
         if (mongoose.Types.ObjectId.isValid(id)) {
           dbOrder = await Order.findByIdAndUpdate(
             id,

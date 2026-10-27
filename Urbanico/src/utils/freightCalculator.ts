@@ -144,12 +144,42 @@ export function calculateHaversineDistanceKm(
 /**
  * Estimate material weight in metric tons from cart items
  */
-export function estimateTotalWeightTons(cartItems: { itemName: string; selectedOptionLabel: string; quantity: number }[]): number {
+export function estimateTotalWeightTons(
+  cartItems: {
+    itemName?: string;
+    name?: string;
+    selectedOptionLabel?: string;
+    quantity?: number;
+    categoryName?: string;
+    categoryId?: string;
+    itemId?: string;
+    id?: string;
+  }[]
+): number {
   let totalTons = 0;
 
   for (const item of cartItems) {
-    const text = `${item.itemName} ${item.selectedOptionLabel}`.toLowerCase();
-    const qty = item.quantity;
+    const text = `${item.itemName || item.name || ''} ${item.selectedOptionLabel || ''}`.toLowerCase();
+    const qty = Number(item.quantity) || 1;
+
+    // Skip trade/expert services from weight/tonnage calculations
+    if (
+      (item.categoryName && (item.categoryName.toLowerCase() === 'services' || item.categoryName.toLowerCase() === 'services-catalog')) ||
+      (item.categoryId && (item.categoryId.toLowerCase() === 'services' || item.categoryId.toLowerCase() === 'services-catalog')) ||
+      (item.itemId && String(item.itemId).toLowerCase().startsWith('service-')) ||
+      text.includes('carpenter') ||
+      text.includes('plumber') ||
+      text.includes('electrician') ||
+      text.includes('painter') ||
+      text.includes('mason') ||
+      text.includes('fabricator') ||
+      text.includes('demo session') ||
+      text.includes('site visit') ||
+      text.includes('inspection') ||
+      text.includes('expert service')
+    ) {
+      continue;
+    }
 
     if (text.includes('bag') || text.includes('50kg')) {
       totalTons += qty * 0.05;
@@ -214,10 +244,60 @@ export interface SmartVehicleRecommendation {
  * - Steel Bundles / Bricks -> Bolero Maxi Truck with 9ft extended cargo bed
  */
 export function evaluateSmartVehicleRecommendation(
-  cartItems: { itemName: string; selectedOptionLabel: string; quantity: number }[],
+  cartItems: { itemName?: string; name?: string; selectedOptionLabel?: string; quantity?: number; categoryName?: string; categoryId?: string; itemId?: string; id?: string }[],
   totalWeightTons: number
 ): SmartVehicleRecommendation {
   const totalWeightKg = Math.round(totalWeightTons * 1000);
+
+  // Check if all cart items are trade/expert services
+  const isServicesOnly =
+    cartItems.length > 0 &&
+    cartItems.every((item) => {
+      const text = `${item.itemName || item.name || ''} ${item.selectedOptionLabel || ''}`.toLowerCase();
+      const cat = (item.categoryName || item.categoryId || '').toLowerCase();
+      return (
+        cat === 'services' ||
+        cat === 'services-catalog' ||
+        (item.itemId && String(item.itemId).startsWith('service-')) ||
+        text.includes('carpenter') ||
+        text.includes('plumber') ||
+        text.includes('electrician') ||
+        text.includes('painter') ||
+        text.includes('mason') ||
+        text.includes('fabricator') ||
+        text.includes('demo session') ||
+        text.includes('site visit') ||
+        text.includes('inspection')
+      );
+    });
+
+  if (isServicesOnly || (cartItems.length > 0 && totalWeightTons === 0)) {
+    return {
+      vehicle: {
+        type: 'service_visit',
+        name: 'Expert Technician Direct Site Dispatch',
+        shortName: 'Technician Visit',
+        maxTons: 0,
+        baseFee: 0,
+        ratePerKm: 0,
+        unloadingMechanism: 'Professional Toolkit & Inspection Gear',
+        iconKey: 'auto',
+        recommendedFor: 'Trade Services & On-Site Inspections',
+      },
+      badge: 'Service Visit',
+      reason: 'On-site technician visit with diagnostic toolkit. No heavy material freight vehicle required.',
+      materialTypeClassification: 'lightweight_retail',
+      isBulkSandOrGravel: false,
+      totalWeightTons: 0,
+      totalWeightKg: 0,
+      unloadingAssistance: {
+        fee: 0,
+        laborCount: 0,
+        label: 'Not Applicable',
+        description: 'Service site visit — no heavy material offloading needed.',
+      },
+    };
+  }
 
   let hasSandOrAggregates = false;
   let hasCementBags = false;
@@ -455,9 +535,45 @@ export interface UnloadingAssistanceEvaluation {
  *   Site Unloading Labour is MANDATORY with certified unloading helpers dispatched with the vehicle.
  */
 export function evaluateUnloadingAssistance(
-  cartItems: { itemName: string; selectedOptionLabel?: string; quantity: number }[],
+  cartItems: { itemName?: string; name?: string; selectedOptionLabel?: string; quantity?: number; categoryName?: string; categoryId?: string; itemId?: string; id?: string }[],
   totalWeightTons: number
 ): UnloadingAssistanceEvaluation {
+  const isServicesOnly =
+    cartItems.length > 0 &&
+    cartItems.every((item) => {
+      const text = `${item.itemName || item.name || ''} ${item.selectedOptionLabel || ''}`.toLowerCase();
+      const cat = (item.categoryName || item.categoryId || '').toLowerCase();
+      return (
+        cat === 'services' ||
+        cat === 'services-catalog' ||
+        (item.itemId && String(item.itemId).startsWith('service-')) ||
+        text.includes('carpenter') ||
+        text.includes('plumber') ||
+        text.includes('electrician') ||
+        text.includes('painter') ||
+        text.includes('mason') ||
+        text.includes('fabricator') ||
+        text.includes('demo session') ||
+        text.includes('site visit') ||
+        text.includes('inspection')
+      );
+    });
+
+  if (isServicesOnly || (cartItems.length > 0 && totalWeightTons === 0)) {
+    return {
+      isMandatory: false,
+      isOptional: false,
+      isSmallOrder: true,
+      laborFee: 0,
+      helperCount: 0,
+      helperLabel: 'Not Applicable',
+      helperDescription: 'Service visit — no material unloading assistance required.',
+      cementBagsCount: 0,
+      hasBulkMaterials: false,
+      reason: 'Trade service booking only. Site unloading labor is not applicable.',
+    };
+  }
+
   let cementBagsCount = 0;
   let hasBulkMaterials = false;
 

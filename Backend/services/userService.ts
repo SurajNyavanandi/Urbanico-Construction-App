@@ -10,7 +10,7 @@ export class UserService {
 
     try {
       if (mongoose.connection.readyState === 1) {
-        let user = null;
+        let user: any = null;
         if (cleanPhone) {
           user = await User.findOne({ phone: cleanPhone }).exec();
           if (!user && cleanDigits) {
@@ -102,7 +102,7 @@ export class UserService {
   public static async updateUser(idOrPhone: string, updateData: Partial<IUser>) {
     try {
       if (mongoose.connection.readyState === 1) {
-        let user = null;
+        let user: any = null;
         if (mongoose.Types.ObjectId.isValid(idOrPhone)) {
           user = await User.findByIdAndUpdate(idOrPhone, { $set: updateData }, { returnDocument: 'after' }).exec();
         } else {

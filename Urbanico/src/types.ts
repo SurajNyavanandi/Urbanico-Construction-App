@@ -13,6 +13,7 @@ export type ScreenType =
   | 'auth_otp';
 
 export type CategoryId =
+  | 'all'
   | 'materials'
   | 'sand'
   | 'bricks'
@@ -20,6 +21,7 @@ export type CategoryId =
   | 'stone'
   | 'iron_bars'
   | 'centring'
+  | 'tiles'
   | 'services'
   | 'services-catalog'
   | 'mason'

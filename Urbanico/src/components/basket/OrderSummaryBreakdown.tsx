@@ -51,8 +51,8 @@ export const OrderSummaryBreakdown: React.FC<OrderSummaryBreakdownProps> = ({
 
   return (
     <View style={[styles.container, { backgroundColor: theme.surface, borderColor: theme.border }]}>
-      {/* Smart Vehicle Recommendation Strip */}
-      {smartRecommendation && (
+      {/* Smart Vehicle Recommendation Strip - Only rendered for physical material orders */}
+      {!isServicesOnly && materialItemsCount > 0 && smartRecommendation ? (
         <View style={[styles.recommendationBox, { backgroundColor: theme.mode === 'dark' ? '#0C4A6E' : '#F0F9FF', borderColor: theme.mode === 'dark' ? '#0369A1' : '#BAE6FD' }]}>
           <View style={{ flex: 1 }}>
             <View style={styles.recHeaderRow}>
@@ -71,7 +71,7 @@ export const OrderSummaryBreakdown: React.FC<OrderSummaryBreakdownProps> = ({
             </Text>
           </View>
         </View>
-      )}
+      ) : null}
 
       {/* 1. Items Total */}
       <View style={styles.summaryRow}>
@@ -82,17 +82,6 @@ export const OrderSummaryBreakdown: React.FC<OrderSummaryBreakdownProps> = ({
           {formatINR(subtotal)}
         </Text>
       </View>
-
-      {isServicesOnly && (
-        <View style={styles.summaryRow}>
-          <Text style={[styles.summaryLabel, { color: theme.textSecondary }]}>
-            Technician Field Visit
-          </Text>
-          <Text style={[styles.summaryValue, { color: '#16A34A', fontWeight: '700' }]}>
-            FREE (Included in ₹99)
-          </Text>
-        </View>
-      )}
 
       {/* 2. Delivery Charges */}
       {materialItemsCount > 0 && (
