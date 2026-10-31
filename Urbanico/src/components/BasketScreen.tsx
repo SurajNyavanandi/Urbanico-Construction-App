@@ -919,99 +919,49 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
     );
   };
 
-  const renderB2BGstinCard = (isModalView: boolean = false) => {
-    const hasProfileGstin = Boolean(user?.gstin && user.gstin.trim().length === 15);
-    // If user has a saved GSTIN in their profile, show minimal saved-state view unless they explicitly choose to change it
-    if (hasProfileGstin && !isEditingCustomGstin) {
-      return (
-        <View
-          style={[
-            styles.laborAssistanceCard,
-            {
-              backgroundColor: isB2BOpted
-                ? (theme.mode === 'dark' ? '#064E3B20' : '#ECFDF5')
-                : (isModalView ? theme.surfaceSecondary : theme.surface),
-              borderColor: isB2BOpted ? '#10B981' : theme.border,
-              marginTop: isModalView ? 8 : 4,
-              marginBottom: isModalView ? 8 : 10,
-              paddingHorizontal: 12,
-              paddingVertical: 10,
-              borderRadius: 12,
-            },
-          ]}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => {
-                soundService.playTap();
-                setIsB2BOpted(!isB2BOpted);
-              }}
-              style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 10, marginRight: 8 }}
-            >
-              <View
-                style={[
-                  styles.laborCheckboxCircle,
-                  {
-                    backgroundColor: isB2BOpted ? '#10B981' : 'transparent',
-                    borderColor: isB2BOpted ? '#10B981' : theme.textMuted,
-                  },
-                ]}
-              >
-                {isB2BOpted ? <Check size={12} color="#FFFFFF" strokeWidth={3} /> : null}
-              </View>
-
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary }}>
-                    GSTIN: <Text style={{ fontFamily: typography.fontFamilyMono || 'monospace', color: isB2BOpted ? '#059669' : theme.textPrimary }}>{user?.gstin}</Text>
-                  </Text>
-                  {isB2BOpted && (
-                    <View style={{ backgroundColor: '#D1FAE5', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
-                      <Text style={{ fontSize: 10, fontWeight: '700', color: '#065F46' }}>Profile Saved</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={{ fontSize: 11, color: theme.textSecondary, marginTop: 1 }} numberOfLines={1}>
-                  {isB2BOpted ? 'Using Profile GSTIN • 18% Tax Invoice' : 'Tap to apply GSTIN for tax invoice'}
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            {isB2BOpted && (
-              <TouchableOpacity
-                onPress={() => {
-                  soundService.playTap();
-                  setIsEditingCustomGstin(true);
-                }}
-                style={{
-                  paddingHorizontal: 8,
-                  paddingVertical: 4,
-                  borderRadius: 6,
-                  borderWidth: 1,
-                  borderColor: theme.border,
-                  backgroundColor: theme.mode === 'dark' ? '#1E293B' : '#F8FAFC',
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={{ fontSize: 11, fontWeight: '600', color: theme.primary }}>Change</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-      );
+  const handleApplyGstinCode = (code: string) => {
+    const clean = code.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15);
+    if (!clean || clean.length !== 15) {
+      setGstinError('Please enter a valid 15-digit GSTIN');
+      showToast('Please enter a valid 15-digit GSTIN', 'error');
+      return;
     }
+    const validation = validateGSTIN(clean);
+    setGstinValidation(validation);
+    if (!validation.isValid) {
+      setGstinError(validation.errorMessage || 'Invalid GST number');
+      showToast(validation.errorMessage || 'Invalid GST number', 'error');
+      return;
+    }
+    setGstinError(null);
+    setCheckoutGstin(clean);
+    setIsB2BOpted(true);
+    setIsEditingCustomGstin(false);
+    showToast('Business GSTIN applied for 18% ITC!', 'success');
+  };
 
-    // Otherwise (or when customer tapped Change): Minimalist 15-digit GSTIN input
+  const handleRemoveGstinCode = () => {
+    soundService.playTap();
+    setIsB2BOpted(false);
+    setCheckoutGstin('');
+    setGstinValidation(null);
+    setGstinError(null);
+    setIsEditingCustomGstin(true);
+    showToast('Business GSTIN removed', 'info');
+  };
+
+  const renderB2BGstinCard = (isModalView: boolean = false) => {
+    const isApplied = isB2BOpted && checkoutGstin.trim().length === 15 && (gstinValidation?.isValid ?? true);
+
     return (
       <View
         style={[
-          styles.laborAssistanceCard,
+          styles.couponCard,
           {
-            backgroundColor: isB2BOpted
+            backgroundColor: isApplied
               ? (theme.mode === 'dark' ? '#064E3B20' : '#ECFDF5')
               : (isModalView ? theme.surfaceSecondary : theme.surface),
-            borderColor: isB2BOpted ? '#10B981' : theme.border,
+            borderColor: isApplied ? '#10B981' : (gstinError ? '#EF4444' : theme.border),
             marginTop: isModalView ? 8 : 4,
             marginBottom: isModalView ? 8 : 10,
             paddingHorizontal: 12,
@@ -1020,132 +970,101 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
           },
         ]}
       >
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => {
-            soundService.playTap();
-            setIsB2BOpted(!isB2BOpted);
-          }}
-          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1, marginRight: 8 }}>
-            <View
-              style={[
-                styles.laborCheckboxCircle,
-                {
-                  backgroundColor: isB2BOpted ? '#10B981' : 'transparent',
-                  borderColor: isB2BOpted ? '#10B981' : theme.textMuted,
-                },
-              ]}
-            >
-              {isB2BOpted ? <Check size={12} color="#FFFFFF" strokeWidth={3} /> : null}
+        {isApplied ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+              <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: '#DCFCE7', alignItems: 'center', justifyContent: 'center' }}>
+                <Check size={13} color="#16A34A" strokeWidth={2.5} />
+              </View>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary }} numberOfLines={1}>
+                    GSTIN: {checkoutGstin}
+                  </Text>
+                  <View style={{ backgroundColor: '#DCFCE7', paddingHorizontal: 6, paddingVertical: 1.5, borderRadius: 4 }}>
+                    <Text style={{ fontSize: 9.5, fontWeight: '700', color: '#15803D' }}>18% ITC</Text>
+                  </View>
+                </View>
+                <Text style={{ fontSize: 11, color: '#16A34A', fontWeight: '600', marginTop: 1 }} numberOfLines={1}>
+                  {gstinValidation?.stateName ? `✓ Valid (${gstinValidation.stateName}) • B2B Tax Invoice` : '18% Input Tax Credit Applied'}
+                </Text>
+              </View>
             </View>
-
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                <Text style={{ fontSize: 13, fontWeight: '700', color: theme.textPrimary }}>
+            <TouchableOpacity
+              onPress={handleRemoveGstinCode}
+              style={{ padding: 6, borderRadius: 6, backgroundColor: theme.mode === 'dark' ? 'rgba(255,255,255,0.08)' : '#F1F5F9' }}
+              activeOpacity={0.7}
+              accessibilityLabel="Remove GSTIN"
+            >
+              <X size={14} color={theme.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={{ gap: 6 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Building size={13} color={theme.textSecondary} />
+                <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textPrimary }}>
                   Business GSTIN
                 </Text>
-                <View
-                  style={[
-                    styles.laborBadgePill,
-                    { backgroundColor: isB2BOpted ? '#D1FAE5' : '#F1F5F9' },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.laborBadgePillText,
-                      { color: isB2BOpted ? '#065F46' : '#475569' },
-                    ]}
-                  >
-                    Optional
-                  </Text>
-                </View>
               </View>
-              <Text style={{ fontSize: 11, color: theme.textSecondary, marginTop: 1 }} numberOfLines={1}>
-                {isB2BOpted && gstinValidation?.isValid
-                  ? `✓ Valid (${gstinValidation.stateName}) • 18% Tax Invoice`
-                  : 'Enter 15-digit GSTIN for company billing'}
-              </Text>
-            </View>
-          </View>
-
-          {hasProfileGstin && isEditingCustomGstin && (
-            <TouchableOpacity
-              onPress={() => {
-                soundService.playTap();
-                setIsEditingCustomGstin(false);
-                setCheckoutGstin(user?.gstin || '');
-                setGstinValidation(user?.gstin ? validateGSTIN(user.gstin) : null);
-                setGstinError(null);
-              }}
-              style={{
-                paddingHorizontal: 8,
-                paddingVertical: 4,
-                borderRadius: 6,
-                borderWidth: 1,
-                borderColor: theme.border,
-                backgroundColor: theme.mode === 'dark' ? '#1E293B' : '#F8FAFC',
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={{ fontSize: 11, fontWeight: '600', color: theme.primary }}>Use Profile</Text>
-            </TouchableOpacity>
-          )}
-        </TouchableOpacity>
-
-        {isB2BOpted && (
-          <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: theme.borderLight }}>
-            <TextInput
-              value={checkoutGstin}
-              onChangeText={handleGstinInputChange}
-              placeholder="Enter 15-digit GSTIN (e.g. 36AAACU9812A1Z4)"
-              placeholderTextColor={theme.textMuted}
-              maxLength={15}
-              autoCapitalize="characters"
-              autoCorrect={false}
-              style={[
-                styles.formTextInput,
-                {
-                  height: 38,
-                  backgroundColor: theme.mode === 'dark' ? '#0F172A' : '#FFFFFF',
-                  borderColor: gstinError
-                    ? '#EF4444'
-                    : gstinValidation?.isValid
-                    ? '#10B981'
-                    : theme.border,
-                  color: theme.textPrimary,
-                  fontFamily: typography.fontFamilyMono || 'monospace',
-                  letterSpacing: 1.1,
-                  fontWeight: '700',
-                  fontSize: 12.5,
-                  paddingHorizontal: 10,
-                  borderRadius: 8,
-                },
-              ]}
-            />
-            {gstinError ? (
-              <Text style={{ fontSize: 11, color: '#EF4444', marginTop: 4, fontWeight: '600' }}>
-                ⚠️ {gstinError}
-              </Text>
-            ) : gstinValidation?.isValid ? (
-              <View style={{ marginTop: 4 }}>
-                <Text style={{ fontSize: 11, color: '#059669', fontWeight: '600' }}>
-                  ✓ Valid GSTIN ({gstinValidation.stateName}) • 18% Input Tax Credit
+              {gstinError ? (
+                <Text style={{ fontSize: 10.5, fontWeight: '700', color: '#EF4444' }}>
+                  {gstinError.includes('remaining') ? gstinError : 'Invalid'}
                 </Text>
-                {gstinValidation.stateCode !== '36' && (
-                  <View style={{ marginTop: 6, padding: 8, backgroundColor: theme.mode === 'dark' ? '#1E293B' : '#EFF6FF', borderRadius: 8, borderWidth: 1, borderColor: theme.mode === 'dark' ? '#334155' : '#BFDBFE' }}>
-                    <Text style={{ fontSize: 11, color: theme.mode === 'dark' ? '#93C5FD' : '#1E40AF', lineHeight: 15 }}>
-                      ℹ️ <Text style={{ fontWeight: '700' }}>Inter-State Supply Notice:</Text> Registered GSTIN is in {gstinValidation.stateName} (State {gstinValidation.stateCode}). An Integrated GST (IGST 18%) commercial tax invoice will be issued for full Input Tax Credit eligibility.
-                    </Text>
-                  </View>
-                )}
-              </View>
-            ) : checkoutGstin.length > 0 ? (
-              <Text style={{ fontSize: 11, color: theme.textMuted, marginTop: 4 }}>
-                {15 - checkoutGstin.length} characters remaining
-              </Text>
-            ) : null}
+              ) : (
+                <Text style={{ fontSize: 10.5, fontWeight: '600', color: theme.textMuted }}>
+                  Optional
+                </Text>
+              )}
+            </View>
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 }}>
+              <TextInput
+                value={checkoutGstin}
+                onChangeText={handleGstinInputChange}
+                placeholder="Enter 15-digit GSTIN"
+                placeholderTextColor={theme.textSecondary}
+                maxLength={15}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                style={{
+                  flex: 1,
+                  height: 36,
+                  borderWidth: 1,
+                  borderColor: gstinError ? '#EF4444' : theme.border,
+                  backgroundColor: theme.mode === 'dark' ? '#1E293B' : '#F8FAFC',
+                  borderRadius: 8,
+                  paddingHorizontal: 10,
+                  fontSize: 12,
+                  fontFamily: typography.fontFamilyMono || 'monospace',
+                  color: theme.textPrimary,
+                }}
+              />
+              <TouchableOpacity
+                onPress={() => handleApplyGstinCode(checkoutGstin)}
+                style={{
+                  height: 36,
+                  paddingHorizontal: 14,
+                  borderRadius: 8,
+                  backgroundColor: checkoutGstin.trim().length === 15 ? (theme.primary || '#FCB026') : (theme.mode === 'dark' ? '#334155' : '#E2E8F0'),
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                disabled={checkoutGstin.trim().length === 0}
+                activeOpacity={0.8}
+              >
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: '700',
+                    color: checkoutGstin.trim().length === 15 ? '#18181B' : theme.textMuted,
+                  }}
+                >
+                  Apply
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
       </View>
@@ -2326,11 +2245,11 @@ export const BasketScreen: React.FC<BasketScreenProps> = ({
                 {/* 1. Delivery Destination / Site Address Selection */}
                 {cartItems.length > 0 && renderAddressSelectionSection()}
 
-                {/* 2 & 3. Ultra-minimal Side-by-Side Trigger Bars for Business GSTIN & Coupon Code */}
+                {/* 2 & 3. Business GSTIN & Coupon Code (Stacked vertically in 2 Rows) */}
                 {cartItems.length > 0 && !isServicesOnly && (
-                  <View style={{ flexDirection: 'row', gap: 10, marginVertical: 4 }}>
-                    <View style={{ flex: 1 }}>{renderB2BGstinCard(false)}</View>
-                    <View style={{ flex: 1 }}>{renderPromoCard(false)}</View>
+                  <View style={{ flexDirection: 'column', gap: 10, marginVertical: 6 }}>
+                    <View style={{ width: '100%' }}>{renderB2BGstinCard(false)}</View>
+                    <View style={{ width: '100%' }}>{renderPromoCard(false)}</View>
                   </View>
                 )}
 

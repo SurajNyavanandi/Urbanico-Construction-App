@@ -41,7 +41,7 @@ interface HomeScreenProps {
   bundles?: any[];
 }
 
-const HERO_CARD_IMAGE_URL = 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1792819572/heroc_vemnbq.jpg';
+const HERO_CARD_IMAGE_URL = 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1793426240/Build_Better_with_Urbanico_wsyhjs.jpg';
 
 interface CategoryGridItem {
   id: string;
@@ -55,72 +55,72 @@ const URBAN_COMPANY_CATEGORY_GRID: CategoryGridItem[] = [
   {
     id: 'cement',
     label: 'Cement',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693431/child-cement_pwrzsr.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1793432422/Cement_vn7elq.jpg',
     type: 'material',
     categoryId: 'cement',
   },
   {
     id: 'bricks',
     label: 'Bricks',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693431/child-bricks_bbywkp.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1793432423/Bricks_e2iils.jpg',
     type: 'material',
     categoryId: 'bricks',
   },
   {
     id: 'sand',
     label: 'Sand',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693430/child-sand_qmbdo6.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1793432422/Sand_cs6tue.jpg',
     type: 'material',
     categoryId: 'sand',
   },
   {
     id: 'iron_bars',
     label: 'Steel',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693449/child-ironbars_ayo0id.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1793432423/Steel_ildxho.jpg',
     type: 'material',
     categoryId: 'iron_bars',
   },
   {
     id: 'centring',
     label: 'Formwork',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693431/child-centering_nikj90.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1793432423/Formwork_rebwtl.jpg',
     type: 'material',
     categoryId: 'centring',
   },
   {
     id: 'painter',
     label: 'Painting',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693430/child-painter_eoyox2.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1793432423/Painter_vomixn.jpg',
     type: 'service',
   },
   {
     id: 'electrician',
     label: 'Electrician',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693431/child-electrician_iggrlv.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1793432421/Electrician_1_elpbvg.jpg',
     type: 'service',
   },
   {
     id: 'plumber',
     label: 'Plumbing',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693430/child-plumber_se4nd6.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1793433397/Plumber_1_kw7rbz.jpg',
     type: 'service',
   },
   {
     id: 'mason',
     label: 'Masonry',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693450/child-mason_mv6ulz.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1793432423/Mason_bkihzo.jpg',
     type: 'service',
   },
   {
     id: 'carpenter',
     label: 'Carpentry',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693431/child-carpenter_fr1fjp.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1793432422/Carpenter_1_obq2wu.jpg',
     type: 'service',
   },
   {
     id: 'fabricator',
     label: 'Fabrication',
-    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693449/child-fabricator_btw9ek.jpg',
+    image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1793432422/Fabricator_1_tqz13p.jpg',
     type: 'service',
   },
 ];

@@ -78,6 +78,10 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
   // Determine multi-variant capability (e.g. 50kg Bag vs 1 Ton vs Truckload)
   const hasMultipleVariants = Boolean(item?.options && item.options.length > 1);
 
+  // Favorite button logic: Only show heart icon on specific standalone product cards.
+  // Do NOT show heart icon on category cards or multi-variant parent items (favoriting happens inside detail modal).
+  const showFavoriteButton = Boolean(onToggleFavorite) && !isCategory && !hasMultipleVariants;
+
   // Determine inventory cap & stock availability
   const maxOrderLimit = item?.maxOrderQuantity || 50;
   const isOutOfStock = item?.inStock === false || (item?.stock !== undefined && item.stock <= 0);
@@ -313,7 +317,7 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
   };
 
   const displayTitle = title || item?.name || '';
-  const displaySubtitle = subtitle || item?.subtitle || 'Direct Yard Supply';
+  const displaySubtitle = subtitle || item?.subtitle || '';
   const displayImage = image || item?.image || '';
   const displayTag = tag || (item?.categoryId ? item.categoryId : 'MATERIALS');
 
@@ -401,11 +405,6 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
               <Text style={[styles.productTag, { color: theme.textSecondary }]}>
                 {(displayTag || 'MATERIALS').toUpperCase()}
               </Text>
-              {hasMultipleVariants && (
-                <View style={styles.optionsBadge}>
-                  <Text style={styles.optionsBadgeText}>OPTIONS</Text>
-                </View>
-              )}
               {isLowStock && (
                 <View style={styles.lowStockBadge}>
                   <Text style={styles.lowStockBadgeText}>Only {item?.stock} left</Text>
@@ -418,9 +417,11 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
               )}
             </View>
             {renderHighlightedTitle([styles.productTitleList, { color: theme.textPrimary }], 1)}
-            <Text style={[styles.productSubtitle, { color: theme.textSecondary }]} numberOfLines={1}>
-              {displaySubtitle}
-            </Text>
+            {Boolean(displaySubtitle) && (
+              <Text style={[styles.productSubtitle, { color: theme.textSecondary }]} numberOfLines={1}>
+                {displaySubtitle}
+              </Text>
+            )}
             <Text style={[styles.productPriceList, { color: theme.textPrimary }]} numberOfLines={1}>
               {displayPrice}
             </Text>
@@ -429,7 +430,7 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
 
         <View style={styles.listActionCol}>
           <View style={styles.actionTopRow}>
-            {Boolean(onToggleFavorite) && (
+            {showFavoriteButton && (
               <TouchableOpacity
                 onPress={handleFavoritePress}
                 activeOpacity={0.7}
@@ -439,8 +440,8 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
                 <AnimatedView style={{ transform: [{ scale: favScaleAnim }] }}>
                   <Heart
                     size={14}
-                    color={isFavorite ? theme.textPrimary : theme.textPrimary}
-                    fill={isFavorite ? theme.textPrimary : 'transparent'}
+                    color={isFavorite ? theme.primary : theme.textMuted}
+                    fill={isFavorite ? theme.primary : 'transparent'}
                   />
                 </AnimatedView>
               </TouchableOpacity>
@@ -595,7 +596,7 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
             <View style={{ flex: 1 }} />
 
             <View style={styles.gridRightIcons}>
-              {Boolean(onToggleFavorite) && (
+              {showFavoriteButton && (
                 <TouchableOpacity
                   onPress={handleFavoritePress}
                   style={[styles.gridMiniBtn, { backgroundColor: theme.surface }]}
@@ -620,11 +621,6 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
             <Text style={[styles.productTag, { color: theme.textSecondary, fontFamily: typography.fontFamily }]}>
               {(displayTag || 'MATERIALS').toUpperCase()}
             </Text>
-            {hasMultipleVariants && (
-              <View style={styles.optionsBadge}>
-                <Text style={styles.optionsBadgeText}>OPTIONS</Text>
-              </View>
-            )}
             {isLowStock && (
               <View style={styles.lowStockBadge}>
                 <Text style={styles.lowStockBadgeText}>Only {item?.stock} left</Text>
@@ -637,9 +633,11 @@ const ProductCardComponent: React.FC<ProductCardProps> = ({
             )}
           </View>
           {renderHighlightedTitle([styles.productTitle, { color: theme.textPrimary, fontFamily: typography.fontFamilyHeading }], 2)}
-          <Text style={[styles.productSubtitle, { color: theme.textSecondary, fontFamily: typography.fontFamily }]} numberOfLines={1}>
-            {displaySubtitle}
-          </Text>
+          {Boolean(displaySubtitle) && (
+            <Text style={[styles.productSubtitle, { color: theme.textSecondary, fontFamily: typography.fontFamily }]} numberOfLines={1}>
+              {displaySubtitle}
+            </Text>
+          )}
 
           <View style={[styles.cardFooter, { borderTopColor: theme.borderLight }]}>
             <View style={styles.priceContainer}>

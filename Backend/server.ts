@@ -274,7 +274,8 @@ export async function startServer() {
     })
     .catch((err) => console.error('DB connect error:', err));
 
-  if (process.env.NODE_ENV !== 'production') {
+  const hasDist = fs.existsSync(path.join(process.cwd(), 'dist', 'index.html'));
+  if (process.env.NODE_ENV !== 'production' || !hasDist) {
     try {
       const { createServer: createViteServer } = await import('vite');
       const vite = await createViteServer({

@@ -21,14 +21,14 @@ const CACHE_KEY_CATEGORIES = 'urbanico_dynamic_categories_cache';
 const CACHE_KEY_SERVICES = 'urbanico_dynamic_services_cache';
 
 export const INITIAL_CATEGORIES: MaterialCategory[] = [
-  { id: 'cement', name: 'Cement & Binding', image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693431/child-cement_pwrzsr.jpg', count: '12 Brands', priceLabel: 'From ₹340/bag', subcategoriesText: 'OPC, PPC, Slag', tag: 'BESTSELLER' },
-  { id: 'bricks', name: 'Bricks & AAC Blocks', image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693431/child-bricks_bbywkp.jpg', count: '8 Types', priceLabel: 'From ₹9/pc', subcategoriesText: 'Red Clay, AAC, Fly Ash', tag: 'POPULAR' },
-  { id: 'sand', name: 'River & Robo Sand', image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693430/child-sand_qmbdo6.jpg', count: '6 Grades', priceLabel: 'From ₹1,400/ton', subcategoriesText: 'Zone II, Plastering, Robo', tag: 'BULK SUPPLY' },
+  { id: 'cement', name: 'Cement & Binding', image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1793432422/Cement_vn7elq.jpg', count: '12 Brands', priceLabel: 'From ₹340/bag', subcategoriesText: 'OPC, PPC, Slag', tag: 'BESTSELLER' },
+  { id: 'bricks', name: 'Bricks & AAC Blocks', image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1793432423/Bricks_e2iils.jpg', count: '8 Types', priceLabel: 'From ₹9/pc', subcategoriesText: 'Red Clay, AAC, Fly Ash', tag: 'POPULAR' },
+  { id: 'sand', name: 'River & Robo Sand', image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1793432422/Sand_cs6tue.jpg', count: '6 Grades', priceLabel: 'From ₹1,400/ton', subcategoriesText: 'Zone II, Plastering, Robo', tag: 'BULK SUPPLY' },
   { id: 'stone', name: 'Aggregates & Gravel', image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693430/child-stones_oqaced.jpg', count: '5 Sizes', priceLabel: 'From ₹1,200/ton', subcategoriesText: '10mm, 20mm, 40mm, GSB', tag: 'QUARRY DIRECT' },
-  { id: 'iron_bars', name: 'TMT Steel Rebars', image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693449/child-ironbars_ayo0id.jpg', count: '9 Gauges', priceLabel: 'From ₹54,000/ton', subcategoriesText: 'Fe550D, Fe500, Ring wire', tag: 'TEST CERTIFIED' },
-  { id: 'centring', name: 'Centring & Shuttering', image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693431/child-centering_nikj90.jpg', count: '14 Items', priceLabel: 'Rental / Purchase', subcategoriesText: 'Plywood, Props, Spans', tag: 'RENTAL' },
+  { id: 'iron_bars', name: 'TMT Steel Rebars', image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1793432423/Steel_ildxho.jpg', count: '9 Gauges', priceLabel: 'From ₹54,000/ton', subcategoriesText: 'Fe550D, Fe500, Ring wire', tag: 'TEST CERTIFIED' },
+  { id: 'centring', name: 'Centring & Shuttering', image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1793432423/Formwork_rebwtl.jpg', count: '14 Items', priceLabel: 'Rental / Purchase', subcategoriesText: 'Plywood, Props, Spans', tag: 'RENTAL' },
   { id: 'tiles', name: 'Tiles & Flooring', image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1787033354/Tiles_kw4xbl.jpg', count: '24 Designs', priceLabel: 'From ₹38/sqft', subcategoriesText: 'Vitrified, Ceramic, Parking', tag: 'PREMIUM' },
-  { id: 'services-catalog', name: 'Contractors & Services', image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1786693450/child-mason_mv6ulz.jpg', count: '6 Services', priceLabel: 'Daily / Sqft', subcategoriesText: 'Mason, Steel, Paint, Tile', tag: 'SERVICES' },
+  { id: 'services-catalog', name: 'Contractors & Services', image: 'https://res.cloudinary.com/dfr0zghtc/image/upload/v1793432423/Mason_bkihzo.jpg', count: '6 Services', priceLabel: 'Daily / Sqft', subcategoriesText: 'Mason, Steel, Paint, Tile', tag: 'SERVICES' },
 ];
 
 export function useDynamicCatalog(): DynamicCatalogState {
